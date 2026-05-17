@@ -15,14 +15,15 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-const nav = [
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; badge?: number };
+const nav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/generate", label: "Generate Quote", icon: FilePlus },
   { to: "/history", label: "Quotes History", icon: History },
   { to: "/follow-ups", label: "Follow-ups", icon: Bell, badge: 5 },
   { to: "/calendar", label: "Calendar", icon: Calendar },
   { to: "/reports", label: "Reports", icon: BarChart3 },
-] as const;
+];
 
 function Logo() {
   return (
