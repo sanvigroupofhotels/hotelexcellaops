@@ -9,8 +9,8 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
-import { AppSidebar } from "@/components/app-sidebar";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/lib/auth";
 
 function NotFoundComponent() {
   return (
@@ -41,15 +41,21 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="font-display text-xl text-foreground">Something didn't load</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Try refreshing or return home.</p>
+        <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => { router.invalidate(); reset(); }}
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
             className="inline-flex items-center justify-center rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal hover:opacity-90"
           >
             Try again
           </button>
-          <a href="/" className="inline-flex items-center justify-center rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:border-gold/40">
+          <a
+            href="/"
+            className="inline-flex items-center justify-center rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:border-gold/40"
+          >
             Go home
           </a>
         </div>
@@ -99,16 +105,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background grain">
-        <AppSidebar />
-        <main className="md:pl-64 min-h-screen">
-          <Outlet />
-        </main>
+      <AuthProvider>
+        <Outlet />
         <Toaster theme="dark" position="top-right" />
-      </div>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
