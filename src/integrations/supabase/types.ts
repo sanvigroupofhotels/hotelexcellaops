@@ -14,7 +14,193 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      followups: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          due_at: string
+          id: string
+          note: string | null
+          quote_id: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          due_at: string
+          id?: string
+          note?: string | null
+          quote_id: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          due_at?: string
+          id?: string
+          note?: string | null
+          quote_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followups_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      quote_activities: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          quote_id: string
+          type: Database["public"]["Enums"]["activity_type"]
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          quote_id: string
+          type: Database["public"]["Enums"]["activity_type"]
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          quote_id?: string
+          type?: Database["public"]["Enums"]["activity_type"]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_activities_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotes: {
+        Row: {
+          check_in: string
+          check_out: string
+          created_at: string
+          discount: number
+          early_check_in: boolean
+          email: string | null
+          extra_bed: number
+          group_size: string | null
+          guest_name: string
+          id: string
+          internal_notes: string | null
+          late_check_out: boolean
+          lead_source: string | null
+          nights: number
+          pet_charges: boolean
+          phone: string
+          reference_code: string
+          room_rate: number
+          room_type: string
+          rooms: number
+          special_requests: string | null
+          status: Database["public"]["Enums"]["quote_status"]
+          subtotal: number
+          taxes: number
+          total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          check_in: string
+          check_out: string
+          created_at?: string
+          discount?: number
+          early_check_in?: boolean
+          email?: string | null
+          extra_bed?: number
+          group_size?: string | null
+          guest_name: string
+          id?: string
+          internal_notes?: string | null
+          late_check_out?: boolean
+          lead_source?: string | null
+          nights?: number
+          pet_charges?: boolean
+          phone: string
+          reference_code: string
+          room_rate?: number
+          room_type: string
+          rooms?: number
+          special_requests?: string | null
+          status?: Database["public"]["Enums"]["quote_status"]
+          subtotal?: number
+          taxes?: number
+          total?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          check_in?: string
+          check_out?: string
+          created_at?: string
+          discount?: number
+          early_check_in?: boolean
+          email?: string | null
+          extra_bed?: number
+          group_size?: string | null
+          guest_name?: string
+          id?: string
+          internal_notes?: string | null
+          late_check_out?: boolean
+          lead_source?: string | null
+          nights?: number
+          pet_charges?: boolean
+          phone?: string
+          reference_code?: string
+          room_rate?: number
+          room_type?: string
+          rooms?: number
+          special_requests?: string | null
+          status?: Database["public"]["Enums"]["quote_status"]
+          subtotal?: number
+          taxes?: number
+          total?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +209,25 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      activity_type:
+        | "created"
+        | "edited"
+        | "status_changed"
+        | "whatsapp_sent"
+        | "pdf_generated"
+        | "followup_added"
+        | "followup_completed"
+        | "converted"
+        | "note_added"
+        | "deleted"
+        | "duplicated"
+      quote_status:
+        | "Pending"
+        | "Sent"
+        | "Negotiating"
+        | "Converted"
+        | "No Response"
+        | "Failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +354,28 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      activity_type: [
+        "created",
+        "edited",
+        "status_changed",
+        "whatsapp_sent",
+        "pdf_generated",
+        "followup_added",
+        "followup_completed",
+        "converted",
+        "note_added",
+        "deleted",
+        "duplicated",
+      ],
+      quote_status: [
+        "Pending",
+        "Sent",
+        "Negotiating",
+        "Converted",
+        "No Response",
+        "Failed",
+      ],
+    },
   },
 } as const
