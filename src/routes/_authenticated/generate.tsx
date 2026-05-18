@@ -137,9 +137,9 @@ function GenerateQuote() {
                 <div />
               </div>
               <div className="mt-4 space-y-2">
-                <ToggleRow label="Early Check-in (₹500)" checked={form.early_check_in} onChange={(v) => update("early_check_in", v)} icon="🌅" />
-                <ToggleRow label="Late Check-out (₹500)" checked={form.late_check_out} onChange={(v) => update("late_check_out", v)} icon="🌙" />
-                <ToggleRow label="Pet Charges (₹1000)" checked={form.pet_charges} onChange={(v) => update("pet_charges", v)} icon="🐾" />
+                <ToggleRow label="Early Check-in (₹500)" checked={form.early_check_in} onChange={(v: boolean) => update("early_check_in", v)} icon="🌅" />
+                <ToggleRow label="Late Check-out (₹500)" checked={form.late_check_out} onChange={(v: boolean) => update("late_check_out", v)} icon="🌙" />
+                <ToggleRow label="Pet Charges (₹1000)" checked={form.pet_charges} onChange={(v: boolean) => update("pet_charges", v)} icon="🐾" />
               </div>
             </Card>
 
