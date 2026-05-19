@@ -19,6 +19,7 @@ const filters: (QuoteStatus | "All")[] = ["All", ...QUOTE_STATUSES];
 
 function History() {
   const qc = useQueryClient();
+  useRealtimeInvalidate(["quotes"], ["quotes"], "history");
   const [filter, setFilter] = useState<QuoteStatus | "All">("All");
   const [query, setQuery] = useState("");
   const { data: quotes = [], isLoading } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
