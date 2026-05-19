@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { StatusPill } from "@/components/status-pill";
 import { listQuotes } from "@/lib/quotes-api";
+import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
   ArrowUpRight,
   TrendingUp,
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/")({
 });
 
 function Dashboard() {
+  useRealtimeInvalidate(["quotes", "followups"], ["quotes", "followups"], "dashboard");
   const { data: quotes = [], isLoading } = useQuery({
     queryKey: ["quotes"],
     queryFn: listQuotes,
