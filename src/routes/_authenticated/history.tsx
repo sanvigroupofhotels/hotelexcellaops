@@ -6,6 +6,7 @@ import { Topbar } from "@/components/topbar";
 import { StatusPill } from "@/components/status-pill";
 import { QUOTE_STATUSES, type QuoteStatus } from "@/lib/mock-data";
 import { listQuotes, deleteQuote, duplicateQuote } from "@/lib/quotes-api";
+import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { Search, Loader2, Copy, Trash2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ const filters: (QuoteStatus | "All")[] = ["All", ...QUOTE_STATUSES];
 
 function History() {
   const qc = useQueryClient();
+  useRealtimeInvalidate(["quotes"], ["quotes"], "history");
   const [filter, setFilter] = useState<QuoteStatus | "All">("All");
   const [query, setQuery] = useState("");
   const { data: quotes = [], isLoading } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });

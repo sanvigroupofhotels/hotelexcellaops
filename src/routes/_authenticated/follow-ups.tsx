@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
 import { listFollowups, completeFollowup, deleteFollowup, buildWhatsAppLink, logWhatsApp } from "@/lib/quotes-api";
+import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { Bell, MessageCircle, Check, Trash2, Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/_authenticated/follow-ups")({
 
 function FollowUps() {
   const qc = useQueryClient();
+  useRealtimeInvalidate(["followups", "quotes"], ["followups"], "followups");
   const { data = [], isLoading } = useQuery({ queryKey: ["followups"], queryFn: listFollowups });
 
   const complete = useMutation({

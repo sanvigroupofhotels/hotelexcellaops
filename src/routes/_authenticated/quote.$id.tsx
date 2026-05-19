@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
@@ -9,9 +9,11 @@ import {
   getQuote, listActivities, setStatus, deleteQuote, duplicateQuote,
   addFollowup, buildWhatsAppLink, logWhatsApp, logPdf,
 } from "@/lib/quotes-api";
+import { shareQuoteImage, downloadQuoteImage } from "@/lib/share-quote";
+import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
   ArrowLeft, Download, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
-  Wifi, Coffee, Heart, Headphones, Star, Clock,
+  Wifi, Coffee, Heart, Headphones, Star, Clock, ImageDown, Pencil, CheckCircle2, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -24,6 +26,9 @@ function QuoteDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useRealtimeInvalidate(["quotes", "quote_activities"], [["quote", id], ["activities", id], "quotes"], `quote-${id}`);
 
   const { data: q, isLoading } = useQuery({ queryKey: ["quote", id], queryFn: () => getQuote(id) });
   const { data: activities = [] } = useQuery({
@@ -101,21 +106,49 @@ function QuoteDetail() {
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
           <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => cardRef.current && shareQuoteImage(cardRef.current, q)}
+              className="inline-flex items-center gap-2 rounded-md bg-success/15 border border-success/40 text-success px-4 py-2.5 text-sm hover:bg-success/20"
+            >
+              <MessageCircle className="h-4 w-4" /> Send via WhatsApp
+            </button>
+            <button
+              onClick={() => cardRef.current && downloadQuoteImage(cardRef.current, q)}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
+            >
+              <ImageDown className="h-4 w-4 text-gold" /> Save Image
+            </button>
             <a
               href={buildWhatsAppLink(q)}
               target="_blank"
               rel="noreferrer"
               onClick={() => logWhatsApp(id)}
-              className="inline-flex items-center gap-2 rounded-md bg-success/15 border border-success/40 text-success px-4 py-2.5 text-sm hover:bg-success/20"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
+              title="Send text-only WhatsApp"
             >
-              <MessageCircle className="h-4 w-4" /> WhatsApp
+              <MessageCircle className="h-4 w-4 text-gold" /> Text
             </a>
             <button onClick={onPrint} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
-              <Download className="h-4 w-4 text-gold" /> Print / PDF
+              <Printer className="h-4 w-4 text-gold" /> Print / PDF
             </button>
+            <Link
+              to="/quote/$id/edit"
+              params={{ id }}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
+            >
+              <Pencil className="h-4 w-4 text-gold" /> Edit
+            </Link>
             <button onClick={() => dup.mutate()} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
               <Copy className="h-4 w-4 text-gold" /> Duplicate
             </button>
+            {q.status !== "Converted" && (
+              <button
+                onClick={() => status.mutate("Converted")}
+                className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm text-charcoal font-medium"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Convert
+              </button>
+            )}
             <button
               onClick={() => { if (confirm("Delete this quote?")) del.mutate(); }}
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10"
@@ -127,7 +160,9 @@ function QuoteDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:block">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <QuoteCard q={q} />
+            <div ref={cardRef}>
+              <QuoteCard q={q} />
+            </div>
           </motion.div>
 
           <div className="space-y-4 print:hidden">
@@ -252,11 +287,11 @@ function QuoteCard({ q }: { q: any }) {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(q.check_in)}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Check-in</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Check-in · 1:00 PM</div>
             </div>
             <div>
               <div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(q.check_out)}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Check-out</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Check-out · 11:00 AM</div>
             </div>
             <div className="col-span-2 text-xs text-muted-foreground">
               {q.group_size} · {q.nights} Night{q.nights > 1 ? "s" : ""}
@@ -309,6 +344,9 @@ function QuoteCard({ q }: { q: any }) {
             <Star key={i} className="h-4 w-4 fill-gold text-gold" />
           ))}
         </div>
+        <p className="text-[10px] text-muted-foreground mt-3">
+          Quote valid for 7 days · Standard check-in 1:00 PM · Standard check-out 11:00 AM
+        </p>
       </div>
     </div>
   );

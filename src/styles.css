@@ -153,3 +153,29 @@
   .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background: oklch(0.3 0.008 70 / 0.5); border-radius: 3px; }
 }
+
+/* A4 print layout for quote PDFs */
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html, body {
+    background: #fff !important;
+    color: #111 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print\:hidden { display: none !important; }
+  .luxe-card {
+    background: #fff !important;
+    border: 1px solid #e5e2da !important;
+    box-shadow: none !important;
+  }
+  .gold-text-gradient {
+    background: none !important;
+    -webkit-text-fill-color: #b8860b !important;
+    color: #b8860b !important;
+  }
+  .grain { background-image: none !important; }
+  main { padding-left: 0 !important; }
+  aside, header.sticky { display: none !important; }
+}
+

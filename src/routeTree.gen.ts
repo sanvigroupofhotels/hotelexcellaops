@@ -18,6 +18,7 @@ import { Route as AuthenticatedGenerateRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authenticated/follow-ups'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
+import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id.edit'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -63,6 +64,12 @@ const AuthenticatedQuoteIdRoute = AuthenticatedQuoteIdRouteImport.update({
   path: '/quote/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedQuoteIdEditRoute =
+  AuthenticatedQuoteIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => AuthenticatedQuoteIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -72,7 +79,8 @@ export interface FileRoutesByFullPath {
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/reports': typeof AuthenticatedReportsRoute
-  '/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/quote/$id': typeof AuthenticatedQuoteIdRouteWithChildren
+  '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -82,7 +90,8 @@ export interface FileRoutesByTo {
   '/history': typeof AuthenticatedHistoryRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/': typeof AuthenticatedIndexRoute
-  '/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/quote/$id': typeof AuthenticatedQuoteIdRouteWithChildren
+  '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -94,7 +103,8 @@ export interface FileRoutesById {
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRouteWithChildren
+  '/_authenticated/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/reports'
     | '/quote/$id'
+    | '/quote/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/'
     | '/quote/$id'
+    | '/quote/$id/edit'
   id:
     | '__root__'
     | '/_authenticated'
@@ -128,6 +140,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/_authenticated/'
     | '/_authenticated/quote/$id'
+    | '/_authenticated/quote/$id/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -200,8 +213,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedQuoteIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/quote/$id/edit': {
+      id: '/_authenticated/quote/$id/edit'
+      path: '/edit'
+      fullPath: '/quote/$id/edit'
+      preLoaderRoute: typeof AuthenticatedQuoteIdEditRouteImport
+      parentRoute: typeof AuthenticatedQuoteIdRoute
+    }
   }
 }
+
+interface AuthenticatedQuoteIdRouteChildren {
+  AuthenticatedQuoteIdEditRoute: typeof AuthenticatedQuoteIdEditRoute
+}
+
+const AuthenticatedQuoteIdRouteChildren: AuthenticatedQuoteIdRouteChildren = {
+  AuthenticatedQuoteIdEditRoute: AuthenticatedQuoteIdEditRoute,
+}
+
+const AuthenticatedQuoteIdRouteWithChildren =
+  AuthenticatedQuoteIdRoute._addFileChildren(AuthenticatedQuoteIdRouteChildren)
 
 interface AuthenticatedRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
@@ -210,7 +241,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
+  AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRouteWithChildren
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -220,7 +251,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
+  AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRouteWithChildren,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
