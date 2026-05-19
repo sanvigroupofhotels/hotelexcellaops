@@ -14,6 +14,7 @@ export const Route = createFileRoute("/_authenticated/follow-ups")({
 
 function FollowUps() {
   const qc = useQueryClient();
+  useRealtimeInvalidate(["followups", "quotes"], ["followups"], "followups");
   const { data = [], isLoading } = useQuery({ queryKey: ["followups"], queryFn: listFollowups });
 
   const complete = useMutation({
