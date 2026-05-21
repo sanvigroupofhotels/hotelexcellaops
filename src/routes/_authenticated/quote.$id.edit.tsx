@@ -175,10 +175,8 @@ function EditQuote() {
                 </Field>
                 <div />
               </div>
-              <div className="mt-4 space-y-2">
-                <ToggleRow label="Early Check-in (₹500)" checked={form.early_check_in} onChange={(v: boolean) => update("early_check_in", v)} icon="🌅" />
-                <ToggleRow label="Late Check-out (₹500)" checked={form.late_check_out} onChange={(v: boolean) => update("late_check_out", v)} icon="🌙" />
-                <ToggleRow label="Pet Charges (₹1000)" checked={form.pet_charges} onChange={(v: boolean) => update("pet_charges", v)} icon="🐾" />
+              <div className="mt-4">
+                <PolicyFields form={form} update={update} />
               </div>
             </Card>
 
@@ -205,6 +203,7 @@ function EditQuote() {
               <SummaryRow label="Early Check-in" value={c.earlyCheck} mute={!c.earlyCheck} />
               <SummaryRow label="Late Check-out" value={c.lateCheck} mute={!c.lateCheck} />
               <SummaryRow label="Pet Charges" value={c.pet} mute={!c.pet} />
+              <SummaryExtras c={c} form={form} />
               {form.discount > 0 && <SummaryRow label="Discount" value={-form.discount} />}
               <div className="luxe-divider my-3" />
               <SummaryRow label="Taxes & Fees" value={c.taxes} />
