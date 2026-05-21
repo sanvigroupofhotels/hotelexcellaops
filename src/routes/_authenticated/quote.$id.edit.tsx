@@ -39,7 +39,11 @@ const empty: QuoteInput = {
   check_in: new Date().toISOString().slice(0, 10),
   check_out: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
   room_type: roomTypes[0].name, rooms: 1, extra_bed: 0,
-  early_check_in: false, late_check_out: false, pet_charges: false,
+  early_check_in: false, early_check_in_slot: null,
+  late_check_out: false, late_check_out_slot: null,
+  pet_charges: false,
+  extra_adults: 0, drivers: 0,
+  breakfast_included: true, extra_breakfast_guests: 0,
   discount: 0, internal_notes: "",
 };
 
@@ -58,8 +62,16 @@ function EditQuote() {
       special_requests: q.special_requests ?? "",
       check_in: q.check_in, check_out: q.check_out,
       room_type: q.room_type, rooms: q.rooms, extra_bed: q.extra_bed,
-      early_check_in: q.early_check_in, late_check_out: q.late_check_out,
-      pet_charges: q.pet_charges, discount: Number(q.discount) || 0,
+      early_check_in: q.early_check_in,
+      early_check_in_slot: q.early_check_in_slot ?? null,
+      late_check_out: q.late_check_out,
+      late_check_out_slot: q.late_check_out_slot ?? null,
+      pet_charges: q.pet_charges,
+      extra_adults: q.extra_adults ?? 0,
+      drivers: q.drivers ?? 0,
+      breakfast_included: q.breakfast_included ?? true,
+      extra_breakfast_guests: q.extra_breakfast_guests ?? 0,
+      discount: Number(q.discount) || 0,
       internal_notes: q.internal_notes ?? "",
     });
   }, [q]);

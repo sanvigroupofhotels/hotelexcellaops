@@ -3,7 +3,14 @@ import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useMutation } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
-import { roomTypes } from "@/lib/mock-data";
+import {
+  roomTypes,
+  EARLY_CHECK_IN_SLOTS,
+  LATE_CHECK_OUT_SLOTS,
+  EXTRA_ADULT_RATE,
+  DRIVER_RATE,
+  EXTRA_BREAKFAST_RATE,
+} from "@/lib/mock-data";
 import { createQuote, calc, type QuoteInput } from "@/lib/quotes-api";
 import {
   User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2,
@@ -49,8 +56,14 @@ function GenerateQuote() {
     rooms: 1,
     extra_bed: 0,
     early_check_in: false,
+    early_check_in_slot: null,
     late_check_out: false,
+    late_check_out_slot: null,
     pet_charges: false,
+    extra_adults: 0,
+    drivers: 0,
+    breakfast_included: true,
+    extra_breakfast_guests: 0,
     discount: 0,
     internal_notes: "",
   });
