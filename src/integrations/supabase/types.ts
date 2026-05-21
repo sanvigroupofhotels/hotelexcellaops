@@ -113,18 +113,24 @@ export type Database = {
       }
       quotes: {
         Row: {
+          breakfast_included: boolean
           check_in: string
           check_out: string
           created_at: string
           discount: number
+          drivers: number
           early_check_in: boolean
+          early_check_in_slot: string | null
           email: string | null
+          extra_adults: number
           extra_bed: number
+          extra_breakfast_guests: number
           group_size: string | null
           guest_name: string
           id: string
           internal_notes: string | null
           late_check_out: boolean
+          late_check_out_slot: string | null
           lead_source: string | null
           nights: number
           pet_charges: boolean
@@ -142,18 +148,24 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          breakfast_included?: boolean
           check_in: string
           check_out: string
           created_at?: string
           discount?: number
+          drivers?: number
           early_check_in?: boolean
+          early_check_in_slot?: string | null
           email?: string | null
+          extra_adults?: number
           extra_bed?: number
+          extra_breakfast_guests?: number
           group_size?: string | null
           guest_name: string
           id?: string
           internal_notes?: string | null
           late_check_out?: boolean
+          late_check_out_slot?: string | null
           lead_source?: string | null
           nights?: number
           pet_charges?: boolean
@@ -171,18 +183,24 @@ export type Database = {
           user_id: string
         }
         Update: {
+          breakfast_included?: boolean
           check_in?: string
           check_out?: string
           created_at?: string
           discount?: number
+          drivers?: number
           early_check_in?: boolean
+          early_check_in_slot?: string | null
           email?: string | null
+          extra_adults?: number
           extra_bed?: number
+          extra_breakfast_guests?: number
           group_size?: string | null
           guest_name?: string
           id?: string
           internal_notes?: string | null
           late_check_out?: boolean
+          late_check_out_slot?: string | null
           lead_source?: string | null
           nights?: number
           pet_charges?: boolean

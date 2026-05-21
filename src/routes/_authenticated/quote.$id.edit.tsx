@@ -7,6 +7,7 @@ import { roomTypes } from "@/lib/mock-data";
 import {
   getQuote, updateQuote, calc, type QuoteInput,
 } from "@/lib/quotes-api";
+import { PolicyFields, SummaryExtras } from "@/components/policy-fields";
 import {
   User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2, ArrowLeft,
 } from "lucide-react";
@@ -39,7 +40,11 @@ const empty: QuoteInput = {
   check_in: new Date().toISOString().slice(0, 10),
   check_out: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
   room_type: roomTypes[0].name, rooms: 1, extra_bed: 0,
-  early_check_in: false, late_check_out: false, pet_charges: false,
+  early_check_in: false, early_check_in_slot: null,
+  late_check_out: false, late_check_out_slot: null,
+  pet_charges: false,
+  extra_adults: 0, drivers: 0,
+  breakfast_included: true, extra_breakfast_guests: 0,
   discount: 0, internal_notes: "",
 };
 
@@ -58,8 +63,16 @@ function EditQuote() {
       special_requests: q.special_requests ?? "",
       check_in: q.check_in, check_out: q.check_out,
       room_type: q.room_type, rooms: q.rooms, extra_bed: q.extra_bed,
-      early_check_in: q.early_check_in, late_check_out: q.late_check_out,
-      pet_charges: q.pet_charges, discount: Number(q.discount) || 0,
+      early_check_in: q.early_check_in,
+      early_check_in_slot: q.early_check_in_slot ?? null,
+      late_check_out: q.late_check_out,
+      late_check_out_slot: q.late_check_out_slot ?? null,
+      pet_charges: q.pet_charges,
+      extra_adults: q.extra_adults ?? 0,
+      drivers: q.drivers ?? 0,
+      breakfast_included: q.breakfast_included ?? true,
+      extra_breakfast_guests: q.extra_breakfast_guests ?? 0,
+      discount: Number(q.discount) || 0,
       internal_notes: q.internal_notes ?? "",
     });
   }, [q]);
@@ -162,10 +175,8 @@ function EditQuote() {
                 </Field>
                 <div />
               </div>
-              <div className="mt-4 space-y-2">
-                <ToggleRow label="Early Check-in (₹500)" checked={form.early_check_in} onChange={(v: boolean) => update("early_check_in", v)} icon="🌅" />
-                <ToggleRow label="Late Check-out (₹500)" checked={form.late_check_out} onChange={(v: boolean) => update("late_check_out", v)} icon="🌙" />
-                <ToggleRow label="Pet Charges (₹1000)" checked={form.pet_charges} onChange={(v: boolean) => update("pet_charges", v)} icon="🐾" />
+              <div className="mt-4">
+                <PolicyFields form={form} update={update} />
               </div>
             </Card>
 
@@ -192,6 +203,7 @@ function EditQuote() {
               <SummaryRow label="Early Check-in" value={c.earlyCheck} mute={!c.earlyCheck} />
               <SummaryRow label="Late Check-out" value={c.lateCheck} mute={!c.lateCheck} />
               <SummaryRow label="Pet Charges" value={c.pet} mute={!c.pet} />
+              <SummaryExtras c={c} form={form} />
               {form.discount > 0 && <SummaryRow label="Discount" value={-form.discount} />}
               <div className="luxe-divider my-3" />
               <SummaryRow label="Taxes & Fees" value={c.taxes} />

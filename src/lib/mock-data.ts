@@ -33,3 +33,41 @@ export const roomTypes = [
   { name: "Garden View", rate: 4200 },
   { name: "Presidential", rate: 12000 },
 ];
+
+// ---------- Hotel Excella charge policies ----------
+
+export const EXTRA_ADULT_RATE = 650; // per night, includes mattress + breakfast
+export const DRIVER_RATE = 650; // per night, includes mattress + breakfast
+export const EXTRA_BREAKFAST_RATE = 125; // per head, per night
+
+export type EarlyCheckInSlot = "10-13" | "8-10" | "6-8" | "before-6";
+export type LateCheckOutSlot = "upto-2pm" | "2-4pm" | "after-4pm";
+
+export const EARLY_CHECK_IN_SLOTS: {
+  value: EarlyCheckInSlot;
+  label: string;
+  /** Flat fee. `null` means "full day room charge". */
+  fee: number | null;
+}[] = [
+  { value: "10-13", label: "10:00 AM – 1:00 PM", fee: 500 },
+  { value: "8-10", label: "8:00 AM – 10:00 AM", fee: 750 },
+  { value: "6-8", label: "6:00 AM – 8:00 AM", fee: 1000 },
+  { value: "before-6", label: "Before 6:00 AM (full day)", fee: null },
+];
+
+export const LATE_CHECK_OUT_SLOTS: {
+  value: LateCheckOutSlot;
+  label: string;
+  fee: number | null;
+}[] = [
+  { value: "upto-2pm", label: "Up to 2:00 PM (3 hrs)", fee: 500 },
+  { value: "2-4pm", label: "2:00 PM – 4:00 PM", fee: 1000 },
+  { value: "after-4pm", label: "After 4:00 PM (full day)", fee: null },
+];
+
+export function earlyCheckInLabel(slot: EarlyCheckInSlot | null | undefined) {
+  return EARLY_CHECK_IN_SLOTS.find((s) => s.value === slot)?.label ?? "";
+}
+export function lateCheckOutLabel(slot: LateCheckOutSlot | null | undefined) {
+  return LATE_CHECK_OUT_SLOTS.find((s) => s.value === slot)?.label ?? "";
+}

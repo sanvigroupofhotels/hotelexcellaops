@@ -4,10 +4,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
 import { StatusPill } from "@/components/status-pill";
-import { QUOTE_STATUSES, type QuoteStatus } from "@/lib/mock-data";
+import { QUOTE_STATUSES, earlyCheckInLabel, lateCheckOutLabel, type QuoteStatus } from "@/lib/mock-data";
 import {
   getQuote, listActivities, setStatus, deleteQuote, duplicateQuote,
-  addFollowup, buildWhatsAppLink, logWhatsApp, logPdf,
+  addFollowup, buildWhatsAppLink, logWhatsApp, logPdf, calc,
 } from "@/lib/quotes-api";
 import { shareQuoteImage, downloadQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
@@ -305,13 +305,33 @@ function QuoteCard({ q }: { q: any }) {
           <div>Description</div>
           <div>Amount</div>
         </div>
-        <Row desc={`${q.room_type} × ${q.rooms} (${q.nights} Night${q.nights > 1 ? "s" : ""})`} amount={q.room_rate * q.nights * q.rooms} />
-        {q.extra_bed > 0 && <Row desc={`Extra Bed × ${q.extra_bed}`} amount={q.extra_bed * 500 * q.nights} />}
-        {q.early_check_in && <Row desc="Early Check-in" amount={500} />}
-        {q.late_check_out && <Row desc="Late Check-out" amount={500} />}
-        {q.pet_charges && <Row desc="Pet Charges" amount={1000} />}
-        {Number(q.discount) > 0 && <Row desc="Discount" amount={-Number(q.discount)} />}
-        <Row desc="Taxes & Fees (12%)" amount={Number(q.taxes)} />
+        {(() => {
+          const c = calc(q);
+          return (
+            <>
+              <Row desc={`${q.room_type} × ${q.rooms} (${q.nights} Night${q.nights > 1 ? "s" : ""})`} amount={c.roomTariff} />
+              {q.extra_bed > 0 && <Row desc={`Extra Bed × ${q.extra_bed}`} amount={c.extraBed} />}
+              {q.early_check_in && q.early_check_in_slot && (
+                <Row desc={`Early Check-in (${earlyCheckInLabel(q.early_check_in_slot)})`} amount={c.earlyCheck} />
+              )}
+              {q.late_check_out && q.late_check_out_slot && (
+                <Row desc={`Late Check-out (${lateCheckOutLabel(q.late_check_out_slot)})`} amount={c.lateCheck} />
+              )}
+              {q.pet_charges && <Row desc="Pet Charges" amount={c.pet} />}
+              {q.extra_adults > 0 && (
+                <Row desc={`Extra Adults × ${q.extra_adults} (incl. mattress & breakfast)`} amount={c.extraAdults} />
+              )}
+              {q.drivers > 0 && (
+                <Row desc={`Drivers × ${q.drivers} (incl. mattress & breakfast)`} amount={c.driversCharge} />
+              )}
+              {!q.breakfast_included && q.extra_breakfast_guests > 0 && (
+                <Row desc={`Extra Breakfast × ${q.extra_breakfast_guests}`} amount={c.extraBreakfast} />
+              )}
+              {Number(q.discount) > 0 && <Row desc="Discount" amount={-Number(q.discount)} />}
+              <Row desc="Taxes & Fees (12%)" amount={Number(q.taxes)} />
+            </>
+          );
+        })()}
       </div>
 
       <div className="relative py-6 border-b border-border flex items-baseline justify-between">
