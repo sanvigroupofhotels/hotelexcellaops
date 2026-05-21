@@ -7,6 +7,7 @@ import { roomTypes } from "@/lib/mock-data";
 import {
   getQuote, updateQuote, calc, type QuoteInput,
 } from "@/lib/quotes-api";
+import { PolicyFields, SummaryExtras } from "@/components/policy-fields";
 import {
   User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2, ArrowLeft,
 } from "lucide-react";
