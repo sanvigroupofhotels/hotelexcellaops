@@ -14,6 +14,114 @@ export type Database = {
   }
   public: {
     Tables: {
+      customers: {
+        Row: {
+          anniversary: string | null
+          birthday: string | null
+          booking_probability: number
+          city: string | null
+          company_name: string | null
+          country: string | null
+          created_at: string
+          customer_reference: string
+          email: string | null
+          first_contact_date: string
+          gst_number: string | null
+          guest_name: string
+          guest_type: string | null
+          id: string
+          internal_notes: string | null
+          last_stay_date: string | null
+          lead_source: string | null
+          lost_reason: string | null
+          next_action: string | null
+          next_followup_date: string | null
+          payment_status: string | null
+          phone: string | null
+          preferred_food: string | null
+          preferred_room: string | null
+          special_notes: string | null
+          state: string | null
+          status: string
+          tags: string[]
+          total_bookings: number
+          total_quotes: number
+          total_revenue: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          anniversary?: string | null
+          birthday?: string | null
+          booking_probability?: number
+          city?: string | null
+          company_name?: string | null
+          country?: string | null
+          created_at?: string
+          customer_reference?: string
+          email?: string | null
+          first_contact_date?: string
+          gst_number?: string | null
+          guest_name: string
+          guest_type?: string | null
+          id?: string
+          internal_notes?: string | null
+          last_stay_date?: string | null
+          lead_source?: string | null
+          lost_reason?: string | null
+          next_action?: string | null
+          next_followup_date?: string | null
+          payment_status?: string | null
+          phone?: string | null
+          preferred_food?: string | null
+          preferred_room?: string | null
+          special_notes?: string | null
+          state?: string | null
+          status?: string
+          tags?: string[]
+          total_bookings?: number
+          total_quotes?: number
+          total_revenue?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          anniversary?: string | null
+          birthday?: string | null
+          booking_probability?: number
+          city?: string | null
+          company_name?: string | null
+          country?: string | null
+          created_at?: string
+          customer_reference?: string
+          email?: string | null
+          first_contact_date?: string
+          gst_number?: string | null
+          guest_name?: string
+          guest_type?: string | null
+          id?: string
+          internal_notes?: string | null
+          last_stay_date?: string | null
+          lead_source?: string | null
+          lost_reason?: string | null
+          next_action?: string | null
+          next_followup_date?: string | null
+          payment_status?: string | null
+          phone?: string | null
+          preferred_food?: string | null
+          preferred_room?: string | null
+          special_notes?: string | null
+          state?: string | null
+          status?: string
+          tags?: string[]
+          total_bookings?: number
+          total_quotes?: number
+          total_revenue?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       followups: {
         Row: {
           completed: boolean
@@ -113,10 +221,13 @@ export type Database = {
       }
       quotes: {
         Row: {
+          adults: number
+          booking_probability: number
           breakfast_included: boolean
           check_in: string
           check_out: string
           created_at: string
+          customer_id: string | null
           discount: number
           drivers: number
           early_check_in: boolean
@@ -127,13 +238,17 @@ export type Database = {
           extra_breakfast_guests: number
           group_size: string | null
           guest_name: string
+          guests: number
           id: string
           internal_notes: string | null
           late_check_out: boolean
           late_check_out_slot: string | null
           lead_source: string | null
+          lost_reason: string | null
           nights: number
+          payment_status: string
           pet_charges: boolean
+          pet_size: string
           phone: string
           reference_code: string
           room_rate: number
@@ -148,10 +263,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          adults?: number
+          booking_probability?: number
           breakfast_included?: boolean
           check_in: string
           check_out: string
           created_at?: string
+          customer_id?: string | null
           discount?: number
           drivers?: number
           early_check_in?: boolean
@@ -162,13 +280,17 @@ export type Database = {
           extra_breakfast_guests?: number
           group_size?: string | null
           guest_name: string
+          guests?: number
           id?: string
           internal_notes?: string | null
           late_check_out?: boolean
           late_check_out_slot?: string | null
           lead_source?: string | null
+          lost_reason?: string | null
           nights?: number
+          payment_status?: string
           pet_charges?: boolean
+          pet_size?: string
           phone: string
           reference_code: string
           room_rate?: number
@@ -183,10 +305,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          adults?: number
+          booking_probability?: number
           breakfast_included?: boolean
           check_in?: string
           check_out?: string
           created_at?: string
+          customer_id?: string | null
           discount?: number
           drivers?: number
           early_check_in?: boolean
@@ -197,13 +322,17 @@ export type Database = {
           extra_breakfast_guests?: number
           group_size?: string | null
           guest_name?: string
+          guests?: number
           id?: string
           internal_notes?: string | null
           late_check_out?: boolean
           late_check_out_slot?: string | null
           lead_source?: string | null
+          lost_reason?: string | null
           nights?: number
+          payment_status?: string
           pet_charges?: boolean
+          pet_size?: string
           phone?: string
           reference_code?: string
           room_rate?: number
@@ -217,14 +346,88 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quotes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          customer_id: string | null
+          due_date: string | null
+          id: string
+          notes: string | null
+          priority: string
+          quote_id: string | null
+          status: string
+          title: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          priority?: string
+          quote_id?: string | null
+          status?: string
+          title: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          priority?: string
+          quote_id?: string | null
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      recompute_customer_stats: {
+        Args: { p_customer_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       activity_type:
