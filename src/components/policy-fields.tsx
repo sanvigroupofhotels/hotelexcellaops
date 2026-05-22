@@ -5,12 +5,14 @@ import {
   EXTRA_ADULT_RATE,
   DRIVER_RATE,
   EXTRA_BREAKFAST_RATE,
+  PET_OPTIONS,
   type EarlyCheckInSlot,
   type LateCheckOutSlot,
+  type PetSize,
 } from "@/lib/mock-data";
 import type { QuoteInput } from "@/lib/quotes-api";
 import { cn } from "@/lib/utils";
-import { Coffee, UserPlus, Car } from "lucide-react";
+import { Coffee, UserPlus, Car, PawPrint } from "lucide-react";
 
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
@@ -24,10 +26,9 @@ export function PolicyFields({
 }) {
   return (
     <div className="space-y-3">
-      {/* Early check-in */}
       <ToggleRow
         icon="🌅"
-        label="Early Check-in (after 1 PM standard)"
+        label="Early Check-in (Standard 1 PM)"
         checked={form.early_check_in}
         onChange={(v) => {
           update("early_check_in", v);
@@ -37,17 +38,11 @@ export function PolicyFields({
         }}
       />
       {form.early_check_in && (
-        <motion.div
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="pl-2"
-        >
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="pl-2">
           <select
             className={inputCls}
             value={form.early_check_in_slot ?? ""}
-            onChange={(e) =>
-              update("early_check_in_slot", e.target.value as EarlyCheckInSlot)
-            }
+            onChange={(e) => update("early_check_in_slot", e.target.value as EarlyCheckInSlot)}
           >
             {EARLY_CHECK_IN_SLOTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -55,16 +50,13 @@ export function PolicyFields({
               </option>
             ))}
           </select>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            Subject to availability. Standard check-in 1:00 PM.
-          </p>
+          <p className="text-[10px] text-muted-foreground mt-1">Subject to availability.</p>
         </motion.div>
       )}
 
-      {/* Late check-out */}
       <ToggleRow
         icon="🌙"
-        label="Late Check-out (after 11 AM standard)"
+        label="Late Check-out (Standard 11 AM)"
         checked={form.late_check_out}
         onChange={(v) => {
           update("late_check_out", v);
@@ -74,17 +66,11 @@ export function PolicyFields({
         }}
       />
       {form.late_check_out && (
-        <motion.div
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="pl-2"
-        >
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="pl-2">
           <select
             className={inputCls}
             value={form.late_check_out_slot ?? ""}
-            onChange={(e) =>
-              update("late_check_out_slot", e.target.value as LateCheckOutSlot)
-            }
+            onChange={(e) => update("late_check_out_slot", e.target.value as LateCheckOutSlot)}
           >
             {LATE_CHECK_OUT_SLOTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -92,20 +78,39 @@ export function PolicyFields({
               </option>
             ))}
           </select>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            Subject to availability. Standard check-out 11:00 AM.
-          </p>
+          <p className="text-[10px] text-muted-foreground mt-1">Subject to availability.</p>
         </motion.div>
       )}
 
-      <ToggleRow
-        icon="🐾"
-        label="Pet Charges (₹1000)"
-        checked={form.pet_charges}
-        onChange={(v) => update("pet_charges", v)}
-      />
+      {/* Pet size selector (replaces simple pet toggle) */}
+      <div className="rounded-md bg-secondary/40 border border-border p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <PawPrint className="h-4 w-4 text-gold" />
+          <span className="text-sm">Pet</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {PET_OPTIONS.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => {
+                update("pet_size", p.value as PetSize);
+                update("pet_charges", p.value !== "none");
+              }}
+              className={cn(
+                "rounded-md border px-2 py-2 text-xs transition text-left",
+                form.pet_size === p.value
+                  ? "border-gold/60 bg-gold-soft text-gold"
+                  : "border-border bg-input/40 text-muted-foreground hover:text-foreground hover:border-gold/30",
+              )}
+            >
+              <div className="font-medium">{p.label}</div>
+              <div className="text-[10px] opacity-80">{p.fee ? `₹${p.fee}/night` : "—"}</div>
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* Extra adults & drivers */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
         <StepperRow
           icon={<UserPlus className="h-3.5 w-3.5 text-gold" />}
@@ -123,7 +128,6 @@ export function PolicyFields({
         />
       </div>
 
-      {/* Breakfast */}
       <div className="rounded-md bg-secondary/40 border border-border p-3 space-y-3">
         <ToggleRow
           icon={<Coffee className="h-4 w-4 text-gold" />}
@@ -135,13 +139,10 @@ export function PolicyFields({
           }}
         />
         {!form.breakfast_included && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
             <StepperRow
               label={`Extra Breakfast Guests (₹${EXTRA_BREAKFAST_RATE}/head/night)`}
-              help="For bookings without breakfast"
+              help="Only when breakfast not included in tariff"
               value={form.extra_breakfast_guests}
               onChange={(v) => update("extra_breakfast_guests", v)}
             />
@@ -153,16 +154,8 @@ export function PolicyFields({
 }
 
 function ToggleRow({
-  label,
-  checked,
-  onChange,
-  icon,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  icon?: React.ReactNode;
-}) {
+  label, checked, onChange, icon,
+}: { label: string; checked: boolean; onChange: (v: boolean) => void; icon?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between rounded-md bg-secondary/40 border border-border px-3 py-2.5">
       <span className="text-sm flex items-center gap-2">
@@ -172,15 +165,21 @@ function ToggleRow({
       <button
         type="button"
         onClick={() => onChange(!checked)}
+        aria-pressed={checked}
         className={cn(
-          "relative h-5 w-9 rounded-full transition",
-          checked ? "gold-gradient" : "bg-muted",
+          "relative h-6 w-11 rounded-full transition border",
+          checked
+            ? "gold-gradient border-gold/60 shadow-[0_0_12px_oklch(0.82_0.13_82/0.4)]"
+            : "bg-muted border-border",
         )}
       >
         <motion.span
-          animate={{ x: checked ? 16 : 2 }}
+          animate={{ x: checked ? 22 : 2 }}
           transition={{ type: "spring", stiffness: 500, damping: 30 }}
-          className="absolute top-0.5 h-4 w-4 rounded-full bg-background shadow"
+          className={cn(
+            "absolute top-0.5 h-5 w-5 rounded-full shadow-md",
+            checked ? "bg-charcoal" : "bg-foreground/80",
+          )}
         />
       </button>
     </div>
@@ -188,18 +187,8 @@ function ToggleRow({
 }
 
 function StepperRow({
-  label,
-  help,
-  icon,
-  value,
-  onChange,
-}: {
-  label: string;
-  help?: string;
-  icon?: React.ReactNode;
-  value: number;
-  onChange: (v: number) => void;
-}) {
+  label, help, icon, value, onChange,
+}: { label: string; help?: string; icon?: React.ReactNode; value: number; onChange: (v: number) => void }) {
   return (
     <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5">
       <div className="flex items-center justify-between gap-3">
@@ -208,26 +197,20 @@ function StepperRow({
             {icon}
             <span className="truncate">{label}</span>
           </div>
-          {help && (
-            <p className="text-[10px] text-muted-foreground mt-0.5">{help}</p>
-          )}
+          {help && <p className="text-[10px] text-muted-foreground mt-0.5">{help}</p>}
         </div>
         <div className="flex items-center bg-input/60 border border-border rounded-md overflow-hidden shrink-0">
           <button
             type="button"
             onClick={() => onChange(Math.max(0, value - 1))}
             className="px-2.5 py-1.5 hover:bg-secondary text-muted-foreground hover:text-foreground"
-          >
-            −
-          </button>
+          >−</button>
           <div className="w-8 text-center text-sm tabular-nums">{value}</div>
           <button
             type="button"
             onClick={() => onChange(value + 1)}
             className="px-2.5 py-1.5 hover:bg-secondary text-muted-foreground hover:text-foreground"
-          >
-            +
-          </button>
+          >+</button>
         </div>
       </div>
     </div>
@@ -235,8 +218,7 @@ function StepperRow({
 }
 
 export function SummaryExtras({
-  c,
-  form,
+  c, form,
 }: {
   c: ReturnType<typeof import("@/lib/quotes-api").calc>;
   form: QuoteInput;
@@ -256,7 +238,6 @@ export function SummaryExtras({
     </>
   );
 }
-
 function Row({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-center justify-between py-1.5 text-sm">
