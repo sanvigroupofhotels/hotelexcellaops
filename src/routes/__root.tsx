@@ -69,9 +69,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Hotel Excella — Reservations OS" },
+      { title: "HotelExcellaQuotes" },
       { name: "description", content: "Boutique luxury quote management for Hotel Excella." },
       { name: "theme-color", content: "#0B0B0F" },
+      { property: "og:title", content: "HotelExcellaQuotes" },
+      { name: "twitter:title", content: "HotelExcellaQuotes" },
+      { property: "og:description", content: "Boutique luxury quote management for Hotel Excella." },
+      { name: "twitter:description", content: "Boutique luxury quote management for Hotel Excella." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/261c0488-0dba-4aeb-8555-36b32d8c8a66/id-preview-cd0a4d7e--bf9d317a-170f-4eb0-82c9-ac90cf77e6ab.lovable.app-1779321940047.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/261c0488-0dba-4aeb-8555-36b32d8c8a66/id-preview-cd0a4d7e--bf9d317a-170f-4eb0-82c9-ac90cf77e6ab.lovable.app-1779321940047.png" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:type", content: "website" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
