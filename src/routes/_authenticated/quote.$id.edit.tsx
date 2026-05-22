@@ -40,12 +40,13 @@ const empty: QuoteInput = {
   check_in: new Date().toISOString().slice(0, 10),
   check_out: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
   room_type: roomTypes[0].name, rooms: 1, extra_bed: 0,
+  adults: 2, guests: 2, pet_size: "none",
   early_check_in: false, early_check_in_slot: null,
   late_check_out: false, late_check_out_slot: null,
-  pet_charges: false,
-  extra_adults: 0, drivers: 0,
+  pet_charges: false, extra_adults: 0, drivers: 0,
   breakfast_included: true, extra_breakfast_guests: 0,
   discount: 0, internal_notes: "",
+  payment_status: "None", booking_probability: 50, lost_reason: null,
 };
 
 function EditQuote() {
@@ -63,6 +64,8 @@ function EditQuote() {
       special_requests: q.special_requests ?? "",
       check_in: q.check_in, check_out: q.check_out,
       room_type: q.room_type, rooms: q.rooms, extra_bed: q.extra_bed,
+      adults: (q as any).adults ?? 2, guests: (q as any).guests ?? 2,
+      pet_size: ((q as any).pet_size ?? "none") as any,
       early_check_in: q.early_check_in,
       early_check_in_slot: q.early_check_in_slot ?? null,
       late_check_out: q.late_check_out,
@@ -74,6 +77,9 @@ function EditQuote() {
       extra_breakfast_guests: q.extra_breakfast_guests ?? 0,
       discount: Number(q.discount) || 0,
       internal_notes: q.internal_notes ?? "",
+      payment_status: ((q as any).payment_status ?? "None") as any,
+      booking_probability: (q as any).booking_probability ?? 50,
+      lost_reason: (q as any).lost_reason ?? null,
     });
   }, [q]);
 
