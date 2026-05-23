@@ -70,7 +70,7 @@ function Analytics() {
           <KPI icon={Repeat} label="Repeat Guests" value={`${repeat} (${repeatPct}%)`} />
           <KPI icon={Users} label="Total Customers" value={customers.length} />
           <KPI icon={TrendingUp} label="Total Quotes" value={quotes.length} />
-          <KPI icon={TrendingUp} label="Converted" value={converted} />
+          <KPI icon={TrendingUp} label="Confirmed" value={converted} />
         </div>
 
         <div className="luxe-card rounded-xl p-5">
