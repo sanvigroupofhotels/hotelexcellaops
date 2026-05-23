@@ -1,33 +1,52 @@
 // Shared catalogs, types, and tariff policies for Hotel Excella.
 // All live data is in Supabase — nothing in this file is mocked.
 
-// ---------- Quote status ----------
+// ---------- Quote status (standardized) ----------
 export type QuoteStatus =
+  | "Draft"
   | "Pending"
   | "Sent"
+  | "Negotiation"
+  | "Confirmed"
+  | "Cancelled"
+  | "Completed"
+  | "Lost"
+  | "Expired"
+  // legacy values kept so old rows still render correctly
   | "Negotiating"
   | "Converted"
   | "No Response"
-  | "Lost"
   | "Failed";
 
 export const QUOTE_STATUSES: QuoteStatus[] = [
+  "Draft",
   "Pending",
   "Sent",
-  "Negotiating",
-  "Converted",
-  "No Response",
+  "Negotiation",
+  "Confirmed",
+  "Completed",
+  "Cancelled",
   "Lost",
-  "Failed",
+  "Expired",
 ];
 
+/** Statuses that represent a booked / revenue-generating quote. */
+export const BOOKED_STATUSES: QuoteStatus[] = ["Confirmed", "Completed", "Converted"];
+
 export const statusStyles: Record<QuoteStatus, string> = {
+  Draft: "bg-muted/60 text-muted-foreground border-border",
   Pending: "bg-warning/10 text-warning border-warning/30",
   Sent: "bg-info/10 text-info border-info/30",
+  Negotiation: "bg-gold/10 text-gold border-gold/30",
+  Confirmed: "bg-success/10 text-success border-success/30",
+  Cancelled: "bg-destructive/10 text-destructive border-destructive/40",
+  Completed: "bg-success/15 text-success border-success/40",
+  Lost: "bg-destructive/10 text-destructive border-destructive/40",
+  Expired: "bg-muted-foreground/10 text-muted-foreground border-border",
+  // legacy
   Negotiating: "bg-gold/10 text-gold border-gold/30",
   Converted: "bg-success/10 text-success border-success/30",
   "No Response": "bg-muted-foreground/10 text-muted-foreground border-border",
-  Lost: "bg-destructive/10 text-destructive border-destructive/40",
   Failed: "bg-destructive/10 text-destructive border-destructive/40",
 };
 
