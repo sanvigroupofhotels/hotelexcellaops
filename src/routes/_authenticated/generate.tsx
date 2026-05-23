@@ -99,14 +99,50 @@ function GenerateQuote() {
                     {["Direct","Website","WhatsApp","Referral","OTA"].map((o) => <option key={o}>{o}</option>)}
                   </select>
                 </Field>
-                <Field label="Group Size" icon={Users}>
-                  <select className={inputCls} value={form.group_size} onChange={(e) => update("group_size", e.target.value)}>
-                    {["1 Adult","2 Adults","2 Adults + 1 Child","Family of 4"].map((o) => <option key={o}>{o}</option>)}
-                  </select>
-                </Field>
                 <Field label="Special Requests">
                   <input className={inputCls} value={form.special_requests ?? ""} onChange={(e) => update("special_requests", e.target.value)} />
                 </Field>
+              </div>
+
+              {/* Group size — manual numeric inputs */}
+              <div className="mt-5 rounded-lg border border-border bg-secondary/30 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="h-4 w-4 text-gold" />
+                  <span className="text-sm font-medium">Group Size</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <NumField
+                    label="# of Guests"
+                    hint="Primary count"
+                    value={form.guests}
+                    min={1}
+                    onChange={(v) => {
+                      update("guests", v);
+                      update("group_size", `${v} Guest${v > 1 ? "s" : ""}`);
+                      if (form.adults > v) update("adults", v);
+                    }}
+                  />
+                  <NumField
+                    label="# of Adults"
+                    hint="Optional"
+                    value={form.adults}
+                    min={0}
+                    onChange={(v) => update("adults", v)}
+                  />
+                  <NumField
+                    label="# of Children"
+                    hint="Age below 8 years"
+                    value={form.children}
+                    min={0}
+                    onChange={(v) => update("children", v)}
+                  />
+                </div>
+                {form.adults > 0 && form.children >= 0 &&
+                  form.adults + form.children !== form.guests && (
+                    <p className="mt-2 text-[11px] text-warning">
+                      Adults ({form.adults}) + Children ({form.children}) ≠ Total Guests ({form.guests}).
+                    </p>
+                  )}
               </div>
             </Card>
 
