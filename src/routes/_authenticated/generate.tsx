@@ -49,7 +49,7 @@ function GenerateQuote() {
     lead_source: "Direct", group_size: "2 Adults", special_requests: "",
     check_in: today, check_out: tomorrow,
     room_type: roomTypes[0].name, rooms: 1, extra_bed: 0,
-    adults: 2, guests: 2, pet_size: "none",
+    adults: 2, guests: 2, children: 0, pet_size: "none",
     early_check_in: false, early_check_in_slot: null,
     late_check_out: false, late_check_out_slot: null,
     pet_charges: false, extra_adults: 0, drivers: 0,
@@ -99,14 +99,50 @@ function GenerateQuote() {
                     {["Direct","Website","WhatsApp","Referral","OTA"].map((o) => <option key={o}>{o}</option>)}
                   </select>
                 </Field>
-                <Field label="Group Size" icon={Users}>
-                  <select className={inputCls} value={form.group_size} onChange={(e) => update("group_size", e.target.value)}>
-                    {["1 Adult","2 Adults","2 Adults + 1 Child","Family of 4"].map((o) => <option key={o}>{o}</option>)}
-                  </select>
-                </Field>
                 <Field label="Special Requests">
                   <input className={inputCls} value={form.special_requests ?? ""} onChange={(e) => update("special_requests", e.target.value)} />
                 </Field>
+              </div>
+
+              {/* Group size — manual numeric inputs */}
+              <div className="mt-5 rounded-lg border border-border bg-secondary/30 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="h-4 w-4 text-gold" />
+                  <span className="text-sm font-medium">Group Size</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <NumField
+                    label="# of Guests"
+                    hint="Primary count"
+                    value={form.guests}
+                    min={1}
+                    onChange={(v) => {
+                      update("guests", v);
+                      update("group_size", `${v} Guest${v > 1 ? "s" : ""}`);
+                      if (form.adults > v) update("adults", v);
+                    }}
+                  />
+                  <NumField
+                    label="# of Adults"
+                    hint="Optional"
+                    value={form.adults}
+                    min={0}
+                    onChange={(v) => update("adults", v)}
+                  />
+                  <NumField
+                    label="# of Children"
+                    hint="Age below 8 years"
+                    value={form.children}
+                    min={0}
+                    onChange={(v) => update("children", v)}
+                  />
+                </div>
+                {form.adults > 0 && form.children >= 0 &&
+                  form.adults + form.children !== form.guests && (
+                    <p className="mt-2 text-[11px] text-warning">
+                      Adults ({form.adults}) + Children ({form.children}) ≠ Total Guests ({form.guests}).
+                    </p>
+                  )}
               </div>
             </Card>
 
@@ -254,5 +290,28 @@ function SummaryRow({ label, value, mute }: { label: string; value: number; mute
         {value === 0 ? "—" : `${value < 0 ? "-" : ""}₹${Math.abs(value).toLocaleString("en-IN")}`}
       </span>
     </div>
+  );
+}
+
+function NumField({
+  label, hint, value, min = 0, onChange,
+}: { label: string; hint?: string; value: number; min?: number; onChange: (v: number) => void }) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{label}</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        min={min}
+        value={Number.isFinite(value) ? value : 0}
+        onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          onChange(Number.isFinite(n) && n >= min ? n : min);
+        }}
+        className="w-full bg-input/60 border border-border rounded-md px-3 py-3 text-base sm:text-sm font-medium tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition"
+      />
+      {hint && <span className="block text-[10px] text-muted-foreground/70 mt-1">{hint}</span>}
+    </label>
   );
 }

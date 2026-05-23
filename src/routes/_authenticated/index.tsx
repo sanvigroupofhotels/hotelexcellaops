@@ -27,11 +27,13 @@ function Dashboard() {
   });
 
   const pending = quotes.filter((q) =>
-    ["Pending", "Sent", "Negotiating", "No Response"].includes(q.status),
+    ["Draft", "Pending", "Sent", "Negotiation", "Negotiating", "No Response"].includes(q.status),
   ).length;
-  const converted = quotes.filter((q) => q.status === "Converted").length;
+  const converted = quotes.filter((q) =>
+    ["Confirmed", "Completed", "Converted"].includes(q.status),
+  ).length;
   const estRevenue = quotes
-    .filter((q) => q.status !== "Failed")
+    .filter((q) => !["Failed", "Cancelled", "Lost", "Expired"].includes(q.status))
     .reduce((s, q) => s + Number(q.total), 0);
   const conversionRate = quotes.length
     ? Math.round((converted / quotes.length) * 100)
@@ -40,7 +42,7 @@ function Dashboard() {
   const stats = [
     { label: "Total Quotes", value: quotes.length, icon: FilePlus, accent: false },
     { label: "Pending", value: pending, icon: Clock, accent: false },
-    { label: "Converted", value: converted, icon: CheckCircle2, accent: false },
+    { label: "Confirmed", value: converted, icon: CheckCircle2, accent: false },
     {
       label: "Est. Revenue",
       value: `₹${(estRevenue / 1000).toFixed(1)}k`,

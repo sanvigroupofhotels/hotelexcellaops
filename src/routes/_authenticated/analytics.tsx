@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { listQuotes } from "@/lib/quotes-api";
 import { listCustomers } from "@/lib/customers-api";
+import { BOOKED_STATUSES } from "@/lib/mock-data";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { Loader2, TrendingUp, Users, IndianRupee, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,10 @@ export const Route = createFileRoute("/_authenticated/analytics")({
   component: Analytics,
 });
 
+const OPEN = ["Draft", "Pending", "Sent", "Negotiation", "Negotiating"];
+const LOST_SET = ["Lost", "Failed", "No Response", "Cancelled", "Expired"];
+const isBooked = (s: string) => (BOOKED_STATUSES as string[]).includes(s);
+
 function Analytics() {
   useRealtimeInvalidate(["quotes", "customers"], ["quotes", "customers"], "analytics");
   const { data: quotes = [], isLoading } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
@@ -18,16 +23,16 @@ function Analytics() {
 
   if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
-  const converted = quotes.filter((q) => q.status === "Converted").length;
+  const converted = quotes.filter((q) => isBooked(q.status)).length;
   const conversion = quotes.length ? Math.round((converted / quotes.length) * 100) : 0;
-  const revenue = quotes.filter((q) => q.status === "Converted").reduce((s, q) => s + Number(q.total), 0);
+  const revenue = quotes.filter((q) => isBooked(q.status)).reduce((s, q) => s + Number(q.total), 0);
   const aov = converted ? Math.round(revenue / converted) : 0;
   const repeat = customers.filter((c) => c.total_bookings > 1).length;
   const repeatPct = customers.length ? Math.round((repeat / customers.length) * 100) : 0;
 
   // Pipeline = sum of total * probability for open quotes
   const pipeline = quotes
-    .filter((q) => ["Pending", "Sent", "Negotiating"].includes(q.status))
+    .filter((q) => OPEN.includes(q.status))
     .reduce((s, q) => s + (Number(q.total) * (Number((q as any).booking_probability ?? 50) / 100)), 0);
 
   const sourceBreakdown: Record<string, { quotes: number; converted: number; revenue: number }> = {};
@@ -35,21 +40,21 @@ function Analytics() {
     const k = q.lead_source ?? "Direct";
     sourceBreakdown[k] ??= { quotes: 0, converted: 0, revenue: 0 };
     sourceBreakdown[k].quotes++;
-    if (q.status === "Converted") {
+    if (isBooked(q.status)) {
       sourceBreakdown[k].converted++;
       sourceBreakdown[k].revenue += Number(q.total);
     }
   }
   const roomBreakdown: Record<string, number> = {};
-  for (const q of quotes.filter((x) => x.status === "Converted")) {
+  for (const q of quotes.filter((x) => isBooked(x.status))) {
     roomBreakdown[q.room_type] = (roomBreakdown[q.room_type] ?? 0) + Number(q.total);
   }
   const funnel = [
-    { label: "Pending", count: quotes.filter((q) => q.status === "Pending").length },
+    { label: "Pending", count: quotes.filter((q) => ["Draft", "Pending"].includes(q.status)).length },
     { label: "Sent", count: quotes.filter((q) => q.status === "Sent").length },
-    { label: "Negotiating", count: quotes.filter((q) => q.status === "Negotiating").length },
-    { label: "Converted", count: converted },
-    { label: "Lost", count: quotes.filter((q) => ["Lost", "Failed", "No Response"].includes(q.status)).length },
+    { label: "Negotiation", count: quotes.filter((q) => ["Negotiation", "Negotiating"].includes(q.status)).length },
+    { label: "Confirmed", count: converted },
+    { label: "Lost", count: quotes.filter((q) => LOST_SET.includes(q.status)).length },
   ];
   const maxFunnel = Math.max(1, ...funnel.map((f) => f.count));
 
@@ -65,7 +70,7 @@ function Analytics() {
           <KPI icon={Repeat} label="Repeat Guests" value={`${repeat} (${repeatPct}%)`} />
           <KPI icon={Users} label="Total Customers" value={customers.length} />
           <KPI icon={TrendingUp} label="Total Quotes" value={quotes.length} />
-          <KPI icon={TrendingUp} label="Converted" value={converted} />
+          <KPI icon={TrendingUp} label="Confirmed" value={converted} />
         </div>
 
         <div className="luxe-card rounded-xl p-5">

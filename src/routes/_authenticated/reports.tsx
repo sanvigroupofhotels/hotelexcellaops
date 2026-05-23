@@ -14,9 +14,10 @@ function Reports() {
   const { data: quotes = [], isLoading } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
 
   const total = quotes.length;
-  const revenue = quotes.filter((q) => q.status === "Converted").reduce((s, q) => s + Number(q.total), 0);
+  const BOOKED = ["Confirmed", "Completed", "Converted"];
+  const revenue = quotes.filter((q) => BOOKED.includes(q.status)).reduce((s, q) => s + Number(q.total), 0);
   const avg = total ? Math.round(quotes.reduce((s, q) => s + Number(q.total), 0) / total) : 0;
-  const converted = quotes.filter((q) => q.status === "Converted").length;
+  const converted = quotes.filter((q) => BOOKED.includes(q.status)).length;
   const rate = total ? Math.round((converted / total) * 100) : 0;
 
   const byStatus = QUOTE_STATUSES.map((s) => ({
@@ -41,7 +42,7 @@ function Reports() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { label: "Total Quotes", value: total },
-                { label: "Converted", value: converted },
+                { label: "Confirmed", value: converted },
                 { label: "Conversion Rate", value: `${rate}%` },
                 { label: "Booked Revenue", value: `₹${(revenue / 1000).toFixed(1)}k`, accent: true },
               ].map((s, i) => (
