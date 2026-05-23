@@ -135,6 +135,65 @@ export function PolicyFields({
   );
 }
 
+interface SlotOpt { value: string; label: string; fee: number | null }
+function SlotPicker({
+  icon, title, subtitle, options, active, selectedValue, onSelect,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  options: SlotOpt[];
+  active: boolean;
+  selectedValue: string | null | undefined;
+  onSelect: (val: string | null) => void;
+}) {
+  return (
+    <div className="rounded-md bg-secondary/40 border border-border p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          {icon && <span className="text-base">{icon}</span>}
+          <div>
+            <div className="text-sm font-medium">{title}</div>
+            {subtitle && <div className="text-[10px] text-muted-foreground">{subtitle}</div>}
+          </div>
+        </div>
+        {active && (
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-gold transition"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {options.map((o) => {
+          const selected = active && selectedValue === o.value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => onSelect(selected ? null : o.value)}
+              className={cn(
+                "rounded-md border px-2.5 py-2.5 text-left transition",
+                selected
+                  ? "border-gold/60 bg-gold-soft text-gold shadow-[0_0_12px_oklch(0.82_0.13_82/0.25)]"
+                  : "border-border bg-input/40 text-muted-foreground hover:text-foreground hover:border-gold/30",
+              )}
+            >
+              <div className="text-xs font-medium leading-tight">{o.label}</div>
+              <div className="text-[10px] mt-1 opacity-80">
+                {o.fee === null ? "Full day charge" : `₹${o.fee}`}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ToggleRow({
   label, checked, onChange, icon,
 }: { label: string; checked: boolean; onChange: (v: boolean) => void; icon?: React.ReactNode }) {
