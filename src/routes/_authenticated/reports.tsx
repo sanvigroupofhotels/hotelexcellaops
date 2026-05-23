@@ -14,9 +14,10 @@ function Reports() {
   const { data: quotes = [], isLoading } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
 
   const total = quotes.length;
-  const revenue = quotes.filter((q) => q.status === "Converted").reduce((s, q) => s + Number(q.total), 0);
+  const BOOKED = ["Confirmed", "Completed", "Converted"];
+  const revenue = quotes.filter((q) => BOOKED.includes(q.status)).reduce((s, q) => s + Number(q.total), 0);
   const avg = total ? Math.round(quotes.reduce((s, q) => s + Number(q.total), 0) / total) : 0;
-  const converted = quotes.filter((q) => q.status === "Converted").length;
+  const converted = quotes.filter((q) => BOOKED.includes(q.status)).length;
   const rate = total ? Math.round((converted / total) * 100) : 0;
 
   const byStatus = QUOTE_STATUSES.map((s) => ({
