@@ -226,6 +226,7 @@ export type Database = {
           breakfast_included: boolean
           check_in: string
           check_out: string
+          children: number
           created_at: string
           customer_id: string | null
           discount: number
@@ -268,6 +269,7 @@ export type Database = {
           breakfast_included?: boolean
           check_in: string
           check_out: string
+          children?: number
           created_at?: string
           customer_id?: string | null
           discount?: number
@@ -310,6 +312,7 @@ export type Database = {
           breakfast_included?: boolean
           check_in?: string
           check_out?: string
+          children?: number
           created_at?: string
           customer_id?: string | null
           discount?: number
@@ -450,6 +453,12 @@ export type Database = {
         | "No Response"
         | "Failed"
         | "Lost"
+        | "Draft"
+        | "Negotiation"
+        | "Confirmed"
+        | "Cancelled"
+        | "Completed"
+        | "Expired"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -598,6 +607,12 @@ export const Constants = {
         "No Response",
         "Failed",
         "Lost",
+        "Draft",
+        "Negotiation",
+        "Confirmed",
+        "Cancelled",
+        "Completed",
+        "Expired",
       ],
     },
   },
