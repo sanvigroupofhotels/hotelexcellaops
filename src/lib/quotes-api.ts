@@ -34,6 +34,7 @@ export interface QuoteInput {
   // Counts
   adults: number;
   guests: number;
+  children: number;
   // Policy fields
   early_check_in: boolean;
   early_check_in_slot?: EarlyCheckInSlot | null;
