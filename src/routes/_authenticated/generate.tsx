@@ -292,3 +292,26 @@ function SummaryRow({ label, value, mute }: { label: string; value: number; mute
     </div>
   );
 }
+
+function NumField({
+  label, hint, value, min = 0, onChange,
+}: { label: string; hint?: string; value: number; min?: number; onChange: (v: number) => void }) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{label}</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        min={min}
+        value={Number.isFinite(value) ? value : 0}
+        onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          onChange(Number.isFinite(n) && n >= min ? n : min);
+        }}
+        className="w-full bg-input/60 border border-border rounded-md px-3 py-3 text-base sm:text-sm font-medium tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition"
+      />
+      {hint && <span className="block text-[10px] text-muted-foreground/70 mt-1">{hint}</span>}
+    </label>
+  );
+}
