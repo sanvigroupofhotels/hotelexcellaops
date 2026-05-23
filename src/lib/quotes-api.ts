@@ -239,12 +239,13 @@ export async function updateQuote(id: string, input: QuoteInput) {
 
 export async function setStatus(id: string, status: QuoteStatus, lostReason?: string) {
   const patch: any = { status };
-  if (status === "Lost" && lostReason) patch.lost_reason = lostReason;
+  if ((status === "Lost" || status === "Cancelled") && lostReason) patch.lost_reason = lostReason;
   const { error } = await supabase.from("quotes").update(patch).eq("id", id);
   if (error) throw error;
+  const booked = ["Confirmed", "Completed", "Converted"].includes(status);
   await logActivity(
     id,
-    status === "Converted" ? "converted" : "status_changed",
+    booked ? "converted" : "status_changed",
     `Status changed to ${status}${lostReason ? ` (${lostReason})` : ""}`,
   );
 }
