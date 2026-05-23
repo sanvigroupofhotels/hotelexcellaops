@@ -42,7 +42,7 @@ function Reports() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { label: "Total Quotes", value: total },
-                { label: "Converted", value: converted },
+                { label: "Confirmed", value: converted },
                 { label: "Conversion Rate", value: `${rate}%` },
                 { label: "Booked Revenue", value: `₹${(revenue / 1000).toFixed(1)}k`, accent: true },
               ].map((s, i) => (
