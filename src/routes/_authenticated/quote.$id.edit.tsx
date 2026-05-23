@@ -64,7 +64,7 @@ function EditQuote() {
       special_requests: q.special_requests ?? "",
       check_in: q.check_in, check_out: q.check_out,
       room_type: q.room_type, rooms: q.rooms, extra_bed: q.extra_bed,
-      adults: (q as any).adults ?? 2, guests: (q as any).guests ?? 2,
+      adults: (q as any).adults ?? 2, guests: (q as any).guests ?? 2, children: (q as any).children ?? 0,
       pet_size: ((q as any).pet_size ?? "none") as any,
       early_check_in: q.early_check_in,
       early_check_in_slot: q.early_check_in_slot ?? null,
