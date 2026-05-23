@@ -25,62 +25,44 @@ export function PolicyFields({
   update: <K extends keyof QuoteInput>(k: K, v: QuoteInput[K]) => void;
 }) {
   return (
-    <div className="space-y-3">
-      <ToggleRow
+    <div className="space-y-4">
+      {/* Early Check-in — card UX */}
+      <SlotPicker
         icon="🌅"
-        label="Early Check-in (Standard 1 PM)"
-        checked={form.early_check_in}
-        onChange={(v) => {
-          update("early_check_in", v);
-          if (!v) update("early_check_in_slot", null);
-          else if (!form.early_check_in_slot)
-            update("early_check_in_slot", "10-13" as EarlyCheckInSlot);
+        title="Early Check-in"
+        subtitle="Standard 1:00 PM · Subject to availability"
+        options={EARLY_CHECK_IN_SLOTS.map((s) => ({ value: s.value, label: s.label, fee: s.fee }))}
+        active={form.early_check_in}
+        selectedValue={form.early_check_in_slot}
+        onSelect={(val) => {
+          if (val === null) {
+            update("early_check_in", false);
+            update("early_check_in_slot", null);
+          } else {
+            update("early_check_in", true);
+            update("early_check_in_slot", val as EarlyCheckInSlot);
+          }
         }}
       />
-      {form.early_check_in && (
-        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="pl-2">
-          <select
-            className={inputCls}
-            value={form.early_check_in_slot ?? ""}
-            onChange={(e) => update("early_check_in_slot", e.target.value as EarlyCheckInSlot)}
-          >
-            {EARLY_CHECK_IN_SLOTS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label} — {s.fee === null ? "Full day room charge" : `₹${s.fee}`}
-              </option>
-            ))}
-          </select>
-          <p className="text-[10px] text-muted-foreground mt-1">Subject to availability.</p>
-        </motion.div>
-      )}
 
-      <ToggleRow
+      {/* Late Check-out — card UX */}
+      <SlotPicker
         icon="🌙"
-        label="Late Check-out (Standard 11 AM)"
-        checked={form.late_check_out}
-        onChange={(v) => {
-          update("late_check_out", v);
-          if (!v) update("late_check_out_slot", null);
-          else if (!form.late_check_out_slot)
-            update("late_check_out_slot", "upto-2pm" as LateCheckOutSlot);
+        title="Late Check-out"
+        subtitle="Standard 11:00 AM · Subject to availability"
+        options={LATE_CHECK_OUT_SLOTS.map((s) => ({ value: s.value, label: s.label, fee: s.fee }))}
+        active={form.late_check_out}
+        selectedValue={form.late_check_out_slot}
+        onSelect={(val) => {
+          if (val === null) {
+            update("late_check_out", false);
+            update("late_check_out_slot", null);
+          } else {
+            update("late_check_out", true);
+            update("late_check_out_slot", val as LateCheckOutSlot);
+          }
         }}
       />
-      {form.late_check_out && (
-        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="pl-2">
-          <select
-            className={inputCls}
-            value={form.late_check_out_slot ?? ""}
-            onChange={(e) => update("late_check_out_slot", e.target.value as LateCheckOutSlot)}
-          >
-            {LATE_CHECK_OUT_SLOTS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label} — {s.fee === null ? "Full day room charge" : `₹${s.fee}`}
-              </option>
-            ))}
-          </select>
-          <p className="text-[10px] text-muted-foreground mt-1">Subject to availability.</p>
-        </motion.div>
-      )}
 
       {/* Pet size selector (replaces simple pet toggle) */}
       <div className="rounded-md bg-secondary/40 border border-border p-3">
