@@ -40,7 +40,7 @@ const empty: QuoteInput = {
   check_in: new Date().toISOString().slice(0, 10),
   check_out: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
   room_type: roomTypes[0].name, rooms: 1, extra_bed: 0,
-  adults: 2, guests: 2, pet_size: "none",
+  adults: 2, guests: 2, children: 0, pet_size: "none",
   early_check_in: false, early_check_in_slot: null,
   late_check_out: false, late_check_out_slot: null,
   pet_charges: false, extra_adults: 0, drivers: 0,
