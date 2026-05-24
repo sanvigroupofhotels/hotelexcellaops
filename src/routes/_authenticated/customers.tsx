@@ -38,14 +38,19 @@ function CustomersPage() {
   ), [customers, q, status, source]);
 
   const exportCSV = () => {
-    downloadCSV(`customers-${new Date().toISOString().slice(0,10)}.csv`,
-      filtered.map((c) => ({
-        Reference: c.customer_reference, Name: c.guest_name, Phone: c.phone ?? "",
-        Email: c.email ?? "", City: c.city ?? "", Status: c.status, Tags: (c.tags ?? []).join("|"),
-        "Lead Source": c.lead_source ?? "", Quotes: c.total_quotes, Bookings: c.total_bookings,
-        Revenue: c.total_revenue, "Last Stay": c.last_stay_date ?? "", "Booking %": c.booking_probability,
-        "Payment Status": c.payment_status ?? "", "Next Action": c.next_action ?? "",
-      })));
+    try {
+      downloadCSV(`customers-${new Date().toISOString().slice(0,10)}.csv`,
+        filtered.map((c) => ({
+          Reference: c.customer_reference, Name: c.guest_name, Phone: c.phone ?? "",
+          Email: c.email ?? "", City: c.city ?? "", Status: c.status, Tags: (c.tags ?? []).join("|"),
+          "Lead Source": c.lead_source ?? "", Quotes: c.total_quotes, Bookings: c.total_bookings,
+          Revenue: c.total_revenue, "Last Stay": c.last_stay_date ?? "", "Booking %": c.booking_probability,
+          "Payment Status": c.payment_status ?? "", "Next Action": c.next_action ?? "",
+        })));
+      toast.success(`Exported ${filtered.length} customer${filtered.length === 1 ? "" : "s"}`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "CSV export failed");
+    }
   };
 
   return (

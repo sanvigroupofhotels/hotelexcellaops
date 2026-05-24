@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
@@ -7,13 +7,12 @@ import { StatusPill } from "@/components/status-pill";
 import { QUOTE_STATUSES, earlyCheckInLabel, lateCheckOutLabel, type QuoteStatus } from "@/lib/mock-data";
 import {
   getQuote, listActivities, setStatus, deleteQuote, duplicateQuote,
-  addFollowup, buildWhatsAppLink, logWhatsApp, logPdf, calc,
+  addFollowup, buildWhatsAppLink, logWhatsApp, calc,
 } from "@/lib/quotes-api";
-import { shareQuoteImage, downloadQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
-  ArrowLeft, Download, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
-  Wifi, Coffee, Heart, Headphones, Star, Clock, ImageDown, Pencil, CheckCircle2, Printer,
+  ArrowLeft, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
+  Wifi, Coffee, Heart, Headphones, Star, Clock, Pencil, CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -26,7 +25,6 @@ function QuoteDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const cardRef = useRef<HTMLDivElement>(null);
 
   useRealtimeInvalidate(["quotes", "quote_activities"], [["quote", id], ["activities", id], "quotes"], `quote-${id}`);
 
@@ -92,9 +90,15 @@ function QuoteDetail() {
       </div>
     );
 
-  const onPrint = () => {
-    logPdf(id);
-    window.print();
+  const copyQuoteText = async () => {
+    try {
+      const link = buildWhatsAppLink(q);
+      const text = decodeURIComponent(link.split("?text=")[1] ?? "");
+      await navigator.clipboard.writeText(text);
+      toast.success("Quote text copied");
+    } catch {
+      toast.error("Could not copy");
+    }
   };
 
   return (
@@ -106,30 +110,17 @@ function QuoteDetail() {
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => cardRef.current && shareQuoteImage(cardRef.current, q)}
-              className="inline-flex items-center gap-2 rounded-md bg-success/15 border border-success/40 text-success px-4 py-2.5 text-sm hover:bg-success/20"
-            >
-              <MessageCircle className="h-4 w-4" /> Send via WhatsApp
-            </button>
-            <button
-              onClick={() => cardRef.current && downloadQuoteImage(cardRef.current, q)}
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
-            >
-              <ImageDown className="h-4 w-4 text-gold" /> Save Image
-            </button>
             <a
               href={buildWhatsAppLink(q)}
               target="_blank"
               rel="noreferrer"
               onClick={() => logWhatsApp(id)}
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
-              title="Send text-only WhatsApp"
+              className="inline-flex items-center gap-2 rounded-md bg-success/15 border border-success/40 text-success px-4 py-2.5 text-sm hover:bg-success/20"
             >
-              <MessageCircle className="h-4 w-4 text-gold" /> Text
+              <MessageCircle className="h-4 w-4" /> Send via WhatsApp
             </a>
-            <button onClick={onPrint} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
-              <Printer className="h-4 w-4 text-gold" /> Print / PDF
+            <button onClick={copyQuoteText} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <Copy className="h-4 w-4 text-gold" /> Copy Quote
             </button>
             <Link
               to="/quote/$id/edit"
@@ -160,7 +151,7 @@ function QuoteDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:block">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <div ref={cardRef}>
+            <div>
               <QuoteCard q={q} />
             </div>
           </motion.div>
