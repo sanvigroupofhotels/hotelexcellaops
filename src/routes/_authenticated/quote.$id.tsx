@@ -25,7 +25,6 @@ function QuoteDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const cardRef = useRef<HTMLDivElement>(null);
 
   useRealtimeInvalidate(["quotes", "quote_activities"], [["quote", id], ["activities", id], "quotes"], `quote-${id}`);
 
@@ -91,9 +90,15 @@ function QuoteDetail() {
       </div>
     );
 
-  const onPrint = () => {
-    logPdf(id);
-    window.print();
+  const copyQuoteText = async () => {
+    try {
+      const link = buildWhatsAppLink(q);
+      const text = decodeURIComponent(link.split("?text=")[1] ?? "");
+      await navigator.clipboard.writeText(text);
+      toast.success("Quote text copied");
+    } catch {
+      toast.error("Could not copy");
+    }
   };
 
   return (
