@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
@@ -7,12 +7,13 @@ import { StatusPill } from "@/components/status-pill";
 import { QUOTE_STATUSES, earlyCheckInLabel, lateCheckOutLabel, type QuoteStatus } from "@/lib/mock-data";
 import {
   getQuote, listActivities, setStatus, deleteQuote, duplicateQuote,
-  addFollowup, buildWhatsAppLink, logWhatsApp, calc,
+  addFollowup, buildWhatsAppLink, logWhatsApp, logPdf, calc,
 } from "@/lib/quotes-api";
+import { downloadQuoteImage, shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
   ArrowLeft, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
-  Wifi, Coffee, Heart, Headphones, Star, Clock, Pencil, CheckCircle2,
+  Wifi, Coffee, Heart, Headphones, Star, Clock, Pencil, CheckCircle2, Image as ImageIcon, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
