@@ -172,6 +172,16 @@ function History() {
                 <StatusPill status={q.status} />
               </div>
               <div className="md:col-span-1 flex items-center justify-end gap-1">
+                <a
+                  href={buildWhatsAppLink(q)}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => { e.stopPropagation(); logWhatsApp(q.id); }}
+                  className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition"
+                  title="WhatsApp"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                </a>
                 <button
                   onClick={() => dup.mutate(q.id)}
                   className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition"
