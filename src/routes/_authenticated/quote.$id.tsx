@@ -120,10 +120,22 @@ function QuoteDetail() {
               onClick={() => logWhatsApp(id)}
               className="inline-flex items-center gap-2 rounded-md bg-success/15 border border-success/40 text-success px-4 py-2.5 text-sm hover:bg-success/20"
             >
-              <MessageCircle className="h-4 w-4" /> Send via WhatsApp
+              <MessageCircle className="h-4 w-4" /> WhatsApp
             </a>
+            <button
+              onClick={() => cardRef.current && shareQuoteImage(cardRef.current, q)}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
+            >
+              <ImageIcon className="h-4 w-4 text-gold" /> Save Image
+            </button>
+            <button
+              onClick={() => { logPdf(id); window.print(); }}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
+            >
+              <Printer className="h-4 w-4 text-gold" /> Print / PDF
+            </button>
             <button onClick={copyQuoteText} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
-              <Copy className="h-4 w-4 text-gold" /> Copy Quote
+              <Copy className="h-4 w-4 text-gold" /> Copy
             </button>
             <Link
               to="/quote/$id/edit"
@@ -154,7 +166,7 @@ function QuoteDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:block">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <div>
+            <div ref={cardRef}>
               <QuoteCard q={q} />
             </div>
           </motion.div>
