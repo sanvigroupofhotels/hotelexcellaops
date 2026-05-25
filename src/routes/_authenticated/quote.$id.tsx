@@ -60,6 +60,8 @@ function QuoteDetail() {
     },
   });
 
+  const cardRef = useRef<HTMLDivElement>(null);
+
   const [followDate, setFollowDate] = useState(() => {
     const d = new Date(Date.now() + 86400000);
     return d.toISOString().slice(0, 16);
