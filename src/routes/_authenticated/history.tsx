@@ -5,9 +5,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { StatusPill } from "@/components/status-pill";
 import { QUOTE_STATUSES, type QuoteStatus } from "@/lib/mock-data";
-import { listQuotes, deleteQuote, duplicateQuote } from "@/lib/quotes-api";
+import { listQuotes, deleteQuote, duplicateQuote, buildWhatsAppLink, logWhatsApp } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
-import { Search, Loader2, Copy, Trash2, ChevronRight } from "lucide-react";
+import { downloadCSV } from "@/lib/csv";
+import { Search, Loader2, Copy, Trash2, ChevronRight, Download, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -55,18 +56,49 @@ function History() {
         q.phone.includes(query)),
   );
 
+  const exportCSV = () => {
+    try {
+      downloadCSV(`quotes-${new Date().toISOString().slice(0, 10)}.csv`,
+        filtered.map((q) => ({
+          "Quote ID": q.reference_code,
+          Guest: q.guest_name,
+          Phone: q.phone,
+          Email: q.email ?? "",
+          "Check-in": q.check_in,
+          "Check-out": q.check_out,
+          Nights: q.nights,
+          "Room Type": q.room_type,
+          Rooms: q.rooms,
+          Subtotal: Number(q.subtotal),
+          Taxes: Number(q.taxes),
+          Total: Number(q.total),
+          Status: q.status,
+          "Lead Source": q.lead_source ?? "",
+          Created: new Date(q.created_at).toISOString(),
+        })));
+      toast.success(`Exported ${filtered.length} quote${filtered.length === 1 ? "" : "s"}`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "CSV export failed");
+    }
+  };
+
   return (
     <>
       <Topbar title="Quotes History" subtitle="Every proposal, every interaction" />
       <div className="px-4 md:px-8 py-6 md:py-8 space-y-5 max-w-[1400px]">
-        <div className="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-md bg-card border border-border">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <input
-            placeholder="Search by guest, phone, quote ID"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
-          />
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-md bg-card border border-border">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <input
+              placeholder="Search by guest, phone, quote ID"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
+            />
+          </div>
+          <button onClick={exportCSV} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+            <Download className="h-4 w-4 text-gold" /> Export CSV
+          </button>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -140,6 +172,16 @@ function History() {
                 <StatusPill status={q.status} />
               </div>
               <div className="md:col-span-1 flex items-center justify-end gap-1">
+                <a
+                  href={buildWhatsAppLink(q)}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => { e.stopPropagation(); logWhatsApp(q.id); }}
+                  className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition"
+                  title="WhatsApp"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                </a>
                 <button
                   onClick={() => dup.mutate(q.id)}
                   className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition"

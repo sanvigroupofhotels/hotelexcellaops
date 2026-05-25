@@ -7,7 +7,7 @@ import { listCustomers, deleteCustomer } from "@/lib/customers-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
 import { CUSTOMER_STATUSES, customerStatusStyles, LEAD_SOURCES } from "@/lib/mock-data";
-import { Search, Loader2, Download, Trash2, ChevronRight, Star } from "lucide-react";
+import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -120,6 +120,28 @@ function CustomersPage() {
               </div>
               <div className="md:col-span-1 text-right text-xs text-gold">{c.booking_probability}%</div>
               <div className="md:col-span-1 flex items-center justify-end gap-1">
+                {c.phone && (
+                  <>
+                    <a
+                      href={`tel:${c.phone.replace(/\s+/g, "")}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition"
+                      title="Call"
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                    </a>
+                    <a
+                      href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition"
+                      title="WhatsApp"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                    </a>
+                  </>
+                )}
                 <button onClick={() => { if (confirm(`Remove ${c.guest_name}?`)) del.mutate(c.id); }}
                   className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10">
                   <Trash2 className="h-3.5 w-3.5" />

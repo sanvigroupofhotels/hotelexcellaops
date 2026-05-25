@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
@@ -7,12 +7,13 @@ import { StatusPill } from "@/components/status-pill";
 import { QUOTE_STATUSES, earlyCheckInLabel, lateCheckOutLabel, type QuoteStatus } from "@/lib/mock-data";
 import {
   getQuote, listActivities, setStatus, deleteQuote, duplicateQuote,
-  addFollowup, buildWhatsAppLink, logWhatsApp, calc,
+  addFollowup, buildWhatsAppLink, logWhatsApp, logPdf, calc,
 } from "@/lib/quotes-api";
+import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
   ArrowLeft, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
-  Wifi, Coffee, Heart, Headphones, Star, Clock, Pencil, CheckCircle2,
+  Wifi, Coffee, Heart, Headphones, Star, Clock, Pencil, CheckCircle2, Image as ImageIcon, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,8 @@ function QuoteDetail() {
       navigate({ to: "/history" });
     },
   });
+
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const [followDate, setFollowDate] = useState(() => {
     const d = new Date(Date.now() + 86400000);
@@ -117,10 +120,22 @@ function QuoteDetail() {
               onClick={() => logWhatsApp(id)}
               className="inline-flex items-center gap-2 rounded-md bg-success/15 border border-success/40 text-success px-4 py-2.5 text-sm hover:bg-success/20"
             >
-              <MessageCircle className="h-4 w-4" /> Send via WhatsApp
+              <MessageCircle className="h-4 w-4" /> WhatsApp
             </a>
+            <button
+              onClick={() => cardRef.current && shareQuoteImage(cardRef.current, q)}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
+            >
+              <ImageIcon className="h-4 w-4 text-gold" /> Save Image
+            </button>
+            <button
+              onClick={() => { logPdf(id); window.print(); }}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
+            >
+              <Printer className="h-4 w-4 text-gold" /> Print / PDF
+            </button>
             <button onClick={copyQuoteText} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
-              <Copy className="h-4 w-4 text-gold" /> Copy Quote
+              <Copy className="h-4 w-4 text-gold" /> Copy
             </button>
             <Link
               to="/quote/$id/edit"
@@ -151,7 +166,7 @@ function QuoteDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:block">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <div>
+            <div ref={cardRef}>
               <QuoteCard q={q} />
             </div>
           </motion.div>
