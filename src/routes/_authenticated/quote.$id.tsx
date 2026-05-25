@@ -9,7 +9,7 @@ import {
   getQuote, listActivities, setStatus, deleteQuote, duplicateQuote,
   addFollowup, buildWhatsAppLink, logWhatsApp, logPdf, calc,
 } from "@/lib/quotes-api";
-import { downloadQuoteImage, shareQuoteImage } from "@/lib/share-quote";
+import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
   ArrowLeft, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
