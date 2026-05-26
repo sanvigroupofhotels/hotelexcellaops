@@ -45,6 +45,7 @@ function Field({ label, icon: Icon, children, required }: any) {
 
 function GenerateQuote() {
   const navigate = useNavigate();
+  const { customerId } = Route.useSearch();
   const today = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
@@ -64,15 +65,35 @@ function GenerateQuote() {
   const update = <K extends keyof QuoteInput>(k: K, v: QuoteInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  // Prefill from customer when ?customerId=… is present (repeat-guest workflow).
+  const { data: prefill } = useQuery({
+    queryKey: ["customer-prefill", customerId],
+    queryFn: () => getCustomer(customerId!),
+    enabled: !!customerId,
+    staleTime: 60_000,
+  });
+  useEffect(() => {
+    if (!prefill) return;
+    setForm((f) => ({
+      ...f,
+      guest_name: prefill.guest_name ?? f.guest_name,
+      phone: prefill.phone ?? f.phone,
+      email: prefill.email ?? f.email,
+      lead_source: prefill.lead_source ?? f.lead_source,
+      room_type: prefill.preferred_room ?? f.room_type,
+    }));
+    toast.success(`Prefilled for ${prefill.guest_name}`);
+  }, [prefill]);
+
   const c = useMemo(() => calc(form), [form]);
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: (asDraft?: boolean) => {
       if (!form.guest_name.trim()) throw new Error("Guest name is required");
       if (!form.phone.trim()) throw new Error("Phone is required");
       if (new Date(form.check_out) <= new Date(form.check_in))
         throw new Error("Check-out must be after check-in");
-      return createQuote(form);
+      return createQuote(form, asDraft ? "Draft" : undefined);
     },
     onSuccess: (q) => {
       toast.success(`Quote ${q.reference_code} created`);
