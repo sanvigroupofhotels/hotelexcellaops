@@ -7,7 +7,7 @@ import { listCustomers, deleteCustomer } from "@/lib/customers-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
 import { CUSTOMER_STATUSES, customerStatusStyles, LEAD_SOURCES } from "@/lib/mock-data";
-import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle } from "lucide-react";
+import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, FilePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -41,11 +41,23 @@ function CustomersPage() {
     try {
       downloadCSV(`customers-${new Date().toISOString().slice(0,10)}.csv`,
         filtered.map((c) => ({
-          Reference: c.customer_reference, Name: c.guest_name, Phone: c.phone ?? "",
-          Email: c.email ?? "", City: c.city ?? "", Status: c.status, Tags: (c.tags ?? []).join("|"),
-          "Lead Source": c.lead_source ?? "", Quotes: c.total_quotes, Bookings: c.total_bookings,
-          Revenue: c.total_revenue, "Last Stay": c.last_stay_date ?? "", "Booking %": c.booking_probability,
-          "Payment Status": c.payment_status ?? "", "Next Action": c.next_action ?? "",
+          Reference: c.customer_reference,
+          Name: c.guest_name,
+          Phone: c.phone ?? "",
+          Email: c.email ?? "",
+          City: c.city ?? "",
+          Status: c.status,
+          Tags: (c.tags ?? []).join("|"),
+          "Lead Source": c.lead_source ?? "",
+          Quotes: c.total_quotes,
+          Bookings: c.total_bookings,
+          Revenue: c.total_revenue,
+          "Created": c.created_at ? new Date(c.created_at).toISOString().slice(0,10) : "",
+          "Last Interaction": c.updated_at ? new Date(c.updated_at).toISOString().slice(0,10) : "",
+          "Last Stay": c.last_stay_date ?? "",
+          "Booking %": c.booking_probability,
+          "Payment Status": c.payment_status ?? "",
+          "Next Action": c.next_action ?? "",
         })));
       toast.success(`Exported ${filtered.length} customer${filtered.length === 1 ? "" : "s"}`);
     } catch (e: any) {
@@ -142,6 +154,15 @@ function CustomersPage() {
                     </a>
                   </>
                 )}
+                <Link
+                  to="/generate"
+                  search={{ customerId: c.id }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition"
+                  title="Create quote for this guest"
+                >
+                  <FilePlus className="h-3.5 w-3.5" />
+                </Link>
                 <button onClick={() => { if (confirm(`Remove ${c.guest_name}?`)) del.mutate(c.id); }}
                   className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10">
                   <Trash2 className="h-3.5 w-3.5" />

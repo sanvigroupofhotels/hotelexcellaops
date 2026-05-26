@@ -10,6 +10,7 @@ export type QuoteStatus =
   | "Confirmed"
   | "Cancelled"
   | "Completed"
+  | "Checked In"
   | "Lost"
   | "Expired"
   // legacy values kept so old rows still render correctly
@@ -24,6 +25,7 @@ export const QUOTE_STATUSES: QuoteStatus[] = [
   "Sent",
   "Negotiation",
   "Confirmed",
+  "Checked In",
   "Completed",
   "Cancelled",
   "Lost",
@@ -31,7 +33,7 @@ export const QUOTE_STATUSES: QuoteStatus[] = [
 ];
 
 /** Statuses that represent a booked / revenue-generating quote. */
-export const BOOKED_STATUSES: QuoteStatus[] = ["Confirmed", "Completed", "Converted"];
+export const BOOKED_STATUSES: QuoteStatus[] = ["Confirmed", "Checked In", "Completed", "Converted"];
 
 export const statusStyles: Record<QuoteStatus, string> = {
   Draft: "bg-muted/60 text-muted-foreground border-border",
@@ -39,6 +41,7 @@ export const statusStyles: Record<QuoteStatus, string> = {
   Sent: "bg-info/10 text-info border-info/30",
   Negotiation: "bg-gold/10 text-gold border-gold/30",
   Confirmed: "bg-success/10 text-success border-success/30",
+  "Checked In": "bg-success/15 text-success border-success/40",
   Cancelled: "bg-destructive/10 text-destructive border-destructive/40",
   Completed: "bg-success/15 text-success border-success/40",
   Lost: "bg-destructive/10 text-destructive border-destructive/40",

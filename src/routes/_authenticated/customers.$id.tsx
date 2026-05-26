@@ -11,6 +11,7 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { StatusPill } from "@/components/status-pill";
 import {
   ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Calendar, Star, TrendingUp,
+  FilePlus, MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -74,8 +75,28 @@ function CustomerDetail() {
                     {c.company_name && <div className="flex items-center gap-2"><Briefcase className="h-3.5 w-3.5" />{c.company_name}{c.gst_number ? ` · GST ${c.gst_number}` : ""}</div>}
                   </div>
                 </div>
-                <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs",
-                  customerStatusStyles[c.status] ?? "bg-muted text-muted-foreground border-border")}>{c.status}</span>
+                <div className="flex flex-col items-end gap-2">
+                  <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs",
+                    customerStatusStyles[c.status] ?? "bg-muted text-muted-foreground border-border")}>{c.status}</span>
+                  <div className="flex items-center gap-2">
+                    {c.phone && (
+                      <>
+                        <a href={`tel:${c.phone.replace(/\s+/g, "")}`}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-gold/40">
+                          <Phone className="h-3 w-3" /> Call
+                        </a>
+                        <a href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-success hover:border-success/40">
+                          <MessageCircle className="h-3 w-3" /> WhatsApp
+                        </a>
+                      </>
+                    )}
+                    <Link to="/generate" search={{ customerId: c.id }}
+                      className="inline-flex items-center gap-1.5 rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal hover:shadow-[0_0_18px_oklch(0.82_0.13_82/0.35)]">
+                      <FilePlus className="h-3 w-3" /> Create Quote
+                    </Link>
+                  </div>
+                </div>
               </div>
             </div>
 

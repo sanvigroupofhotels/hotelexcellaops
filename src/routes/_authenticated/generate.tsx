@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import {
   roomTypes,
@@ -12,14 +12,18 @@ import {
   EXTRA_BREAKFAST_RATE,
 } from "@/lib/mock-data";
 import { createQuote, calc, type QuoteInput } from "@/lib/quotes-api";
+import { getCustomer } from "@/lib/customers-api";
 import { PolicyFields, SummaryExtras } from "@/components/policy-fields";
 import {
-  User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2,
+  User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2, Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/generate")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    customerId: typeof search.customerId === "string" ? search.customerId : undefined,
+  }),
   component: GenerateQuote,
 });
 
@@ -41,6 +45,7 @@ function Field({ label, icon: Icon, children, required }: any) {
 
 function GenerateQuote() {
   const navigate = useNavigate();
+  const { customerId } = Route.useSearch();
   const today = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
@@ -60,15 +65,35 @@ function GenerateQuote() {
   const update = <K extends keyof QuoteInput>(k: K, v: QuoteInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  // Prefill from customer when ?customerId=… is present (repeat-guest workflow).
+  const { data: prefill } = useQuery({
+    queryKey: ["customer-prefill", customerId],
+    queryFn: () => getCustomer(customerId!),
+    enabled: !!customerId,
+    staleTime: 60_000,
+  });
+  useEffect(() => {
+    if (!prefill) return;
+    setForm((f) => ({
+      ...f,
+      guest_name: prefill.guest_name ?? f.guest_name,
+      phone: prefill.phone ?? f.phone,
+      email: prefill.email ?? f.email,
+      lead_source: prefill.lead_source ?? f.lead_source,
+      room_type: prefill.preferred_room ?? f.room_type,
+    }));
+    toast.success(`Prefilled for ${prefill.guest_name}`);
+  }, [prefill]);
+
   const c = useMemo(() => calc(form), [form]);
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: (asDraft?: boolean) => {
       if (!form.guest_name.trim()) throw new Error("Guest name is required");
       if (!form.phone.trim()) throw new Error("Phone is required");
       if (new Date(form.check_out) <= new Date(form.check_in))
         throw new Error("Check-out must be after check-in");
-      return createQuote(form);
+      return createQuote(form, asDraft ? "Draft" : undefined);
     },
     onSuccess: (q) => {
       toast.success(`Quote ${q.reference_code} created`);
@@ -218,14 +243,25 @@ function GenerateQuote() {
               </div>
             </div>
 
-            <button
-              onClick={() => save.mutate()}
-              disabled={save.isPending}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60"
-            >
-              {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save & Preview Quote →
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => save.mutate(true)}
+                disabled={save.isPending}
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-medium text-foreground hover:border-gold/40 transition disabled:opacity-60"
+                title="Save as draft — won't send to guest"
+              >
+                <Save className="h-4 w-4" />
+                Save Draft
+              </button>
+              <button
+                onClick={() => save.mutate(false)}
+                disabled={save.isPending}
+                className="inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60"
+              >
+                {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save & Preview →
+              </button>
+            </div>
           </div>
         </div>
       </div>

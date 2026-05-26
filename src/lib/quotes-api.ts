@@ -180,7 +180,7 @@ async function logActivity(quote_id: string, type: string, description: string) 
     .insert({ quote_id, user_id: user.id, type: type as any, description });
 }
 
-export async function createQuote(input: QuoteInput) {
+export async function createQuote(input: QuoteInput, initialStatus: QuoteStatus = "Pending") {
   validateQuoteInput(input);
   const data = normalize(input);
   const c = calc(data);
@@ -200,7 +200,7 @@ export async function createQuote(input: QuoteInput) {
     subtotal: c.subtotal,
     taxes: c.taxes,
     total: c.total,
-    status: "Pending" as QuoteStatus,
+    status: initialStatus,
   };
   const { data: created, error } = await supabase
     .from("quotes")
@@ -208,7 +208,7 @@ export async function createQuote(input: QuoteInput) {
     .select()
     .single();
   if (error) throw error;
-  await logActivity(created.id, "created", `Quote ${created.reference_code} created`);
+  await logActivity(created.id, "created", `Quote ${created.reference_code} created${initialStatus === "Draft" ? " (draft)" : ""}`);
   return created as unknown as QuoteRow;
 }
 
