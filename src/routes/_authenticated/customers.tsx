@@ -154,6 +154,15 @@ function CustomersPage() {
                     </a>
                   </>
                 )}
+                <Link
+                  to="/generate"
+                  search={{ customerId: c.id }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition"
+                  title="Create quote for this guest"
+                >
+                  <FilePlus className="h-3.5 w-3.5" />
+                </Link>
                 <button onClick={() => { if (confirm(`Remove ${c.guest_name}?`)) del.mutate(c.id); }}
                   className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10">
                   <Trash2 className="h-3.5 w-3.5" />
