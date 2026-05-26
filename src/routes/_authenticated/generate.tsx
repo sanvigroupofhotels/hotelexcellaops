@@ -243,14 +243,25 @@ function GenerateQuote() {
               </div>
             </div>
 
-            <button
-              onClick={() => save.mutate()}
-              disabled={save.isPending}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60"
-            >
-              {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save & Preview Quote →
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => save.mutate(true)}
+                disabled={save.isPending}
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-medium text-foreground hover:border-gold/40 transition disabled:opacity-60"
+                title="Save as draft — won't send to guest"
+              >
+                <Save className="h-4 w-4" />
+                Save Draft
+              </button>
+              <button
+                onClick={() => save.mutate(false)}
+                disabled={save.isPending}
+                className="inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60"
+              >
+                {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save & Preview →
+              </button>
+            </div>
           </div>
         </div>
       </div>
