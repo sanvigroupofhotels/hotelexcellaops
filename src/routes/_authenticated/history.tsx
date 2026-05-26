@@ -56,25 +56,32 @@ function History() {
         q.phone.includes(query)),
   );
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     try {
+      const { data: { user } } = await import("@/integrations/supabase/client").then(m => m.supabase.auth.getUser());
+      const createdBy = user?.email ?? user?.id ?? "";
       downloadCSV(`quotes-${new Date().toISOString().slice(0, 10)}.csv`,
         filtered.map((q) => ({
           "Quote ID": q.reference_code,
           Guest: q.guest_name,
           Phone: q.phone,
           Email: q.email ?? "",
+          "Room Type": q.room_type,
+          Rooms: q.rooms,
           "Check-in": q.check_in,
           "Check-out": q.check_out,
           Nights: q.nights,
-          "Room Type": q.room_type,
-          Rooms: q.rooms,
+          Adults: q.adults,
+          Children: q.children,
+          "Guest Count": (q.adults || 0) + (q.children || 0),
           Subtotal: Number(q.subtotal),
           Taxes: Number(q.taxes),
           Total: Number(q.total),
           Status: q.status,
+          "Payment Status": q.payment_status ?? "",
           "Lead Source": q.lead_source ?? "",
-          Created: new Date(q.created_at).toISOString(),
+          "Created By": createdBy,
+          "Created Date": new Date(q.created_at).toISOString(),
         })));
       toast.success(`Exported ${filtered.length} quote${filtered.length === 1 ? "" : "s"}`);
     } catch (e: any) {
