@@ -11,6 +11,7 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { StatusPill } from "@/components/status-pill";
 import {
   ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Calendar, Star, TrendingUp,
+  FilePlus, MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
