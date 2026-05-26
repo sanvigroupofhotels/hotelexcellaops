@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import {
   roomTypes,
@@ -12,14 +12,18 @@ import {
   EXTRA_BREAKFAST_RATE,
 } from "@/lib/mock-data";
 import { createQuote, calc, type QuoteInput } from "@/lib/quotes-api";
+import { getCustomer } from "@/lib/customers-api";
 import { PolicyFields, SummaryExtras } from "@/components/policy-fields";
 import {
-  User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2,
+  User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2, Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/generate")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    customerId: typeof search.customerId === "string" ? search.customerId : undefined,
+  }),
   component: GenerateQuote,
 });
 
