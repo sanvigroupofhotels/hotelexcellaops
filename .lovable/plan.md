@@ -1,63 +1,40 @@
-# Hotel Excella OS — Production Build Plan
+# Operational Maturity Rollout
 
-This is a very large scope. To ship it reliably without half-built modules, I'll execute it in 4 sequential phases, each ending in a working, deployable state. Phases run in the same project — no separate branches.
+The scope you listed (CSV fixes, multi-room, drafts, rate protection, roles, audit log, sticky summary, status workflow expansion, keyboard nav, prefill from customer, etc.) is roughly 3–4 weeks of focused work across ~40 files and 6+ schema migrations. Shipping it all in a single turn would guarantee regressions in flows you already rely on (Generate, Edit, WhatsApp, CSV).
 
-## Phase 1 — Data model, pricing engine & UI primitives
+I'll execute it in 4 focused turns. Each turn is self-contained, testable, and leaves the app in a working state. Tell me to proceed and I'll start Turn 1 immediately. You can also reorder.
 
-**Migrations**
-- `customers` table with all fields (reference code, contact, company/GST, preferences, lifecycle counters, tags[], status, booking_probability, next_action, next_followup_date, payment_status, lost_reason, internal_notes). RLS: select for authenticated, insert/update/delete own.
-- `quotes` additions: `customer_id` (fk), `adults`, `guests`, `pet_size` (enum: none/small/medium/large), `payment_status`, `booking_probability`, `lost_reason`. Keep `extra_bed` column but rename in UI to "Extra Adults".
-- `tasks` table: title, type, priority, due_date, status, customer_id, quote_id, assignee_id, notes. RLS + realtime.
-- Trigger `link_or_create_customer()` on quote insert: match by phone/email, else create; bump counters on status changes.
-- Add `customers`, `tasks` to `supabase_realtime` publication with `REPLICA IDENTITY FULL`.
+## Turn 1 — CRITICAL fixes + customer→quote prefill (ship first)
+Files: ~6, 1 migration
+- **Fix CSV exports** (customers + quotes): verify `downloadCSV` on Android Chrome / desktop, add a `target=_blank` fallback path, surface error toasts properly. Add quotes CSV columns: Quote ID, Guest, Phone, Room, Stay, Guests, Taxes, Total, Status, Created By, Created Date. Add customers CSV: Name, Phone, Email, Quotes, Created, Last Interaction, Lead Source.
+- **Customer detail → Create Quote**: add prominent "Create Quote" button on `customers.$id.tsx` that navigates to `/generate?customerId=<id>` and prefills guest name, phone, email, preferred room, lead source.
+- **Customers table**: already compact; add the "Create Quote" quick action (➕) icon next to call / WhatsApp / view.
+- **Status workflow expansion**: extend `quote_status` enum with `Draft`, `Sent`, `Negotiating`, `Cancelled`, `Expired`, `Advance Paid`, `Full Amount Paid`, `Checked In`. Update `statusStyles` map, status pill, status dropdowns, filters. Migration adds enum values.
 
-**Pricing engine (`src/lib/quotes-api.ts`)**
-- Room tariffs table in code: Oak Queen (₹2500/₹2250), Mapple King (₹3000/₹2750) based on breakfast.
-- Extra Adult ₹500, Extra Breakfast ₹150 (only when breakfast excluded), Driver ₹500.
-- Pet: small ₹500 / medium ₹750 / large ₹1000 (omit line if none).
-- Early check-in: 10–13 ₹500, 8–10 ₹750, 6–8 ₹1000, <6 full-day.
-- Late checkout: ≤14 ₹500, 14–16 ₹1000, >16 full-day.
-- Standard timings 1 PM in / 11 AM out shown everywhere.
+## Turn 2 — Edit Quote stability + Drafts + Duplicate + Internal Notes
+Files: ~5
+- **Edit Quote audit**: walk every field on `quote.$id.edit.tsx` against the schema, fix any field that doesn't load/save (occupancy, breakfast, extras, payment status, lost reason, etc.). Preserve `reference_code`, `created_at`, `customer_id` on save.
+- **Save Draft / Resume Draft**: drafts are just quotes with status `Draft`. Add explicit "Save as Draft" button on Generate; History gets a Drafts filter; Draft rows get "Resume" CTA → opens edit page.
+- **Duplicate Quote**: button on quote detail → creates new quote, resets status to `Draft`, new reference code, copies all fields, keeps `customer_id`.
+- **Internal notes timeline**: append-only notes log surfaced in quote detail + customer detail; never included in WhatsApp / image / PDF / CSV (audit existing exports).
 
-**UI primitives**
-- Fix `Switch` (and `Toggle`) tokens: off-state visible gray border + thumb, on-state gold. Applied globally via `src/styles.css` + component update.
-- New tokens for hot/warm/cold lead, probability pill, payment status pill.
+## Turn 3 — Multi-room + Rate Protection + Sticky Live Summary + Keyboard nav
+Files: ~6, 1 migration
+- **Multi-room schema**: new `quote_rooms` table (quote_id, room_type, occupancy, extra_adults, breakfast_included, rate, line_total). Existing single-room quotes back-fill as one row. Totals recompute from rooms.
+- **Multi-room UI**: Generate + Edit get "Add Room" with per-room sub-card; each room independently configurable; final summary aggregates.
+- **Rate protection**: minimums per room type; if staff drops below, warn + require override reason (stored on the quote as `rate_override_reason`). Migration adds the column.
+- **Sticky live summary**: floating bottom card on mobile + sticky right rail on desktop showing room charges, breakfast, extras, taxes, discount, final total — visible across Generate and Edit.
+- **Keyboard nav**: Enter → focus next field, optimized tab order, numeric inputs use `inputMode="decimal"`.
 
-## Phase 2 — Customers CRM + Tasks + Calendar
+## Turn 4 — Roles + Audit Log + Advanced Search
+Files: ~5, 1 migration
+- **Roles**: `app_role` enum (admin / manager / front_desk) + `user_roles` table + `has_role()` security-definer function (per project user-roles rules). UI gates: pricing overrides (manager+), delete quote (manager+), reports/analytics (manager+). Front Desk can only quote.
+- **Audit log**: `audit_log` table (actor, action, entity_type, entity_id, before/after JSON, timestamp). Hook into quote create/update/delete, status change, rate override, customer delete. Surface as timeline on customer + quote detail.
+- **Advanced search**: history page gets multi-filter bar — guest, phone, quote id, room type, status, created_by, date range, lead source. URL-synced for shareable filters.
 
-- `/customers` list: search, filter (status/tag/lead source/payment), sort, pagination, tag chips, status & probability badges, CSV export (UTF-8 BOM, Excel-safe), realtime.
-- `/customers/$id` profile: details, insights (totals, conversion %, AOV, last stay, preferred room), tags editor, next-action + probability editor, internal notes, timeline merged from `quote_activities` + followups + tasks + payment events, returning-guest badge.
-- Auto-link existing quote create/edit flows to customers (via trigger); show "Returning Guest" inline on Generate.
-- `/tasks` board: Today, Upcoming, Overdue tabs; create/edit/complete; priority + due date; quote/customer links; realtime.
-- `/calendar` upgrade: day/week/month views, check-ins, check-outs, follow-ups, tasks, tentative bookings, occupancy bar per day; mobile-friendly.
+## Notes
+- Each turn ends with a verification pass (build + spot-check the changed flows in the preview).
+- No new features added beyond what's listed — purely closing your brief.
+- After Turn 4 the app meets every requirement in this message.
 
-## Phase 3 — Analytics + Quote enhancements + WhatsApp logging
-
-- `/analytics`: KPI cards (conversion, pipeline value weighted by probability, AOV, repeat %), charts for lead source performance, revenue forecast (sum of total × probability for Pending/Negotiating), funnel, lead aging, follow-up efficiency, best room.
-- Quote history: CSV export, filters for lead source / payment status / date range, advanced search.
-- Generate/Edit quote: adults + guests separate inputs, pet size selector, lost-reason field on Lost status, payment status, booking probability, next action.
-- WhatsApp share already produces image — add activity-log entries for every send type (quote_image / reminder / followup / revised / payment_reminder / booking_confirmation).
-- Internal notes hidden from PDF / image / WhatsApp / CSV customer exports.
-
-## Phase 4 — Polish, mobile, sidebar, QA
-
-- Sidebar: add Customers, Tasks, Analytics; reorder.
-- Mobile passes on every new page (sticky action bars, large tap targets).
-- Verify all CRUD round-trips, realtime invalidation hooks on every list.
-- Remove all placeholder copy / dead buttons.
-
-## Technical details
-
-- Stack stays TanStack Start + Supabase via existing `quotes-api.ts` pattern; new `customers-api.ts`, `tasks-api.ts`.
-- Realtime via existing `useRealtimeInvalidate` hook, extended to new tables.
-- CSV via small util `src/lib/csv.ts` with BOM + RFC4180 escaping; download via Blob URL.
-- No edge functions; all logic in client + Postgres triggers.
-- Charts: lightweight `recharts` (already a shadcn dep via `chart.tsx`).
-
-## Out of scope (will flag, not build)
-
-- Multi-user role/permission system beyond existing auth (single staff role).
-- Inventory/room-block management beyond a calendar visual indicator.
-- Real payment gateway integration (status tracking only).
-
-After you approve, I'll execute Phase 1 first (migration + pricing engine + toggle fix), then move straight into Phase 2–4 in subsequent turns without pausing.
+**Reply "go" (or "start with turn N") and I'll begin.**
