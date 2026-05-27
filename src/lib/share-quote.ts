@@ -39,51 +39,19 @@ function whatsappCaption(q: QuoteRow) {
   ].join("\n");
 }
 
-/**
- * Share the quote image via native share (mobile), falling back to:
- * 1) Download image + open WhatsApp with text
- * 2) Plain text WhatsApp deep link
- */
+/** Download the quote image as PNG. Reliable across browsers (no Web Share dependency). */
 export async function shareQuoteImage(node: HTMLElement, q: QuoteRow) {
-  const caption = whatsappCaption(q);
   const filename = `${q.reference_code}.png`;
-
   try {
-    const blob = await nodeToBlob(node);
-    if (!blob) throw new Error("Image generation failed");
-    const file = new File([blob], filename, { type: "image/png" });
-
-    // Best path: native share with file (Android Chrome → WhatsApp).
-    const nav = navigator as any;
-    if (nav.canShare && nav.canShare({ files: [file] })) {
-      await nav.share({ files: [file], text: caption, title: "Hotel Excella Quote" });
-      await logWhatsApp(q.id);
-      return;
-    }
-
-    // Fallback: download image + open WhatsApp with caption
-    const url = URL.createObjectURL(blob);
-    downloadDataUrl(url, filename);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-    const phone = q.phone.replace(/[^0-9]/g, "");
-    const link = `https://wa.me/${phone}?text=${encodeURIComponent(caption)}`;
-    window.open(link, "_blank", "noopener");
-    await logWhatsApp(q.id);
-    toast.success("Image saved — attach it in the WhatsApp window");
+    const dataUrl = await nodeToPng(node);
+    downloadDataUrl(dataUrl, filename);
+    toast.success("Quote image saved");
   } catch (e: any) {
-    if (e?.name === "AbortError") return; // user cancelled
-    toast.error(e?.message ?? "Could not share quote");
+    toast.error(e?.message ?? "Failed to save image");
   }
 }
 
-/** Download the quote image as PNG (Save Image action). */
+/** Alias kept for any existing callers. */
 export async function downloadQuoteImage(node: HTMLElement, q: QuoteRow) {
-  try {
-    const dataUrl = await nodeToPng(node);
-    downloadDataUrl(dataUrl, `${q.reference_code}.png`);
-    toast.success("Image downloaded");
-  } catch (e: any) {
-    toast.error(e?.message ?? "Failed to export image");
-  }
+  return shareQuoteImage(node, q);
 }
