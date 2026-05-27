@@ -334,7 +334,7 @@ function QuoteCard({ q }: { q: any }) {
                 <Row desc={`Extra Breakfast × ${q.extra_breakfast_guests}`} amount={c.extraBreakfast} />
               )}
               {Number(q.discount) > 0 && <Row desc="Discount" amount={-Number(q.discount)} />}
-              <Row desc="Taxes & Fees (12%)" amount={Number(q.taxes)} />
+              <Row desc="Taxes & Fees (5%)" amount={Number(q.taxes)} />
             </>
           );
         })()}
