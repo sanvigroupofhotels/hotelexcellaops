@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { StatusPill } from "@/components/status-pill";
 import { QUOTE_STATUSES, type QuoteStatus } from "@/lib/mock-data";
-import { listQuotes, deleteQuote, duplicateQuote, buildWhatsAppLink, logWhatsApp } from "@/lib/quotes-api";
+import { listQuotes, deleteQuote, duplicateQuote, buildWhatsAppLink, logWhatsApp, getUserNamesByIds } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
 import { Search, Loader2, Copy, Trash2, ChevronRight, Download, MessageCircle } from "lucide-react";
