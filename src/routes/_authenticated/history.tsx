@@ -58,8 +58,7 @@ function History() {
 
   const exportCSV = async () => {
     try {
-      const { data: { user } } = await import("@/integrations/supabase/client").then(m => m.supabase.auth.getUser());
-      const createdBy = user?.email ?? user?.id ?? "";
+      const names = await getUserNamesByIds(filtered.map((q) => q.user_id));
       downloadCSV(`quotes-${new Date().toISOString().slice(0, 10)}.csv`,
         filtered.map((q) => ({
           "Quote ID": q.reference_code,
@@ -80,7 +79,7 @@ function History() {
           Status: q.status,
           "Payment Status": q.payment_status ?? "",
           "Lead Source": q.lead_source ?? "",
-          "Created By": createdBy,
+          "Created By": names[q.user_id] ?? "",
           "Created Date": new Date(q.created_at).toISOString(),
         })));
       toast.success(`Exported ${filtered.length} quote${filtered.length === 1 ? "" : "s"}`);
