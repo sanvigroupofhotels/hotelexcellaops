@@ -16,7 +16,7 @@ import {
   type PaymentStatus,
 } from "@/lib/mock-data";
 
-export const TAX_RATE = 0.12;
+export const TAX_RATE = 0.05;
 
 export interface QuoteInput {
   guest_name: string;
