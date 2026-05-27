@@ -37,8 +37,10 @@ function CustomersPage() {
       c.customer_reference.toLowerCase().includes(q.toLowerCase()))
   ), [customers, q, status, source]);
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     try {
+      const { getUserNamesByIds } = await import("@/lib/quotes-api");
+      const names = await getUserNamesByIds(filtered.map((c) => c.user_id));
       downloadCSV(`customers-${new Date().toISOString().slice(0,10)}.csv`,
         filtered.map((c) => ({
           Reference: c.customer_reference,
@@ -52,6 +54,7 @@ function CustomersPage() {
           Quotes: c.total_quotes,
           Bookings: c.total_bookings,
           Revenue: c.total_revenue,
+          "Created By": names[c.user_id] ?? "",
           "Created": c.created_at ? new Date(c.created_at).toISOString().slice(0,10) : "",
           "Last Interaction": c.updated_at ? new Date(c.updated_at).toISOString().slice(0,10) : "",
           "Last Stay": c.last_stay_date ?? "",

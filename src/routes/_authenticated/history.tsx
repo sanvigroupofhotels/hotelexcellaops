@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { StatusPill } from "@/components/status-pill";
 import { QUOTE_STATUSES, type QuoteStatus } from "@/lib/mock-data";
-import { listQuotes, deleteQuote, duplicateQuote, buildWhatsAppLink, logWhatsApp } from "@/lib/quotes-api";
+import { listQuotes, deleteQuote, duplicateQuote, buildWhatsAppLink, logWhatsApp, getUserNamesByIds } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
 import { Search, Loader2, Copy, Trash2, ChevronRight, Download, MessageCircle } from "lucide-react";
@@ -58,8 +58,7 @@ function History() {
 
   const exportCSV = async () => {
     try {
-      const { data: { user } } = await import("@/integrations/supabase/client").then(m => m.supabase.auth.getUser());
-      const createdBy = user?.email ?? user?.id ?? "";
+      const names = await getUserNamesByIds(filtered.map((q) => q.user_id));
       downloadCSV(`quotes-${new Date().toISOString().slice(0, 10)}.csv`,
         filtered.map((q) => ({
           "Quote ID": q.reference_code,
@@ -80,7 +79,7 @@ function History() {
           Status: q.status,
           "Payment Status": q.payment_status ?? "",
           "Lead Source": q.lead_source ?? "",
-          "Created By": createdBy,
+          "Created By": names[q.user_id] ?? "",
           "Created Date": new Date(q.created_at).toISOString(),
         })));
       toast.success(`Exported ${filtered.length} quote${filtered.length === 1 ? "" : "s"}`);

@@ -208,19 +208,16 @@ function ToggleRow({
         onClick={() => onChange(!checked)}
         aria-pressed={checked}
         className={cn(
-          "relative h-6 w-11 rounded-full transition border",
+          "relative h-6 w-11 rounded-full transition border-2",
           checked
-            ? "gold-gradient border-gold/60 shadow-[0_0_12px_oklch(0.82_0.13_82/0.4)]"
-            : "bg-muted border-border",
+            ? "bg-foreground/80 border-foreground"
+            : "bg-muted border-foreground/50",
         )}
       >
         <motion.span
           animate={{ x: checked ? 22 : 2 }}
           transition={{ type: "spring", stiffness: 500, damping: 30 }}
-          className={cn(
-            "absolute top-0.5 h-5 w-5 rounded-full shadow-md",
-            checked ? "bg-charcoal" : "bg-foreground/80",
-          )}
+          className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-md"
         />
       </button>
     </div>

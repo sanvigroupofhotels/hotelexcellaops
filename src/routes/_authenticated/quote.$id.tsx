@@ -13,7 +13,7 @@ import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
   ArrowLeft, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
-  Wifi, Coffee, Heart, Headphones, Star, Clock, Pencil, CheckCircle2, Image as ImageIcon, Printer,
+  Star, Clock, Pencil, CheckCircle2, Image as ImageIcon, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -248,11 +248,14 @@ function QuoteDetail() {
 }
 
 function QuoteCard({ q }: { q: any }) {
-  const includes = [
-    { icon: Wifi, label: "Complimentary WiFi" },
-    { icon: Coffee, label: "Daily Housekeeping" },
-    { icon: Heart, label: "Welcome Amenities" },
-    { icon: Headphones, label: "24/7 Support" },
+  const whyStay = [
+    "Free High-Speed Wi-Fi",
+    "Walkable Distance to Beach",
+    "Close to Major Sightseeing Attractions",
+    "Comfortable AC Rooms",
+    "Smart TV Entertainment",
+    "24/7 Reception Assistance",
+    "Daily Housekeeping Service",
   ];
   const fmtDate = (s: string) =>
     new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -334,7 +337,7 @@ function QuoteCard({ q }: { q: any }) {
                 <Row desc={`Extra Breakfast × ${q.extra_breakfast_guests}`} amount={c.extraBreakfast} />
               )}
               {Number(q.discount) > 0 && <Row desc="Discount" amount={-Number(q.discount)} />}
-              <Row desc="Taxes & Fees (12%)" amount={Number(q.taxes)} />
+              <Row desc="Taxes & Fees (5%)" amount={Number(q.taxes)} />
             </>
           );
         })()}
@@ -348,17 +351,15 @@ function QuoteCard({ q }: { q: any }) {
       </div>
 
       <div className="relative py-6">
-        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Includes</h4>
-        <div className="flex flex-wrap gap-2">
-          {includes.map((i) => {
-            const Icon = i.icon;
-            return (
-              <span key={i.label} className="inline-flex items-center gap-1.5 rounded-full bg-secondary border border-border px-3 py-1.5 text-xs">
-                <Icon className="h-3 w-3 text-gold" /> {i.label}
-              </span>
-            );
-          })}
-        </div>
+        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">🌟 Why Stay with Hotel Excella?</h4>
+        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-4 text-sm">
+          {whyStay.map((label) => (
+            <li key={label} className="flex items-start gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5 text-gold mt-0.5 shrink-0" />
+              <span>{label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="relative pt-6 border-t border-border text-center">
