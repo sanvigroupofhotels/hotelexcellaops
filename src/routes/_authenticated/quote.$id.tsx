@@ -13,7 +13,7 @@ import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
   ArrowLeft, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
-  Wifi, Coffee, Heart, Headphones, Star, Clock, Pencil, CheckCircle2, Image as ImageIcon, Printer,
+  Star, Clock, Pencil, CheckCircle2, Image as ImageIcon, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
