@@ -248,11 +248,14 @@ function QuoteDetail() {
 }
 
 function QuoteCard({ q }: { q: any }) {
-  const includes = [
-    { icon: Wifi, label: "Complimentary WiFi" },
-    { icon: Coffee, label: "Daily Housekeeping" },
-    { icon: Heart, label: "Welcome Amenities" },
-    { icon: Headphones, label: "24/7 Support" },
+  const whyStay = [
+    "Free High-Speed Wi-Fi",
+    "Walkable Distance to Beach",
+    "Close to Major Sightseeing Attractions",
+    "Comfortable AC Rooms",
+    "Smart TV Entertainment",
+    "24/7 Reception Assistance",
+    "Daily Housekeeping Service",
   ];
   const fmtDate = (s: string) =>
     new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
