@@ -316,60 +316,96 @@ export async function deleteFollowup(id: string) {
   if (error) throw error;
 }
 
-/** WhatsApp deep-link with branded operational message. */
+/** Map user_id -> display name (or email) for "Created By" labels. */
+export async function getUserNamesByIds(ids: string[]): Promise<Record<string, string>> {
+  const uniq = Array.from(new Set(ids.filter(Boolean)));
+  if (uniq.length === 0) return {};
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, display_name, email")
+    .in("id", uniq);
+  if (error) return {};
+  const map: Record<string, string> = {};
+  for (const p of data ?? []) {
+    map[(p as any).id] = (p as any).display_name || (p as any).email || "";
+  }
+  return map;
+}
+
+/** WhatsApp deep-link with branded operational message (Hotel Excella format). */
 export function buildWhatsAppLink(q: QuoteRow) {
-  const fmt = (d: string) =>
+  const fmtDate = (d: string) =>
     new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const c = calc(q);
   const inr = (n: number) => `₹${Math.round(Number(n)).toLocaleString("en-IN")}`;
   const guestLine = [
     `${q.adults || 0} Adult${(q.adults || 0) === 1 ? "" : "s"}`,
     (q.children || 0) > 0 ? `${q.children} Child${q.children === 1 ? "" : "ren"}` : "",
-  ].filter(Boolean).join(" · ");
+  ].filter(Boolean).join(" + ");
 
-  const breakdown: string[] = [];
-  breakdown.push(`Room Charges: ${inr(c.roomTariff)}`);
-  if (q.extra_adults > 0) breakdown.push(`Extra Adult × ${q.extra_adults}: ${inr(c.extraAdults)}`);
-  if (q.drivers > 0) breakdown.push(`Driver × ${q.drivers}: ${inr(c.driversCharge)}`);
+  const tariff: string[] = [];
+  tariff.push(`• Room Charges: ${inr(c.roomTariff)}`);
+  if (q.extra_adults > 0) tariff.push(`• Extra Adult × ${q.extra_adults}: ${inr(c.extraAdults)}`);
+  if (q.drivers > 0) tariff.push(`• Driver × ${q.drivers}: ${inr(c.driversCharge)}`);
   if (!q.breakfast_included && q.extra_breakfast_guests > 0)
-    breakdown.push(`Extra Breakfast × ${q.extra_breakfast_guests}: ${inr(c.extraBreakfast)}`);
-  if (q.pet_size && q.pet_size !== "none") breakdown.push(`Pet (${q.pet_size}): ${inr(c.pet)}`);
+    tariff.push(`• Extra Breakfast × ${q.extra_breakfast_guests}: ${inr(c.extraBreakfast)}`);
+  if (q.pet_size && q.pet_size !== "none") tariff.push(`• Pet (${q.pet_size}): ${inr(c.pet)}`);
   if (q.early_check_in && q.early_check_in_slot)
-    breakdown.push(`Early Check-in (${earlyCheckInLabel(q.early_check_in_slot)}): ${inr(c.earlyCheck)}`);
+    tariff.push(`• Early Check-in (${earlyCheckInLabel(q.early_check_in_slot)}): ${inr(c.earlyCheck)}`);
   if (q.late_check_out && q.late_check_out_slot)
-    breakdown.push(`Late Check-out (${lateCheckOutLabel(q.late_check_out_slot)}): ${inr(c.lateCheck)}`);
-  if (Number(q.discount) > 0) breakdown.push(`Discount: -${inr(Number(q.discount))}`);
-  breakdown.push(`Taxes (12%): ${inr(c.taxes)}`);
+    tariff.push(`• Late Check-out (${lateCheckOutLabel(q.late_check_out_slot)}): ${inr(c.lateCheck)}`);
+  if (Number(q.discount) > 0) tariff.push(`• Discount: -${inr(Number(q.discount))}`);
+  tariff.push(`• Taxes (5%): ${inr(c.taxes)}`);
 
   const lines = [
-    `Greetings from *Hotel Excella* ✨`,
+    `Greetings from Hotel Excella ✨`,
     ``,
-    `Dear ${q.guest_name}, please find your stay quotation below:`,
+    `Dear ${q.guest_name},`,
     ``,
-    `📌 *Ref:* ${q.reference_code}`,
-    `📍 *Room:* ${q.room_type} × ${q.rooms}`,
-    `📅 *Check-in:* ${fmt(q.check_in)} (1:00 PM)`,
-    `📅 *Check-out:* ${fmt(q.check_out)} (11:00 AM)`,
-    `🌙 *Nights:* ${q.nights}`,
-    `👥 *Guests:* ${guestLine}`,
-    `🍳 *Breakfast:* ${q.breakfast_included ? "Included" : "Not included"}`,
+    `Thank you for considering Hotel Excella for your stay. Please find your quotation details below:`,
     ``,
-    `💰 *Tariff Breakdown*`,
-    ...breakdown.map((b) => `• ${b}`),
+    `📌 Quotation Ref: ${q.reference_code}`,
     ``,
-    `✅ *Total Amount: ${inr(q.total)}* (incl. all taxes)`,
+    `🏨 Room Details`,
     ``,
-    `*Amenities*`,
-    `✔ Free Wi-Fi`,
-    `✔ AC Rooms`,
-    `✔ Smart TV`,
-    `✔ 24/7 Reception`,
-    `✔ Daily Housekeeping`,
+    `• Room Type: ${q.room_type} × ${q.rooms}`,
     ``,
-    `Quote valid for 7 days. We would be delighted to host you.`,
+    `• Check-in: ${fmtDate(q.check_in)} | 1:00 PM`,
     ``,
-    `Thank you,`,
-    `*Hotel Excella Reservations*`,
+    `• Check-out: ${fmtDate(q.check_out)} | 11:00 AM`,
+    ``,
+    `• Duration: ${q.nights} Night${q.nights > 1 ? "s" : ""}`,
+    ``,
+    `• Guests: ${guestLine}`,
+    ``,
+    `• Breakfast: ${q.breakfast_included ? "Included" : "Not Included"}`,
+    ``,
+    `💰 Tariff Breakdown`,
+    ``,
+    ...tariff,
+    ``,
+    `✅ Total Amount Payable: ${inr(q.total)}`,
+    ``,
+    `(Inclusive of all applicable taxes)`,
+    ``,
+    `🌟 Why Stay with Hotel Excella?`,
+    ``,
+    `✔ Free High-Speed Wi-Fi`,
+    `✔ Walkable Distance to Beach`,
+    `✔ Close to Major Sightseeing Attractions`,
+    `✔ Comfortable AC Rooms`,
+    `✔ Smart TV Entertainment`,
+    `✔ 24/7 Reception Assistance`,
+    `✔ Daily Housekeeping Service`,
+    ``,
+    `📍 Convenient location with easy access to the city, beaches, and tourist spots.`,
+    ``,
+    `⏳ This quotation is valid for 7 days.`,
+    ``,
+    `We would be delighted to host you and make your stay comfortable and memorable.`,
+    ``,
+    `Warm Regards,`,
+    `Hotel Excella Reservations Team`,
   ];
   const text = encodeURIComponent(lines.join("\n"));
   const phone = q.phone.replace(/[^0-9]/g, "");
