@@ -351,17 +351,15 @@ function QuoteCard({ q }: { q: any }) {
       </div>
 
       <div className="relative py-6">
-        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Includes</h4>
-        <div className="flex flex-wrap gap-2">
-          {includes.map((i) => {
-            const Icon = i.icon;
-            return (
-              <span key={i.label} className="inline-flex items-center gap-1.5 rounded-full bg-secondary border border-border px-3 py-1.5 text-xs">
-                <Icon className="h-3 w-3 text-gold" /> {i.label}
-              </span>
-            );
-          })}
-        </div>
+        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">🌟 Why Stay with Hotel Excella?</h4>
+        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-4 text-sm">
+          {whyStay.map((label) => (
+            <li key={label} className="flex items-start gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5 text-gold mt-0.5 shrink-0" />
+              <span>{label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="relative pt-6 border-t border-border text-center">
