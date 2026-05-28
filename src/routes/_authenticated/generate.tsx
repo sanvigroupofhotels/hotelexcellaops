@@ -104,11 +104,35 @@ function GenerateQuote() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const applyPreset = (preset: QuotePreset) => {
+    setForm((f) => ({ ...f, ...preset.patch(f) }));
+    toast.success(`Applied: ${preset.label}`);
+  };
+
   return (
     <>
       <Topbar title="Generate Quote" subtitle="Build a tailored stay proposal in seconds" />
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px]">
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-32 lg:pb-8">
+        {/* One-click presets */}
+        <div className="mb-5 flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
+          {QUOTE_PRESETS.map((p) => {
+            const Icon = p.icon;
+            return (
+              <button
+                key={p.label}
+                onClick={() => applyPreset(p)}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:border-gold/40 transition"
+                title={p.hint}
+              >
+                <Icon className="h-3.5 w-3.5 text-gold" />
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+
           <div className="space-y-6">
             <Card title="Guest Details">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
