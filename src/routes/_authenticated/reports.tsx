@@ -6,9 +6,12 @@ import { listQuotes } from "@/lib/quotes-api";
 import { QUOTE_STATUSES } from "@/lib/mock-data";
 import { Loader2 } from "lucide-react";
 
+import { AdminOnly } from "@/components/admin-only";
+
 export const Route = createFileRoute("/_authenticated/reports")({
-  component: Reports,
+  component: () => <AdminOnly><Reports /></AdminOnly>,
 });
+
 
 function Reports() {
   const { data: quotes = [], isLoading } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
