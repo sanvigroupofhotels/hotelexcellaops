@@ -2,23 +2,28 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard, FilePlus, History, Bell, Calendar, BarChart3,
-  Users, ListChecks, HelpCircle, Settings, Menu, X, LogOut,
+  Users, ListChecks, HelpCircle, Settings, Menu, X, LogOut, ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { useUserRole } from "@/hooks/use-role";
 import { toast } from "sonner";
 
-const nav = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean };
+
+const nav: NavItem[] = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, adminOnly: true },
   { to: "/generate", label: "Generate Quote", icon: FilePlus },
   { to: "/history", label: "Quotes", icon: History },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/follow-ups", label: "Follow-ups", icon: Bell },
   { to: "/calendar", label: "Calendar", icon: Calendar },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-] as const;
+  { to: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: true },
+  { to: "/users", label: "Users", icon: ShieldCheck, adminOnly: true },
+];
+
 
 function Logo() {
   return (
@@ -36,11 +41,15 @@ function Logo() {
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { isAdmin } = useUserRole();
+  const visible = nav.filter((n) => !n.adminOnly || isAdmin);
   return (
     <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-      {nav.map((item, i) => {
+      {visible.map((item, i) => {
         const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to));
         const Icon = item.icon;
+
+
         return (
           <motion.div
             key={item.to}

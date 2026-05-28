@@ -16,8 +16,10 @@ import { getCustomer } from "@/lib/customers-api";
 import { PolicyFields, SummaryExtras } from "@/components/policy-fields";
 import {
   User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2, Save,
+  Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/generate")({
@@ -29,6 +31,46 @@ export const Route = createFileRoute("/_authenticated/generate")({
 
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
+
+// ---------- One-click quote presets (front-desk shortcuts) ----------
+type QuotePreset = {
+  label: string;
+  hint: string;
+  icon: any;
+  patch: (f: QuoteInput) => Partial<QuoteInput>;
+};
+
+const QUOTE_PRESETS: QuotePreset[] = [
+  {
+    label: "Couple Stay", hint: "2 adults · breakfast included", icon: Heart,
+    patch: () => ({ guests: 2, adults: 2, children: 0, rooms: 1, breakfast_included: true, extra_adults: 0, drivers: 0, pet_size: "none", pet_charges: false, group_size: "2 Guests" }),
+  },
+  {
+    label: "Family Stay", hint: "2 adults + 2 children", icon: UsersRound,
+    patch: () => ({ guests: 4, adults: 2, children: 2, rooms: 1, breakfast_included: true, extra_adults: 0, drivers: 0, pet_size: "none", pet_charges: false, group_size: "4 Guests" }),
+  },
+  {
+    label: "Corporate Single", hint: "1 adult · breakfast included", icon: Briefcase,
+    patch: () => ({ guests: 1, adults: 1, children: 0, rooms: 1, breakfast_included: true, extra_adults: 0, drivers: 0, pet_size: "none", pet_charges: false, group_size: "1 Guest", lead_source: "Direct" }),
+  },
+  {
+    label: "Group Booking", hint: "Multiple rooms", icon: UserPlus,
+    patch: () => ({ rooms: 3, guests: 6, adults: 6, children: 0, breakfast_included: true, group_size: "6 Guests" }),
+  },
+  {
+    label: "Pet Stay", hint: "Small pet charges", icon: Dog,
+    patch: (f) => ({ ...f, pet_charges: true, pet_size: "small" as const }),
+  },
+  {
+    label: "Long Stay", hint: "+7 nights", icon: CalendarRange,
+    patch: (f) => {
+      const inDate = new Date(f.check_in);
+      const out = new Date(inDate.getTime() + 7 * 86400000);
+      return { check_out: out.toISOString().slice(0, 10) };
+    },
+  },
+];
+
 
 function Field({ label, icon: Icon, children, required }: any) {
   return (
@@ -102,11 +144,35 @@ function GenerateQuote() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const applyPreset = (preset: QuotePreset) => {
+    setForm((f) => ({ ...f, ...preset.patch(f) }));
+    toast.success(`Applied: ${preset.label}`);
+  };
+
   return (
     <>
       <Topbar title="Generate Quote" subtitle="Build a tailored stay proposal in seconds" />
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px]">
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-32 lg:pb-8">
+        {/* One-click presets */}
+        <div className="mb-5 flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
+          {QUOTE_PRESETS.map((p) => {
+            const Icon = p.icon;
+            return (
+              <button
+                key={p.label}
+                onClick={() => applyPreset(p)}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:border-gold/40 transition"
+                title={p.hint}
+              >
+                <Icon className="h-3.5 w-3.5 text-gold" />
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+
           <div className="space-y-6">
             <Card title="Guest Details">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -217,7 +283,7 @@ function GenerateQuote() {
             </Card>
           </div>
 
-          <div className="lg:sticky lg:top-24 self-start space-y-4">
+          <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
             <div className="luxe-card rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-display text-lg">Live Summary</h4>
@@ -265,9 +331,39 @@ function GenerateQuote() {
           </div>
         </div>
       </div>
+
+      {/* Mobile sticky bottom summary + actions */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-lg px-4 py-3 print:hidden">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            {c.nights}N · {form.rooms} Room{form.rooms > 1 ? "s" : ""}
+          </div>
+          <div className="font-display text-lg text-gold tabular-nums">
+            ₹{c.total.toLocaleString("en-IN")}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => save.mutate(true)}
+            disabled={save.isPending}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-3 py-2.5 text-xs font-medium text-foreground disabled:opacity-60"
+          >
+            <Save className="h-3.5 w-3.5" /> Draft
+          </button>
+          <button
+            onClick={() => save.mutate(false)}
+            disabled={save.isPending}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal disabled:opacity-60"
+          >
+            {save.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Save & Preview
+          </button>
+        </div>
+      </div>
     </>
   );
 }
+
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (

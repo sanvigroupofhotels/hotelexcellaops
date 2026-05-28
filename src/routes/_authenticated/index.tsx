@@ -15,9 +15,12 @@ import {
   Loader2,
 } from "lucide-react";
 
+import { AdminOnly } from "@/components/admin-only";
+
 export const Route = createFileRoute("/_authenticated/")({
-  component: Dashboard,
+  component: () => <AdminOnly><Dashboard /></AdminOnly>,
 });
+
 
 function Dashboard() {
   useRealtimeInvalidate(["quotes", "followups"], ["quotes", "followups"], "dashboard");
