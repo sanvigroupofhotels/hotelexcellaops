@@ -16,8 +16,10 @@ import { getCustomer } from "@/lib/customers-api";
 import { PolicyFields, SummaryExtras } from "@/components/policy-fields";
 import {
   User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2, Save,
+  Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/generate")({
