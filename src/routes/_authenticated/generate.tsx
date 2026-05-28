@@ -32,6 +32,46 @@ export const Route = createFileRoute("/_authenticated/generate")({
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
 
+// ---------- One-click quote presets (front-desk shortcuts) ----------
+type QuotePreset = {
+  label: string;
+  hint: string;
+  icon: any;
+  patch: (f: QuoteInput) => Partial<QuoteInput>;
+};
+
+const QUOTE_PRESETS: QuotePreset[] = [
+  {
+    label: "Couple Stay", hint: "2 adults · breakfast included", icon: Heart,
+    patch: () => ({ guests: 2, adults: 2, children: 0, rooms: 1, breakfast_included: true, extra_adults: 0, drivers: 0, pet_size: "none", pet_charges: false, group_size: "2 Guests" }),
+  },
+  {
+    label: "Family Stay", hint: "2 adults + 2 children", icon: UsersRound,
+    patch: () => ({ guests: 4, adults: 2, children: 2, rooms: 1, breakfast_included: true, extra_adults: 0, drivers: 0, pet_size: "none", pet_charges: false, group_size: "4 Guests" }),
+  },
+  {
+    label: "Corporate Single", hint: "1 adult · breakfast included", icon: Briefcase,
+    patch: () => ({ guests: 1, adults: 1, children: 0, rooms: 1, breakfast_included: true, extra_adults: 0, drivers: 0, pet_size: "none", pet_charges: false, group_size: "1 Guest", lead_source: "Direct" }),
+  },
+  {
+    label: "Group Booking", hint: "Multiple rooms", icon: UserPlus,
+    patch: () => ({ rooms: 3, guests: 6, adults: 6, children: 0, breakfast_included: true, group_size: "6 Guests" }),
+  },
+  {
+    label: "Pet Stay", hint: "Small pet charges", icon: Dog,
+    patch: (f) => ({ ...f, pet_charges: true, pet_size: "small" as const }),
+  },
+  {
+    label: "Long Stay", hint: "+7 nights", icon: CalendarRange,
+    patch: (f) => {
+      const inDate = new Date(f.check_in);
+      const out = new Date(inDate.getTime() + 7 * 86400000);
+      return { check_out: out.toISOString().slice(0, 10) };
+    },
+  },
+];
+
+
 function Field({ label, icon: Icon, children, required }: any) {
   return (
     <label className="block">
