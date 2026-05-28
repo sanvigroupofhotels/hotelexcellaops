@@ -8,9 +8,12 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { Loader2, TrendingUp, Users, IndianRupee, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { AdminOnly } from "@/components/admin-only";
+
 export const Route = createFileRoute("/_authenticated/analytics")({
-  component: Analytics,
+  component: () => <AdminOnly><Analytics /></AdminOnly>,
 });
+
 
 const OPEN = ["Draft", "Pending", "Sent", "Negotiation", "Negotiating"];
 const LOST_SET = ["Lost", "Failed", "No Response", "Cancelled", "Expired"];
