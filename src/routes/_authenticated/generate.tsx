@@ -283,7 +283,7 @@ function GenerateQuote() {
             </Card>
           </div>
 
-          <div className="lg:sticky lg:top-24 self-start space-y-4">
+          <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
             <div className="luxe-card rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-display text-lg">Live Summary</h4>
