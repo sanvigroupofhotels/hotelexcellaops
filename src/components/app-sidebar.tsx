@@ -49,8 +49,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
         const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to));
         const Icon = item.icon;
 
-        const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to));
-        const Icon = item.icon;
+
         return (
           <motion.div
             key={item.to}
