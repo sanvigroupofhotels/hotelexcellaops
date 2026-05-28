@@ -41,9 +41,14 @@ function Logo() {
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { isAdmin } = useUserRole();
+  const visible = nav.filter((n) => !n.adminOnly || isAdmin);
   return (
     <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-      {nav.map((item, i) => {
+      {visible.map((item, i) => {
+        const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to));
+        const Icon = item.icon;
+
         const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to));
         const Icon = item.icon;
         return (
