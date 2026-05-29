@@ -16,7 +16,7 @@ import { getCustomer } from "@/lib/customers-api";
 import { PolicyFields, SummaryExtras } from "@/components/policy-fields";
 import {
   User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2, Save,
-  Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus,
+  Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -274,7 +274,7 @@ function GenerateQuote() {
             <Card title="Additional">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Discount (₹)">
-                  <input type="number" min={0} className={inputCls} value={form.discount} onChange={(e) => update("discount", Number(e.target.value) || 0)} />
+                  <NumField label="" value={form.discount} min={0} onChange={(v) => update("discount", v)} />
                 </Field>
               </div>
               <Field label="Internal Notes">
@@ -332,34 +332,14 @@ function GenerateQuote() {
         </div>
       </div>
 
-      {/* Mobile sticky bottom summary + actions */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-lg px-4 py-3 print:hidden">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            {c.nights}N · {form.rooms} Room{form.rooms > 1 ? "s" : ""}
-          </div>
-          <div className="font-display text-lg text-gold tabular-nums">
-            ₹{c.total.toLocaleString("en-IN")}
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => save.mutate(true)}
-            disabled={save.isPending}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-3 py-2.5 text-xs font-medium text-foreground disabled:opacity-60"
-          >
-            <Save className="h-3.5 w-3.5" /> Draft
-          </button>
-          <button
-            onClick={() => save.mutate(false)}
-            disabled={save.isPending}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal disabled:opacity-60"
-          >
-            {save.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Save & Preview
-          </button>
-        </div>
-      </div>
+      {/* Mobile sticky bottom summary + actions with expandable breakdown */}
+      <MobileStickySummary
+        c={c}
+        form={form}
+        saving={save.isPending}
+        onDraft={() => save.mutate(true)}
+        onSave={() => save.mutate(false)}
+      />
     </>
   );
 }
@@ -428,22 +408,109 @@ function SummaryRow({ label, value, mute }: { label: string; value: number; mute
 function NumField({
   label, hint, value, min = 0, onChange,
 }: { label: string; hint?: string; value: number; min?: number; onChange: (v: number) => void }) {
+  // Local string state allows temporarily-empty input while editing.
+  const [raw, setRaw] = useState<string>(String(value));
+  // Sync external value -> local string when value changes via preset/etc.
+  useEffect(() => {
+    setRaw((cur) => (cur === "" || Number(cur) === value ? cur : String(value)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
   return (
     <label className="block">
       <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{label}</span>
       <input
-        type="number"
+        type="text"
         inputMode="numeric"
         pattern="[0-9]*"
-        min={min}
-        value={Number.isFinite(value) ? value : 0}
+        value={raw}
         onChange={(e) => {
-          const n = parseInt(e.target.value, 10);
-          onChange(Number.isFinite(n) && n >= min ? n : min);
+          const v = e.target.value.replace(/[^0-9]/g, "");
+          setRaw(v);
+          if (v === "") return; // allow empty during typing
+          const n = parseInt(v, 10);
+          if (Number.isFinite(n) && n >= min) onChange(n);
+        }}
+        onBlur={() => {
+          if (raw === "" || Number(raw) < min) {
+            setRaw(String(min));
+            onChange(min);
+          }
         }}
         className="w-full bg-input/60 border border-border rounded-md px-3 py-3 text-base sm:text-sm font-medium tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition"
       />
       {hint && <span className="block text-[10px] text-muted-foreground/70 mt-1">{hint}</span>}
     </label>
+  );
+}
+
+function MobileStickySummary({
+  c, form, saving, onDraft, onSave,
+}: {
+  c: ReturnType<typeof calc>;
+  form: QuoteInput;
+  saving: boolean;
+  onDraft: () => void;
+  onSave: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rows: { label: string; value: number; negative?: boolean }[] = [
+    { label: `Room Charges (${c.nights}N × ${form.rooms})`, value: c.roomTariff },
+  ];
+  if (c.extraAdults > 0) rows.push({ label: `Extra Adults × ${form.extra_adults}`, value: c.extraAdults });
+  if (c.driversCharge > 0) rows.push({ label: `Drivers × ${form.drivers}`, value: c.driversCharge });
+  if (c.extraBreakfast > 0) rows.push({ label: `Extra Breakfast × ${form.extra_breakfast_guests}`, value: c.extraBreakfast });
+  if (c.pet > 0) rows.push({ label: "Pet Charges", value: c.pet });
+  if (c.earlyCheck > 0) rows.push({ label: "Early Check-in", value: c.earlyCheck });
+  if (c.lateCheck > 0) rows.push({ label: "Late Check-out", value: c.lateCheck });
+  if (form.discount > 0) rows.push({ label: "Discount", value: -form.discount, negative: true });
+  rows.push({ label: "Taxes & Fees (5%)", value: c.taxes });
+
+  return (
+    <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-lg print:hidden">
+      {open && (
+        <div className="max-h-[45vh] overflow-y-auto px-4 py-3 border-b border-border/60">
+          {rows.map((r) => (
+            <div key={r.label} className="flex items-center justify-between py-1 text-xs">
+              <span className="text-muted-foreground truncate pr-2">{r.label}</span>
+              <span className={cn("tabular-nums shrink-0", r.negative && "text-success")}>
+                {r.negative ? "-" : ""}₹{Math.abs(r.value).toLocaleString("en-IN")}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="px-4 py-3">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center justify-between w-full mb-2"
+        >
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            {open ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+            {c.nights}N · {form.rooms} Room{form.rooms > 1 ? "s" : ""} · {open ? "Hide" : "Show"} breakdown
+          </div>
+          <div className="font-display text-lg text-gold tabular-nums">
+            ₹{c.total.toLocaleString("en-IN")}
+          </div>
+        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={onDraft}
+            disabled={saving}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-3 py-2.5 text-xs font-medium text-foreground disabled:opacity-60"
+          >
+            <Save className="h-3.5 w-3.5" /> Draft
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal disabled:opacity-60"
+          >
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Save & Preview
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

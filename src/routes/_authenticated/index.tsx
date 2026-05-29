@@ -81,6 +81,7 @@ function Dashboard() {
             </div>
             <Link
               to="/generate"
+              search={{ customerId: undefined }}
               className="group inline-flex items-center gap-2 self-start md:self-auto rounded-full gold-gradient px-5 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_30px_oklch(0.82_0.13_82/0.35)] transition"
             >
               Generate new quote
@@ -141,7 +142,7 @@ function Dashboard() {
             {!isLoading && quotes.length === 0 && (
               <div className="p-12 text-center text-sm text-muted-foreground">
                 No quotes yet —{" "}
-                <Link to="/generate" className="text-gold hover:underline">
+                <Link to="/generate" search={{ customerId: undefined }} className="text-gold hover:underline">
                   create your first one
                 </Link>
                 .

@@ -23,7 +23,7 @@ import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers.$id'
-import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id.edit'
+import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -97,9 +97,9 @@ const AuthenticatedCustomersIdRoute =
   } as any)
 const AuthenticatedQuoteIdEditRoute =
   AuthenticatedQuoteIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => AuthenticatedQuoteIdRoute,
+    id: '/quote/$id_/edit',
+    path: '/quote/$id/edit',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -115,7 +115,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
-  '/quote/$id': typeof AuthenticatedQuoteIdRouteWithChildren
+  '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
 }
 export interface FileRoutesByTo {
@@ -131,7 +131,7 @@ export interface FileRoutesByTo {
   '/users': typeof AuthenticatedUsersRoute
   '/': typeof AuthenticatedIndexRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
-  '/quote/$id': typeof AuthenticatedQuoteIdRouteWithChildren
+  '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
 }
 export interface FileRoutesById {
@@ -149,8 +149,8 @@ export interface FileRoutesById {
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/customers/$id': typeof AuthenticatedCustomersIdRoute
-  '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRouteWithChildren
-  '/_authenticated/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
+  '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -201,7 +201,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/customers/$id'
     | '/_authenticated/quote/$id'
-    | '/_authenticated/quote/$id/edit'
+    | '/_authenticated/quote/$id_/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -309,12 +309,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersIdRouteImport
       parentRoute: typeof AuthenticatedCustomersRoute
     }
-    '/_authenticated/quote/$id/edit': {
-      id: '/_authenticated/quote/$id/edit'
-      path: '/edit'
+    '/_authenticated/quote/$id_/edit': {
+      id: '/_authenticated/quote/$id_/edit'
+      path: '/quote/$id/edit'
       fullPath: '/quote/$id/edit'
       preLoaderRoute: typeof AuthenticatedQuoteIdEditRouteImport
-      parentRoute: typeof AuthenticatedQuoteIdRoute
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
@@ -333,17 +333,6 @@ const AuthenticatedCustomersRouteWithChildren =
     AuthenticatedCustomersRouteChildren,
   )
 
-interface AuthenticatedQuoteIdRouteChildren {
-  AuthenticatedQuoteIdEditRoute: typeof AuthenticatedQuoteIdEditRoute
-}
-
-const AuthenticatedQuoteIdRouteChildren: AuthenticatedQuoteIdRouteChildren = {
-  AuthenticatedQuoteIdEditRoute: AuthenticatedQuoteIdEditRoute,
-}
-
-const AuthenticatedQuoteIdRouteWithChildren =
-  AuthenticatedQuoteIdRoute._addFileChildren(AuthenticatedQuoteIdRouteChildren)
-
 interface AuthenticatedRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
@@ -355,7 +344,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRouteWithChildren
+  AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
+  AuthenticatedQuoteIdEditRoute: typeof AuthenticatedQuoteIdEditRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -369,7 +359,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRouteWithChildren,
+  AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
+  AuthenticatedQuoteIdEditRoute: AuthenticatedQuoteIdEditRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -383,13 +374,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
