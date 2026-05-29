@@ -8,7 +8,7 @@ import { QUOTE_STATUSES, type QuoteStatus } from "@/lib/mock-data";
 import { listQuotes, deleteQuote, duplicateQuote, buildWhatsAppLink, logWhatsApp, getUserNamesByIds } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
-import { Search, Loader2, Copy, Trash2, ChevronRight, Download, MessageCircle } from "lucide-react";
+import { Search, Loader2, Copy, Trash2, ChevronRight, Download, MessageCircle, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -23,7 +23,23 @@ function History() {
   useRealtimeInvalidate(["quotes"], ["quotes"], "history");
   const [filter, setFilter] = useState<QuoteStatus | "All">("All");
   const [query, setQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [createdBy, setCreatedBy] = useState<string>("All");
+  const [showAdv, setShowAdv] = useState(false);
   const { data: quotes = [], isLoading } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
+
+  // Resolve user IDs -> display names for "Created By" filter + table label
+  const { data: userNames = {} } = useQuery({
+    queryKey: ["quote-user-names", quotes.map((q) => q.user_id).join(",")],
+    queryFn: () => getUserNamesByIds(quotes.map((q) => q.user_id)),
+    enabled: quotes.length > 0,
+  });
+  const userOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const q of quotes) map.set(q.user_id, userNames[q.user_id] ?? "—");
+    return Array.from(map.entries());
+  }, [quotes, userNames]);
 
   const del = useMutation({
     mutationFn: deleteQuote,
@@ -48,13 +64,23 @@ function History() {
     return c;
   }, [quotes]);
 
-  const filtered = quotes.filter(
-    (q) =>
-      (filter === "All" || q.status === filter) &&
-      (q.guest_name.toLowerCase().includes(query.toLowerCase()) ||
-        q.reference_code.toLowerCase().includes(query.toLowerCase()) ||
-        q.phone.includes(query)),
-  );
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    return quotes.filter((it) => {
+      if (filter !== "All" && it.status !== filter) return false;
+      if (createdBy !== "All" && it.user_id !== createdBy) return false;
+      if (dateFrom && it.check_in < dateFrom) return false;
+      if (dateTo && it.check_in > dateTo) return false;
+      if (q) {
+        const hay = `${it.guest_name} ${it.reference_code} ${it.phone} ${it.email ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [quotes, filter, query, dateFrom, dateTo, createdBy]);
+
+  const hasAdvFilter = !!(dateFrom || dateTo || createdBy !== "All");
+  const clearAdv = () => { setDateFrom(""); setDateTo(""); setCreatedBy("All"); };
 
   const exportCSV = async () => {
     try {
@@ -96,16 +122,64 @@ function History() {
           <div className="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-md bg-card border border-border">
             <Search className="h-4 w-4 text-muted-foreground" />
             <input
-              placeholder="Search by guest, phone, quote ID"
+              placeholder="Search guest, phone, email or quote ID"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
             />
+            {(query || hasAdvFilter) && (
+              <button
+                onClick={() => { setQuery(""); clearAdv(); }}
+                className="text-[11px] text-muted-foreground hover:text-foreground"
+              >Clear</button>
+            )}
           </div>
+          <button
+            onClick={() => setShowAdv((v) => !v)}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-md border px-3 py-2.5 text-sm transition",
+              hasAdvFilter
+                ? "border-gold/40 bg-gold-soft text-gold"
+                : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30",
+            )}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filters{hasAdvFilter && <span className="ml-1 text-[10px]">●</span>}
+          </button>
           <button onClick={exportCSV} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
             <Download className="h-4 w-4 text-gold" /> Export CSV
           </button>
         </div>
+
+        {showAdv && (
+          <div className="luxe-card rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Check-in from</span>
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+            </label>
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Check-in to</span>
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+            </label>
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Created by</span>
+              <select value={createdBy} onChange={(e) => setCreatedBy(e.target.value)}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
+                <option value="All">All staff</option>
+                {userOptions.map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
+            </label>
+            <div className="sm:col-span-3 flex justify-end">
+              <button onClick={clearAdv} className="text-xs text-muted-foreground hover:text-foreground">
+                Reset filters
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-2 overflow-x-auto pb-1">
           {filters.map((f) => (
