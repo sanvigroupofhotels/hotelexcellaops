@@ -428,18 +428,33 @@ function SummaryRow({ label, value, mute }: { label: string; value: number; mute
 function NumField({
   label, hint, value, min = 0, onChange,
 }: { label: string; hint?: string; value: number; min?: number; onChange: (v: number) => void }) {
+  // Local string state allows temporarily-empty input while editing.
+  const [raw, setRaw] = useState<string>(String(value));
+  // Sync external value -> local string when value changes via preset/etc.
+  useEffect(() => {
+    setRaw((cur) => (cur === "" || Number(cur) === value ? cur : String(value)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
   return (
     <label className="block">
       <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{label}</span>
       <input
-        type="number"
+        type="text"
         inputMode="numeric"
         pattern="[0-9]*"
-        min={min}
-        value={Number.isFinite(value) ? value : 0}
+        value={raw}
         onChange={(e) => {
-          const n = parseInt(e.target.value, 10);
-          onChange(Number.isFinite(n) && n >= min ? n : min);
+          const v = e.target.value.replace(/[^0-9]/g, "");
+          setRaw(v);
+          if (v === "") return; // allow empty during typing
+          const n = parseInt(v, 10);
+          if (Number.isFinite(n) && n >= min) onChange(n);
+        }}
+        onBlur={() => {
+          if (raw === "" || Number(raw) < min) {
+            setRaw(String(min));
+            onChange(min);
+          }
         }}
         className="w-full bg-input/60 border border-border rounded-md px-3 py-3 text-base sm:text-sm font-medium tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition"
       />
