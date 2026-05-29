@@ -274,7 +274,7 @@ function GenerateQuote() {
             <Card title="Additional">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Discount (₹)">
-                  <input type="number" min={0} className={inputCls} value={form.discount} onChange={(e) => update("discount", Number(e.target.value) || 0)} />
+                  <NumField label="" value={form.discount} min={0} onChange={(v) => update("discount", v)} />
                 </Field>
               </div>
               <Field label="Internal Notes">
@@ -332,34 +332,14 @@ function GenerateQuote() {
         </div>
       </div>
 
-      {/* Mobile sticky bottom summary + actions */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-lg px-4 py-3 print:hidden">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            {c.nights}N · {form.rooms} Room{form.rooms > 1 ? "s" : ""}
-          </div>
-          <div className="font-display text-lg text-gold tabular-nums">
-            ₹{c.total.toLocaleString("en-IN")}
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => save.mutate(true)}
-            disabled={save.isPending}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-3 py-2.5 text-xs font-medium text-foreground disabled:opacity-60"
-          >
-            <Save className="h-3.5 w-3.5" /> Draft
-          </button>
-          <button
-            onClick={() => save.mutate(false)}
-            disabled={save.isPending}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal disabled:opacity-60"
-          >
-            {save.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Save & Preview
-          </button>
-        </div>
-      </div>
+      {/* Mobile sticky bottom summary + actions with expandable breakdown */}
+      <MobileStickySummary
+        c={c}
+        form={form}
+        saving={save.isPending}
+        onDraft={() => save.mutate(true)}
+        onSave={() => save.mutate(false)}
+      />
     </>
   );
 }
