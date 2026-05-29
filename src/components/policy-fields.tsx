@@ -12,6 +12,7 @@ import {
 } from "@/lib/mock-data";
 import type { QuoteInput } from "@/lib/quotes-api";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 import { Coffee, UserPlus, Car, PawPrint } from "lucide-react";
 
 const inputCls =
@@ -203,23 +204,7 @@ function ToggleRow({
         {icon && <span className="inline-flex items-center">{icon}</span>}
         {label}
       </span>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        aria-pressed={checked}
-        className={cn(
-          "relative h-6 w-11 rounded-full transition border-2",
-          checked
-            ? "bg-foreground/80 border-foreground"
-            : "bg-muted border-foreground/50",
-        )}
-      >
-        <motion.span
-          animate={{ x: checked ? 22 : 2 }}
-          transition={{ type: "spring", stiffness: 500, damping: 30 }}
-          className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-md"
-        />
-      </button>
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
     </div>
   );
 }
