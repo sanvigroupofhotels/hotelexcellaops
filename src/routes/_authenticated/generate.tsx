@@ -286,30 +286,7 @@ function GenerateQuote() {
           </div>
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
-            <div className="luxe-card rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-display text-lg">Live Summary</h4>
-                <Sparkles className="h-4 w-4 text-gold" />
-              </div>
-              <SummaryRow label={`Room Tariff (${c.nights}N)`} value={c.roomTariff} />
-              <SummaryRow label="Extra Bed" value={c.extraBed} mute={!c.extraBed} />
-              <SummaryRow label="Early Check-in" value={c.earlyCheck} mute={!c.earlyCheck} />
-              <SummaryRow label="Late Check-out" value={c.lateCheck} mute={!c.lateCheck} />
-              <SummaryRow label="Pet Charges" value={c.pet} mute={!c.pet} />
-              <SummaryExtras c={c} form={form} />
-              {form.discount > 0 && <SummaryRow label="Discount" value={-form.discount} />}
-              <div className="luxe-divider my-3" />
-              <SummaryRow label="Taxes & Fees" value={c.taxes} />
-              <div className="mt-4 rounded-lg bg-gold-soft border border-gold/30 p-4">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-gold/90">Total Amount</span>
-                  <span className="font-display text-2xl text-gold">
-                    ₹{c.total.toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <p className="text-[10px] text-gold/70 mt-1">Including all taxes</p>
-              </div>
-            </div>
+            <LiveSummaryCard c={c} form={form} />
 
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -339,8 +316,10 @@ function GenerateQuote() {
         c={c}
         form={form}
         saving={save.isPending}
-        onDraft={() => save.mutate(true)}
-        onSave={() => save.mutate(false)}
+        primaryLabel="Save & Preview"
+        onPrimary={() => save.mutate(false)}
+        secondaryLabel="Draft"
+        onSecondary={() => save.mutate(true)}
       />
     </>
   );
