@@ -168,10 +168,12 @@ function CustomersPage() {
                 >
                   <FilePlus className="h-3.5 w-3.5" />
                 </Link>
-                <button onClick={() => { if (confirm(`Remove ${c.guest_name}?`)) del.mutate(c.id); }}
-                  className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {isAdmin && (
+                  <button onClick={() => { if (confirm(`Remove ${c.guest_name}?`)) del.mutate(c.id); }}
+                    className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <Link to="/customers/$id" params={{ id: c.id }} className="p-1.5 rounded text-muted-foreground hover:text-gold">
                   <ChevronRight className="h-4 w-4" />
                 </Link>
