@@ -18,6 +18,7 @@ export const Route = createFileRoute("/_authenticated/customers")({
 
 function CustomersPage() {
   const qc = useQueryClient();
+  const { isAdmin } = useUserRole();
   useRealtimeInvalidate(["customers"], ["customers"], "customers");
   const { data: customers = [], isLoading } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
   const [q, setQ] = useState("");
