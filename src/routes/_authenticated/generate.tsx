@@ -13,10 +13,12 @@ import {
 } from "@/lib/mock-data";
 import { createQuote, calc, type QuoteInput } from "@/lib/quotes-api";
 import { getCustomer } from "@/lib/customers-api";
-import { PolicyFields, SummaryExtras } from "@/components/policy-fields";
+import { PolicyFields } from "@/components/policy-fields";
+import { NumField } from "@/components/num-field";
+import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
 import {
-  User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2, Save,
-  Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus, ChevronUp, ChevronDown,
+  User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Loader2, Save,
+  Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
