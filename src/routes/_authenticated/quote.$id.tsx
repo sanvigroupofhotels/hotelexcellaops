@@ -13,10 +13,11 @@ import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
   ArrowLeft, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
-  Star, Clock, Pencil, CheckCircle2, Image as ImageIcon, Printer,
+  Star, Clock, Pencil, CheckCircle2, Share2, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useUserRole } from "@/hooks/use-role";
 
 export const Route = createFileRoute("/_authenticated/quote/$id")({
   component: QuoteDetail,
@@ -26,6 +27,7 @@ function QuoteDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { isAdmin } = useUserRole();
 
   useRealtimeInvalidate(["quotes", "quote_activities"], [["quote", id], ["activities", id], "quotes"], `quote-${id}`);
 
@@ -125,17 +127,15 @@ function QuoteDetail() {
             <button
               onClick={() => cardRef.current && shareQuoteImage(cardRef.current, q)}
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
+              title="Share image via WhatsApp, Gmail, Telegram, SMS…"
             >
-              <ImageIcon className="h-4 w-4 text-gold" /> Save Image
+              <Share2 className="h-4 w-4 text-gold" /> Share Image
             </button>
             <button
               onClick={() => { logPdf(id); window.print(); }}
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
             >
-              <Printer className="h-4 w-4 text-gold" /> Print / PDF
-            </button>
-            <button onClick={copyQuoteText} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
-              <Copy className="h-4 w-4 text-gold" /> Copy
+              <Printer className="h-4 w-4 text-gold" /> PDF
             </button>
             <Link
               to="/quote/$id/edit"
@@ -144,6 +144,9 @@ function QuoteDetail() {
             >
               <Pencil className="h-4 w-4 text-gold" /> Edit
             </Link>
+            <button onClick={copyQuoteText} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <Copy className="h-4 w-4 text-gold" /> Copy
+            </button>
             <button onClick={() => dup.mutate()} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
               <Copy className="h-4 w-4 text-gold" /> Duplicate
             </button>
@@ -155,12 +158,14 @@ function QuoteDetail() {
                 <CheckCircle2 className="h-4 w-4" /> Confirm
               </button>
             )}
-            <button
-              onClick={() => { if (confirm("Delete this quote?")) del.mutate(); }}
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="h-4 w-4" /> Delete
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => { if (confirm("Delete this quote?")) del.mutate(); }}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
+            )}
           </div>
         </div>
 

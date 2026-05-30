@@ -7,9 +7,11 @@ import { roomTypes } from "@/lib/mock-data";
 import {
   getQuote, updateQuote, calc, type QuoteInput,
 } from "@/lib/quotes-api";
-import { PolicyFields, SummaryExtras } from "@/components/policy-fields";
+import { PolicyFields } from "@/components/policy-fields";
+import { NumField } from "@/components/num-field";
+import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
 import {
-  User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2, ArrowLeft,
+  User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Loader2, ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -118,7 +120,7 @@ function EditQuote() {
   return (
     <>
       <Topbar title="Edit Quote" subtitle={q.reference_code} />
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px]">
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-32 lg:pb-8">
         <Link to="/quote/$id" params={{ id }} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="h-4 w-4" /> Back to quote
         </Link>
@@ -141,14 +143,43 @@ function EditQuote() {
                     {["Direct","Website","WhatsApp","Referral","OTA"].map((o) => <option key={o}>{o}</option>)}
                   </select>
                 </Field>
-                <Field label="Group Size" icon={Users}>
-                  <select className={inputCls} value={form.group_size} onChange={(e) => update("group_size", e.target.value)}>
-                    {["1 Adult","2 Adults","2 Adults + 1 Child","Family of 4"].map((o) => <option key={o}>{o}</option>)}
-                  </select>
-                </Field>
                 <Field label="Special Requests">
                   <input className={inputCls} value={form.special_requests ?? ""} onChange={(e) => update("special_requests", e.target.value)} />
                 </Field>
+              </div>
+
+              <div className="mt-5 rounded-lg border border-border bg-secondary/30 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="h-4 w-4 text-gold" />
+                  <span className="text-sm font-medium">Group Size</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <NumField
+                    label="# of Guests"
+                    hint="Primary count"
+                    value={form.guests}
+                    min={1}
+                    onChange={(v) => {
+                      update("guests", v);
+                      update("group_size", `${v} Guest${v > 1 ? "s" : ""}`);
+                      if (form.adults > v) update("adults", v);
+                    }}
+                  />
+                  <NumField
+                    label="# of Adults"
+                    hint="Optional"
+                    value={form.adults}
+                    min={0}
+                    onChange={(v) => update("adults", v)}
+                  />
+                  <NumField
+                    label="# of Children"
+                    hint="Age below 8 years"
+                    value={form.children}
+                    min={0}
+                    onChange={(v) => update("children", v)}
+                  />
+                </div>
               </div>
             </Card>
 
@@ -188,9 +219,7 @@ function EditQuote() {
 
             <Card title="Additional">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Discount (₹)">
-                  <input type="number" min={0} className={inputCls} value={form.discount} onChange={(e) => update("discount", Number(e.target.value) || 0)} />
-                </Field>
+                <NumField label="Discount (₹)" value={form.discount} min={0} onChange={(v) => update("discount", v)} prefix="₹" />
               </div>
               <Field label="Internal Notes">
                 <textarea rows={3} className={cn(inputCls, "resize-none mt-1")} value={form.internal_notes ?? ""} onChange={(e) => update("internal_notes", e.target.value)} />
@@ -198,32 +227,8 @@ function EditQuote() {
             </Card>
           </div>
 
-          <div className="lg:sticky lg:top-24 self-start space-y-4">
-            <div className="luxe-card rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-display text-lg">Live Summary</h4>
-                <Sparkles className="h-4 w-4 text-gold" />
-              </div>
-              <SummaryRow label={`Room Tariff (${c.nights}N)`} value={c.roomTariff} />
-              <SummaryRow label="Extra Bed" value={c.extraBed} mute={!c.extraBed} />
-              <SummaryRow label="Early Check-in" value={c.earlyCheck} mute={!c.earlyCheck} />
-              <SummaryRow label="Late Check-out" value={c.lateCheck} mute={!c.lateCheck} />
-              <SummaryRow label="Pet Charges" value={c.pet} mute={!c.pet} />
-              <SummaryExtras c={c} form={form} />
-              {form.discount > 0 && <SummaryRow label="Discount" value={-form.discount} />}
-              <div className="luxe-divider my-3" />
-              <SummaryRow label="Taxes & Fees" value={c.taxes} />
-              <div className="mt-4 rounded-lg bg-gold-soft border border-gold/30 p-4">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-gold/90">Total Amount</span>
-                  <span className="font-display text-2xl text-gold">
-                    ₹{c.total.toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <p className="text-[10px] text-gold/70 mt-1">Including all taxes</p>
-              </div>
-            </div>
-
+          <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
+            <LiveSummaryCard c={c} form={form} />
             <button
               onClick={() => save.mutate()}
               disabled={save.isPending}
@@ -235,6 +240,14 @@ function EditQuote() {
           </div>
         </div>
       </div>
+
+      <MobileStickySummary
+        c={c}
+        form={form}
+        saving={save.isPending}
+        primaryLabel="Save Changes"
+        onPrimary={() => save.mutate()}
+      />
     </>
   );
 }
@@ -257,29 +270,6 @@ function Stepper({ value, min = 0, onChange }: { value: number; min?: number; on
       <button type="button" onClick={() => onChange(value + 1)} className="p-2.5 hover:bg-secondary transition text-muted-foreground hover:text-foreground">
         <Plus className="h-3.5 w-3.5" />
       </button>
-    </div>
-  );
-}
-function ToggleRow({ label, checked, onChange, icon }: any) {
-  return (
-    <div className="flex items-center justify-between rounded-md bg-secondary/40 border border-border px-3 py-2.5">
-      <span className="text-sm flex items-center gap-2">
-        {icon && <span className="text-base">{icon}</span>}
-        {label}
-      </span>
-      <button type="button" onClick={() => onChange(!checked)} className={cn("relative h-5 w-9 rounded-full transition", checked ? "gold-gradient" : "bg-muted")}>
-        <motion.span animate={{ x: checked ? 16 : 2 }} transition={{ type: "spring", stiffness: 500, damping: 30 }} className="absolute top-0.5 h-4 w-4 rounded-full bg-background shadow" />
-      </button>
-    </div>
-  );
-}
-function SummaryRow({ label, value, mute }: { label: string; value: number; mute?: boolean }) {
-  return (
-    <div className={cn("flex items-center justify-between py-1.5 text-sm", mute && "text-muted-foreground/60")}>
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn("tabular-nums", value < 0 && "text-success")}>
-        {value === 0 ? "—" : `${value < 0 ? "-" : ""}₹${Math.abs(value).toLocaleString("en-IN")}`}
-      </span>
     </div>
   );
 }

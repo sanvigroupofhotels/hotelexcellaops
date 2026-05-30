@@ -10,6 +10,7 @@ import { CUSTOMER_STATUSES, customerStatusStyles, LEAD_SOURCES } from "@/lib/moc
 import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, FilePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/use-role";
 
 export const Route = createFileRoute("/_authenticated/customers")({
   component: CustomersPage,
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/_authenticated/customers")({
 
 function CustomersPage() {
   const qc = useQueryClient();
+  const { isAdmin } = useUserRole();
   useRealtimeInvalidate(["customers"], ["customers"], "customers");
   const { data: customers = [], isLoading } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
   const [q, setQ] = useState("");
@@ -166,10 +168,12 @@ function CustomersPage() {
                 >
                   <FilePlus className="h-3.5 w-3.5" />
                 </Link>
-                <button onClick={() => { if (confirm(`Remove ${c.guest_name}?`)) del.mutate(c.id); }}
-                  className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {isAdmin && (
+                  <button onClick={() => { if (confirm(`Remove ${c.guest_name}?`)) del.mutate(c.id); }}
+                    className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <Link to="/customers/$id" params={{ id: c.id }} className="p-1.5 rounded text-muted-foreground hover:text-gold">
                   <ChevronRight className="h-4 w-4" />
                 </Link>

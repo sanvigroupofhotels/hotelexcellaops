@@ -1,7 +1,6 @@
 import { toPng, toBlob } from "html-to-image";
 import { toast } from "sonner";
 import type { QuoteRow } from "@/lib/quotes-api";
-import { logWhatsApp } from "@/lib/quotes-api";
 
 /** Render a DOM node to a PNG data URL at 2x for retina-crisp images. */
 export async function nodeToPng(node: HTMLElement): Promise<string> {
@@ -39,15 +38,45 @@ function whatsappCaption(q: QuoteRow) {
   ].join("\n");
 }
 
-/** Download the quote image as PNG. Reliable across browsers (no Web Share dependency). */
+/**
+ * Share the quote image. On mobile (Android/iOS) and supporting desktops,
+ * this opens the native share sheet (WhatsApp, Gmail, Telegram, SMS, ...).
+ * Falls back to a direct PNG download when Web Share with files isn't supported.
+ */
 export async function shareQuoteImage(node: HTMLElement, q: QuoteRow) {
   const filename = `${q.reference_code}.png`;
   try {
-    const dataUrl = await nodeToPng(node);
+    const blob = await nodeToBlob(node);
+    if (!blob) throw new Error("Could not render image");
+
+    const file = new File([blob], filename, { type: "image/png" });
+    const navAny = navigator as any;
+    const canShareFile =
+      typeof navAny.share === "function" &&
+      typeof navAny.canShare === "function" &&
+      navAny.canShare({ files: [file] });
+
+    if (canShareFile) {
+      try {
+        await navAny.share({
+          files: [file],
+          title: `Hotel Excella · ${q.reference_code}`,
+          text: whatsappCaption(q),
+        });
+        return;
+      } catch (e: any) {
+        // User cancelled — silent; any other error falls through to download.
+        if (e?.name === "AbortError") return;
+      }
+    }
+
+    // Fallback: download the PNG so the user can attach it manually.
+    const dataUrl = URL.createObjectURL(blob);
     downloadDataUrl(dataUrl, filename);
-    toast.success("Quote image saved");
+    URL.revokeObjectURL(dataUrl);
+    toast.success("Quote image saved — attach to your message");
   } catch (e: any) {
-    toast.error(e?.message ?? "Failed to save image");
+    toast.error(e?.message ?? "Failed to share image");
   }
 }
 

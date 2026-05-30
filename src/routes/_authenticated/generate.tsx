@@ -13,10 +13,12 @@ import {
 } from "@/lib/mock-data";
 import { createQuote, calc, type QuoteInput } from "@/lib/quotes-api";
 import { getCustomer } from "@/lib/customers-api";
-import { PolicyFields, SummaryExtras } from "@/components/policy-fields";
+import { PolicyFields } from "@/components/policy-fields";
+import { NumField } from "@/components/num-field";
+import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
 import {
-  User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Sparkles, Loader2, Save,
-  Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus, ChevronUp, ChevronDown,
+  User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Loader2, Save,
+  Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -284,30 +286,7 @@ function GenerateQuote() {
           </div>
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
-            <div className="luxe-card rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-display text-lg">Live Summary</h4>
-                <Sparkles className="h-4 w-4 text-gold" />
-              </div>
-              <SummaryRow label={`Room Tariff (${c.nights}N)`} value={c.roomTariff} />
-              <SummaryRow label="Extra Bed" value={c.extraBed} mute={!c.extraBed} />
-              <SummaryRow label="Early Check-in" value={c.earlyCheck} mute={!c.earlyCheck} />
-              <SummaryRow label="Late Check-out" value={c.lateCheck} mute={!c.lateCheck} />
-              <SummaryRow label="Pet Charges" value={c.pet} mute={!c.pet} />
-              <SummaryExtras c={c} form={form} />
-              {form.discount > 0 && <SummaryRow label="Discount" value={-form.discount} />}
-              <div className="luxe-divider my-3" />
-              <SummaryRow label="Taxes & Fees" value={c.taxes} />
-              <div className="mt-4 rounded-lg bg-gold-soft border border-gold/30 p-4">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-gold/90">Total Amount</span>
-                  <span className="font-display text-2xl text-gold">
-                    ₹{c.total.toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <p className="text-[10px] text-gold/70 mt-1">Including all taxes</p>
-              </div>
-            </div>
+            <LiveSummaryCard c={c} form={form} />
 
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -337,8 +316,10 @@ function GenerateQuote() {
         c={c}
         form={form}
         saving={save.isPending}
-        onDraft={() => save.mutate(true)}
-        onSave={() => save.mutate(false)}
+        primaryLabel="Save & Preview"
+        onPrimary={() => save.mutate(false)}
+        secondaryLabel="Draft"
+        onSecondary={() => save.mutate(true)}
       />
     </>
   );
@@ -394,123 +375,3 @@ function ToggleRow({ label, checked, onChange, icon }: any) {
   );
 }
 
-function SummaryRow({ label, value, mute }: { label: string; value: number; mute?: boolean }) {
-  return (
-    <div className={cn("flex items-center justify-between py-1.5 text-sm", mute && "text-muted-foreground/60")}>
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn("tabular-nums", value < 0 && "text-success")}>
-        {value === 0 ? "—" : `${value < 0 ? "-" : ""}₹${Math.abs(value).toLocaleString("en-IN")}`}
-      </span>
-    </div>
-  );
-}
-
-function NumField({
-  label, hint, value, min = 0, onChange,
-}: { label: string; hint?: string; value: number; min?: number; onChange: (v: number) => void }) {
-  // Local string state allows temporarily-empty input while editing.
-  const [raw, setRaw] = useState<string>(String(value));
-  // Sync external value -> local string when value changes via preset/etc.
-  useEffect(() => {
-    setRaw((cur) => (cur === "" || Number(cur) === value ? cur : String(value)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-  return (
-    <label className="block">
-      <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{label}</span>
-      <input
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={raw}
-        onChange={(e) => {
-          const v = e.target.value.replace(/[^0-9]/g, "");
-          setRaw(v);
-          if (v === "") return; // allow empty during typing
-          const n = parseInt(v, 10);
-          if (Number.isFinite(n) && n >= min) onChange(n);
-        }}
-        onBlur={() => {
-          if (raw === "" || Number(raw) < min) {
-            setRaw(String(min));
-            onChange(min);
-          }
-        }}
-        className="w-full bg-input/60 border border-border rounded-md px-3 py-3 text-base sm:text-sm font-medium tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition"
-      />
-      {hint && <span className="block text-[10px] text-muted-foreground/70 mt-1">{hint}</span>}
-    </label>
-  );
-}
-
-function MobileStickySummary({
-  c, form, saving, onDraft, onSave,
-}: {
-  c: ReturnType<typeof calc>;
-  form: QuoteInput;
-  saving: boolean;
-  onDraft: () => void;
-  onSave: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const rows: { label: string; value: number; negative?: boolean }[] = [
-    { label: `Room Charges (${c.nights}N × ${form.rooms})`, value: c.roomTariff },
-  ];
-  if (c.extraAdults > 0) rows.push({ label: `Extra Adults × ${form.extra_adults}`, value: c.extraAdults });
-  if (c.driversCharge > 0) rows.push({ label: `Drivers × ${form.drivers}`, value: c.driversCharge });
-  if (c.extraBreakfast > 0) rows.push({ label: `Extra Breakfast × ${form.extra_breakfast_guests}`, value: c.extraBreakfast });
-  if (c.pet > 0) rows.push({ label: "Pet Charges", value: c.pet });
-  if (c.earlyCheck > 0) rows.push({ label: "Early Check-in", value: c.earlyCheck });
-  if (c.lateCheck > 0) rows.push({ label: "Late Check-out", value: c.lateCheck });
-  if (form.discount > 0) rows.push({ label: "Discount", value: -form.discount, negative: true });
-  rows.push({ label: "Taxes & Fees (5%)", value: c.taxes });
-
-  return (
-    <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-lg print:hidden">
-      {open && (
-        <div className="max-h-[45vh] overflow-y-auto px-4 py-3 border-b border-border/60">
-          {rows.map((r) => (
-            <div key={r.label} className="flex items-center justify-between py-1 text-xs">
-              <span className="text-muted-foreground truncate pr-2">{r.label}</span>
-              <span className={cn("tabular-nums shrink-0", r.negative && "text-success")}>
-                {r.negative ? "-" : ""}₹{Math.abs(r.value).toLocaleString("en-IN")}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex items-center justify-between w-full mb-2"
-        >
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            {open ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
-            {c.nights}N · {form.rooms} Room{form.rooms > 1 ? "s" : ""} · {open ? "Hide" : "Show"} breakdown
-          </div>
-          <div className="font-display text-lg text-gold tabular-nums">
-            ₹{c.total.toLocaleString("en-IN")}
-          </div>
-        </button>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={onDraft}
-            disabled={saving}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-3 py-2.5 text-xs font-medium text-foreground disabled:opacity-60"
-          >
-            <Save className="h-3.5 w-3.5" /> Draft
-          </button>
-          <button
-            onClick={onSave}
-            disabled={saving}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal disabled:opacity-60"
-          >
-            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Save & Preview
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}

@@ -11,6 +11,7 @@ import { downloadCSV } from "@/lib/csv";
 import { Search, Loader2, Copy, Trash2, ChevronRight, Download, MessageCircle, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/use-role";
 
 export const Route = createFileRoute("/_authenticated/history")({
   component: History,
@@ -20,6 +21,7 @@ const filters: (QuoteStatus | "All")[] = ["All", ...QUOTE_STATUSES];
 
 function History() {
   const qc = useQueryClient();
+  const { isAdmin } = useUserRole();
   useRealtimeInvalidate(["quotes"], ["quotes"], "history");
   const [filter, setFilter] = useState<QuoteStatus | "All">("All");
   const [query, setQuery] = useState("");
@@ -269,15 +271,17 @@ function History() {
                 >
                   <Copy className="h-3.5 w-3.5" />
                 </button>
-                <button
-                  onClick={() => {
-                    if (confirm(`Delete quote ${q.reference_code}?`)) del.mutate(q.id);
-                  }}
-                  className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
-                  title="Delete"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`Delete quote ${q.reference_code}?`)) del.mutate(q.id);
+                    }}
+                    className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <Link
                   to="/quote/$id"
                   params={{ id: q.id }}
