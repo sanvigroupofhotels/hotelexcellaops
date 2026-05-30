@@ -271,15 +271,17 @@ function History() {
                 >
                   <Copy className="h-3.5 w-3.5" />
                 </button>
-                <button
-                  onClick={() => {
-                    if (confirm(`Delete quote ${q.reference_code}?`)) del.mutate(q.id);
-                  }}
-                  className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
-                  title="Delete"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`Delete quote ${q.reference_code}?`)) del.mutate(q.id);
+                    }}
+                    className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <Link
                   to="/quote/$id"
                   params={{ id: q.id }}
