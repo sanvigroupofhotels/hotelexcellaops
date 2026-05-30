@@ -13,10 +13,11 @@ import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
   ArrowLeft, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
-  Star, Clock, Pencil, CheckCircle2, Image as ImageIcon, Printer,
+  Star, Clock, Pencil, CheckCircle2, Share2, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useUserRole } from "@/hooks/use-role";
 
 export const Route = createFileRoute("/_authenticated/quote/$id")({
   component: QuoteDetail,
