@@ -11,6 +11,7 @@ import { downloadCSV } from "@/lib/csv";
 import { Search, Loader2, Copy, Trash2, ChevronRight, Download, MessageCircle, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/use-role";
 
 export const Route = createFileRoute("/_authenticated/history")({
   component: History,
