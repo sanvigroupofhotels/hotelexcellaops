@@ -27,6 +27,7 @@ function QuoteDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { isAdmin } = useUserRole();
 
   useRealtimeInvalidate(["quotes", "quote_activities"], [["quote", id], ["activities", id], "quotes"], `quote-${id}`);
 
