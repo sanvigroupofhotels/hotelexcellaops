@@ -21,6 +21,7 @@ const filters: (QuoteStatus | "All")[] = ["All", ...QUOTE_STATUSES];
 
 function History() {
   const qc = useQueryClient();
+  const { isAdmin } = useUserRole();
   useRealtimeInvalidate(["quotes"], ["quotes"], "history");
   const [filter, setFilter] = useState<QuoteStatus | "All">("All");
   const [query, setQuery] = useState("");
