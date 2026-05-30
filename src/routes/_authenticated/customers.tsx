@@ -10,6 +10,7 @@ import { CUSTOMER_STATUSES, customerStatusStyles, LEAD_SOURCES } from "@/lib/moc
 import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, FilePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/use-role";
 
 export const Route = createFileRoute("/_authenticated/customers")({
   component: CustomersPage,
