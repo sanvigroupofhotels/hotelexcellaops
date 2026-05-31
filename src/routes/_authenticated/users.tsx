@@ -156,7 +156,7 @@ function UsersPage() {
       {showCreate && (
         <CreateUserModal
           onClose={() => setShowCreate(false)}
-          onSubmit={async (vals) => {
+          onSubmit={async (vals: { email: string; password: string; display_name: string; role: AppRole }) => {
             try { await create({ data: vals }); toast.success("User created"); invalidate(); setShowCreate(false); }
             catch (e: any) { toast.error(e.message); }
           }}
@@ -164,7 +164,7 @@ function UsersPage() {
       )}
       {editing && (
         <EditUserModal user={editing} onClose={() => setEditing(null)}
-          onSubmit={async (vals) => {
+          onSubmit={async (vals: { display_name: string; email: string }) => {
             try { await update({ data: { id: editing.id, ...vals } }); toast.success("User updated"); invalidate(); setEditing(null); }
             catch (e: any) { toast.error(e.message); }
           }}
@@ -172,7 +172,8 @@ function UsersPage() {
       )}
       {resetting && (
         <ResetPasswordModal user={resetting} onClose={() => setResetting(null)}
-          onSubmit={async (pw) => {
+          onSubmit={async (pw: string) => {
+
             try { await resetPw({ data: { id: resetting.id, new_password: pw } }); toast.success("Password reset"); setResetting(null); }
             catch (e: any) { toast.error(e.message); }
           }}
