@@ -27,9 +27,19 @@ function CustomerDetail() {
 
   const { data: c, isLoading } = useQuery({ queryKey: ["customer", id], queryFn: () => getCustomer(id) });
   const { data: quotes = [] } = useQuery({ queryKey: ["customer-quotes", id], queryFn: () => listCustomerQuotes(id), enabled: !!c });
+  const { data: creators = {} } = useQuery({
+    queryKey: ["customer-creator", c?.user_id],
+    queryFn: async () => {
+      const { getUserNamesByIds } = await import("@/lib/quotes-api");
+      return getUserNamesByIds(c?.user_id ? [c.user_id] : []);
+    },
+    enabled: !!c?.user_id,
+  });
+  const createdBy = c?.user_id ? creators[c.user_id] : null;
 
   const [notes, setNotes] = useState("");
   useEffect(() => { if (c) setNotes(c.internal_notes ?? ""); }, [c]);
+
 
   const save = useMutation({
     mutationFn: (patch: any) => updateCustomer(id, patch),
@@ -73,7 +83,15 @@ function CustomerDetail() {
                     {c.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" />{c.email}</div>}
                     {(c.city || c.country) && <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" />{[c.city, c.state, c.country].filter(Boolean).join(", ")}</div>}
                     {c.company_name && <div className="flex items-center gap-2"><Briefcase className="h-3.5 w-3.5" />{c.company_name}{c.gst_number ? ` · GST ${c.gst_number}` : ""}</div>}
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Lead source: <span className="text-foreground">{c.lead_source ?? "Direct"}</span>
+                      <span className="text-muted-foreground/60">·</span>
+                      Created {new Date(c.first_contact_date).toLocaleDateString("en-IN")}
+                      {createdBy && <><span className="text-muted-foreground/60">·</span>by <span className="text-foreground">{createdBy}</span></>}
+                    </div>
                   </div>
+
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs",
