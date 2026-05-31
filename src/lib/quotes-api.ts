@@ -359,37 +359,24 @@ export function buildWhatsAppLink(q: QuoteRow) {
 
   const lines = [
     `Greetings from Hotel Excella ✨`,
-    ``,
     `Dear ${q.guest_name},`,
-    ``,
     `Thank you for considering Hotel Excella for your stay. Please find your quotation details below:`,
-    ``,
     `📌 Quotation Ref: ${q.reference_code}`,
     ``,
     `🏨 Room Details`,
-    ``,
     `• Room Type: ${q.room_type} × ${q.rooms}`,
-    ``,
     `• Check-in: ${fmtDate(q.check_in)} | 1:00 PM`,
-    ``,
     `• Check-out: ${fmtDate(q.check_out)} | 11:00 AM`,
-    ``,
     `• Duration: ${q.nights} Night${q.nights > 1 ? "s" : ""}`,
-    ``,
     `• Guests: ${guestLine}`,
-    ``,
     `• Breakfast: ${q.breakfast_included ? "Included" : "Not Included"}`,
     ``,
     `💰 Tariff Breakdown`,
-    ``,
     ...tariff,
-    ``,
     `✅ Total Amount Payable: ${inr(q.total)}`,
-    ``,
     `(Inclusive of all applicable taxes)`,
     ``,
     `🌟 Why Stay with Hotel Excella?`,
-    ``,
     `✔ Free High-Speed Wi-Fi`,
     `✔ Walkable Distance to Beach`,
     `✔ Close to Major Sightseeing Attractions`,
@@ -399,7 +386,6 @@ export function buildWhatsAppLink(q: QuoteRow) {
     `✔ Daily Housekeeping Service`,
     ``,
     `📍 Convenient location with easy access to the city, beaches, and tourist spots.`,
-    ``,
     `⏳ This quotation is valid for 7 days.`,
     ``,
     `We would be delighted to host you and make your stay comfortable and memorable.`,
@@ -407,6 +393,7 @@ export function buildWhatsAppLink(q: QuoteRow) {
     `Warm Regards,`,
     `Hotel Excella Reservations Team`,
   ];
+
   const text = encodeURIComponent(lines.join("\n"));
   const phone = q.phone.replace(/[^0-9]/g, "");
   return `https://wa.me/${phone}?text=${text}`;
