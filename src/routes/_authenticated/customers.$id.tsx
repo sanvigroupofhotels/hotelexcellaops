@@ -27,9 +27,19 @@ function CustomerDetail() {
 
   const { data: c, isLoading } = useQuery({ queryKey: ["customer", id], queryFn: () => getCustomer(id) });
   const { data: quotes = [] } = useQuery({ queryKey: ["customer-quotes", id], queryFn: () => listCustomerQuotes(id), enabled: !!c });
+  const { data: creators = {} } = useQuery({
+    queryKey: ["customer-creator", c?.user_id],
+    queryFn: async () => {
+      const { getUserNamesByIds } = await import("@/lib/quotes-api");
+      return getUserNamesByIds(c?.user_id ? [c.user_id] : []);
+    },
+    enabled: !!c?.user_id,
+  });
+  const createdBy = c?.user_id ? creators[c.user_id] : null;
 
   const [notes, setNotes] = useState("");
   useEffect(() => { if (c) setNotes(c.internal_notes ?? ""); }, [c]);
+
 
   const save = useMutation({
     mutationFn: (patch: any) => updateCustomer(id, patch),
