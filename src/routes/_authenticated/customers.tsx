@@ -99,7 +99,7 @@ function CustomersPage() {
           <div className="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-md bg-card border border-border">
             <Search className="h-4 w-4 text-muted-foreground" />
             <input
-              placeholder="Search name, phone, email, reference"
+              placeholder="Search name, phone, email, customer or quote ref"
               value={q} onChange={(e) => setQ(e.target.value)}
               className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
             />
