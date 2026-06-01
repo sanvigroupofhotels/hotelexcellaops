@@ -20,8 +20,9 @@ export const Route = createFileRoute("/_authenticated/customers")({
 function CustomersPage() {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
-  useRealtimeInvalidate(["customers"], ["customers"], "customers");
+  useRealtimeInvalidate(["customers", "quotes"], ["customers", "quotes"], "customers");
   const { data: customers = [], isLoading } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
+  const { data: quotes = [] } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("All");
   const [source, setSource] = useState<string>("All");
@@ -32,13 +33,32 @@ function CustomersPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const filtered = useMemo(() => customers.filter((c) =>
-    (status === "All" || c.status === status) &&
-    (source === "All" || c.lead_source === source) &&
-    (!q || c.guest_name.toLowerCase().includes(q.toLowerCase()) ||
-      (c.phone ?? "").includes(q) || (c.email ?? "").toLowerCase().includes(q.toLowerCase()) ||
-      c.customer_reference.toLowerCase().includes(q.toLowerCase()))
-  ), [customers, q, status, source]);
+  // Build a lookup of quote-reference → customer_id so search can match HEX-… codes
+  const customerIdsByQuoteRef = useMemo(() => {
+    const ql = q.trim().toLowerCase();
+    if (!ql) return null;
+    const ids = new Set<string>();
+    for (const row of quotes) {
+      if (row.customer_id && row.reference_code?.toLowerCase().includes(ql)) {
+        ids.add(row.customer_id);
+      }
+    }
+    return ids;
+  }, [quotes, q]);
+
+  const filtered = useMemo(() => customers.filter((c) => {
+    if (status !== "All" && c.status !== status) return false;
+    if (source !== "All" && c.lead_source !== source) return false;
+    if (!q) return true;
+    const ql = q.toLowerCase();
+    return (
+      c.guest_name.toLowerCase().includes(ql) ||
+      (c.phone ?? "").includes(q) ||
+      (c.email ?? "").toLowerCase().includes(ql) ||
+      c.customer_reference.toLowerCase().includes(ql) ||
+      (customerIdsByQuoteRef?.has(c.id) ?? false)
+    );
+  }), [customers, q, status, source, customerIdsByQuoteRef]);
 
   const exportCSV = async () => {
     try {
