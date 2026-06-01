@@ -124,11 +124,18 @@ function CustomerDetail() {
               <Stat label="Total Quotes" value={c.total_quotes} />
               <Stat label="Bookings" value={c.total_bookings} />
               <Stat label="Conversion" value={`${conversion}%`} />
-              <Stat label="Revenue" value={`₹${Number(c.total_revenue).toLocaleString("en-IN")}`} accent />
+              <Stat
+                label="Lifetime Quoted"
+                value={`₹${Number(lifetimeQuoted).toLocaleString("en-IN")}`}
+                accent
+              />
+              <Stat label="Booked Revenue" value={`₹${Number(c.total_revenue).toLocaleString("en-IN")}`} />
               <Stat label="Avg Booking" value={aov ? `₹${aov.toLocaleString("en-IN")}` : "—"} />
+              <Stat
+                label="Latest Quote"
+                value={latestQuote ? <span className="font-mono text-base">{latestQuote.reference_code}</span> : "—"}
+              />
               <Stat label="Last Stay" value={c.last_stay_date ? new Date(c.last_stay_date).toLocaleDateString("en-IN") : "—"} />
-              <Stat label="Preferred Room" value={c.preferred_room ?? "—"} />
-              <Stat label="Booking Prob." value={`${c.booking_probability}%`} />
             </div>
 
             <div className="luxe-card rounded-xl p-5">
