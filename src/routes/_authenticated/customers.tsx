@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
 import { listCustomers, deleteCustomer } from "@/lib/customers-api";
+import { listQuotes } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
 import { CUSTOMER_STATUSES, customerStatusStyles, LEAD_SOURCES } from "@/lib/mock-data";
