@@ -209,7 +209,7 @@ function CreateUserModal({ onClose, onSubmit }: any) {
     <Modal title="Create User" onClose={onClose}>
       <Field label="Display Name" value={v.display_name} onChange={(e: any) => setV({ ...v, display_name: e.target.value })} />
       <Field label="Email" type="email" value={v.email} onChange={(e: any) => setV({ ...v, email: e.target.value })} />
-      <Field label="Initial Password (min 8)" type="text" value={v.password} onChange={(e: any) => setV({ ...v, password: e.target.value })} />
+      <Field label="Initial Password (min 8)" type="password" autoComplete="new-password" value={v.password} onChange={(e: any) => setV({ ...v, password: e.target.value })} />
       <label className="block space-y-1">
         <span className="text-xs uppercase tracking-wider text-muted-foreground">Role</span>
         <select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as AppRole })}
@@ -244,7 +244,7 @@ function ResetPasswordModal({ user, onClose, onSubmit }: any) {
   const [pw, setPw] = useState("");
   return (
     <Modal title={`Reset password — ${user.display_name || user.email}`} onClose={onClose}>
-      <Field label="New Password (min 8)" type="text" value={pw} onChange={(e: any) => setPw(e.target.value)} />
+      <Field label="New Password (min 8)" type="password" autoComplete="new-password" value={pw} onChange={(e: any) => setPw(e.target.value)} />
       <p className="text-[11px] text-muted-foreground">Share this password with the user securely. They can change it after sign-in.</p>
       <div className="flex justify-end gap-2 pt-2">
         <button onClick={onClose} className="text-xs rounded-md border border-border bg-card px-3 py-1.5">Cancel</button>

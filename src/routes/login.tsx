@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Loader2, LogIn, UserPlus } from "lucide-react";
+import { Loader2, LogIn } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -13,10 +13,8 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!loading && user) return <Navigate to="/" />;
@@ -25,24 +23,10 @@ function LoginPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        toast.success("Welcome back");
-        navigate({ to: "/" });
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: { display_name: displayName || email.split("@")[0] },
-          },
-        });
-        if (error) throw error;
-        toast.success("Account created. You can sign in now.");
-        setMode("signin");
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      toast.success("Welcome back");
+      navigate({ to: "/" });
     } catch (err: any) {
       toast.error(err.message ?? "Authentication failed");
     } finally {
@@ -72,28 +56,12 @@ function LoginPage() {
             </div>
           </div>
 
-          <h1 className="font-display text-3xl mb-1">
-            {mode === "signin" ? "Welcome back" : "Create your account"}
-          </h1>
+          <h1 className="font-display text-3xl mb-1">Welcome back</h1>
           <p className="text-sm text-muted-foreground mb-6">
-            {mode === "signin"
-              ? "Sign in to manage your quotes."
-              : "Join the Hotel Excella reservations team."}
+            Sign in to manage your quotes.
           </p>
 
           <form onSubmit={submit} className="space-y-3">
-            {mode === "signup" && (
-              <div>
-                <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Display name
-                </label>
-                <input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
-                />
-              </div>
-            )}
             <div>
               <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
                 Email
@@ -101,6 +69,7 @@ function LoginPage() {
               <input
                 type="email"
                 required
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
@@ -114,6 +83,7 @@ function LoginPage() {
                 type="password"
                 required
                 minLength={6}
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
@@ -125,26 +95,14 @@ function LoginPage() {
               disabled={busy}
               className="w-full mt-4 inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60"
             >
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : mode === "signin" ? (
-                <LogIn className="h-4 w-4" />
-              ) : (
-                <UserPlus className="h-4 w-4" />
-              )}
-              {mode === "signin" ? "Sign in" : "Create account"}
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+              Sign in
             </button>
           </form>
 
-          <div className="mt-6 text-center text-xs text-muted-foreground">
-            {mode === "signin" ? "New to Hotel Excella? " : "Already have an account? "}
-            <button
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-              className="text-gold hover:underline"
-            >
-              {mode === "signin" ? "Create an account" : "Sign in"}
-            </button>
-          </div>
+          <p className="mt-6 text-center text-[11px] text-muted-foreground">
+            New accounts are created by an administrator.
+          </p>
         </div>
       </motion.div>
     </div>
