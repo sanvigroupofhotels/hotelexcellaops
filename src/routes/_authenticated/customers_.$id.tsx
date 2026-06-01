@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/customers/$id")({
+export const Route = createFileRoute("/_authenticated/customers_/$id")({
   component: CustomerDetail,
 });
 

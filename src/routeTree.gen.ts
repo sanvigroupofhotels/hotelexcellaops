@@ -22,7 +22,7 @@ import { Route as AuthenticatedCustomersRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
-import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers.$id'
+import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
 
 const LoginRoute = LoginRouteImport.update({
@@ -91,9 +91,9 @@ const AuthenticatedQuoteIdRoute = AuthenticatedQuoteIdRouteImport.update({
 } as any)
 const AuthenticatedCustomersIdRoute =
   AuthenticatedCustomersIdRouteImport.update({
-    id: '/$id',
-    path: '/$id',
-    getParentRoute: () => AuthenticatedCustomersRoute,
+    id: '/customers_/$id',
+    path: '/customers/$id',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedQuoteIdEditRoute =
   AuthenticatedQuoteIdEditRouteImport.update({
@@ -107,7 +107,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/customers': typeof AuthenticatedCustomersRouteWithChildren
+  '/customers': typeof AuthenticatedCustomersRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
@@ -122,7 +122,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/customers': typeof AuthenticatedCustomersRouteWithChildren
+  '/customers': typeof AuthenticatedCustomersRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
@@ -140,7 +140,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
-  '/_authenticated/customers': typeof AuthenticatedCustomersRouteWithChildren
+  '/_authenticated/customers': typeof AuthenticatedCustomersRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/_authenticated/generate': typeof AuthenticatedGenerateRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
@@ -148,7 +148,7 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/customers/$id': typeof AuthenticatedCustomersIdRoute
+  '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
 }
@@ -199,7 +199,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/_authenticated/users'
     | '/_authenticated/'
-    | '/_authenticated/customers/$id'
+    | '/_authenticated/customers_/$id'
     | '/_authenticated/quote/$id'
     | '/_authenticated/quote/$id_/edit'
   fileRoutesById: FileRoutesById
@@ -302,12 +302,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedQuoteIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/customers/$id': {
-      id: '/_authenticated/customers/$id'
-      path: '/$id'
+    '/_authenticated/customers_/$id': {
+      id: '/_authenticated/customers_/$id'
+      path: '/customers/$id'
       fullPath: '/customers/$id'
       preLoaderRoute: typeof AuthenticatedCustomersIdRouteImport
-      parentRoute: typeof AuthenticatedCustomersRoute
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/quote/$id_/edit': {
       id: '/_authenticated/quote/$id_/edit'
@@ -319,24 +319,10 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthenticatedCustomersRouteChildren {
-  AuthenticatedCustomersIdRoute: typeof AuthenticatedCustomersIdRoute
-}
-
-const AuthenticatedCustomersRouteChildren: AuthenticatedCustomersRouteChildren =
-  {
-    AuthenticatedCustomersIdRoute: AuthenticatedCustomersIdRoute,
-  }
-
-const AuthenticatedCustomersRouteWithChildren =
-  AuthenticatedCustomersRoute._addFileChildren(
-    AuthenticatedCustomersRouteChildren,
-  )
-
 interface AuthenticatedRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
-  AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRouteWithChildren
+  AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
   AuthenticatedGenerateRoute: typeof AuthenticatedGenerateRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
@@ -344,6 +330,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedCustomersIdRoute: typeof AuthenticatedCustomersIdRoute
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
   AuthenticatedQuoteIdEditRoute: typeof AuthenticatedQuoteIdEditRoute
 }
@@ -351,7 +338,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
-  AuthenticatedCustomersRoute: AuthenticatedCustomersRouteWithChildren,
+  AuthenticatedCustomersRoute: AuthenticatedCustomersRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
   AuthenticatedGenerateRoute: AuthenticatedGenerateRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
@@ -359,6 +346,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedCustomersIdRoute: AuthenticatedCustomersIdRoute,
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
   AuthenticatedQuoteIdEditRoute: AuthenticatedQuoteIdEditRoute,
 }
@@ -374,3 +362,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
