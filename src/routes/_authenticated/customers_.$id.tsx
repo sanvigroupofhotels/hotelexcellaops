@@ -54,6 +54,8 @@ function CustomerDetail() {
   const conversion = c.total_quotes ? Math.round((c.total_bookings / c.total_quotes) * 100) : 0;
   const aov = c.total_bookings ? Math.round(Number(c.total_revenue) / c.total_bookings) : 0;
   const repeat = c.total_bookings > 1;
+  const lifetimeQuoted = quotes.reduce((s: number, q: any) => s + Number(q.total ?? 0), 0);
+  const latestQuote = quotes[0] as any | undefined;
 
   const toggleTag = (tag: string) => {
     const next = c.tags.includes(tag) ? c.tags.filter((t) => t !== tag) : [...c.tags, tag];
