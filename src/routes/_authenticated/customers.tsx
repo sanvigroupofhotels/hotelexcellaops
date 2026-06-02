@@ -208,6 +208,7 @@ function CustomersPage() {
           ))}
         </div>
       </div>
+      <CustomerEditDialog open={newOpen} onClose={() => setNewOpen(false)} customer={null} />
     </>
   );
 }
