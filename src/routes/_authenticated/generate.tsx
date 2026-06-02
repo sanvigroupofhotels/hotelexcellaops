@@ -107,6 +107,13 @@ function GenerateQuote() {
   const update = <K extends keyof QuoteInput>(k: K, v: QuoteInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  // Multi-line items (additional rooms beyond the primary form line).
+  const [extraItems, setExtraItems] = useState<LineItem[]>([]);
+
+  // Existing-customer banner state. Null = no match yet. linkedId = "Use existing".
+  const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
+  const [forceNew, setForceNew] = useState(false);
+
   // Prefill from customer when ?customerId=… is present (repeat-guest workflow).
   const { data: prefill } = useQuery({
     queryKey: ["customer-prefill", customerId],
@@ -124,10 +131,33 @@ function GenerateQuote() {
       lead_source: prefill.lead_source ?? f.lead_source,
       room_type: prefill.preferred_room ?? f.room_type,
     }));
+    setMatchedCustomer(prefill);
     toast.success(`Prefilled for ${prefill.guest_name}`);
   }, [prefill]);
 
-  const c = useMemo(() => calc(form), [form]);
+  // Auto-detect existing customer by contact (phone/email) — debounced.
+  useEffect(() => {
+    if (forceNew) return;
+    const phoneOk = form.phone.trim().length >= 7;
+    const emailOk = !!form.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
+    if (!phoneOk && !emailOk) { setMatchedCustomer(null); return; }
+    const t = setTimeout(async () => {
+      const c = await findCustomerByContact(
+        phoneOk ? form.phone.trim() : undefined,
+        emailOk ? form.email! : undefined,
+      );
+      setMatchedCustomer(c);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [form.phone, form.email, forceNew]);
+
+  const c = useMemo(() => {
+    const base = calc(form);
+    const extra = lineItemsTotal(extraItems);
+    const subtotal = base.subtotal + extra;
+    const taxes = Math.round(subtotal * 0.05);
+    return { ...base, subtotal, taxes, total: subtotal + taxes };
+  }, [form, extraItems]);
 
   const save = useMutation({
     mutationFn: (asDraft?: boolean) => {
@@ -135,7 +165,7 @@ function GenerateQuote() {
       if (!form.phone.trim()) throw new Error("Phone is required");
       if (new Date(form.check_out) <= new Date(form.check_in))
         throw new Error("Check-out must be after check-in");
-      return createQuote(form, asDraft ? "Draft" : undefined);
+      return createQuote(form, asDraft ? "Draft" : undefined, extraItems);
     },
     onSuccess: (q) => {
       toast.success(`Quote ${q.reference_code} created`);
@@ -143,6 +173,19 @@ function GenerateQuote() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const useExistingCustomer = () => {
+    if (!matchedCustomer) return;
+    setForm((f) => ({
+      ...f,
+      guest_name: matchedCustomer.guest_name,
+      phone: matchedCustomer.phone ?? f.phone,
+      email: matchedCustomer.email ?? f.email,
+      lead_source: matchedCustomer.lead_source ?? f.lead_source,
+    }));
+    setForceNew(false);
+    toast.success(`Using existing customer: ${matchedCustomer.guest_name}`);
+  };
 
   const applyPreset = (preset: QuotePreset) => {
     setForm((f) => ({ ...f, ...preset.patch(f) }));
