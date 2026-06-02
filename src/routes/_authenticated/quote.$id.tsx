@@ -185,7 +185,7 @@ function QuoteDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:block">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
             <div ref={cardRef}>
-              <QuoteCard q={q} />
+              <QuoteCard q={q} items={items} />
             </div>
           </motion.div>
 
