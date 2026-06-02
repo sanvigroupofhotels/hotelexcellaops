@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      booking_items: {
+        Row: {
+          adults: number
+          booking_id: string
+          breakfast_included: boolean
+          check_in: string
+          check_out: string
+          children: number
+          created_at: string
+          extra_bed: number
+          id: string
+          nights: number | null
+          notes: string | null
+          position: number
+          rate: number
+          room_type: string
+          subtotal: number
+          updated_at: string
+        }
+        Insert: {
+          adults?: number
+          booking_id: string
+          breakfast_included?: boolean
+          check_in: string
+          check_out: string
+          children?: number
+          created_at?: string
+          extra_bed?: number
+          id?: string
+          nights?: number | null
+          notes?: string | null
+          position?: number
+          rate?: number
+          room_type?: string
+          subtotal?: number
+          updated_at?: string
+        }
+        Update: {
+          adults?: number
+          booking_id?: string
+          breakfast_included?: boolean
+          check_in?: string
+          check_out?: string
+          children?: number
+          created_at?: string
+          extra_bed?: number
+          id?: string
+          nights?: number | null
+          notes?: string | null
+          position?: number
+          rate?: number
+          room_type?: string
+          subtotal?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_items_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           adults: number

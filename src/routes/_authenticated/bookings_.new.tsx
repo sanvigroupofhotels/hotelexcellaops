@@ -96,7 +96,19 @@ function NewBooking() {
   }, [quote]);
 
   const save = useMutation({
-    mutationFn: () => createBooking(form),
+    mutationFn: async () => {
+      const b = await createBooking(form);
+      // If converting from a quote, snapshot its items into booking_items.
+      if (fromQuoteId) {
+        const { listQuoteItems } = await import("@/lib/quote-items-api");
+        const { addBookingItems, quoteItemsToBookingInputs } = await import("@/lib/booking-items-api");
+        const items = await listQuoteItems(fromQuoteId);
+        if (items.length > 0) {
+          await addBookingItems(b.id, quoteItemsToBookingInputs(items));
+        }
+      }
+      return b;
+    },
     onSuccess: (b) => {
       toast.success(`Booking ${b.booking_reference} created`);
       navigate({ to: "/bookings/$id", params: { id: b.id } });

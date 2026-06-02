@@ -1,7 +1,7 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard, FilePlus, History, Bell, Calendar, BarChart3,
+  LayoutDashboard, History, Bell, Calendar, BarChart3,
   Users, ListChecks, HelpCircle, Settings, Menu, X, LogOut, ShieldCheck, BedDouble,
 } from "lucide-react";
 import { useState } from "react";
@@ -14,10 +14,9 @@ type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean };
 
 const nav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, adminOnly: true },
-  { to: "/generate", label: "Generate Quote", icon: FilePlus },
+  { to: "/customers", label: "Customers", icon: Users },
   { to: "/history", label: "Quotes", icon: History },
   { to: "/bookings", label: "Bookings", icon: BedDouble },
-  { to: "/customers", label: "Customers", icon: Users },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/follow-ups", label: "Follow-ups", icon: Bell },
   { to: "/calendar", label: "Calendar", icon: Calendar },

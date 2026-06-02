@@ -3,15 +3,18 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getCustomer, listCustomerQuotes, updateCustomer } from "@/lib/customers-api";
+import { listCustomerBookings } from "@/lib/bookings-api";
 import {
   CUSTOMER_STATUSES, customerStatusStyles, DEFAULT_TAGS, LEAD_SOURCES,
   NEXT_ACTIONS, PAYMENT_STATUSES, paymentStatusStyles, BOOKING_PROBABILITIES,
+  bookingStatusStyles,
 } from "@/lib/mock-data";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { StatusPill } from "@/components/status-pill";
+import { CustomerEditDialog } from "@/components/customer-edit-dialog";
 import {
   ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Calendar, Star, TrendingUp,
-  FilePlus, MessageCircle,
+  FilePlus, MessageCircle, Pencil, BedDouble,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -27,6 +30,7 @@ function CustomerDetail() {
 
   const { data: c, isLoading } = useQuery({ queryKey: ["customer", id], queryFn: () => getCustomer(id) });
   const { data: quotes = [] } = useQuery({ queryKey: ["customer-quotes", id], queryFn: () => listCustomerQuotes(id), enabled: !!c });
+  const { data: bookings = [] } = useQuery({ queryKey: ["customer-bookings", id], queryFn: () => listCustomerBookings(id), enabled: !!c });
   const { data: creators = {} } = useQuery({
     queryKey: ["customer-creator", c?.user_id],
     queryFn: async () => {
@@ -38,6 +42,7 @@ function CustomerDetail() {
   const createdBy = c?.user_id ? creators[c.user_id] : null;
 
   const [notes, setNotes] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
   useEffect(() => { if (c) setNotes(c.internal_notes ?? ""); }, [c]);
 
 
@@ -98,7 +103,11 @@ function CustomerDetail() {
                 <div className="flex flex-col items-end gap-2">
                   <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs",
                     customerStatusStyles[c.status] ?? "bg-muted text-muted-foreground border-border")}>{c.status}</span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <button onClick={() => setEditOpen(true)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-gold/40">
+                      <Pencil className="h-3 w-3" /> Edit
+                    </button>
                     {c.phone && (
                       <>
                         <a href={`tel:${c.phone.replace(/\s+/g, "")}`}

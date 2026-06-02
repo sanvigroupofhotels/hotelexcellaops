@@ -5,17 +5,15 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import {
   roomTypes,
-  EARLY_CHECK_IN_SLOTS,
-  LATE_CHECK_OUT_SLOTS,
-  EXTRA_ADULT_RATE,
-  DRIVER_RATE,
-  EXTRA_BREAKFAST_RATE,
+  LEAD_SOURCES,
 } from "@/lib/mock-data";
 import { createQuote, calc, type QuoteInput } from "@/lib/quotes-api";
-import { getCustomer } from "@/lib/customers-api";
+import { getCustomer, findCustomerByContact, type CustomerRow } from "@/lib/customers-api";
 import { PolicyFields } from "@/components/policy-fields";
 import { NumField } from "@/components/num-field";
 import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
+import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
+import { LineItemsEditor, lineItemsTotal, type LineItem } from "@/components/line-items-editor";
 import {
   User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Loader2, Save,
   Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus,
@@ -109,6 +107,13 @@ function GenerateQuote() {
   const update = <K extends keyof QuoteInput>(k: K, v: QuoteInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  // Multi-line items (additional rooms beyond the primary form line).
+  const [extraItems, setExtraItems] = useState<LineItem[]>([]);
+
+  // Existing-customer banner state. Null = no match yet. linkedId = "Use existing".
+  const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
+  const [forceNew, setForceNew] = useState(false);
+
   // Prefill from customer when ?customerId=… is present (repeat-guest workflow).
   const { data: prefill } = useQuery({
     queryKey: ["customer-prefill", customerId],
@@ -126,10 +131,33 @@ function GenerateQuote() {
       lead_source: prefill.lead_source ?? f.lead_source,
       room_type: prefill.preferred_room ?? f.room_type,
     }));
+    setMatchedCustomer(prefill);
     toast.success(`Prefilled for ${prefill.guest_name}`);
   }, [prefill]);
 
-  const c = useMemo(() => calc(form), [form]);
+  // Auto-detect existing customer by contact (phone/email) — debounced.
+  useEffect(() => {
+    if (forceNew) return;
+    const phoneOk = form.phone.trim().length >= 7;
+    const emailOk = !!form.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
+    if (!phoneOk && !emailOk) { setMatchedCustomer(null); return; }
+    const t = setTimeout(async () => {
+      const c = await findCustomerByContact(
+        phoneOk ? form.phone.trim() : undefined,
+        emailOk ? form.email! : undefined,
+      );
+      setMatchedCustomer(c);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [form.phone, form.email, forceNew]);
+
+  const c = useMemo(() => {
+    const base = calc(form);
+    const extra = lineItemsTotal(extraItems);
+    const subtotal = base.subtotal + extra;
+    const taxes = Math.round(subtotal * 0.05);
+    return { ...base, subtotal, taxes, total: subtotal + taxes };
+  }, [form, extraItems]);
 
   const save = useMutation({
     mutationFn: (asDraft?: boolean) => {
@@ -137,7 +165,7 @@ function GenerateQuote() {
       if (!form.phone.trim()) throw new Error("Phone is required");
       if (new Date(form.check_out) <= new Date(form.check_in))
         throw new Error("Check-out must be after check-in");
-      return createQuote(form, asDraft ? "Draft" : undefined);
+      return createQuote(form, asDraft ? "Draft" : undefined, extraItems);
     },
     onSuccess: (q) => {
       toast.success(`Quote ${q.reference_code} created`);
@@ -145,6 +173,19 @@ function GenerateQuote() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const useExistingCustomer = () => {
+    if (!matchedCustomer) return;
+    setForm((f) => ({
+      ...f,
+      guest_name: matchedCustomer.guest_name,
+      phone: matchedCustomer.phone ?? f.phone,
+      email: matchedCustomer.email ?? f.email,
+      lead_source: matchedCustomer.lead_source ?? f.lead_source,
+    }));
+    setForceNew(false);
+    toast.success(`Using existing customer: ${matchedCustomer.guest_name}`);
+  };
 
   const applyPreset = (preset: QuotePreset) => {
     setForm((f) => ({ ...f, ...preset.patch(f) }));
@@ -176,6 +217,14 @@ function GenerateQuote() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
 
           <div className="space-y-6">
+            {matchedCustomer && !forceNew && (
+              <ExistingCustomerBanner
+                customer={matchedCustomer}
+                onUseExisting={useExistingCustomer}
+                onCreateNew={() => { setForceNew(true); toast.info("Will create a new customer record."); }}
+              />
+            )}
+
             <Card title="Guest Details">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Guest Name" icon={User} required>
@@ -189,13 +238,35 @@ function GenerateQuote() {
                 </Field>
                 <Field label="Lead Source">
                   <select className={inputCls} value={form.lead_source} onChange={(e) => update("lead_source", e.target.value)}>
-                    {["Direct","Website","WhatsApp","Referral","OTA"].map((o) => <option key={o}>{o}</option>)}
+                    {LEAD_SOURCES.map((o) => <option key={o}>{o}</option>)}
                   </select>
                 </Field>
                 <Field label="Special Requests">
                   <input className={inputCls} value={form.special_requests ?? ""} onChange={(e) => update("special_requests", e.target.value)} />
                 </Field>
               </div>
+
+              {/* Name/phone autocomplete suggestions */}
+              {(form.guest_name.trim().length >= 2 || form.phone.trim().length >= 2) && !matchedCustomer && (
+                <div className="mt-3">
+                  <CustomerAutocomplete
+                    name={form.guest_name}
+                    phone={form.phone}
+                    email={form.email ?? ""}
+                    onPick={(c) => {
+                      setForm((f) => ({
+                        ...f,
+                        guest_name: c.guest_name,
+                        phone: c.phone ?? f.phone,
+                        email: c.email ?? f.email,
+                        lead_source: c.lead_source ?? f.lead_source,
+                      }));
+                      setMatchedCustomer(c);
+                      setForceNew(false);
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Group size — manual numeric inputs */}
               <div className="mt-5 rounded-lg border border-border bg-secondary/30 p-4">
@@ -271,6 +342,10 @@ function GenerateQuote() {
               <div className="mt-4">
                 <PolicyFields form={form} update={update} />
               </div>
+            </Card>
+
+            <Card title="Additional Rooms / Split Stay">
+              <LineItemsEditor items={extraItems} onChange={setExtraItems} />
             </Card>
 
             <Card title="Additional">
