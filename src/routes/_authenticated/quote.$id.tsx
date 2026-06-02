@@ -122,7 +122,7 @@ function QuoteDetail() {
           </Link>
           <div className="flex flex-wrap gap-2">
             <a
-              href={buildWhatsAppLink(q)}
+              href={buildWhatsAppLink(q, items)}
               target="_blank"
               rel="noreferrer"
               onClick={() => logWhatsApp(id)}
