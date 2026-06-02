@@ -43,6 +43,15 @@ function NewBooking() {
   const update = <K extends keyof BookingInput>(k: K, v: BookingInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  // Booking line items (starts with one primary; extras can be added).
+  const [bookingItems, setBookingItems] = useState<LineItem[]>([emptyLine()]);
+  const itemsTotal = useMemo(() => lineItemsTotal(bookingItems), [bookingItems]);
+  // Keep amount in sync with line items total unless user has overridden.
+  useEffect(() => {
+    if (bookingItems.length > 0) update("amount", itemsTotal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsTotal]);
+
   // Customer picker (when no customerId passed)
   const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: listCustomers, enabled: !customerId });
   const [pickerQ, setPickerQ] = useState("");
