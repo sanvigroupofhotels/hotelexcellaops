@@ -108,6 +108,7 @@ function CustomerDetail() {
                       className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-gold/40">
                       <Pencil className="h-3 w-3" /> Edit
                     </button>
+                    {c.phone && (
                       <>
                         <a href={`tel:${c.phone.replace(/\s+/g, "")}`}
                           className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-gold/40">
