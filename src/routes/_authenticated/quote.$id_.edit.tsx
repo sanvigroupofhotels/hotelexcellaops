@@ -188,7 +188,7 @@ function EditQuote() {
                 </Field>
                 <Field label="Lead Source">
                   <select className={inputCls} value={form.lead_source} onChange={(e) => update("lead_source", e.target.value)}>
-                    {["Direct","Website","WhatsApp","Referral","OTA"].map((o) => <option key={o}>{o}</option>)}
+                    {LEAD_SOURCES.map((o) => <option key={o}>{o}</option>)}
                   </select>
                 </Field>
                 <Field label="Special Requests">
