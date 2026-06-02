@@ -9,6 +9,7 @@ import {
   getQuote, listActivities, setStatus, deleteQuote, duplicateQuote,
   addFollowup, buildWhatsAppLink, logWhatsApp, logPdf, calc,
 } from "@/lib/quotes-api";
+import { listQuoteItems } from "@/lib/quote-items-api";
 import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
