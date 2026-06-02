@@ -103,7 +103,7 @@ function QuoteDetail() {
 
   const copyQuoteText = async () => {
     try {
-      const link = buildWhatsAppLink(q);
+      const link = buildWhatsAppLink(q, items);
       const text = decodeURIComponent(link.split("?text=")[1] ?? "");
       await navigator.clipboard.writeText(text);
       toast.success("Quote text copied");
