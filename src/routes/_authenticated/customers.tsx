@@ -117,6 +117,9 @@ function CustomersPage() {
           <button onClick={exportCSV} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
             <Download className="h-4 w-4 text-gold" /> Export CSV
           </button>
+          <button onClick={() => setNewOpen(true)} className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal">
+            <Plus className="h-4 w-4" /> New Customer
+          </button>
         </div>
 
         <div className="luxe-card rounded-xl overflow-hidden">
