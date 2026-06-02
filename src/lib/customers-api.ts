@@ -14,6 +14,7 @@ export interface CustomerRow {
   anniversary: string | null;
   guest_type: string | null;
   company_name: string | null;
+  company_address: string | null;
   gst_number: string | null;
   preferred_room: string | null;
   preferred_food: string | null;
