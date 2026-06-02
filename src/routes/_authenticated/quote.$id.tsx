@@ -33,6 +33,11 @@ function QuoteDetail() {
   useRealtimeInvalidate(["quotes", "quote_activities"], [["quote", id], ["activities", id], "quotes"], `quote-${id}`);
 
   const { data: q, isLoading } = useQuery({ queryKey: ["quote", id], queryFn: () => getQuote(id) });
+  const { data: items = [] } = useQuery({
+    queryKey: ["quote-items", id],
+    queryFn: () => listQuoteItems(id),
+    enabled: !!q,
+  });
   const { data: activities = [] } = useQuery({
     queryKey: ["activities", id],
     queryFn: () => listActivities(id),
