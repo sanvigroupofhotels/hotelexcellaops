@@ -24,6 +24,7 @@ import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
+import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenticated/bookings_.new'
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
 
 const LoginRoute = LoginRouteImport.update({
@@ -101,6 +102,12 @@ const AuthenticatedCustomersIdRoute =
     path: '/customers/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedBookingsNewRoute =
+  AuthenticatedBookingsNewRouteImport.update({
+    id: '/bookings_/new',
+    path: '/bookings/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedQuoteIdEditRoute =
   AuthenticatedQuoteIdEditRouteImport.update({
     id: '/quote/$id_/edit',
@@ -121,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
+  '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -138,6 +146,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
   '/': typeof AuthenticatedIndexRoute
+  '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -157,6 +166,7 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
   '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/tasks'
     | '/users'
+    | '/bookings/new'
     | '/customers/$id'
     | '/quote/$id'
     | '/quote/$id/edit'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/users'
     | '/'
+    | '/bookings/new'
     | '/customers/$id'
     | '/quote/$id'
     | '/quote/$id/edit'
@@ -211,6 +223,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/_authenticated/users'
     | '/_authenticated/'
+    | '/_authenticated/bookings_/new'
     | '/_authenticated/customers_/$id'
     | '/_authenticated/quote/$id'
     | '/_authenticated/quote/$id_/edit'
@@ -328,6 +341,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/bookings_/new': {
+      id: '/_authenticated/bookings_/new'
+      path: '/bookings/new'
+      fullPath: '/bookings/new'
+      preLoaderRoute: typeof AuthenticatedBookingsNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/quote/$id_/edit': {
       id: '/_authenticated/quote/$id_/edit'
       path: '/quote/$id/edit'
@@ -350,6 +370,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedBookingsNewRoute: typeof AuthenticatedBookingsNewRoute
   AuthenticatedCustomersIdRoute: typeof AuthenticatedCustomersIdRoute
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
   AuthenticatedQuoteIdEditRoute: typeof AuthenticatedQuoteIdEditRoute
@@ -367,6 +388,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedBookingsNewRoute: AuthenticatedBookingsNewRoute,
   AuthenticatedCustomersIdRoute: AuthenticatedCustomersIdRoute,
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
   AuthenticatedQuoteIdEditRoute: AuthenticatedQuoteIdEditRoute,
