@@ -13,7 +13,7 @@ import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
   ArrowLeft, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
-  Star, Clock, Pencil, CheckCircle2, Share2, Printer,
+  Star, Clock, Pencil, CheckCircle2, Share2, Printer, BedDouble,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -158,6 +158,13 @@ function QuoteDetail() {
                 <CheckCircle2 className="h-4 w-4" /> Confirm
               </button>
             )}
+            <Link
+              to="/bookings/new"
+              search={{ customerId: q.customer_id ?? undefined, fromQuoteId: q.id } as any}
+              className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-soft text-gold px-4 py-2.5 text-sm font-medium hover:bg-gold/20"
+            >
+              <BedDouble className="h-4 w-4" /> Convert to Booking
+            </Link>
             {isAdmin && (
               <button
                 onClick={() => { if (confirm("Delete this quote?")) del.mutate(); }}
