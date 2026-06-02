@@ -27,6 +27,7 @@ function CustomersPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("All");
   const [source, setSource] = useState<string>("All");
+  const [newOpen, setNewOpen] = useState(false);
 
   const del = useMutation({
     mutationFn: deleteCustomer,
