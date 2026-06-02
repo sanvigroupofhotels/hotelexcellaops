@@ -115,6 +115,10 @@ function CustomerDetail() {
                       className="inline-flex items-center gap-1.5 rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal hover:shadow-[0_0_18px_oklch(0.82_0.13_82/0.35)]">
                       <FilePlus className="h-3 w-3" /> Create Quote
                     </Link>
+                    <Link to="/bookings/new" search={{ customerId: c.id, fromQuoteId: undefined } as any}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-gold/40 bg-gold-soft text-gold px-3 py-1.5 text-xs font-medium hover:bg-gold/20">
+                      <FilePlus className="h-3 w-3" /> Create Booking
+                    </Link>
                   </div>
                 </div>
               </div>

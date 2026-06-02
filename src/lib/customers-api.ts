@@ -14,6 +14,7 @@ export interface CustomerRow {
   anniversary: string | null;
   guest_type: string | null;
   company_name: string | null;
+  company_address: string | null;
   gst_number: string | null;
   preferred_room: string | null;
   preferred_food: string | null;
@@ -99,4 +100,20 @@ export async function findCustomerByContact(phone?: string, email?: string) {
   const { data, error } = await q.limit(1);
   if (error) return null;
   return (data?.[0] as unknown as CustomerRow) ?? null;
+}
+
+/** Search customers by partial name OR phone for autocomplete. */
+export async function searchCustomers(query: string, limit = 6) {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const isPhoneish = /^[+0-9 ()-]+$/.test(q);
+  let req = supabase.from("customers" as any).select("*");
+  if (isPhoneish) {
+    req = req.ilike("phone", `%${q}%`);
+  } else {
+    req = req.or(`guest_name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`);
+  }
+  const { data, error } = await req.order("updated_at", { ascending: false }).limit(limit);
+  if (error) return [];
+  return (data ?? []) as unknown as CustomerRow[];
 }

@@ -148,25 +148,35 @@ export const customerStatusStyles: Record<string, string> = {
 export const DEFAULT_TAGS = [
   "VIP",
   "Corporate",
-  "Family",
-  "Frequent Guest",
-  "High Spender",
-  "Referral Guest",
-  "Couple",
-  "Business Traveller",
+  "Travel Agent",
+  "Repeat Guest",
+  "Long Stay",
+  "Family Guest",
+  "Business Traveler",
 ] as const;
 
 export const LEAD_SOURCES = [
-  "Direct",
-  "Google",
-  "Instagram",
-  "WhatsApp",
   "Walk-in",
-  "Referral",
-  "Corporate",
+  "Phone Call",
+  "WhatsApp",
   "Website",
+  "Google Business Profile",
+  "Travel Agent",
+  "Corporate Referral",
+  "Repeat Guest",
   "OTA",
+  "Direct",
+  "Other",
 ] as const;
+
+// ---------- Bookings ----------
+export type BookingStatus = "Draft" | "Confirmed" | "Cancelled";
+export const BOOKING_STATUSES: BookingStatus[] = ["Draft", "Confirmed", "Cancelled"];
+export const bookingStatusStyles: Record<BookingStatus, string> = {
+  Draft: "bg-muted/60 text-muted-foreground border-border",
+  Confirmed: "bg-success/15 text-success border-success/40",
+  Cancelled: "bg-destructive/10 text-destructive border-destructive/40",
+};
 
 export const PAYMENT_STATUSES = [
   "None",

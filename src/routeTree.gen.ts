@@ -20,9 +20,12 @@ import { Route as AuthenticatedGenerateRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authenticated/follow-ups'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
+import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticated/bookings'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
+import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenticated/bookings_.new'
+import { Route as AuthenticatedBookingsIdRouteImport } from './routes/_authenticated/bookings_.$id'
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
 
 const LoginRoute = LoginRouteImport.update({
@@ -79,6 +82,11 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedBookingsRoute = AuthenticatedBookingsRouteImport.update({
+  id: '/bookings',
+  path: '/bookings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -95,6 +103,17 @@ const AuthenticatedCustomersIdRoute =
     path: '/customers/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedBookingsNewRoute =
+  AuthenticatedBookingsNewRouteImport.update({
+    id: '/bookings_/new',
+    path: '/bookings/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedBookingsIdRoute = AuthenticatedBookingsIdRouteImport.update({
+  id: '/bookings_/$id',
+  path: '/bookings/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedQuoteIdEditRoute =
   AuthenticatedQuoteIdEditRouteImport.update({
     id: '/quote/$id_/edit',
@@ -106,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/customers': typeof AuthenticatedCustomersRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
@@ -114,6 +134,8 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
+  '/bookings/$id': typeof AuthenticatedBookingsIdRoute
+  '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -121,6 +143,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/customers': typeof AuthenticatedCustomersRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
@@ -130,6 +153,8 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
   '/': typeof AuthenticatedIndexRoute
+  '/bookings/$id': typeof AuthenticatedBookingsIdRoute
+  '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -139,6 +164,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/bookings': typeof AuthenticatedBookingsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
@@ -148,6 +174,8 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
+  '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
   '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -158,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/analytics'
+    | '/bookings'
     | '/calendar'
     | '/customers'
     | '/follow-ups'
@@ -166,6 +195,8 @@ export interface FileRouteTypes {
     | '/reports'
     | '/tasks'
     | '/users'
+    | '/bookings/$id'
+    | '/bookings/new'
     | '/customers/$id'
     | '/quote/$id'
     | '/quote/$id/edit'
@@ -173,6 +204,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/analytics'
+    | '/bookings'
     | '/calendar'
     | '/customers'
     | '/follow-ups'
@@ -182,6 +214,8 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/users'
     | '/'
+    | '/bookings/$id'
+    | '/bookings/new'
     | '/customers/$id'
     | '/quote/$id'
     | '/quote/$id/edit'
@@ -190,6 +224,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/_authenticated/analytics'
+    | '/_authenticated/bookings'
     | '/_authenticated/calendar'
     | '/_authenticated/customers'
     | '/_authenticated/follow-ups'
@@ -199,6 +234,8 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/_authenticated/users'
     | '/_authenticated/'
+    | '/_authenticated/bookings_/$id'
+    | '/_authenticated/bookings_/new'
     | '/_authenticated/customers_/$id'
     | '/_authenticated/quote/$id'
     | '/_authenticated/quote/$id_/edit'
@@ -288,6 +325,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/bookings': {
+      id: '/_authenticated/bookings'
+      path: '/bookings'
+      fullPath: '/bookings'
+      preLoaderRoute: typeof AuthenticatedBookingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/analytics': {
       id: '/_authenticated/analytics'
       path: '/analytics'
@@ -309,6 +353,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/bookings_/new': {
+      id: '/_authenticated/bookings_/new'
+      path: '/bookings/new'
+      fullPath: '/bookings/new'
+      preLoaderRoute: typeof AuthenticatedBookingsNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/bookings_/$id': {
+      id: '/_authenticated/bookings_/$id'
+      path: '/bookings/$id'
+      fullPath: '/bookings/$id'
+      preLoaderRoute: typeof AuthenticatedBookingsIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/quote/$id_/edit': {
       id: '/_authenticated/quote/$id_/edit'
       path: '/quote/$id/edit'
@@ -321,6 +379,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedBookingsRoute: typeof AuthenticatedBookingsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
@@ -330,6 +389,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedBookingsIdRoute: typeof AuthenticatedBookingsIdRoute
+  AuthenticatedBookingsNewRoute: typeof AuthenticatedBookingsNewRoute
   AuthenticatedCustomersIdRoute: typeof AuthenticatedCustomersIdRoute
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
   AuthenticatedQuoteIdEditRoute: typeof AuthenticatedQuoteIdEditRoute
@@ -337,6 +398,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedBookingsRoute: AuthenticatedBookingsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
@@ -346,6 +408,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedBookingsIdRoute: AuthenticatedBookingsIdRoute,
+  AuthenticatedBookingsNewRoute: AuthenticatedBookingsNewRoute,
   AuthenticatedCustomersIdRoute: AuthenticatedCustomersIdRoute,
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
   AuthenticatedQuoteIdEditRoute: AuthenticatedQuoteIdEditRoute,
@@ -362,13 +426,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
