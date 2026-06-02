@@ -2,62 +2,76 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { X, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
-import { updateCustomer, type CustomerRow } from "@/lib/customers-api";
+import { updateCustomer, createCustomer, type CustomerRow } from "@/lib/customers-api";
 import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
 
+const empty = {
+  guest_name: "",
+  phone: "",
+  email: "",
+  city: "",
+  state: "",
+  country: "India",
+  company_name: "",
+  gst_number: "",
+  company_address: "",
+  lead_source: "Direct",
+  tags: [] as string[],
+  internal_notes: "",
+};
+
 export function CustomerEditDialog({
   open,
   onClose,
   customer,
+  onCreated,
 }: {
   open: boolean;
   onClose: () => void;
-  customer: CustomerRow;
+  customer?: CustomerRow | null;
+  onCreated?: (c: CustomerRow) => void;
 }) {
   const qc = useQueryClient();
-  const [form, setForm] = useState({
-    guest_name: customer.guest_name,
-    phone: customer.phone ?? "",
-    email: customer.email ?? "",
-    city: customer.city ?? "",
-    state: customer.state ?? "",
-    country: customer.country ?? "India",
-    company_name: customer.company_name ?? "",
-    gst_number: customer.gst_number ?? "",
-    company_address: customer.company_address ?? "",
-    lead_source: customer.lead_source ?? "Direct",
-    tags: customer.tags ?? [],
-    internal_notes: customer.internal_notes ?? "",
-  });
+  const isCreate = !customer;
+  const [form, setForm] = useState(empty);
 
   useEffect(() => {
     if (!open) return;
-    setForm({
-      guest_name: customer.guest_name,
-      phone: customer.phone ?? "",
-      email: customer.email ?? "",
-      city: customer.city ?? "",
-      state: customer.state ?? "",
-      country: customer.country ?? "India",
-      company_name: customer.company_name ?? "",
-      gst_number: customer.gst_number ?? "",
-      company_address: customer.company_address ?? "",
-      lead_source: customer.lead_source ?? "Direct",
-      tags: customer.tags ?? [],
-      internal_notes: customer.internal_notes ?? "",
-    });
+    if (customer) {
+      setForm({
+        guest_name: customer.guest_name,
+        phone: customer.phone ?? "",
+        email: customer.email ?? "",
+        city: customer.city ?? "",
+        state: customer.state ?? "",
+        country: customer.country ?? "India",
+        company_name: customer.company_name ?? "",
+        gst_number: customer.gst_number ?? "",
+        company_address: customer.company_address ?? "",
+        lead_source: customer.lead_source ?? "Direct",
+        tags: customer.tags ?? [],
+        internal_notes: customer.internal_notes ?? "",
+      });
+    } else {
+      setForm(empty);
+    }
   }, [open, customer]);
 
   const save = useMutation({
-    mutationFn: () => updateCustomer(customer.id, form as any),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["customer", customer.id] });
+    mutationFn: async () => {
+      if (!form.guest_name.trim()) throw new Error("Name is required");
+      if (customer) return updateCustomer(customer.id, form as any);
+      return createCustomer(form as any);
+    },
+    onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["customers"] });
-      toast.success("Customer updated");
+      if (customer) qc.invalidateQueries({ queryKey: ["customer", customer.id] });
+      toast.success(isCreate ? "Customer added" : "Customer updated");
+      onCreated?.(row as CustomerRow);
       onClose();
     },
     onError: (e: any) => toast.error(e.message),
@@ -74,7 +88,7 @@ export function CustomerEditDialog({
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-border bg-card/95 backdrop-blur">
-          <h3 className="font-display text-xl">Edit Customer</h3>
+          <h3 className="font-display text-xl">{isCreate ? "New Customer" : "Edit Customer"}</h3>
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
@@ -148,7 +162,7 @@ export function CustomerEditDialog({
             className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal disabled:opacity-60"
           >
             {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save Changes
+            {isCreate ? "Create Customer" : "Save Changes"}
           </button>
         </div>
       </div>

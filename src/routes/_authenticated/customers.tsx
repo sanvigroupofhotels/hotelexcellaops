@@ -8,10 +8,11 @@ import { listQuotes } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
 import { CUSTOMER_STATUSES, customerStatusStyles, LEAD_SOURCES } from "@/lib/mock-data";
-import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, FilePlus } from "lucide-react";
+import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, FilePlus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/use-role";
+import { CustomerEditDialog } from "@/components/customer-edit-dialog";
 
 export const Route = createFileRoute("/_authenticated/customers")({
   component: CustomersPage,
@@ -26,6 +27,7 @@ function CustomersPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("All");
   const [source, setSource] = useState<string>("All");
+  const [newOpen, setNewOpen] = useState(false);
 
   const del = useMutation({
     mutationFn: deleteCustomer,
@@ -115,6 +117,9 @@ function CustomersPage() {
           <button onClick={exportCSV} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
             <Download className="h-4 w-4 text-gold" /> Export CSV
           </button>
+          <button onClick={() => setNewOpen(true)} className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal">
+            <Plus className="h-4 w-4" /> New Customer
+          </button>
         </div>
 
         <div className="luxe-card rounded-xl overflow-hidden">
@@ -203,6 +208,7 @@ function CustomersPage() {
           ))}
         </div>
       </div>
+      <CustomerEditDialog open={newOpen} onClose={() => setNewOpen(false)} customer={null} />
     </>
   );
 }

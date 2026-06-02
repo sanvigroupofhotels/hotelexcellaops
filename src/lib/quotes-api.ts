@@ -359,7 +359,7 @@ export async function getUserNamesByIds(ids: string[]): Promise<Record<string, s
 }
 
 /** WhatsApp deep-link with branded operational message (Hotel Excella format). */
-export function buildWhatsAppLink(q: QuoteRow) {
+export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
   const fmtDate = (d: string) =>
     new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const c = calc(q);
@@ -383,12 +383,25 @@ export function buildWhatsAppLink(q: QuoteRow) {
   if (Number(q.discount) > 0) tariff.push(`• Discount: -${inr(Number(q.discount))}`);
   tariff.push(`• Taxes (5%): ${inr(c.taxes)}`);
 
-  const lines = [
-    `Greetings from Hotel Excella ✨`,
-    `Dear ${q.guest_name},`,
-    `Thank you for considering Hotel Excella for your stay. Please find your quotation details below:`,
-    `📌 Quotation Ref: ${q.reference_code}`,
-    ``,
+  // Build room-by-room block when multi-line items are available.
+  const roomBlock: string[] = [];
+  const multi = items && items.length > 1;
+  if (multi) {
+    items!.forEach((it: any, i: number) => {
+      const occ = `${it.adults || 0} Adult${(it.adults || 0) === 1 ? "" : "s"}${(it.children || 0) > 0 ? ` + ${it.children} Child${it.children === 1 ? "" : "ren"}` : ""}${it.extra_bed ? ` + ${it.extra_bed} Extra Bed` : ""}`;
+      roomBlock.push(`Room ${i + 1}`);
+      roomBlock.push(`• Room Type: ${it.room_type}`);
+      roomBlock.push(`• Guests: ${occ}`);
+      roomBlock.push(`• Check-in: ${fmtDate(it.check_in)} | 1:00 PM`);
+      roomBlock.push(`• Check-out: ${fmtDate(it.check_out)} | 11:00 AM`);
+      roomBlock.push(`• Nights: ${it.nights}`);
+      roomBlock.push(`• Breakfast: ${it.breakfast_included ? "Included" : "Not Included"}`);
+      roomBlock.push(`• Subtotal: ${inr(Number(it.subtotal))}`);
+      roomBlock.push(``);
+    });
+  }
+
+  const stayBlock = multi ? roomBlock : [
     `🏨 Room Details`,
     `• Room Type: ${q.room_type} × ${q.rooms}`,
     `• Check-in: ${fmtDate(q.check_in)} | 1:00 PM`,
@@ -397,6 +410,16 @@ export function buildWhatsAppLink(q: QuoteRow) {
     `• Guests: ${guestLine}`,
     `• Breakfast: ${q.breakfast_included ? "Included" : "Not Included"}`,
     ``,
+  ];
+
+  const lines = [
+    `Greetings from Hotel Excella ✨`,
+    `Dear ${q.guest_name},`,
+    `Thank you for considering Hotel Excella for your stay. Please find your quotation details below:`,
+    `📌 Quotation Ref: ${q.reference_code}`,
+    ``,
+    ...(multi ? [`🏨 Stay Details (${items!.length} Rooms / Segments)`, ``] : []),
+    ...stayBlock,
     `💰 Tariff Breakdown`,
     ...tariff,
     `✅ Total Amount Payable: ${inr(q.total)}`,
@@ -424,3 +447,4 @@ export function buildWhatsAppLink(q: QuoteRow) {
   const phone = q.phone.replace(/[^0-9]/g, "");
   return `https://wa.me/${phone}?text=${text}`;
 }
+

@@ -103,7 +103,7 @@ function QuoteDetail() {
 
   const copyQuoteText = async () => {
     try {
-      const link = buildWhatsAppLink(q);
+      const link = buildWhatsAppLink(q, items);
       const text = decodeURIComponent(link.split("?text=")[1] ?? "");
       await navigator.clipboard.writeText(text);
       toast.success("Quote text copied");
@@ -122,7 +122,7 @@ function QuoteDetail() {
           </Link>
           <div className="flex flex-wrap gap-2">
             <a
-              href={buildWhatsAppLink(q)}
+              href={buildWhatsAppLink(q, items)}
               target="_blank"
               rel="noreferrer"
               onClick={() => logWhatsApp(id)}
