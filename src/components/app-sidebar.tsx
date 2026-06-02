@@ -2,7 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard, FilePlus, History, Bell, Calendar, BarChart3,
-  Users, ListChecks, HelpCircle, Settings, Menu, X, LogOut, ShieldCheck,
+  Users, ListChecks, HelpCircle, Settings, Menu, X, LogOut, ShieldCheck, BedDouble,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ const nav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, adminOnly: true },
   { to: "/generate", label: "Generate Quote", icon: FilePlus },
   { to: "/history", label: "Quotes", icon: History },
+  { to: "/bookings", label: "Bookings", icon: BedDouble },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/follow-ups", label: "Follow-ups", icon: Bell },
