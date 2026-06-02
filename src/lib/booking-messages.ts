@@ -8,7 +8,33 @@ function roomSummary(b: BookingRow) {
   return b.room_details && b.room_details.trim() ? b.room_details : `${b.guests} Guest${b.guests === 1 ? "" : "s"}`;
 }
 
-export function confirmationMessage(b: BookingRow) {
+export function confirmationMessage(b: BookingRow, items?: any[]) {
+  const multi = items && items.length > 0;
+  const stayLines: string[] = [];
+  if (multi) {
+    stayLines.push(`🏨 Stay Details (${items!.length} Room${items!.length === 1 ? "" : "s"} / Segment${items!.length === 1 ? "" : "s"})`);
+    stayLines.push(``);
+    items!.forEach((it: any, i: number) => {
+      const occ = `${it.adults || 0} Adult${(it.adults || 0) === 1 ? "" : "s"}${(it.children || 0) > 0 ? ` + ${it.children} Child${it.children === 1 ? "" : "ren"}` : ""}${it.extra_bed ? ` + ${it.extra_bed} Extra Bed` : ""}`;
+      stayLines.push(`Room ${i + 1}`);
+      stayLines.push(`• Room Type: ${it.room_type}`);
+      stayLines.push(`• Guests: ${occ}`);
+      stayLines.push(`• Check-in: ${fmtDate(it.check_in)} | 1:00 PM`);
+      stayLines.push(`• Check-out: ${fmtDate(it.check_out)} | 11:00 AM`);
+      stayLines.push(`• Nights: ${it.nights}`);
+      stayLines.push(`• Breakfast: ${it.breakfast_included ? "Included" : "Not Included"}`);
+      stayLines.push(`• Subtotal: ${inr(Number(it.subtotal))}`);
+      stayLines.push(``);
+    });
+  } else {
+    stayLines.push(`🏨 Stay Details`);
+    stayLines.push(`• Check-in: ${fmtDate(b.check_in)} | 1:00 PM`);
+    stayLines.push(`• Check-out: ${fmtDate(b.check_out)} | 11:00 AM`);
+    stayLines.push(`• Guests: ${b.guests}`);
+    stayLines.push(`• Room(s): ${roomSummary(b)}`);
+    stayLines.push(``);
+  }
+
   return [
     `Greetings from Hotel Excella ✨`,
     ``,
@@ -18,12 +44,7 @@ export function confirmationMessage(b: BookingRow) {
     ``,
     `📌 Booking Ref: ${b.booking_reference}`,
     ``,
-    `🏨 Stay Details`,
-    `• Check-in: ${fmtDate(b.check_in)} | 1:00 PM`,
-    `• Check-out: ${fmtDate(b.check_out)} | 11:00 AM`,
-    `• Guests: ${b.guests}`,
-    `• Room(s): ${roomSummary(b)}`,
-    ``,
+    ...stayLines,
     `💰 Booking Amount`,
     `• Total Amount: ${inr(Number(b.amount))}`,
     ``,
