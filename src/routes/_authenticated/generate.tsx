@@ -5,17 +5,15 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import {
   roomTypes,
-  EARLY_CHECK_IN_SLOTS,
-  LATE_CHECK_OUT_SLOTS,
-  EXTRA_ADULT_RATE,
-  DRIVER_RATE,
-  EXTRA_BREAKFAST_RATE,
+  LEAD_SOURCES,
 } from "@/lib/mock-data";
 import { createQuote, calc, type QuoteInput } from "@/lib/quotes-api";
-import { getCustomer } from "@/lib/customers-api";
+import { getCustomer, findCustomerByContact, type CustomerRow } from "@/lib/customers-api";
 import { PolicyFields } from "@/components/policy-fields";
 import { NumField } from "@/components/num-field";
 import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
+import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
+import { LineItemsEditor, lineItemsTotal, type LineItem } from "@/components/line-items-editor";
 import {
   User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Loader2, Save,
   Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus,
