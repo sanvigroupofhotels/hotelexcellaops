@@ -104,20 +104,20 @@ function NewBooking() {
       room_details: `${quote.room_type} × ${quote.rooms}`,
       amount: Number(quote.total) || 0,
       notes: quote.special_requests ?? "",
+      internal_notes: quote.internal_notes ?? "",
     }));
   }, [quote]);
 
   const save = useMutation({
     mutationFn: async () => {
       const b = await createBooking(form);
-      // If converting from a quote, snapshot its items into booking_items.
       if (fromQuoteId) {
-        const { listQuoteItems } = await import("@/lib/quote-items-api");
-        const { addBookingItems, quoteItemsToBookingInputs } = await import("@/lib/booking-items-api");
+        // Snapshot quote items
         const items = await listQuoteItems(fromQuoteId);
-        if (items.length > 0) {
-          await addBookingItems(b.id, quoteItemsToBookingInputs(items));
-        }
+        if (items.length > 0) await addBookingItems(b.id, quoteItemsToBookingInputs(items));
+      } else if (bookingItems.length > 0) {
+        // Direct booking: persist its own line items
+        await addBookingItems(b.id, bookingItems);
       }
       return b;
     },
