@@ -180,12 +180,23 @@ async function logActivity(quote_id: string, type: string, description: string) 
     .insert({ quote_id, user_id: user.id, type: type as any, description });
 }
 
-export async function createQuote(input: QuoteInput, initialStatus: QuoteStatus = "Pending") {
+export async function createQuote(
+  input: QuoteInput,
+  initialStatus: QuoteStatus = "Pending",
+  extraLineItems: import("./quote-items-api").QuoteItemInput[] = [],
+) {
   validateQuoteInput(input);
   const data = normalize(input);
   const c = calc(data);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
+
+  // Add extra line item subtotals into the quote total (line 0 is the primary form).
+  const { computeItemSubtotal } = await import("./quote-items-api");
+  const extraSubtotal = extraLineItems.reduce((s, it) => s + computeItemSubtotal(it), 0);
+  const subtotal = c.subtotal + extraSubtotal;
+  const taxes = Math.round(subtotal * TAX_RATE);
+  const total = subtotal + taxes;
 
   const row = {
     ...data,
@@ -197,9 +208,9 @@ export async function createQuote(input: QuoteInput, initialStatus: QuoteStatus 
     reference_code: genReference(),
     nights: c.nights,
     room_rate: c.room_rate,
-    subtotal: c.subtotal,
-    taxes: c.taxes,
-    total: c.total,
+    subtotal,
+    taxes,
+    total,
     status: initialStatus,
   };
   const { data: created, error } = await supabase
@@ -208,6 +219,21 @@ export async function createQuote(input: QuoteInput, initialStatus: QuoteStatus 
     .select()
     .single();
   if (error) throw error;
+
+  // Persist line items: line 0 = primary form, plus any extras.
+  const { addQuoteItems } = await import("./quote-items-api");
+  const primary: import("./quote-items-api").QuoteItemInput = {
+    room_type: data.room_type,
+    adults: data.adults,
+    children: data.children,
+    check_in: data.check_in,
+    check_out: data.check_out,
+    breakfast_included: data.breakfast_included,
+    extra_bed: data.extra_bed,
+    rate: c.room_rate,
+  };
+  await addQuoteItems(created.id, [primary, ...extraLineItems]);
+
   await logActivity(created.id, "created", `Quote ${created.reference_code} created${initialStatus === "Draft" ? " (draft)" : ""}`);
   return created as unknown as QuoteRow;
 }
