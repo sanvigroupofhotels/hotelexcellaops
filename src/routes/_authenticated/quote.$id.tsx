@@ -265,7 +265,8 @@ function QuoteDetail() {
   );
 }
 
-function QuoteCard({ q }: { q: any }) {
+function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
+  const extraItems = items.length > 1 ? items.slice(1) : [];
   const whyStay = [
     "Free High-Speed Wi-Fi",
     "Walkable Distance to Beach",
