@@ -58,7 +58,7 @@ function BookingDetail() {
   const sendWa = (template: "confirm" | "payment" | "checkin" | "checkout") => {
     if (!b.phone) { toast.error("Customer has no phone number"); return; }
     const text =
-      template === "confirm" ? confirmationMessage(b) :
+      template === "confirm" ? confirmationMessage(b, items) :
       template === "payment" ? paymentReminderMessage(b) :
       template === "checkin" ? checkInWelcomeMessage(b) :
       checkOutThankYouMessage(b);
