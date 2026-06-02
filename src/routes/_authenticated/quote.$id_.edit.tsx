@@ -3,13 +3,15 @@ import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
-import { roomTypes } from "@/lib/mock-data";
+import { roomTypes, LEAD_SOURCES } from "@/lib/mock-data";
 import {
-  getQuote, updateQuote, calc, type QuoteInput,
+  getQuote, updateQuote, calc, TAX_RATE, type QuoteInput,
 } from "@/lib/quotes-api";
+import { listQuoteItems, replaceQuoteItems } from "@/lib/quote-items-api";
 import { PolicyFields } from "@/components/policy-fields";
 import { NumField } from "@/components/num-field";
 import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
+import { LineItemsEditor, lineItemsTotal, type LineItem } from "@/components/line-items-editor";
 import {
   User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, Loader2, ArrowLeft,
 } from "lucide-react";
