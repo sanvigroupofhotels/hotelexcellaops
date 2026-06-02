@@ -5,6 +5,9 @@ import { Topbar } from "@/components/topbar";
 import { getCustomer, listCustomers } from "@/lib/customers-api";
 import { getQuote } from "@/lib/quotes-api";
 import { createBooking, type BookingInput } from "@/lib/bookings-api";
+import { addBookingItems, quoteItemsToBookingInputs } from "@/lib/booking-items-api";
+import { listQuoteItems } from "@/lib/quote-items-api";
+import { LineItemsEditor, lineItemsTotal, emptyLine, type LineItem } from "@/components/line-items-editor";
 import { BOOKING_STATUSES } from "@/lib/mock-data";
 import { NumField } from "@/components/num-field";
 import { ArrowLeft, Loader2, BedDouble, Search } from "lucide-react";
@@ -39,6 +42,15 @@ function NewBooking() {
   });
   const update = <K extends keyof BookingInput>(k: K, v: BookingInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  // Booking line items (starts with one primary; extras can be added).
+  const [bookingItems, setBookingItems] = useState<LineItem[]>([emptyLine()]);
+  const itemsTotal = useMemo(() => lineItemsTotal(bookingItems), [bookingItems]);
+  // Keep amount in sync with line items total unless user has overridden.
+  useEffect(() => {
+    if (bookingItems.length > 0) update("amount", itemsTotal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsTotal]);
 
   // Customer picker (when no customerId passed)
   const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: listCustomers, enabled: !customerId });
@@ -92,20 +104,20 @@ function NewBooking() {
       room_details: `${quote.room_type} × ${quote.rooms}`,
       amount: Number(quote.total) || 0,
       notes: quote.special_requests ?? "",
+      internal_notes: quote.internal_notes ?? "",
     }));
   }, [quote]);
 
   const save = useMutation({
     mutationFn: async () => {
       const b = await createBooking(form);
-      // If converting from a quote, snapshot its items into booking_items.
       if (fromQuoteId) {
-        const { listQuoteItems } = await import("@/lib/quote-items-api");
-        const { addBookingItems, quoteItemsToBookingInputs } = await import("@/lib/booking-items-api");
+        // Snapshot quote items
         const items = await listQuoteItems(fromQuoteId);
-        if (items.length > 0) {
-          await addBookingItems(b.id, quoteItemsToBookingInputs(items));
-        }
+        if (items.length > 0) await addBookingItems(b.id, quoteItemsToBookingInputs(items));
+      } else if (bookingItems.length > 0) {
+        // Direct booking: persist its own line items
+        await addBookingItems(b.id, bookingItems);
       }
       return b;
     },
@@ -203,6 +215,21 @@ function NewBooking() {
                 <textarea rows={2} className={cn(inputCls, "resize-none")} value={form.internal_notes ?? ""} onChange={(e) => update("internal_notes", e.target.value)} />
               </Field>
             </section>
+
+            {!fromQuoteId && (
+              <section className="luxe-card rounded-xl p-5">
+                <LineItemsEditor
+                  items={bookingItems}
+                  onChange={setBookingItems}
+                  title="Booking Items"
+                  hint="Add rooms/stays. Amount auto-syncs with items total."
+                />
+                <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3 text-sm">
+                  <span className="text-muted-foreground">Items Total</span>
+                  <span className="font-display text-xl gold-text-gradient">₹{itemsTotal.toLocaleString("en-IN")}</span>
+                </div>
+              </section>
+            )}
 
             <button onClick={() => save.mutate()} disabled={save.isPending}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] disabled:opacity-60">

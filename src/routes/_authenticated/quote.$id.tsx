@@ -9,6 +9,7 @@ import {
   getQuote, listActivities, setStatus, deleteQuote, duplicateQuote,
   addFollowup, buildWhatsAppLink, logWhatsApp, logPdf, calc,
 } from "@/lib/quotes-api";
+import { listQuoteItems } from "@/lib/quote-items-api";
 import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
@@ -32,6 +33,11 @@ function QuoteDetail() {
   useRealtimeInvalidate(["quotes", "quote_activities"], [["quote", id], ["activities", id], "quotes"], `quote-${id}`);
 
   const { data: q, isLoading } = useQuery({ queryKey: ["quote", id], queryFn: () => getQuote(id) });
+  const { data: items = [] } = useQuery({
+    queryKey: ["quote-items", id],
+    queryFn: () => listQuoteItems(id),
+    enabled: !!q,
+  });
   const { data: activities = [] } = useQuery({
     queryKey: ["activities", id],
     queryFn: () => listActivities(id),
@@ -179,7 +185,7 @@ function QuoteDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:block">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
             <div ref={cardRef}>
-              <QuoteCard q={q} />
+              <QuoteCard q={q} items={items} />
             </div>
           </motion.div>
 
@@ -259,7 +265,8 @@ function QuoteDetail() {
   );
 }
 
-function QuoteCard({ q }: { q: any }) {
+function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
+  const extraItems = items.length > 1 ? items.slice(1) : [];
   const whyStay = [
     "Free High-Speed Wi-Fi",
     "Walkable Distance to Beach",
@@ -354,6 +361,27 @@ function QuoteCard({ q }: { q: any }) {
           );
         })()}
       </div>
+
+      {extraItems.length > 0 && (
+        <div className="relative py-6 border-b border-border">
+          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Additional Rooms / Split Stay</h4>
+          {extraItems.map((it: any, i: number) => (
+            <div key={i} className="grid grid-cols-[1fr_auto] gap-2 py-2 text-sm border-t border-border/40 first:border-0">
+              <div>
+                <div>{it.room_type} · {it.adults}A{it.children ? `+${it.children}C` : ""}{it.extra_bed ? ` · +${it.extra_bed} bed` : ""}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {fmtDate(it.check_in)} – {fmtDate(it.check_out)} · {it.nights}N · {it.breakfast_included ? "Breakfast incl." : "No breakfast"} · ₹{Number(it.rate).toLocaleString("en-IN")}/night
+                </div>
+              </div>
+              <div className="tabular-nums self-center">
+                ₹{Number(it.subtotal).toLocaleString("en-IN")}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+
 
       <div className="relative py-6 border-b border-border flex items-baseline justify-between">
         <span className="font-display text-2xl">Total Amount</span>

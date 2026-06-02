@@ -166,7 +166,7 @@ function CustomerDetail() {
 
             <div className="luxe-card rounded-xl overflow-hidden">
               <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                <h3 className="font-display text-lg">Quotes & Bookings</h3>
+                <h3 className="font-display text-lg">Quotes</h3>
                 <span className="text-xs text-muted-foreground">{quotes.length} total</span>
               </div>
               {quotes.length === 0 ? (
@@ -182,6 +182,32 @@ function CustomerDetail() {
                   </Link>
                 ))
               )}
+            </div>
+
+            <div className="luxe-card rounded-xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <h3 className="font-display text-lg flex items-center gap-2"><BedDouble className="h-4 w-4 text-gold" /> Bookings</h3>
+                <span className="text-xs text-muted-foreground">{bookings.length} total</span>
+              </div>
+              {bookings.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">No bookings yet.</div>
+              ) : (
+                bookings.map((b: any) => (
+                  <Link key={b.id} to="/bookings/$id" params={{ id: b.id }}
+                    className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-5 py-3 border-b border-border/50 last:border-0 hover:bg-secondary/40 text-sm">
+                    <div className="md:col-span-3 font-mono text-xs text-muted-foreground">{b.booking_reference}</div>
+                    <div className="md:col-span-4">{new Date(b.check_in).toLocaleDateString("en-IN")} – {new Date(b.check_out).toLocaleDateString("en-IN")}</div>
+                    <div className="md:col-span-3 font-medium tabular-nums">₹{Number(b.amount).toLocaleString("en-IN")}</div>
+                    <div className="md:col-span-2">
+                      <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]", bookingStatusStyles[b.status as keyof typeof bookingStatusStyles])}>{b.status}</span>
+                    </div>
+                  </Link>
+                ))
+              )}
+              <div className="px-5 py-3 border-t border-border">
+                <Link to="/bookings/new" search={{ customerId: c.id, fromQuoteId: undefined } as any}
+                  className="text-xs text-gold hover:underline">+ New Booking for this customer</Link>
+              </div>
             </div>
 
             <div className="luxe-card rounded-xl p-5">
