@@ -58,7 +58,14 @@ function EditQuote() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: q, isLoading } = useQuery({ queryKey: ["quote", id], queryFn: () => getQuote(id) });
+  const { data: existingItems = [] } = useQuery({
+    queryKey: ["quote-items", id],
+    queryFn: () => listQuoteItems(id),
+    enabled: !!q,
+  });
   const [form, setForm] = useState<QuoteInput>(empty);
+  const [extraItems, setExtraItems] = useState<LineItem[]>([]);
+  const [itemsLoaded, setItemsLoaded] = useState(false);
 
   useEffect(() => {
     if (!q) return;
@@ -87,22 +94,61 @@ function EditQuote() {
     });
   }, [q]);
 
+  // Load extras (everything beyond position 0 = primary form line).
+  useEffect(() => {
+    if (itemsLoaded || existingItems.length === 0) return;
+    const extras = existingItems.slice(1).map((it) => ({
+      room_type: it.room_type,
+      adults: it.adults,
+      children: it.children,
+      check_in: it.check_in,
+      check_out: it.check_out,
+      breakfast_included: it.breakfast_included,
+      extra_bed: it.extra_bed,
+      rate: Number(it.rate),
+      notes: it.notes ?? null,
+    }));
+    setExtraItems(extras);
+    setItemsLoaded(true);
+  }, [existingItems, itemsLoaded]);
+
   const update = <K extends keyof QuoteInput>(k: K, v: QuoteInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const c = useMemo(() => calc(form), [form]);
+  const c = useMemo(() => {
+    const base = calc(form);
+    const extra = lineItemsTotal(extraItems);
+    const subtotal = base.subtotal + extra;
+    const taxes = Math.round(subtotal * TAX_RATE);
+    return { ...base, subtotal, taxes, total: subtotal + taxes };
+  }, [form, extraItems]);
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!form.guest_name.trim()) throw new Error("Guest name is required");
       if (!form.phone.trim()) throw new Error("Phone is required");
       if (new Date(form.check_out) <= new Date(form.check_in))
         throw new Error("Check-out must be after check-in");
       if (form.discount < 0) throw new Error("Discount cannot be negative");
-      return updateQuote(id, form);
+      const updated = await updateQuote(id, form);
+      // Replace all line items: primary (line 0) + extras
+      const baseCalc = calc(form);
+      const primary = {
+        room_type: form.room_type,
+        adults: form.adults,
+        children: form.children,
+        check_in: form.check_in,
+        check_out: form.check_out,
+        breakfast_included: form.breakfast_included,
+        extra_bed: form.extra_bed,
+        rate: baseCalc.room_rate,
+      };
+      await replaceQuoteItems(id, [primary, ...extraItems]);
+      return updated;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["quote", id] });
+      qc.invalidateQueries({ queryKey: ["quote-items", id] });
       qc.invalidateQueries({ queryKey: ["quotes"] });
       qc.invalidateQueries({ queryKey: ["activities", id] });
       toast.success("Quote updated");
