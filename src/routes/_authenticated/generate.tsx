@@ -217,6 +217,14 @@ function GenerateQuote() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
 
           <div className="space-y-6">
+            {matchedCustomer && !forceNew && (
+              <ExistingCustomerBanner
+                customer={matchedCustomer}
+                onUseExisting={useExistingCustomer}
+                onCreateNew={() => { setForceNew(true); toast.info("Will create a new customer record."); }}
+              />
+            )}
+
             <Card title="Guest Details">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Guest Name" icon={User} required>
@@ -230,13 +238,35 @@ function GenerateQuote() {
                 </Field>
                 <Field label="Lead Source">
                   <select className={inputCls} value={form.lead_source} onChange={(e) => update("lead_source", e.target.value)}>
-                    {["Direct","Website","WhatsApp","Referral","OTA"].map((o) => <option key={o}>{o}</option>)}
+                    {LEAD_SOURCES.map((o) => <option key={o}>{o}</option>)}
                   </select>
                 </Field>
                 <Field label="Special Requests">
                   <input className={inputCls} value={form.special_requests ?? ""} onChange={(e) => update("special_requests", e.target.value)} />
                 </Field>
               </div>
+
+              {/* Name/phone autocomplete suggestions */}
+              {(form.guest_name.trim().length >= 2 || form.phone.trim().length >= 2) && !matchedCustomer && (
+                <div className="mt-3">
+                  <CustomerAutocomplete
+                    name={form.guest_name}
+                    phone={form.phone}
+                    email={form.email ?? ""}
+                    onPick={(c) => {
+                      setForm((f) => ({
+                        ...f,
+                        guest_name: c.guest_name,
+                        phone: c.phone ?? f.phone,
+                        email: c.email ?? f.email,
+                        lead_source: c.lead_source ?? f.lead_source,
+                      }));
+                      setMatchedCustomer(c);
+                      setForceNew(false);
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Group size — manual numeric inputs */}
               <div className="mt-5 rounded-lg border border-border bg-secondary/30 p-4">
