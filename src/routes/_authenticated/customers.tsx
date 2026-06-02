@@ -8,10 +8,11 @@ import { listQuotes } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
 import { CUSTOMER_STATUSES, customerStatusStyles, LEAD_SOURCES } from "@/lib/mock-data";
-import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, FilePlus } from "lucide-react";
+import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, FilePlus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/use-role";
+import { CustomerEditDialog } from "@/components/customer-edit-dialog";
 
 export const Route = createFileRoute("/_authenticated/customers")({
   component: CustomersPage,
