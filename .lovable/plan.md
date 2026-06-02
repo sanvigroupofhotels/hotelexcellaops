@@ -1,40 +1,82 @@
-# Operational Maturity Rollout
 
-The scope you listed (CSV fixes, multi-room, drafts, rate protection, roles, audit log, sticky summary, status workflow expansion, keyboard nav, prefill from customer, etc.) is roughly 3–4 weeks of focused work across ~40 files and 6+ schema migrations. Shipping it all in a single turn would guarantee regressions in flows you already rely on (Generate, Edit, WhatsApp, CSV).
+# Turn 5 — Customer Maturity, Multi-Line Quotes, Booking Foundation
 
-I'll execute it in 4 focused turns. Each turn is self-contained, testable, and leaves the app in a working state. Tell me to proceed and I'll start Turn 1 immediately. You can also reorder.
+A large turn touching schema, generate flow, edit flow, PDF/WhatsApp/share, and a brand-new bookings surface. Sequenced to keep the app working at every step.
 
-## Turn 1 — CRITICAL fixes + customer→quote prefill (ship first)
-Files: ~6, 1 migration
-- **Fix CSV exports** (customers + quotes): verify `downloadCSV` on Android Chrome / desktop, add a `target=_blank` fallback path, surface error toasts properly. Add quotes CSV columns: Quote ID, Guest, Phone, Room, Stay, Guests, Taxes, Total, Status, Created By, Created Date. Add customers CSV: Name, Phone, Email, Quotes, Created, Last Interaction, Lead Source.
-- **Customer detail → Create Quote**: add prominent "Create Quote" button on `customers.$id.tsx` that navigates to `/generate?customerId=<id>` and prefills guest name, phone, email, preferred room, lead source.
-- **Customers table**: already compact; add the "Create Quote" quick action (➕) icon next to call / WhatsApp / view.
-- **Status workflow expansion**: extend `quote_status` enum with `Draft`, `Sent`, `Negotiating`, `Cancelled`, `Expired`, `Advance Paid`, `Full Amount Paid`, `Checked In`. Update `statusStyles` map, status pill, status dropdowns, filters. Migration adds enum values.
+## Module 1 — Customer Profile Maturity
 
-## Turn 2 — Edit Quote stability + Drafts + Duplicate + Internal Notes
-Files: ~5
-- **Edit Quote audit**: walk every field on `quote.$id.edit.tsx` against the schema, fix any field that doesn't load/save (occupancy, breakfast, extras, payment status, lost reason, etc.). Preserve `reference_code`, `created_at`, `customer_id` on save.
-- **Save Draft / Resume Draft**: drafts are just quotes with status `Draft`. Add explicit "Save as Draft" button on Generate; History gets a Drafts filter; Draft rows get "Resume" CTA → opens edit page.
-- **Duplicate Quote**: button on quote detail → creates new quote, resets status to `Draft`, new reference code, copies all fields, keeps `customer_id`.
-- **Internal notes timeline**: append-only notes log surfaced in quote detail + customer detail; never included in WhatsApp / image / PDF / CSV (audit existing exports).
+- **Edit Customer modal** on `customers_.$id.tsx`: name, phone, email, city, state, country, company_name, gst_number, company address (reuse `special_notes`-style or add `company_address` column), birthday, anniversary, preferred_room, preferred_food.
+- **Lead Source** options expanded in `mock-data.ts` to the 10 listed (Walk-in, Phone Call, WhatsApp, Website, Google Business Profile, Travel Agent, Corporate Referral, Repeat Guest, OTA, Other).
+- **Tags**: already multi-select; expand `DEFAULT_TAGS` to the 7 listed.
+- **Internal Notes**: already present; confirm exclusion from PDF/WhatsApp/share (audit `share-quote.ts` and `quote-summary.tsx`).
+- **Customer Actions** row: Call, WhatsApp, Create Quote (already there), + **Create Booking** linking to `/bookings/new?customerId=...`.
+- **Insights**: Total Quotes, Latest Quote, Lifetime Quoted Value are already shown. Add placeholder Bookings stat (count from new table).
 
-## Turn 3 — Multi-room + Rate Protection + Sticky Live Summary + Keyboard nav
-Files: ~6, 1 migration
-- **Multi-room schema**: new `quote_rooms` table (quote_id, room_type, occupancy, extra_adults, breakfast_included, rate, line_total). Existing single-room quotes back-fill as one row. Totals recompute from rooms.
-- **Multi-room UI**: Generate + Edit get "Add Room" with per-room sub-card; each room independently configurable; final summary aggregates.
-- **Rate protection**: minimums per room type; if staff drops below, warn + require override reason (stored on the quote as `rate_override_reason`). Migration adds the column.
-- **Sticky live summary**: floating bottom card on mobile + sticky right rail on desktop showing room charges, breakfast, extras, taxes, discount, final total — visible across Generate and Edit.
-- **Keyboard nav**: Enter → focus next field, optimized tab order, numeric inputs use `inputMode="decimal"`.
+## Module 2 — Advanced Quote Creation
 
-## Turn 4 — Roles + Audit Log + Advanced Search
-Files: ~5, 1 migration
-- **Roles**: `app_role` enum (admin / manager / front_desk) + `user_roles` table + `has_role()` security-definer function (per project user-roles rules). UI gates: pricing overrides (manager+), delete quote (manager+), reports/analytics (manager+). Front Desk can only quote.
-- **Audit log**: `audit_log` table (actor, action, entity_type, entity_id, before/after JSON, timestamp). Hook into quote create/update/delete, status change, rate override, customer delete. Surface as timeline on customer + quote detail.
-- **Advanced search**: history page gets multi-filter bar — guest, phone, quote id, room type, status, created_by, date range, lead source. URL-synced for shareable filters.
+### Schema
+- New `quote_items` table:
+  - `id`, `quote_id` FK, `position` int, `room_type`, `adults`, `children`, `check_in`, `check_out`, `nights` (generated or computed), `breakfast_included`, `extra_bed`, `rate`, `subtotal`, `notes`, timestamps.
+  - RLS: same shared-team model as `quotes` (SELECT all authenticated; INSERT/UPDATE/DELETE gated by parent quote ownership via `EXISTS` on quotes.user_id).
+  - GRANTs to `authenticated` + `service_role`.
+- Backfill: trigger or one-shot SQL inserting one `quote_items` row per existing `quotes` row from current columns.
+- Keep legacy columns on `quotes` for now (rooms, room_type, room_rate, check_in, check_out, adults, children, nights, subtotal) — they become the rollup/summary; `quote_items` is the source of truth going forward.
 
-## Notes
-- Each turn ends with a verification pass (build + spot-check the changed flows in the preview).
-- No new features added beyond what's listed — purely closing your brief.
-- After Turn 4 the app meets every requirement in this message.
+### Customer Lookup on Generate
+- Debounced autocomplete on phone & name fields in `generate.tsx`.
+- Query top 5 matches (`ilike`). Dropdown shows name, phone, quote_count.
+- If match found before submit: banner "Existing Customer Found" with [Use Existing Customer] (default) / [Create New Anyway]. Selecting an existing customer prefills all fields and sets `customer_id`.
 
-**Reply "go" (or "start with turn N") and I'll begin.**
+### Line Items UI
+- `generate.tsx` and `quote.$id_.edit.tsx`: add a Line Items section.
+- Controls: Add Line, Duplicate Line, Remove Line.
+- Each line: Room Type, Adults, Children, Check-In, Check-Out, Breakfast toggle, Extra Bed, Rate. Subtotal auto-computed (nights * rate + extras).
+- Quote-level summary aggregates: total nights span (min check_in → max check_out), total guests, sum subtotal → taxes → discount → total.
+- PDF, WhatsApp, share image (`share-quote.ts`, `quote-summary.tsx`, `quote.$id.tsx`) updated to render each line item.
+
+## Module 3 — Booking Foundation
+
+### Schema
+- New `bookings` table:
+  - `id`, `user_id`, `customer_id` FK (NOT NULL), `source_quote_id` FK nullable, `booking_reference` (auto `HEXB-NNN`-style), `check_in`, `check_out`, `nights`, `guests`, `adults`, `children`, `room_details` text, `amount` numeric, `notes`, `internal_notes`, `status` ('Draft' | 'Confirmed' | 'Cancelled'), `payment_status`, timestamps.
+  - RLS mirrors quotes (shared-team SELECT, INSERT auth, UPDATE WITH CHECK ownership, DELETE admin).
+  - GRANTs to `authenticated` + `service_role`.
+- `customers.total_bookings` already exists — wire trigger to recompute on bookings change.
+
+### Routes
+- `src/routes/_authenticated/bookings.tsx` — list (search + status filter + CSV export pattern reused from history).
+- `src/routes/_authenticated/bookings.new.tsx` — create form. Accepts `?customerId=` and `?fromQuoteId=` search params.
+- `src/routes/_authenticated/bookings.$id.tsx` — detail view with status switcher.
+- Sidebar entry: "Bookings" with calendar/bed icon.
+
+### Convert Quote → Booking
+- On `quote.$id.tsx`, add "Convert to Booking" action (Confirmed quotes). Navigates to `/bookings/new?fromQuoteId=...` prefilled from quote + its line items rolled up.
+
+### Customer linkage
+- Customer Profile gains a "Bookings" section listing bookings for that customer (placeholder if 0), separate from the existing Quotes list.
+
+## Property-Awareness Hygiene
+
+- New strings avoid hardcoded "Hotel Excella"; pull brand name from existing config where present (Topbar / share templates).
+- No multi-property tables this turn.
+
+## Out of Scope (explicit)
+
+- Check-in/out workflows, housekeeping, room inventory, channel manager, multi-property, SaaS billing.
+
+## Technical Sequencing
+
+1. Migration 1: `quote_items` + backfill + RLS + GRANTs.
+2. Migration 2: `bookings` + RLS + GRANTs + trigger to recompute `customers.total_bookings`.
+3. Migration 3: customer field additions (`company_address` if needed).
+4. APIs: `quote-items-api.ts`, `bookings-api.ts`; extend `customers-api.ts` with `searchCustomers(phoneOrName)`.
+5. UI: Generate (lookup + line items), Edit (line items), Customer Profile (edit modal + Create Booking + Bookings list), Bookings routes, sidebar.
+6. Render layer: PDF / WhatsApp / share image / quote detail iterate over line items with backwards-compatible fallback (if a quote has 0 items, render legacy columns).
+7. `mock-data.ts`: expand `LEAD_SOURCES`, `DEFAULT_TAGS`, add `BOOKING_STATUSES`.
+
+## Risks / Mitigations
+
+- **PDF/WhatsApp/share regression**: keep legacy single-line fallback for any quote with no `quote_items` rows.
+- **Edit page rate parity**: reuse `NumField` component for line-item rate/extras.
+- **RLS on quote_items**: insert/update/delete policies check `EXISTS(quotes WHERE id = quote_id AND user_id = auth.uid())` for owner gating, and shared SELECT (`true`) consistent with quotes table.
+- **Realtime**: add `quote_items` and `bookings` to existing `useRealtimeInvalidate` channels.

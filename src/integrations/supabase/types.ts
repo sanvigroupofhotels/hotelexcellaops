@@ -14,12 +14,103 @@ export type Database = {
   }
   public: {
     Tables: {
+      bookings: {
+        Row: {
+          adults: number
+          amount: number
+          booking_reference: string
+          check_in: string
+          check_out: string
+          children: number
+          created_at: string
+          customer_id: string
+          email: string | null
+          guest_name: string
+          guests: number
+          id: string
+          internal_notes: string | null
+          nights: number | null
+          notes: string | null
+          payment_status: string
+          phone: string | null
+          room_details: string | null
+          source_quote_id: string | null
+          status: Database["public"]["Enums"]["booking_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          adults?: number
+          amount?: number
+          booking_reference?: string
+          check_in: string
+          check_out: string
+          children?: number
+          created_at?: string
+          customer_id: string
+          email?: string | null
+          guest_name: string
+          guests?: number
+          id?: string
+          internal_notes?: string | null
+          nights?: number | null
+          notes?: string | null
+          payment_status?: string
+          phone?: string | null
+          room_details?: string | null
+          source_quote_id?: string | null
+          status?: Database["public"]["Enums"]["booking_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          adults?: number
+          amount?: number
+          booking_reference?: string
+          check_in?: string
+          check_out?: string
+          children?: number
+          created_at?: string
+          customer_id?: string
+          email?: string | null
+          guest_name?: string
+          guests?: number
+          id?: string
+          internal_notes?: string | null
+          nights?: number | null
+          notes?: string | null
+          payment_status?: string
+          phone?: string | null
+          room_details?: string | null
+          source_quote_id?: string | null
+          status?: Database["public"]["Enums"]["booking_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_source_quote_id_fkey"
+            columns: ["source_quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           anniversary: string | null
           birthday: string | null
           booking_probability: number
           city: string | null
+          company_address: string | null
           company_name: string | null
           country: string | null
           created_at: string
@@ -55,6 +146,7 @@ export type Database = {
           birthday?: string | null
           booking_probability?: number
           city?: string | null
+          company_address?: string | null
           company_name?: string | null
           country?: string | null
           created_at?: string
@@ -90,6 +182,7 @@ export type Database = {
           birthday?: string | null
           booking_probability?: number
           city?: string | null
+          company_address?: string | null
           company_name?: string | null
           country?: string | null
           created_at?: string
@@ -212,6 +305,71 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "quote_activities_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_items: {
+        Row: {
+          adults: number
+          breakfast_included: boolean
+          check_in: string
+          check_out: string
+          children: number
+          created_at: string
+          extra_bed: number
+          id: string
+          nights: number | null
+          notes: string | null
+          position: number
+          quote_id: string
+          rate: number
+          room_type: string
+          subtotal: number
+          updated_at: string
+        }
+        Insert: {
+          adults?: number
+          breakfast_included?: boolean
+          check_in: string
+          check_out: string
+          children?: number
+          created_at?: string
+          extra_bed?: number
+          id?: string
+          nights?: number | null
+          notes?: string | null
+          position?: number
+          quote_id: string
+          rate?: number
+          room_type?: string
+          subtotal?: number
+          updated_at?: string
+        }
+        Update: {
+          adults?: number
+          breakfast_included?: boolean
+          check_in?: string
+          check_out?: string
+          children?: number
+          created_at?: string
+          extra_bed?: number
+          id?: string
+          nights?: number | null
+          notes?: string | null
+          position?: number
+          quote_id?: string
+          rate?: number
+          room_type?: string
+          subtotal?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_items_quote_id_fkey"
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
@@ -456,6 +614,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      recompute_customer_bookings: {
+        Args: { p_customer_id: string }
+        Returns: undefined
+      }
       recompute_customer_stats: {
         Args: { p_customer_id: string }
         Returns: undefined
@@ -475,6 +637,7 @@ export type Database = {
         | "deleted"
         | "duplicated"
       app_role: "admin" | "staff"
+      booking_status: "Draft" | "Confirmed" | "Cancelled"
       quote_status:
         | "Pending"
         | "Sent"
@@ -631,6 +794,7 @@ export const Constants = {
         "duplicated",
       ],
       app_role: ["admin", "staff"],
+      booking_status: ["Draft", "Confirmed", "Cancelled"],
       quote_status: [
         "Pending",
         "Sent",
