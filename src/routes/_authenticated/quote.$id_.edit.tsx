@@ -265,6 +265,12 @@ function EditQuote() {
               </div>
             </Card>
 
+            <Card title="Additional Rooms / Split Stay">
+              <LineItemsEditor items={extraItems} onChange={setExtraItems} />
+            </Card>
+
+
+
             <Card title="Additional">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <NumField label="Discount (₹)" value={form.discount} min={0} onChange={(v) => update("discount", v)} prefix="₹" />
