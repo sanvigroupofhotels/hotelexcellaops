@@ -362,6 +362,27 @@ function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
         })()}
       </div>
 
+      {extraItems.length > 0 && (
+        <div className="relative py-6 border-b border-border">
+          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Additional Rooms / Split Stay</h4>
+          {extraItems.map((it: any, i: number) => (
+            <div key={i} className="grid grid-cols-[1fr_auto] gap-2 py-2 text-sm border-t border-border/40 first:border-0">
+              <div>
+                <div>{it.room_type} · {it.adults}A{it.children ? `+${it.children}C` : ""}{it.extra_bed ? ` · +${it.extra_bed} bed` : ""}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {fmtDate(it.check_in)} – {fmtDate(it.check_out)} · {it.nights}N · {it.breakfast_included ? "Breakfast incl." : "No breakfast"} · ₹{Number(it.rate).toLocaleString("en-IN")}/night
+                </div>
+              </div>
+              <div className="tabular-nums self-center">
+                ₹{Number(it.subtotal).toLocaleString("en-IN")}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+
+
       <div className="relative py-6 border-b border-border flex items-baseline justify-between">
         <span className="font-display text-2xl">Total Amount</span>
         <span className="font-display text-3xl gold-text-gradient">
