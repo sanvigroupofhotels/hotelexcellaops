@@ -8,7 +8,7 @@ import { QUOTE_STATUSES, type QuoteStatus } from "@/lib/mock-data";
 import { listQuotes, deleteQuote, duplicateQuote, buildWhatsAppLink, logWhatsApp, getUserNamesByIds } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
-import { Search, Loader2, Copy, Trash2, ChevronRight, Download, MessageCircle, SlidersHorizontal } from "lucide-react";
+import { Search, Loader2, Copy, Trash2, ChevronRight, Download, MessageCircle, SlidersHorizontal, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/use-role";
@@ -151,6 +151,10 @@ function History() {
           <button onClick={exportCSV} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
             <Download className="h-4 w-4 text-gold" /> Export CSV
           </button>
+          <Link to="/generate" search={{ customerId: undefined } as any}
+            className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal hover:shadow-[0_0_18px_oklch(0.82_0.13_82/0.35)]">
+            <Plus className="h-4 w-4" /> New Quote
+          </Link>
         </div>
 
         {showAdv && (
