@@ -10,6 +10,7 @@ import {
   addFollowup, buildWhatsAppLink, logWhatsApp, logPdf, calc,
 } from "@/lib/quotes-api";
 import { listQuoteItems } from "@/lib/quote-items-api";
+import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
