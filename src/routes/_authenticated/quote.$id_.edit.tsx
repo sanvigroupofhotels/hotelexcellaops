@@ -7,7 +7,7 @@ import { roomTypes, LEAD_SOURCES } from "@/lib/mock-data";
 import {
   getQuote, updateQuote, calc, TAX_RATE, type QuoteInput,
 } from "@/lib/quotes-api";
-import { listQuoteItems, replaceQuoteItems } from "@/lib/quote-items-api";
+import { listQuoteItems, replaceQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
 import { PolicyFields } from "@/components/policy-fields";
 import { NumField } from "@/components/num-field";
 import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
