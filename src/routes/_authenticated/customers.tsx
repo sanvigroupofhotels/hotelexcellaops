@@ -106,10 +106,6 @@ function CustomersPage() {
               className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
             />
           </div>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-card border border-border rounded-md px-3 py-2 text-sm">
-            <option value="All">All statuses</option>
-            {CUSTOMER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
           <select value={source} onChange={(e) => setSource(e.target.value)} className="bg-card border border-border rounded-md px-3 py-2 text-sm">
             <option value="All">All sources</option>
             {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
