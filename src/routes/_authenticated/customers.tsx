@@ -121,7 +121,7 @@ function CustomersPage() {
           <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-secondary/30">
             <div className="col-span-3">Guest</div>
             <div className="col-span-2">Contact</div>
-            <div className="col-span-2">Status</div>
+            <div className="col-span-2">Tags</div>
             <div className="col-span-1 text-right">Quotes</div>
             <div className="col-span-2 text-right">Revenue</div>
             <div className="col-span-1 text-right">Prob</div>
