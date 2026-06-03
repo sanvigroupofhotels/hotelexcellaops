@@ -97,18 +97,7 @@ function EditQuote() {
   // Load extras (everything beyond position 0 = primary form line).
   useEffect(() => {
     if (itemsLoaded || existingItems.length === 0) return;
-    const extras = existingItems.slice(1).map((it) => ({
-      room_type: it.room_type,
-      adults: it.adults,
-      children: it.children,
-      check_in: it.check_in,
-      check_out: it.check_out,
-      breakfast_included: it.breakfast_included,
-      extra_bed: it.extra_bed,
-      rate: Number(it.rate),
-      notes: it.notes ?? null,
-    }));
-    setExtraItems(extras);
+    setExtraItems(existingItems.slice(1).map(rowToLineItem));
     setItemsLoaded(true);
   }, [existingItems, itemsLoaded]);
 
@@ -131,10 +120,10 @@ function EditQuote() {
         throw new Error("Check-out must be after check-in");
       if (form.discount < 0) throw new Error("Discount cannot be negative");
       const updated = await updateQuote(id, form);
-      // Replace all line items: primary (line 0) + extras
       const baseCalc = calc(form);
-      const primary = {
+      const primary: LineItem = {
         room_type: form.room_type,
+        rooms: form.rooms,
         adults: form.adults,
         children: form.children,
         check_in: form.check_in,
@@ -142,6 +131,13 @@ function EditQuote() {
         breakfast_included: form.breakfast_included,
         extra_bed: form.extra_bed,
         rate: baseCalc.room_rate,
+        early_check_in: form.early_check_in,
+        early_check_in_slot: form.early_check_in_slot ?? null,
+        late_check_out: form.late_check_out,
+        late_check_out_slot: form.late_check_out_slot ?? null,
+        pet_size: form.pet_size,
+        extra_adults: form.extra_adults,
+        drivers: form.drivers,
       };
       await replaceQuoteItems(id, [primary, ...extraItems]);
       return updated;
