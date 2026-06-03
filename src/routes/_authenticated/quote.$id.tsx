@@ -39,6 +39,11 @@ function QuoteDetail() {
     queryFn: () => listQuoteItems(id),
     enabled: !!q,
   });
+  const { data: customer } = useQuery({
+    queryKey: ["customer", q?.customer_id],
+    queryFn: () => getCustomer(q!.customer_id!),
+    enabled: !!q?.customer_id,
+  });
   const { data: activities = [] } = useQuery({
     queryKey: ["activities", id],
     queryFn: () => listActivities(id),
