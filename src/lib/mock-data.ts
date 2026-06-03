@@ -147,12 +147,15 @@ export const customerStatusStyles: Record<string, string> = {
 
 export const DEFAULT_TAGS = [
   "VIP",
+  "Couple",
   "Corporate",
   "Travel Agent",
   "Repeat Guest",
   "Long Stay",
   "Family Guest",
   "Business Traveler",
+  "Lost",
+  "Never Booked",
 ] as const;
 
 export const LEAD_SOURCES = [
@@ -170,12 +173,28 @@ export const LEAD_SOURCES = [
 ] as const;
 
 // ---------- Bookings ----------
-export type BookingStatus = "Draft" | "Confirmed" | "Cancelled";
-export const BOOKING_STATUSES: BookingStatus[] = ["Draft", "Confirmed", "Cancelled"];
+export type BookingStatus =
+  | "Draft"
+  | "Confirmed"
+  | "Cancelled"
+  | "Advance Paid"
+  | "Full Paid"
+  | "Stay Completed";
+export const BOOKING_STATUSES: BookingStatus[] = [
+  "Draft",
+  "Confirmed",
+  "Advance Paid",
+  "Full Paid",
+  "Stay Completed",
+  "Cancelled",
+];
 export const bookingStatusStyles: Record<BookingStatus, string> = {
   Draft: "bg-muted/60 text-muted-foreground border-border",
   Confirmed: "bg-success/15 text-success border-success/40",
   Cancelled: "bg-destructive/10 text-destructive border-destructive/40",
+  "Advance Paid": "bg-info/15 text-info border-info/40",
+  "Full Paid": "bg-success/20 text-success border-success/50",
+  "Stay Completed": "bg-gold/15 text-gold border-gold/40",
 };
 
 export const PAYMENT_STATUSES = [
