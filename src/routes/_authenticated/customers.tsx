@@ -26,7 +26,6 @@ function CustomersPage() {
   const { data: quotes = [] } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
   const [q, setQ] = useState("");
   const [source, setSource] = useState<string>("All");
-  const [source, setSource] = useState<string>("All");
   const [newOpen, setNewOpen] = useState(false);
 
   const del = useMutation({
