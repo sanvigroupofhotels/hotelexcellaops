@@ -25,7 +25,7 @@ function CustomersPage() {
   const { data: customers = [], isLoading } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
   const { data: quotes = [] } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string>("All");
+  const [source, setSource] = useState<string>("All");
   const [source, setSource] = useState<string>("All");
   const [newOpen, setNewOpen] = useState(false);
 
