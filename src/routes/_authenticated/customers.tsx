@@ -7,7 +7,7 @@ import { listCustomers, deleteCustomer } from "@/lib/customers-api";
 import { listQuotes } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
-import { CUSTOMER_STATUSES, customerStatusStyles, LEAD_SOURCES } from "@/lib/mock-data";
+import { LEAD_SOURCES } from "@/lib/mock-data";
 import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, FilePlus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -25,7 +25,6 @@ function CustomersPage() {
   const { data: customers = [], isLoading } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
   const { data: quotes = [] } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string>("All");
   const [source, setSource] = useState<string>("All");
   const [newOpen, setNewOpen] = useState(false);
 
@@ -106,10 +105,6 @@ function CustomersPage() {
               className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
             />
           </div>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-card border border-border rounded-md px-3 py-2 text-sm">
-            <option value="All">All statuses</option>
-            {CUSTOMER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
           <select value={source} onChange={(e) => setSource(e.target.value)} className="bg-card border border-border rounded-md px-3 py-2 text-sm">
             <option value="All">All sources</option>
             {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -126,7 +121,7 @@ function CustomersPage() {
           <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-secondary/30">
             <div className="col-span-3">Guest</div>
             <div className="col-span-2">Contact</div>
-            <div className="col-span-2">Status</div>
+            <div className="col-span-2">Tags</div>
             <div className="col-span-1 text-right">Quotes</div>
             <div className="col-span-2 text-right">Revenue</div>
             <div className="col-span-1 text-right">Prob</div>
@@ -153,9 +148,15 @@ function CustomersPage() {
                 <div>{c.phone}</div>
                 {c.email && <div className="truncate">{c.email}</div>}
               </div>
-              <div className="md:col-span-2">
-                <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px]",
-                  customerStatusStyles[c.status] ?? "bg-muted text-muted-foreground border-border")}>{c.status}</span>
+              <div className="md:col-span-2 flex flex-wrap gap-1">
+                {(c.tags ?? []).length === 0 ? (
+                  <span className="text-[10px] text-muted-foreground italic">—</span>
+                ) : (
+                  (c.tags ?? []).slice(0, 3).map((t) => (
+                    <span key={t} className="inline-flex items-center rounded-full border border-gold/40 bg-gold-soft text-gold px-2 py-0.5 text-[10px]">{t}</span>
+                  ))
+                )}
+                {(c.tags ?? []).length > 3 && <span className="text-[10px] text-muted-foreground">+{(c.tags ?? []).length - 3}</span>}
               </div>
               <div className="md:col-span-1 text-right text-sm tabular-nums">{c.total_quotes}</div>
               <div className="md:col-span-2 text-right text-sm font-medium tabular-nums">

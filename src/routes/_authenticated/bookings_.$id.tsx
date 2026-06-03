@@ -1,10 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useRef, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
-import { getBooking, setBookingStatus, deleteBooking } from "@/lib/bookings-api";
+import { getBooking, setBookingStatus, deleteBooking, setAdvancePaid } from "@/lib/bookings-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
-import { BOOKING_STATUSES, bookingStatusStyles, type BookingStatus } from "@/lib/mock-data";
+import { shareQuoteImage } from "@/lib/share-quote";
+import { BOOKING_STATUSES, bookingStatusStyles, earlyCheckInLabel, lateCheckOutLabel, type BookingStatus } from "@/lib/mock-data";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { useUserRole } from "@/hooks/use-role";
 import {
@@ -12,8 +14,8 @@ import {
   checkOutThankYouMessage, bookingWhatsAppLink,
 } from "@/lib/booking-messages";
 import {
-  ArrowLeft, Loader2, Trash2, BedDouble, Phone, Mail, CalendarDays, User,
-  MessageCircle, Send, Wallet, HandPlatter, Heart,
+  ArrowLeft, Loader2, Trash2, BedDouble, Phone, Mail, User, MessageCircle,
+  Send, Wallet, HandPlatter, Heart, Share2, Printer, Pencil, CalendarDays, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -31,35 +33,39 @@ function BookingDetail() {
 
   const { data: b, isLoading } = useQuery({ queryKey: ["booking", id], queryFn: () => getBooking(id) });
   const { data: items = [] } = useQuery({
-    queryKey: ["booking-items", id],
-    queryFn: () => listBookingItems(id),
-    enabled: !!b,
+    queryKey: ["booking-items", id], queryFn: () => listBookingItems(id), enabled: !!b,
   });
   const { data: c } = useQuery({
-    queryKey: ["customer", b?.customer_id],
-    queryFn: () => getCustomer(b!.customer_id),
-    enabled: !!b?.customer_id,
+    queryKey: ["customer", b?.customer_id], queryFn: () => getCustomer(b!.customer_id), enabled: !!b?.customer_id,
   });
 
   const status = useMutation({
     mutationFn: (s: BookingStatus) => setBookingStatus(id, s),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["booking", id] }); qc.invalidateQueries({ queryKey: ["bookings"] }); toast.success("Status updated"); },
   });
+  const advance = useMutation({
+    mutationFn: (n: number) => setAdvancePaid(id, n),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["booking", id] }); toast.success("Advance updated"); },
+  });
   const del = useMutation({
     mutationFn: () => deleteBooking(id),
     onSuccess: () => { toast.success("Deleted"); navigate({ to: "/bookings" }); },
   });
 
+  const [advanceInput, setAdvanceInput] = useState(0);
+  useEffect(() => { if (b) setAdvanceInput(Number(b.advance_paid) || 0); }, [b]);
+
+  const cardRef = useRef<HTMLDivElement>(null);
+
   if (isLoading || !b) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
-  const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-  const itemsTotal = items.reduce((s, it) => s + Number(it.subtotal), 0);
+  const balance = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
 
   const sendWa = (template: "confirm" | "payment" | "checkin" | "checkout") => {
     if (!b.phone) { toast.error("Customer has no phone number"); return; }
     const text =
       template === "confirm" ? confirmationMessage(b, items) :
-      template === "payment" ? paymentReminderMessage(b) :
+      template === "payment" ? paymentReminderMessage(b, balance > 0 ? balance : undefined) :
       template === "checkin" ? checkInWelcomeMessage(b) :
       checkOutThankYouMessage(b);
     window.open(bookingWhatsAppLink(b, text), "_blank");
@@ -68,112 +74,216 @@ function BookingDetail() {
   return (
     <>
       <Topbar title="Booking" subtitle={b.booking_reference} />
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1100px] space-y-5">
-        <Link to="/bookings" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> All bookings
-        </Link>
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] space-y-6 print:p-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
+          <Link to="/bookings" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" /> All bookings
+          </Link>
+          <div className="flex flex-wrap gap-2">
+            {b.phone && (
+              <button onClick={() => sendWa("confirm")}
+                className="inline-flex items-center gap-2 rounded-md bg-success/15 border border-success/40 text-success px-4 py-2.5 text-sm hover:bg-success/20">
+                <MessageCircle className="h-4 w-4" /> WhatsApp
+              </button>
+            )}
+            <button onClick={() => cardRef.current && shareQuoteImage(cardRef.current, b as any)}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <Share2 className="h-4 w-4 text-gold" /> Share Image
+            </button>
+            <button onClick={() => window.print()}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <Printer className="h-4 w-4 text-gold" /> PDF
+            </button>
+            <button disabled
+              title="Inline editing coming soon — use status & advance below"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm opacity-50 cursor-not-allowed">
+              <Pencil className="h-4 w-4 text-gold" /> Edit
+            </button>
+            <CommBtn icon={Send} label="Send Confirmation" onClick={() => sendWa("confirm")} disabled={!b.phone} />
+            <CommBtn icon={Wallet} label="Send Payment Reminder" onClick={() => sendWa("payment")} disabled={!b.phone} />
+            <CommBtn icon={HandPlatter} label="Send Check-In Welcome" onClick={() => sendWa("checkin")} disabled={!b.phone} />
+            <CommBtn icon={Heart} label="Send Check-Out Thank You" onClick={() => sendWa("checkout")} disabled={!b.phone} />
+            {isAdmin && (
+              <button onClick={() => { if (confirm("Delete this booking?")) del.mutate(); }}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10">
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
+            )}
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
-          <div className="space-y-5">
-            <section className="luxe-card rounded-xl p-6">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <h2 className="font-display text-2xl flex items-center gap-2"><BedDouble className="h-5 w-5 text-gold" />{b.guest_name}</h2>
-                  <div className="text-xs font-mono text-muted-foreground mt-1">{b.booking_reference}</div>
-                </div>
-                <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs", bookingStatusStyles[b.status])}>{b.status}</span>
-              </div>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                {b.phone && <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" />{b.phone}</div>}
-                {b.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" />{b.email}</div>}
-                <div className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)} – {fmtDate(b.check_out)} · {b.nights}N</div>
-                <div className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" />{b.guests} Guest{b.guests === 1 ? "" : "s"} ({b.adults} adults{b.children ? `, ${b.children} children` : ""})</div>
-              </div>
-              {b.room_details && <div className="mt-3 text-sm"><span className="text-muted-foreground">Rooms: </span>{b.room_details}</div>}
-
-              {items.length > 0 && (
-                <div className="mt-5 pt-4 border-t border-border">
-                  <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Booking Items</h4>
-                  {items.map((it, i) => (
-                    <div key={it.id ?? i} className="grid grid-cols-[1fr_auto] gap-2 py-2 text-sm border-t border-border/40 first:border-0">
-                      <div>
-                        <div className="font-medium">{it.room_type} · {it.adults}A{it.children ? `+${it.children}C` : ""}{it.extra_bed ? ` · +${it.extra_bed} bed` : ""}</div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {fmtDate(it.check_in)} – {fmtDate(it.check_out)} · {it.nights}N · {it.breakfast_included ? "Breakfast incl." : "No breakfast"} · ₹{Number(it.rate).toLocaleString("en-IN")}/night
-                        </div>
-                      </div>
-                      <div className="tabular-nums self-center">₹{Number(it.subtotal).toLocaleString("en-IN")}</div>
-                    </div>
-                  ))}
-                  <div className="grid grid-cols-[1fr_auto] gap-2 py-2 mt-2 border-t border-border text-sm">
-                    <div className="text-muted-foreground">Items Subtotal</div>
-                    <div className="tabular-nums">₹{itemsTotal.toLocaleString("en-IN")}</div>
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-4 flex items-baseline justify-between border-t border-border pt-4">
-                <span className="text-sm text-muted-foreground">Grand Total</span>
-                <span className="font-display text-2xl gold-text-gradient">₹{Number(b.amount).toLocaleString("en-IN")}</span>
-              </div>
-              {b.notes && <div className="mt-3 text-sm"><span className="text-muted-foreground">Notes: </span>{b.notes}</div>}
-              {b.internal_notes && (
-                <div className="mt-3 rounded-md border border-warning/30 bg-warning/5 p-3 text-xs">
-                  <span className="text-warning font-medium">Internal: </span>{b.internal_notes}
-                </div>
-              )}
-              {b.source_quote_id && (
-                <div className="mt-3 text-xs">
-                  <Link to="/quote/$id" params={{ id: b.source_quote_id }} className="text-gold hover:underline">View source quote →</Link>
-                </div>
-              )}
-            </section>
-
-            <section className="luxe-card rounded-xl p-6">
-              <h3 className="font-display text-lg mb-3 flex items-center gap-2">
-                <MessageCircle className="h-4 w-4 text-gold" /> Booking Communications
-              </h3>
-              {!b.phone && <p className="text-xs text-warning mb-3">No phone number on this booking — add one to send messages.</p>}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <CommBtn icon={Send} label="Send Confirmation" onClick={() => sendWa("confirm")} disabled={!b.phone} />
-                <CommBtn icon={Wallet} label="Send Payment Reminder" onClick={() => sendWa("payment")} disabled={!b.phone} />
-                <CommBtn icon={HandPlatter} label="Send Check-In Welcome" onClick={() => sendWa("checkin")} disabled={!b.phone} />
-                <CommBtn icon={Heart} label="Send Check-Out Thank You" onClick={() => sendWa("checkout")} disabled={!b.phone} />
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-3">Opens WhatsApp with the message pre-filled.</p>
-            </section>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:block">
+          <div ref={cardRef}>
+            <BookingCard b={b} items={items} balance={balance} />
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 print:hidden">
             {c && (
               <div className="luxe-card rounded-xl p-4">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Customer</div>
-                <Link to="/customers/$id" params={{ id: c.id }} className="text-sm font-medium hover:text-gold">{c.guest_name}</Link>
+                <Link to="/customers/$id" params={{ id: c.id }} className="text-sm font-medium hover:text-gold">{c.guest_name} →</Link>
                 <div className="text-xs text-muted-foreground">{c.customer_reference}</div>
+                {c.phone && <div className="text-[11px] text-muted-foreground mt-1">{c.phone}</div>}
               </div>
             )}
-            <div className="luxe-card rounded-xl p-4">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Status</div>
-              <div className="grid grid-cols-3 gap-2">
+
+            <div className="luxe-card rounded-xl p-5">
+              <h4 className="font-display text-lg mb-3">Status</h4>
+              <div className="mb-3">
+                <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs", bookingStatusStyles[b.status])}>{b.status}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
                 {BOOKING_STATUSES.map((s) => (
                   <button key={s} onClick={() => status.mutate(s)} disabled={s === b.status}
-                    className={cn("rounded-md border px-2 py-1.5 text-xs",
+                    className={cn("rounded-md border px-2 py-1.5 text-xs transition",
                       s === b.status ? "border-gold/50 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30")}>
                     {s}
                   </button>
                 ))}
               </div>
             </div>
-            {isAdmin && (
-              <button onClick={() => { if (confirm("Delete this booking?")) del.mutate(); }}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10">
-                <Trash2 className="h-4 w-4" /> Delete Booking
-              </button>
+
+            <div className="luxe-card rounded-xl p-5">
+              <h4 className="font-display text-lg mb-3 flex items-center gap-2"><Wallet className="h-4 w-4 text-gold" /> Payment</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="tabular-nums">₹{Number(b.amount).toLocaleString("en-IN")}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Advance Paid</span><span className="tabular-nums">₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</span></div>
+                <div className="flex justify-between border-t border-border pt-2"><span className="font-medium">Balance Payable</span><span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <input type="number" min={0} max={Number(b.amount)} value={advanceInput}
+                  onChange={(e) => setAdvanceInput(Number(e.target.value))}
+                  className="flex-1 bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+                <button onClick={() => advance.mutate(advanceInput)}
+                  className="rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">Update</button>
+              </div>
+            </div>
+
+            {b.source_quote_id && (
+              <div className="luxe-card rounded-xl p-4 text-xs">
+                <Link to="/quote/$id" params={{ id: b.source_quote_id }} className="text-gold hover:underline">View source quote →</Link>
+              </div>
             )}
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balance: number }) {
+  const multi = items.length > 1;
+  const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return (
+    <div className="luxe-card rounded-2xl p-6 md:p-10 relative overflow-hidden print:border-0 print:shadow-none print:bg-white print:text-black">
+      <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-gold/5 blur-3xl pointer-events-none print:hidden" />
+
+      <div className="relative flex flex-col md:flex-row md:items-start md:justify-between gap-4 pb-6 border-b border-border">
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 rounded-md gold-gradient flex items-center justify-center">
+            <span className="font-display text-2xl font-semibold text-charcoal">H</span>
+          </div>
+          <div>
+            <div className="font-display text-xl">HOTEL EXCELLA</div>
+            <div className="text-[10px] tracking-[0.3em] text-gold/80 uppercase">Boutique · Luxury · Stay</div>
+          </div>
+        </div>
+        <div className="text-right">
+          <h2 className="font-display text-4xl gold-text-gradient">BOOKING</h2>
+          <div className="text-xs text-muted-foreground mt-1">{b.booking_reference}</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">Created: {new Date(b.created_at).toLocaleDateString("en-IN")}</div>
+        </div>
+      </div>
+
+      <div className="relative py-6 border-b border-border">
+        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Guest Details</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+          <div className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" />{b.guest_name}</div>
+          {b.phone && <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" />{b.phone}</div>}
+          {b.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" />{b.email}</div>}
+        </div>
+      </div>
+
+      {multi ? (
+        <div className="relative py-6 border-b border-border space-y-5">
+          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold">Stay Items ({items.length})</h4>
+          {items.map((it: any, i: number) => (
+            <div key={it.id ?? i} className="rounded-lg border border-border bg-secondary/20 p-4">
+              <div className="flex items-baseline justify-between mb-2">
+                <div className="font-display text-lg">Room {i + 1}</div>
+                <div className="font-display text-xl gold-text-gradient tabular-nums">₹{Number(it.subtotal).toLocaleString("en-IN")}</div>
+              </div>
+              <ul className="text-sm space-y-1">
+                <li>• <span className="text-muted-foreground">Room Type:</span> {it.room_type}{it.rooms > 1 ? ` × ${it.rooms}` : ""}</li>
+                <li>• <span className="text-muted-foreground">Guests:</span> {it.adults} Adult{it.adults === 1 ? "" : "s"}{it.children > 0 ? ` + ${it.children} Child${it.children === 1 ? "" : "ren"}` : ""}{it.extra_bed ? ` + ${it.extra_bed} Extra Bed` : ""}</li>
+                <li>• <span className="text-muted-foreground">Dates:</span> {fmtDate(it.check_in)} – {fmtDate(it.check_out)}</li>
+                <li>• <span className="text-muted-foreground">Nights:</span> {it.nights}</li>
+                <li>• <span className="text-muted-foreground">Breakfast:</span> {it.breakfast_included ? "Included" : "Not Included"}</li>
+                {(it.extra_adults ?? 0) > 0 && <li>• <span className="text-muted-foreground">Extra Adults:</span> {it.extra_adults}</li>}
+                {(it.drivers ?? 0) > 0 && <li>• <span className="text-muted-foreground">Drivers:</span> {it.drivers}</li>}
+                {it.early_check_in && it.early_check_in_slot && <li>• <span className="text-muted-foreground">Early Check-in:</span> {earlyCheckInLabel(it.early_check_in_slot)}</li>}
+                {it.late_check_out && it.late_check_out_slot && <li>• <span className="text-muted-foreground">Late Check-out:</span> {lateCheckOutLabel(it.late_check_out_slot)}</li>}
+                {it.pet_size && it.pet_size !== "none" && <li>• <span className="text-muted-foreground">Pet:</span> {it.pet_size}</li>}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : items.length === 1 ? (
+        <div className="relative py-6 border-b border-border">
+          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Stay Details</h4>
+          <ul className="text-sm space-y-1">
+            <li>• <span className="text-muted-foreground">Room Type:</span> {items[0].room_type}{items[0].rooms > 1 ? ` × ${items[0].rooms}` : ""}</li>
+            <li>• <span className="text-muted-foreground">Dates:</span> {fmtDate(items[0].check_in)} – {fmtDate(items[0].check_out)} ({items[0].nights}N)</li>
+            <li>• <span className="text-muted-foreground">Guests:</span> {b.adults} Adult{b.adults === 1 ? "" : "s"}{b.children > 0 ? ` + ${b.children} Child${b.children === 1 ? "" : "ren"}` : ""}</li>
+            <li>• <span className="text-muted-foreground">Breakfast:</span> {items[0].breakfast_included ? "Included" : "Not Included"}</li>
+          </ul>
+        </div>
+      ) : (
+        <div className="relative py-6 border-b border-border">
+          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Stay Details</h4>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)}</div><div className="text-[10px] text-muted-foreground mt-0.5">Check-in · 1:00 PM</div></div>
+            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_out)}</div><div className="text-[10px] text-muted-foreground mt-0.5">Check-out · 11:00 AM</div></div>
+            <div className="col-span-2 text-xs text-muted-foreground">{b.guests} Guest{b.guests === 1 ? "" : "s"} · {b.nights} Night{b.nights === 1 ? "" : "s"}{b.room_details ? ` · ${b.room_details}` : ""}</div>
+          </div>
+        </div>
+      )}
+
+      <div className="relative py-6 border-b border-border space-y-2">
+        <div className="flex items-baseline justify-between">
+          <span className="font-display text-2xl">Total Amount</span>
+          <span className="font-display text-3xl gold-text-gradient">₹{Number(b.amount).toLocaleString("en-IN")}</span>
+        </div>
+        {Number(b.advance_paid || 0) > 0 && (
+          <>
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-muted-foreground">Advance Paid</span>
+              <span className="tabular-nums">−₹{Number(b.advance_paid).toLocaleString("en-IN")}</span>
+            </div>
+            <div className="flex items-baseline justify-between pt-1">
+              <span className="text-sm font-medium">Balance Payable</span>
+              <span className="font-display text-xl text-gold">₹{balance.toLocaleString("en-IN")}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {b.notes && <div className="relative py-4 border-b border-border text-sm"><span className="text-muted-foreground">Notes: </span>{b.notes}</div>}
+      {b.internal_notes && (
+        <div className="relative py-4 border-b border-border print:hidden">
+          <div className="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs">
+            <span className="text-warning font-medium">Internal: </span>{b.internal_notes}
+          </div>
+        </div>
+      )}
+
+      <div className="relative pt-6 text-center">
+        <p className="font-display italic text-lg text-gold/90">Thank you for booking with Hotel Excella</p>
+        <div className="flex justify-center gap-1 mt-3">
+          {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-4 w-4 fill-gold text-gold" />)}
+        </div>
+      </div>
+    </div>
   );
 }
 

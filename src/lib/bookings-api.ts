@@ -18,6 +18,7 @@ export interface BookingRow {
   guests: number;
   room_details: string | null;
   amount: number;
+  advance_paid: number;
   notes: string | null;
   internal_notes: string | null;
   status: BookingStatus;
@@ -39,6 +40,7 @@ export interface BookingInput {
   guests: number;
   room_details?: string | null;
   amount: number;
+  advance_paid?: number;
   notes?: string | null;
   internal_notes?: string | null;
   status?: BookingStatus;
@@ -53,22 +55,20 @@ export function validateBookingInput(b: BookingInput) {
     throw new Error("Check-out must be after check-in");
   if (b.adults < 1) throw new Error("At least 1 adult is required");
   if (b.amount < 0) throw new Error("Amount cannot be negative");
+  if ((b.advance_paid ?? 0) < 0) throw new Error("Advance paid cannot be negative");
+  if ((b.advance_paid ?? 0) > b.amount) throw new Error("Advance paid cannot exceed total amount");
 }
 
 export async function listBookings() {
   const { data, error } = await supabase
-    .from("bookings" as any)
-    .select("*")
-    .order("created_at", { ascending: false });
+    .from("bookings" as any).select("*").order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as BookingRow[];
 }
 
 export async function listCustomerBookings(customer_id: string) {
   const { data, error } = await supabase
-    .from("bookings" as any)
-    .select("*")
-    .eq("customer_id", customer_id)
+    .from("bookings" as any).select("*").eq("customer_id", customer_id)
     .order("check_in", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as BookingRow[];
@@ -76,10 +76,7 @@ export async function listCustomerBookings(customer_id: string) {
 
 export async function getBooking(id: string) {
   const { data, error } = await supabase
-    .from("bookings" as any)
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+    .from("bookings" as any).select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   return data as unknown as BookingRow | null;
 }
@@ -97,13 +94,11 @@ export async function createBooking(input: BookingInput) {
     internal_notes: input.internal_notes ?? null,
     status: input.status ?? "Draft",
     payment_status: input.payment_status ?? "None",
+    advance_paid: input.advance_paid ?? 0,
     user_id: user.id,
   };
   const { data, error } = await supabase
-    .from("bookings" as any)
-    .insert(row as any)
-    .select()
-    .single();
+    .from("bookings" as any).insert(row as any).select().single();
   if (error) throw error;
   return data as unknown as BookingRow;
 }
@@ -112,17 +107,18 @@ export async function updateBooking(id: string, patch: Partial<BookingInput>) {
   if (patch.check_in && patch.check_out && new Date(patch.check_out) <= new Date(patch.check_in))
     throw new Error("Check-out must be after check-in");
   const { data, error } = await supabase
-    .from("bookings" as any)
-    .update(patch as any)
-    .eq("id", id)
-    .select()
-    .single();
+    .from("bookings" as any).update(patch as any).eq("id", id).select().single();
   if (error) throw error;
   return data as unknown as BookingRow;
 }
 
 export async function setBookingStatus(id: string, status: BookingStatus) {
   const { error } = await supabase.from("bookings" as any).update({ status }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function setAdvancePaid(id: string, advance_paid: number) {
+  const { error } = await supabase.from("bookings" as any).update({ advance_paid }).eq("id", id);
   if (error) throw error;
 }
 

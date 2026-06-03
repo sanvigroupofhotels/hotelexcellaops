@@ -23,13 +23,21 @@ export type Database = {
           check_out: string
           children: number
           created_at: string
+          drivers: number
+          early_check_in: boolean
+          early_check_in_slot: string | null
+          extra_adults: number
           extra_bed: number
           id: string
+          late_check_out: boolean
+          late_check_out_slot: string | null
           nights: number | null
           notes: string | null
+          pet_size: string
           position: number
           rate: number
           room_type: string
+          rooms: number
           subtotal: number
           updated_at: string
         }
@@ -41,13 +49,21 @@ export type Database = {
           check_out: string
           children?: number
           created_at?: string
+          drivers?: number
+          early_check_in?: boolean
+          early_check_in_slot?: string | null
+          extra_adults?: number
           extra_bed?: number
           id?: string
+          late_check_out?: boolean
+          late_check_out_slot?: string | null
           nights?: number | null
           notes?: string | null
+          pet_size?: string
           position?: number
           rate?: number
           room_type?: string
+          rooms?: number
           subtotal?: number
           updated_at?: string
         }
@@ -59,13 +75,21 @@ export type Database = {
           check_out?: string
           children?: number
           created_at?: string
+          drivers?: number
+          early_check_in?: boolean
+          early_check_in_slot?: string | null
+          extra_adults?: number
           extra_bed?: number
           id?: string
+          late_check_out?: boolean
+          late_check_out_slot?: string | null
           nights?: number | null
           notes?: string | null
+          pet_size?: string
           position?: number
           rate?: number
           room_type?: string
+          rooms?: number
           subtotal?: number
           updated_at?: string
         }
@@ -82,6 +106,7 @@ export type Database = {
       bookings: {
         Row: {
           adults: number
+          advance_paid: number
           amount: number
           booking_reference: string
           check_in: string
@@ -106,6 +131,7 @@ export type Database = {
         }
         Insert: {
           adults?: number
+          advance_paid?: number
           amount?: number
           booking_reference?: string
           check_in: string
@@ -130,6 +156,7 @@ export type Database = {
         }
         Update: {
           adults?: number
+          advance_paid?: number
           amount?: number
           booking_reference?: string
           check_in?: string
@@ -385,14 +412,22 @@ export type Database = {
           check_out: string
           children: number
           created_at: string
+          drivers: number
+          early_check_in: boolean
+          early_check_in_slot: string | null
+          extra_adults: number
           extra_bed: number
           id: string
+          late_check_out: boolean
+          late_check_out_slot: string | null
           nights: number | null
           notes: string | null
+          pet_size: string
           position: number
           quote_id: string
           rate: number
           room_type: string
+          rooms: number
           subtotal: number
           updated_at: string
         }
@@ -403,14 +438,22 @@ export type Database = {
           check_out: string
           children?: number
           created_at?: string
+          drivers?: number
+          early_check_in?: boolean
+          early_check_in_slot?: string | null
+          extra_adults?: number
           extra_bed?: number
           id?: string
+          late_check_out?: boolean
+          late_check_out_slot?: string | null
           nights?: number | null
           notes?: string | null
+          pet_size?: string
           position?: number
           quote_id: string
           rate?: number
           room_type?: string
+          rooms?: number
           subtotal?: number
           updated_at?: string
         }
@@ -421,14 +464,22 @@ export type Database = {
           check_out?: string
           children?: number
           created_at?: string
+          drivers?: number
+          early_check_in?: boolean
+          early_check_in_slot?: string | null
+          extra_adults?: number
           extra_bed?: number
           id?: string
+          late_check_out?: boolean
+          late_check_out_slot?: string | null
           nights?: number | null
           notes?: string | null
+          pet_size?: string
           position?: number
           quote_id?: string
           rate?: number
           room_type?: string
+          rooms?: number
           subtotal?: number
           updated_at?: string
         }
@@ -702,7 +753,13 @@ export type Database = {
         | "deleted"
         | "duplicated"
       app_role: "admin" | "staff"
-      booking_status: "Draft" | "Confirmed" | "Cancelled"
+      booking_status:
+        | "Draft"
+        | "Confirmed"
+        | "Cancelled"
+        | "Advance Paid"
+        | "Full Paid"
+        | "Stay Completed"
       quote_status:
         | "Pending"
         | "Sent"
@@ -859,7 +916,14 @@ export const Constants = {
         "duplicated",
       ],
       app_role: ["admin", "staff"],
-      booking_status: ["Draft", "Confirmed", "Cancelled"],
+      booking_status: [
+        "Draft",
+        "Confirmed",
+        "Cancelled",
+        "Advance Paid",
+        "Full Paid",
+        "Stay Completed",
+      ],
       quote_status: [
         "Pending",
         "Sent",

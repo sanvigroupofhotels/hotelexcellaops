@@ -4,16 +4,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getCustomer, listCustomerQuotes, updateCustomer } from "@/lib/customers-api";
 import { listCustomerBookings } from "@/lib/bookings-api";
-import {
-  CUSTOMER_STATUSES, customerStatusStyles, DEFAULT_TAGS, LEAD_SOURCES,
-  NEXT_ACTIONS, PAYMENT_STATUSES, paymentStatusStyles, BOOKING_PROBABILITIES,
-  bookingStatusStyles,
-} from "@/lib/mock-data";
+import { DEFAULT_TAGS, LEAD_SOURCES, bookingStatusStyles } from "@/lib/mock-data";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { StatusPill } from "@/components/status-pill";
 import { CustomerEditDialog } from "@/components/customer-edit-dialog";
 import {
-  ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Calendar, Star, TrendingUp,
+  ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Calendar, Star,
   FilePlus, MessageCircle, Pencil, BedDouble,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,7 +22,11 @@ export const Route = createFileRoute("/_authenticated/customers_/$id")({
 function CustomerDetail() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
-  useRealtimeInvalidate(["customers", "quotes"], [["customer", id], ["customer-quotes", id]], `cust-${id}`);
+  useRealtimeInvalidate(
+    ["customers", "quotes", "bookings"],
+    [["customer", id], ["customer-quotes", id], ["customer-bookings", id]],
+    `cust-${id}`,
+  );
 
   const { data: c, isLoading } = useQuery({ queryKey: ["customer", id], queryFn: () => getCustomer(id) });
   const { data: quotes = [] } = useQuery({ queryKey: ["customer-quotes", id], queryFn: () => listCustomerQuotes(id), enabled: !!c });
@@ -45,7 +45,6 @@ function CustomerDetail() {
   const [editOpen, setEditOpen] = useState(false);
   useEffect(() => { if (c) setNotes(c.internal_notes ?? ""); }, [c]);
 
-
   const save = useMutation({
     mutationFn: (patch: any) => updateCustomer(id, patch),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["customer", id] }); toast.success("Saved"); },
@@ -56,9 +55,14 @@ function CustomerDetail() {
     return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
   }
 
-  const conversion = c.total_quotes ? Math.round((c.total_bookings / c.total_quotes) * 100) : 0;
-  const aov = c.total_bookings ? Math.round(Number(c.total_revenue) / c.total_bookings) : 0;
-  const repeat = c.total_bookings > 1;
+  // Booked Revenue = sum of bookings.amount for non-cancelled bookings
+  const bookedRevenue = bookings
+    .filter((b: any) => b.status !== "Cancelled")
+    .reduce((s: number, b: any) => s + Number(b.amount || 0), 0);
+  const bookingsCount = bookings.filter((b: any) => b.status !== "Cancelled").length;
+  const conversion = c.total_quotes ? Math.round((bookingsCount / c.total_quotes) * 100) : 0;
+  const aov = bookingsCount ? Math.round(bookedRevenue / bookingsCount) : 0;
+  const repeat = bookingsCount > 1;
   const lifetimeQuoted = quotes.reduce((s: number, q: any) => s + Number(q.total ?? 0), 0);
   const latestQuote = quotes[0] as any | undefined;
 
@@ -79,7 +83,7 @@ function CustomerDetail() {
           <div className="space-y-6">
             <div className="luxe-card rounded-xl p-6">
               <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
+                <div className="min-w-0">
                   <h2 className="font-display text-3xl flex items-center gap-2">
                     {repeat && <Star className="h-5 w-5 fill-gold text-gold" />}
                     {c.guest_name}
@@ -98,11 +102,20 @@ function CustomerDetail() {
                       {createdBy && <><span className="text-muted-foreground/60">·</span>by <span className="text-foreground">{createdBy}</span></>}
                     </div>
                   </div>
-
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs",
-                    customerStatusStyles[c.status] ?? "bg-muted text-muted-foreground border-border")}>{c.status}</span>
+                <div className="flex flex-col items-end gap-2 max-w-[60%]">
+                  {/* Tags as primary visual indicator (replaces Status pill) */}
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    {(c.tags ?? []).length === 0 ? (
+                      <span className="text-[10px] text-muted-foreground italic">No tags</span>
+                    ) : (
+                      (c.tags ?? []).map((t) => (
+                        <span key={t} className="inline-flex items-center rounded-full border border-gold/40 bg-gold-soft text-gold px-2.5 py-0.5 text-[11px]">
+                          {t}
+                        </span>
+                      ))
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 flex-wrap justify-end">
                     <button onClick={() => setEditOpen(true)}
                       className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-gold/40">
@@ -135,14 +148,14 @@ function CustomerDetail() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Stat label="Total Quotes" value={c.total_quotes} />
-              <Stat label="Bookings" value={c.total_bookings} />
+              <Stat label="Bookings" value={bookingsCount} />
               <Stat label="Conversion" value={`${conversion}%`} />
               <Stat
                 label="Lifetime Quoted"
                 value={`₹${Number(lifetimeQuoted).toLocaleString("en-IN")}`}
                 accent
               />
-              <Stat label="Booked Revenue" value={`₹${Number(c.total_revenue).toLocaleString("en-IN")}`} />
+              <Stat label="Booked Revenue" value={`₹${bookedRevenue.toLocaleString("en-IN")}`} accent />
               <Stat label="Avg Booking" value={aov ? `₹${aov.toLocaleString("en-IN")}` : "—"} />
               <Stat
                 label="Latest Quote"
@@ -221,50 +234,16 @@ function CustomerDetail() {
           </div>
 
           <div className="space-y-4">
-            <Panel title="Status">
-              <select value={c.status} onChange={(e) => save.mutate({ status: e.target.value })} className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                {CUSTOMER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </Panel>
             <Panel title="Lead Source">
               <select value={c.lead_source ?? "Direct"} onChange={(e) => save.mutate({ lead_source: e.target.value })} className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
                 {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </Panel>
-            <Panel title="Booking Probability">
-              <div className="flex gap-2 flex-wrap">
-                {BOOKING_PROBABILITIES.map((p) => (
-                  <button key={p} onClick={() => save.mutate({ booking_probability: p })}
-                    className={cn("px-3 py-1.5 rounded-md text-xs border",
-                      c.booking_probability === p ? "border-gold/60 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground")}>
-                    {p}%
-                  </button>
-                ))}
-                <input type="number" min={0} max={100} value={c.booking_probability}
-                  onChange={(e) => save.mutate({ booking_probability: Number(e.target.value) })}
-                  className="w-16 bg-input/60 border border-border rounded-md px-2 py-1.5 text-xs" />
-              </div>
-            </Panel>
-            <Panel title="Next Action">
-              <select value={c.next_action ?? ""} onChange={(e) => save.mutate({ next_action: e.target.value || null })} className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                <option value="">—</option>
-                {NEXT_ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
-              <input type="date" value={c.next_followup_date ?? ""} onChange={(e) => save.mutate({ next_followup_date: e.target.value || null })}
-                className="w-full mt-2 bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
-            </Panel>
-            <Panel title="Payment Status">
-              <select value={c.payment_status ?? "None"} onChange={(e) => save.mutate({ payment_status: e.target.value })} className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                {PAYMENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <div className="mt-2">
-                <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px]",
-                  paymentStatusStyles[c.payment_status ?? "None"])}>{c.payment_status ?? "None"}</span>
-              </div>
-            </Panel>
           </div>
         </div>
       </div>
+
+      <CustomerEditDialog open={editOpen} onClose={() => setEditOpen(false)} customer={c} />
     </>
   );
 }

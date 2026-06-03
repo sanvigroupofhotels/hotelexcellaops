@@ -27,7 +27,31 @@ export function PolicyFields({
 }) {
   return (
     <div className="space-y-4">
-      {/* Early Check-in — card UX */}
+      {/* Breakfast Included — moved above Early Check-in */}
+      <div className="rounded-md bg-secondary/40 border border-border p-3">
+        <ToggleRow
+          icon={<Coffee className="h-4 w-4 text-gold" />}
+          label="Breakfast Included"
+          checked={form.breakfast_included}
+          onChange={(v) => {
+            update("breakfast_included", v);
+            if (v) update("extra_breakfast_guests", 0);
+          }}
+        />
+      </div>
+
+      {/* Extra Breakfast — independent section, shown only when breakfast not included */}
+      {!form.breakfast_included && (
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="rounded-md bg-secondary/40 border border-border p-3">
+          <StepperRow
+            label={`Extra Breakfast Guests (₹${EXTRA_BREAKFAST_RATE}/head/night)`}
+            help="Only when breakfast not included in tariff"
+            value={form.extra_breakfast_guests}
+            onChange={(v) => update("extra_breakfast_guests", v)}
+          />
+        </motion.div>
+      )}
+
       <SlotPicker
         icon="🌅"
         title="Early Check-in"
@@ -46,7 +70,6 @@ export function PolicyFields({
         }}
       />
 
-      {/* Late Check-out — card UX */}
       <SlotPicker
         icon="🌙"
         title="Late Check-out"
@@ -65,7 +88,6 @@ export function PolicyFields({
         }}
       />
 
-      {/* Pet size selector (replaces simple pet toggle) */}
       <div className="rounded-md bg-secondary/40 border border-border p-3">
         <div className="flex items-center gap-2 mb-2">
           <PawPrint className="h-4 w-4 text-gold" />
@@ -98,39 +120,17 @@ export function PolicyFields({
         <StepperRow
           icon={<UserPlus className="h-3.5 w-3.5 text-gold" />}
           label={`Extra Adults (₹${EXTRA_ADULT_RATE}/night)`}
-          help="Includes extra mattress & breakfast"
+          help="Includes Extra Mattress"
           value={form.extra_adults}
           onChange={(v) => update("extra_adults", v)}
         />
         <StepperRow
           icon={<Car className="h-3.5 w-3.5 text-gold" />}
           label={`Drivers (₹${DRIVER_RATE}/night)`}
-          help="Includes mattress & breakfast"
+          help="Includes Extra Mattress"
           value={form.drivers}
           onChange={(v) => update("drivers", v)}
         />
-      </div>
-
-      <div className="rounded-md bg-secondary/40 border border-border p-3 space-y-3">
-        <ToggleRow
-          icon={<Coffee className="h-4 w-4 text-gold" />}
-          label="Breakfast Included"
-          checked={form.breakfast_included}
-          onChange={(v) => {
-            update("breakfast_included", v);
-            if (v) update("extra_breakfast_guests", 0);
-          }}
-        />
-        {!form.breakfast_included && (
-          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
-            <StepperRow
-              label={`Extra Breakfast Guests (₹${EXTRA_BREAKFAST_RATE}/head/night)`}
-              help="Only when breakfast not included in tariff"
-              value={form.extra_breakfast_guests}
-              onChange={(v) => update("extra_breakfast_guests", v)}
-            />
-          </motion.div>
-        )}
       </div>
     </div>
   );
@@ -199,7 +199,7 @@ function ToggleRow({
   label, checked, onChange, icon,
 }: { label: string; checked: boolean; onChange: (v: boolean) => void; icon?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between rounded-md bg-secondary/40 border border-border px-3 py-2.5">
+    <div className="flex items-center justify-between">
       <span className="text-sm flex items-center gap-2">
         {icon && <span className="inline-flex items-center">{icon}</span>}
         {label}

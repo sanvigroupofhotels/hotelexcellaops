@@ -224,6 +224,7 @@ export async function createQuote(
   const { addQuoteItems } = await import("./quote-items-api");
   const primary: import("./quote-items-api").QuoteItemInput = {
     room_type: data.room_type,
+    rooms: data.rooms,
     adults: data.adults,
     children: data.children,
     check_in: data.check_in,
@@ -231,6 +232,13 @@ export async function createQuote(
     breakfast_included: data.breakfast_included,
     extra_bed: data.extra_bed,
     rate: c.room_rate,
+    early_check_in: data.early_check_in,
+    early_check_in_slot: data.early_check_in_slot ?? null,
+    late_check_out: data.late_check_out,
+    late_check_out_slot: data.late_check_out_slot ?? null,
+    pet_size: data.pet_size,
+    extra_adults: data.extra_adults,
+    drivers: data.drivers,
   };
   await addQuoteItems(created.id, [primary, ...extraLineItems]);
 

@@ -10,6 +10,7 @@ import {
   addFollowup, buildWhatsAppLink, logWhatsApp, logPdf, calc,
 } from "@/lib/quotes-api";
 import { listQuoteItems } from "@/lib/quote-items-api";
+import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
@@ -37,6 +38,11 @@ function QuoteDetail() {
     queryKey: ["quote-items", id],
     queryFn: () => listQuoteItems(id),
     enabled: !!q,
+  });
+  const { data: customer } = useQuery({
+    queryKey: ["customer", q?.customer_id],
+    queryFn: () => getCustomer(q!.customer_id!),
+    enabled: !!q?.customer_id,
   });
   const { data: activities = [] } = useQuery({
     queryKey: ["activities", id],
@@ -190,6 +196,18 @@ function QuoteDetail() {
           </motion.div>
 
           <div className="space-y-4 print:hidden">
+            {customer && (
+              <div className="luxe-card rounded-xl p-4">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Customer</div>
+                <Link to="/customers/$id" params={{ id: customer.id }} className="text-sm font-medium hover:text-gold">
+                  {customer.guest_name} →
+                </Link>
+                <div className="text-xs text-muted-foreground">{customer.customer_reference}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  {customer.total_quotes} quote{customer.total_quotes === 1 ? "" : "s"} · {customer.total_bookings} booking{customer.total_bookings === 1 ? "" : "s"}
+                </div>
+              </div>
+            )}
             <div className="luxe-card rounded-xl p-5">
               <h4 className="font-display text-lg mb-3">Status</h4>
               <div className="mb-3"><StatusPill status={q.status} /></div>
@@ -266,7 +284,8 @@ function QuoteDetail() {
 }
 
 function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
-  const extraItems = items.length > 1 ? items.slice(1) : [];
+  const hasItems = items.length > 0;
+  const multi = items.length > 1;
   const whyStay = [
     "Free High-Speed Wi-Fi",
     "Walkable Distance to Beach",
@@ -301,87 +320,98 @@ function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
         </div>
       </div>
 
-      <div className="relative grid grid-cols-1 md:grid-cols-2 gap-6 py-6 border-b border-border">
-        <div>
-          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Guest Details</h4>
-          <div className="space-y-1.5 text-sm">
-            <div className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" />{q.guest_name}</div>
-            <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" />{q.phone}</div>
-            {q.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" />{q.email}</div>}
-          </div>
-        </div>
-        <div>
-          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Stay Details</h4>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(q.check_in)}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Check-in · 1:00 PM</div>
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(q.check_out)}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Check-out · 11:00 AM</div>
-            </div>
-            <div className="col-span-2 text-xs text-muted-foreground">
-              {q.group_size} · {q.nights} Night{q.nights > 1 ? "s" : ""}
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="relative py-6 border-b border-border">
-        <div className="grid grid-cols-[1fr_auto] gap-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground pb-3">
-          <div>Description</div>
-          <div>Amount</div>
+        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Guest Details</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+          <div className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" />{q.guest_name}</div>
+          <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" />{q.phone}</div>
+          {q.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" />{q.email}</div>}
         </div>
-        {(() => {
-          const c = calc(q);
-          return (
-            <>
-              <Row desc={`${q.room_type} × ${q.rooms} (${q.nights} Night${q.nights > 1 ? "s" : ""})`} amount={c.roomTariff} />
-              {q.extra_bed > 0 && <Row desc={`Extra Bed × ${q.extra_bed}`} amount={c.extraBed} />}
-              {q.early_check_in && q.early_check_in_slot && (
-                <Row desc={`Early Check-in (${earlyCheckInLabel(q.early_check_in_slot)})`} amount={c.earlyCheck} />
-              )}
-              {q.late_check_out && q.late_check_out_slot && (
-                <Row desc={`Late Check-out (${lateCheckOutLabel(q.late_check_out_slot)})`} amount={c.lateCheck} />
-              )}
-              {q.pet_charges && <Row desc="Pet Charges" amount={c.pet} />}
-              {q.extra_adults > 0 && (
-                <Row desc={`Extra Adults × ${q.extra_adults} (incl. mattress & breakfast)`} amount={c.extraAdults} />
-              )}
-              {q.drivers > 0 && (
-                <Row desc={`Drivers × ${q.drivers} (incl. mattress & breakfast)`} amount={c.driversCharge} />
-              )}
-              {!q.breakfast_included && q.extra_breakfast_guests > 0 && (
-                <Row desc={`Extra Breakfast × ${q.extra_breakfast_guests}`} amount={c.extraBreakfast} />
-              )}
-              {Number(q.discount) > 0 && <Row desc="Discount" amount={-Number(q.discount)} />}
-              <Row desc="Taxes & Fees (5%)" amount={Number(q.taxes)} />
-            </>
-          );
-        })()}
       </div>
 
-      {extraItems.length > 0 && (
-        <div className="relative py-6 border-b border-border">
-          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Additional Rooms / Split Stay</h4>
-          {extraItems.map((it: any, i: number) => (
-            <div key={i} className="grid grid-cols-[1fr_auto] gap-2 py-2 text-sm border-t border-border/40 first:border-0">
-              <div>
-                <div>{it.room_type} · {it.adults}A{it.children ? `+${it.children}C` : ""}{it.extra_bed ? ` · +${it.extra_bed} bed` : ""}</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {fmtDate(it.check_in)} – {fmtDate(it.check_out)} · {it.nights}N · {it.breakfast_included ? "Breakfast incl." : "No breakfast"} · ₹{Number(it.rate).toLocaleString("en-IN")}/night
-                </div>
+      {multi ? (
+        // Unified multi-item view: every line equal
+        <div className="relative py-6 border-b border-border space-y-5">
+          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold">Stay Items ({items.length})</h4>
+          {items.map((it: any, i: number) => (
+            <div key={it.id ?? i} className="rounded-lg border border-border bg-secondary/20 p-4">
+              <div className="flex items-baseline justify-between mb-2">
+                <div className="font-display text-lg">Room {i + 1}</div>
+                <div className="font-display text-xl gold-text-gradient tabular-nums">₹{Number(it.subtotal).toLocaleString("en-IN")}</div>
               </div>
-              <div className="tabular-nums self-center">
-                ₹{Number(it.subtotal).toLocaleString("en-IN")}
-              </div>
+              <ul className="text-sm space-y-1">
+                <li>• <span className="text-muted-foreground">Room Type:</span> {it.room_type}{it.rooms > 1 ? ` × ${it.rooms}` : ""}</li>
+                <li>• <span className="text-muted-foreground">Guests:</span> {it.adults} Adult{it.adults === 1 ? "" : "s"}{it.children > 0 ? ` + ${it.children} Child${it.children === 1 ? "" : "ren"}` : ""}{it.extra_bed ? ` + ${it.extra_bed} Extra Bed` : ""}</li>
+                <li>• <span className="text-muted-foreground">Dates:</span> {fmtDate(it.check_in)} – {fmtDate(it.check_out)}</li>
+                <li>• <span className="text-muted-foreground">Nights:</span> {it.nights}</li>
+                <li>• <span className="text-muted-foreground">Breakfast:</span> {it.breakfast_included ? "Included" : "Not Included"}</li>
+                {(it.extra_adults ?? 0) > 0 && <li>• <span className="text-muted-foreground">Extra Adults:</span> {it.extra_adults}</li>}
+                {(it.drivers ?? 0) > 0 && <li>• <span className="text-muted-foreground">Drivers:</span> {it.drivers}</li>}
+                {it.early_check_in && it.early_check_in_slot && <li>• <span className="text-muted-foreground">Early Check-in:</span> {earlyCheckInLabel(it.early_check_in_slot)}</li>}
+                {it.late_check_out && it.late_check_out_slot && <li>• <span className="text-muted-foreground">Late Check-out:</span> {lateCheckOutLabel(it.late_check_out_slot)}</li>}
+                {it.pet_size && it.pet_size !== "none" && <li>• <span className="text-muted-foreground">Pet:</span> {it.pet_size}</li>}
+              </ul>
             </div>
           ))}
+          {Number(q.discount) > 0 && <Row desc="Discount" amount={-Number(q.discount)} />}
+          <Row desc="Taxes & Fees (5%)" amount={Number(q.taxes)} />
         </div>
+      ) : (
+        // Single-line legacy view
+        <>
+          <div className="relative grid grid-cols-1 md:grid-cols-2 gap-6 py-6 border-b border-border">
+            <div>
+              <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Stay Details</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(q.check_in)}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Check-in · 1:00 PM</div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(q.check_out)}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Check-out · 11:00 AM</div>
+                </div>
+                <div className="col-span-2 text-xs text-muted-foreground">
+                  {q.group_size} · {q.nights} Night{q.nights > 1 ? "s" : ""}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative py-6 border-b border-border">
+            <div className="grid grid-cols-[1fr_auto] gap-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground pb-3">
+              <div>Description</div>
+              <div>Amount</div>
+            </div>
+            {(() => {
+              const c = calc(q);
+              return (
+                <>
+                  <Row desc={`${q.room_type} × ${q.rooms} (${q.nights} Night${q.nights > 1 ? "s" : ""})`} amount={c.roomTariff} />
+                  {q.early_check_in && q.early_check_in_slot && (
+                    <Row desc={`Early Check-in (${earlyCheckInLabel(q.early_check_in_slot)})`} amount={c.earlyCheck} />
+                  )}
+                  {q.late_check_out && q.late_check_out_slot && (
+                    <Row desc={`Late Check-out (${lateCheckOutLabel(q.late_check_out_slot)})`} amount={c.lateCheck} />
+                  )}
+                  {q.pet_charges && <Row desc="Pet Charges" amount={c.pet} />}
+                  {q.extra_adults > 0 && (
+                    <Row desc={`Extra Adults × ${q.extra_adults} (incl. Extra Mattress)`} amount={c.extraAdults} />
+                  )}
+                  {q.drivers > 0 && (
+                    <Row desc={`Drivers × ${q.drivers} (incl. Extra Mattress)`} amount={c.driversCharge} />
+                  )}
+                  {!q.breakfast_included && q.extra_breakfast_guests > 0 && (
+                    <Row desc={`Extra Breakfast × ${q.extra_breakfast_guests}`} amount={c.extraBreakfast} />
+                  )}
+                  {Number(q.discount) > 0 && <Row desc="Discount" amount={-Number(q.discount)} />}
+                  <Row desc="Taxes & Fees (5%)" amount={Number(q.taxes)} />
+                </>
+              );
+            })()}
+          </div>
+        </>
       )}
-
-
 
       <div className="relative py-6 border-b border-border flex items-baseline justify-between">
         <span className="font-display text-2xl">Total Amount</span>
@@ -415,6 +445,8 @@ function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
           Quote valid for 7 days · Standard check-in 1:00 PM · Standard check-out 11:00 AM
         </p>
       </div>
+      {/* suppress unused */}
+      {hasItems ? null : null}
     </div>
   );
 }
