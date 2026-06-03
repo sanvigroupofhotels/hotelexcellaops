@@ -148,9 +148,15 @@ function CustomersPage() {
                 <div>{c.phone}</div>
                 {c.email && <div className="truncate">{c.email}</div>}
               </div>
-              <div className="md:col-span-2">
-                <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px]",
-                  customerStatusStyles[c.status] ?? "bg-muted text-muted-foreground border-border")}>{c.status}</span>
+              <div className="md:col-span-2 flex flex-wrap gap-1">
+                {(c.tags ?? []).length === 0 ? (
+                  <span className="text-[10px] text-muted-foreground italic">—</span>
+                ) : (
+                  (c.tags ?? []).slice(0, 3).map((t) => (
+                    <span key={t} className="inline-flex items-center rounded-full border border-gold/40 bg-gold-soft text-gold px-2 py-0.5 text-[10px]">{t}</span>
+                  ))
+                )}
+                {(c.tags ?? []).length > 3 && <span className="text-[10px] text-muted-foreground">+{(c.tags ?? []).length - 3}</span>}
               </div>
               <div className="md:col-span-1 text-right text-sm tabular-nums">{c.total_quotes}</div>
               <div className="md:col-span-2 text-right text-sm font-medium tabular-nums">
