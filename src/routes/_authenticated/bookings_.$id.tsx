@@ -14,7 +14,7 @@ import {
   checkOutThankYouMessage, bookingWhatsAppLink,
 } from "@/lib/booking-messages";
 import {
-  ArrowLeft, Loader2, Trash2, BedDouble, Phone, Mail, User, MessageCircle,
+  ArrowLeft, Loader2, Trash2, BedDouble, Phone, Mail, User, Copy,
   Send, Wallet, HandPlatter, Heart, Share2, Printer, Pencil, CalendarDays, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
