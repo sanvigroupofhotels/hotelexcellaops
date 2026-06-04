@@ -168,7 +168,7 @@ function CustomerDetail() {
                 label="Latest Quote"
                 value={latestQuote ? <span className="font-mono text-base">{latestQuote.reference_code}</span> : "—"}
               />
-              <Stat label="Last Stay" value={c.last_stay_date ? new Date(c.last_stay_date).toLocaleDateString("en-IN") : "—"} />
+              <Stat label="Last Stay" value={lastStay ? new Date(lastStay).toLocaleDateString("en-IN") : "—"} />
             </div>
 
             <div className="luxe-card rounded-xl p-5">
