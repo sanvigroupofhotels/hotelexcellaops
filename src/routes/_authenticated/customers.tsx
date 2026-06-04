@@ -26,6 +26,7 @@ function CustomersPage() {
   const { data: quotes = [] } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
   const [q, setQ] = useState("");
   const [source, setSource] = useState<string>("All");
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [newOpen, setNewOpen] = useState(false);
 
   const del = useMutation({
@@ -33,6 +34,9 @@ function CustomersPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["customers"] }); toast.success("Customer removed"); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const toggleTagFilter = (t: string) =>
+    setTagFilter((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
 
   // Build a lookup of quote-reference → customer_id so search can match HEX-… codes
   const customerIdsByQuoteRef = useMemo(() => {
@@ -48,8 +52,8 @@ function CustomersPage() {
   }, [quotes, q]);
 
   const filtered = useMemo(() => customers.filter((c) => {
-    if (status !== "All" && c.status !== status) return false;
     if (source !== "All" && c.lead_source !== source) return false;
+    if (tagFilter.length > 0 && !tagFilter.every((t) => (c.tags ?? []).includes(t))) return false;
     if (!q) return true;
     const ql = q.toLowerCase();
     return (
@@ -59,7 +63,7 @@ function CustomersPage() {
       c.customer_reference.toLowerCase().includes(ql) ||
       (customerIdsByQuoteRef?.has(c.id) ?? false)
     );
-  }), [customers, q, status, source, customerIdsByQuoteRef]);
+  }), [customers, q, source, tagFilter, customerIdsByQuoteRef]);
 
   const exportCSV = async () => {
     try {
