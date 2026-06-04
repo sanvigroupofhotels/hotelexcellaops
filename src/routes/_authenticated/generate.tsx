@@ -217,14 +217,6 @@ function GenerateQuote() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
 
           <div className="space-y-6">
-            {matchedCustomer && !forceNew && (
-              <ExistingCustomerBanner
-                customer={matchedCustomer}
-                onUseExisting={useExistingCustomer}
-                onCreateNew={() => { setForceNew(true); toast.info("Will create a new customer record."); }}
-              />
-            )}
-
             <Card title="Guest Details">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Guest Name" icon={User} required>
@@ -233,18 +225,17 @@ function GenerateQuote() {
                 <Field label="Phone" icon={Phone} required>
                   <input className={inputCls} placeholder="+91 ..." value={form.phone} onChange={(e) => update("phone", e.target.value)} />
                 </Field>
-                <Field label="Email" icon={Mail}>
-                  <input className={inputCls} value={form.email ?? ""} onChange={(e) => update("email", e.target.value)} />
-                </Field>
-                <Field label="Lead Source">
-                  <select className={inputCls} value={form.lead_source} onChange={(e) => update("lead_source", e.target.value)}>
-                    {LEAD_SOURCES.map((o) => <option key={o}>{o}</option>)}
-                  </select>
-                </Field>
-                <Field label="Special Requests">
-                  <input className={inputCls} value={form.special_requests ?? ""} onChange={(e) => update("special_requests", e.target.value)} />
-                </Field>
               </div>
+
+              {matchedCustomer && !forceNew && (
+                <div className="mt-4">
+                  <ExistingCustomerBanner
+                    customer={matchedCustomer}
+                    onUseExisting={useExistingCustomer}
+                    onCreateNew={() => { setForceNew(true); toast.info("Will create a new customer record."); }}
+                  />
+                </div>
+              )}
 
               {/* Name/phone autocomplete suggestions */}
               {(form.guest_name.trim().length >= 2 || form.phone.trim().length >= 2) && !matchedCustomer && (
@@ -267,6 +258,21 @@ function GenerateQuote() {
                   />
                 </div>
               )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <Field label="Email" icon={Mail}>
+                  <input className={inputCls} value={form.email ?? ""} onChange={(e) => update("email", e.target.value)} />
+                </Field>
+                <Field label="Lead Source">
+                  <select className={inputCls} value={form.lead_source} onChange={(e) => update("lead_source", e.target.value)}>
+                    {LEAD_SOURCES.map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                </Field>
+                <Field label="Special Requests">
+                  <input className={inputCls} value={form.special_requests ?? ""} onChange={(e) => update("special_requests", e.target.value)} />
+                </Field>
+              </div>
+
 
               {/* Group size — manual numeric inputs */}
               <div className="mt-5 rounded-lg border border-border bg-secondary/30 p-4">
