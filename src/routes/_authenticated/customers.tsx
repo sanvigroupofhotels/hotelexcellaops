@@ -121,6 +121,24 @@ function CustomersPage() {
           </button>
         </div>
 
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-1">Tags:</span>
+          {DEFAULT_TAGS.map((t) => {
+            const active = tagFilter.includes(t);
+            return (
+              <button key={t} onClick={() => toggleTagFilter(t)}
+                className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] border transition",
+                  active ? "border-gold/50 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30")}>
+                {t}
+              </button>
+            );
+          })}
+          {tagFilter.length > 0 && (
+            <button onClick={() => setTagFilter([])} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground ml-1">
+              <X className="h-3 w-3" /> Clear
+            </button>
+          )}
+
         <div className="luxe-card rounded-xl overflow-hidden">
           <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-secondary/30">
             <div className="col-span-3">Guest</div>
