@@ -11,7 +11,7 @@ import { ArrowLeft, Loader2, BedDouble, User, Phone, Mail, Save } from "lucide-r
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/bookings_/$id/edit")({
+export const Route = createFileRoute("/_authenticated/bookings_/$id_/edit")({
   component: EditBooking,
 });
 
