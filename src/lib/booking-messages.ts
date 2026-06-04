@@ -47,6 +47,12 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
     ...stayLines,
     `💰 Booking Amount`,
     `• Total Amount: ${inr(Number(b.amount))}`,
+    ...(Number(b.advance_paid || 0) > 0
+      ? [
+          `• Advance Paid: ${inr(Number(b.advance_paid))}`,
+          `• Balance Payable: ${inr(Math.max(0, Number(b.amount) - Number(b.advance_paid || 0)))}`,
+        ]
+      : []),
     ``,
     `📍 Property Information`,
     `Property Guide:`,
