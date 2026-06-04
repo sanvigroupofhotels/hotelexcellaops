@@ -21,12 +21,14 @@ import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticated/bookings'
+import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
 import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenticated/bookings_.new'
 import { Route as AuthenticatedBookingsIdRouteImport } from './routes/_authenticated/bookings_.$id'
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
+import { Route as AuthenticatedBookingsIdEditRouteImport } from './routes/_authenticated/bookings_.$id.edit'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -87,6 +89,11 @@ const AuthenticatedBookingsRoute = AuthenticatedBookingsRouteImport.update({
   path: '/bookings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAuditRoute = AuthenticatedAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -120,11 +127,18 @@ const AuthenticatedQuoteIdEditRoute =
     path: '/quote/$id/edit',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedBookingsIdEditRoute =
+  AuthenticatedBookingsIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => AuthenticatedBookingsIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/audit': typeof AuthenticatedAuditRoute
   '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/customers': typeof AuthenticatedCustomersRoute
@@ -134,15 +148,17 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
-  '/bookings/$id': typeof AuthenticatedBookingsIdRoute
+  '/bookings/$id': typeof AuthenticatedBookingsIdRouteWithChildren
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/audit': typeof AuthenticatedAuditRoute
   '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/customers': typeof AuthenticatedCustomersRoute
@@ -153,10 +169,11 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
   '/': typeof AuthenticatedIndexRoute
-  '/bookings/$id': typeof AuthenticatedBookingsIdRoute
+  '/bookings/$id': typeof AuthenticatedBookingsIdRouteWithChildren
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
 }
 export interface FileRoutesById {
@@ -164,6 +181,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/audit': typeof AuthenticatedAuditRoute
   '/_authenticated/bookings': typeof AuthenticatedBookingsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRoute
@@ -174,10 +192,11 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
+  '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRouteWithChildren
   '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
   '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/_authenticated/bookings_/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
 }
 export interface FileRouteTypes {
@@ -186,6 +205,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/analytics'
+    | '/audit'
     | '/bookings'
     | '/calendar'
     | '/customers'
@@ -199,11 +219,13 @@ export interface FileRouteTypes {
     | '/bookings/new'
     | '/customers/$id'
     | '/quote/$id'
+    | '/bookings/$id/edit'
     | '/quote/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/analytics'
+    | '/audit'
     | '/bookings'
     | '/calendar'
     | '/customers'
@@ -218,12 +240,14 @@ export interface FileRouteTypes {
     | '/bookings/new'
     | '/customers/$id'
     | '/quote/$id'
+    | '/bookings/$id/edit'
     | '/quote/$id/edit'
   id:
     | '__root__'
     | '/_authenticated'
     | '/login'
     | '/_authenticated/analytics'
+    | '/_authenticated/audit'
     | '/_authenticated/bookings'
     | '/_authenticated/calendar'
     | '/_authenticated/customers'
@@ -238,6 +262,7 @@ export interface FileRouteTypes {
     | '/_authenticated/bookings_/new'
     | '/_authenticated/customers_/$id'
     | '/_authenticated/quote/$id'
+    | '/_authenticated/bookings_/$id/edit'
     | '/_authenticated/quote/$id_/edit'
   fileRoutesById: FileRoutesById
 }
@@ -332,6 +357,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBookingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/audit': {
+      id: '/_authenticated/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuthenticatedAuditRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/analytics': {
       id: '/_authenticated/analytics'
       path: '/analytics'
@@ -374,11 +406,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedQuoteIdEditRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/bookings_/$id/edit': {
+      id: '/_authenticated/bookings_/$id/edit'
+      path: '/edit'
+      fullPath: '/bookings/$id/edit'
+      preLoaderRoute: typeof AuthenticatedBookingsIdEditRouteImport
+      parentRoute: typeof AuthenticatedBookingsIdRoute
+    }
   }
 }
 
+interface AuthenticatedBookingsIdRouteChildren {
+  AuthenticatedBookingsIdEditRoute: typeof AuthenticatedBookingsIdEditRoute
+}
+
+const AuthenticatedBookingsIdRouteChildren: AuthenticatedBookingsIdRouteChildren =
+  {
+    AuthenticatedBookingsIdEditRoute: AuthenticatedBookingsIdEditRoute,
+  }
+
+const AuthenticatedBookingsIdRouteWithChildren =
+  AuthenticatedBookingsIdRoute._addFileChildren(
+    AuthenticatedBookingsIdRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedAuditRoute: typeof AuthenticatedAuditRoute
   AuthenticatedBookingsRoute: typeof AuthenticatedBookingsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRoute
@@ -389,7 +443,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedBookingsIdRoute: typeof AuthenticatedBookingsIdRoute
+  AuthenticatedBookingsIdRoute: typeof AuthenticatedBookingsIdRouteWithChildren
   AuthenticatedBookingsNewRoute: typeof AuthenticatedBookingsNewRoute
   AuthenticatedCustomersIdRoute: typeof AuthenticatedCustomersIdRoute
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
@@ -398,6 +452,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedAuditRoute: AuthenticatedAuditRoute,
   AuthenticatedBookingsRoute: AuthenticatedBookingsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRoute,
@@ -408,7 +463,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedBookingsIdRoute: AuthenticatedBookingsIdRoute,
+  AuthenticatedBookingsIdRoute: AuthenticatedBookingsIdRouteWithChildren,
   AuthenticatedBookingsNewRoute: AuthenticatedBookingsNewRoute,
   AuthenticatedCustomersIdRoute: AuthenticatedCustomersIdRoute,
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,

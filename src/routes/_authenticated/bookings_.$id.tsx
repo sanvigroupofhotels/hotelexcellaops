@@ -14,7 +14,7 @@ import {
   checkOutThankYouMessage, bookingWhatsAppLink,
 } from "@/lib/booking-messages";
 import {
-  ArrowLeft, Loader2, Trash2, BedDouble, Phone, Mail, User, MessageCircle,
+  ArrowLeft, Loader2, Trash2, BedDouble, Phone, Mail, User, Copy,
   Send, Wallet, HandPlatter, Heart, Share2, Printer, Pencil, CalendarDays, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -80,12 +80,6 @@ function BookingDetail() {
             <ArrowLeft className="h-4 w-4" /> All bookings
           </Link>
           <div className="flex flex-wrap gap-2">
-            {b.phone && (
-              <button onClick={() => sendWa("confirm")}
-                className="inline-flex items-center gap-2 rounded-md bg-success/15 border border-success/40 text-success px-4 py-2.5 text-sm hover:bg-success/20">
-                <MessageCircle className="h-4 w-4" /> WhatsApp
-              </button>
-            )}
             <button onClick={() => cardRef.current && shareQuoteImage(cardRef.current, b as any)}
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
               <Share2 className="h-4 w-4 text-gold" /> Share Image
@@ -94,11 +88,20 @@ function BookingDetail() {
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
               <Printer className="h-4 w-4 text-gold" /> PDF
             </button>
-            <button disabled
-              title="Inline editing coming soon — use status & advance below"
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm opacity-50 cursor-not-allowed">
-              <Pencil className="h-4 w-4 text-gold" /> Edit
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(confirmationMessage(b, items)).then(
+                  () => toast.success("Booking confirmation copied"),
+                  () => toast.error("Copy failed"),
+                );
+              }}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <Copy className="h-4 w-4 text-gold" /> Copy
             </button>
+            <Link to="/bookings/$id/edit" params={{ id }}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <Pencil className="h-4 w-4 text-gold" /> Edit
+            </Link>
             <CommBtn icon={Send} label="Send Confirmation" onClick={() => sendWa("confirm")} disabled={!b.phone} />
             <CommBtn icon={Wallet} label="Send Payment Reminder" onClick={() => sendWa("payment")} disabled={!b.phone} />
             <CommBtn icon={HandPlatter} label="Send Check-In Welcome" onClick={() => sendWa("checkin")} disabled={!b.phone} />

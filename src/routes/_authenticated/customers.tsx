@@ -7,8 +7,8 @@ import { listCustomers, deleteCustomer } from "@/lib/customers-api";
 import { listQuotes } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
-import { LEAD_SOURCES } from "@/lib/mock-data";
-import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, FilePlus, Plus } from "lucide-react";
+import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
+import { Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, FilePlus, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/use-role";
@@ -26,6 +26,7 @@ function CustomersPage() {
   const { data: quotes = [] } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
   const [q, setQ] = useState("");
   const [source, setSource] = useState<string>("All");
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [newOpen, setNewOpen] = useState(false);
 
   const del = useMutation({
@@ -33,6 +34,9 @@ function CustomersPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["customers"] }); toast.success("Customer removed"); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const toggleTagFilter = (t: string) =>
+    setTagFilter((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
 
   // Build a lookup of quote-reference → customer_id so search can match HEX-… codes
   const customerIdsByQuoteRef = useMemo(() => {
@@ -48,8 +52,8 @@ function CustomersPage() {
   }, [quotes, q]);
 
   const filtered = useMemo(() => customers.filter((c) => {
-    if (status !== "All" && c.status !== status) return false;
     if (source !== "All" && c.lead_source !== source) return false;
+    if (tagFilter.length > 0 && !tagFilter.every((t) => (c.tags ?? []).includes(t))) return false;
     if (!q) return true;
     const ql = q.toLowerCase();
     return (
@@ -59,7 +63,7 @@ function CustomersPage() {
       c.customer_reference.toLowerCase().includes(ql) ||
       (customerIdsByQuoteRef?.has(c.id) ?? false)
     );
-  }), [customers, q, status, source, customerIdsByQuoteRef]);
+  }), [customers, q, source, tagFilter, customerIdsByQuoteRef]);
 
   const exportCSV = async () => {
     try {
@@ -116,6 +120,27 @@ function CustomersPage() {
             <Plus className="h-4 w-4" /> New Customer
           </button>
         </div>
+
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-1">Tags:</span>
+          {DEFAULT_TAGS.map((t) => {
+            const active = tagFilter.includes(t);
+            return (
+              <button key={t} onClick={() => toggleTagFilter(t)}
+                className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] border transition",
+                  active ? "border-gold/50 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30")}>
+                {t}
+              </button>
+            );
+          })}
+          {tagFilter.length > 0 && (
+            <button onClick={() => setTagFilter([])} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground ml-1">
+              <X className="h-3 w-3" /> Clear
+            </button>
+          )}
+        </div>
+
+
 
         <div className="luxe-card rounded-xl overflow-hidden">
           <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-secondary/30">

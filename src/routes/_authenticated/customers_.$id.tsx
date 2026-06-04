@@ -65,6 +65,13 @@ function CustomerDetail() {
   const repeat = bookingsCount > 1;
   const lifetimeQuoted = quotes.reduce((s: number, q: any) => s + Number(q.total ?? 0), 0);
   const latestQuote = quotes[0] as any | undefined;
+  // Last stay = most recent past/completed booking check_out (never future)
+  const today = new Date().toISOString().slice(0, 10);
+  const lastStay = bookings
+    .filter((b: any) => b.status !== "Cancelled" && (b.status === "Stay Completed" || b.check_out < today))
+    .map((b: any) => b.check_out)
+    .sort()
+    .pop() ?? null;
 
   const toggleTag = (tag: string) => {
     const next = c.tags.includes(tag) ? c.tags.filter((t) => t !== tag) : [...c.tags, tag];
@@ -135,11 +142,11 @@ function CustomerDetail() {
                     )}
                     <Link to="/generate" search={{ customerId: c.id }}
                       className="inline-flex items-center gap-1.5 rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal hover:shadow-[0_0_18px_oklch(0.82_0.13_82/0.35)]">
-                      <FilePlus className="h-3 w-3" /> Create Quote
+                      <FilePlus className="h-3 w-3" /> New Quote
                     </Link>
                     <Link to="/bookings/new" search={{ customerId: c.id, fromQuoteId: undefined } as any}
                       className="inline-flex items-center gap-1.5 rounded-md border border-gold/40 bg-gold-soft text-gold px-3 py-1.5 text-xs font-medium hover:bg-gold/20">
-                      <FilePlus className="h-3 w-3" /> Create Booking
+                      <FilePlus className="h-3 w-3" /> New Booking
                     </Link>
                   </div>
                 </div>
@@ -161,7 +168,7 @@ function CustomerDetail() {
                 label="Latest Quote"
                 value={latestQuote ? <span className="font-mono text-base">{latestQuote.reference_code}</span> : "—"}
               />
-              <Stat label="Last Stay" value={c.last_stay_date ? new Date(c.last_stay_date).toLocaleDateString("en-IN") : "—"} />
+              <Stat label="Last Stay" value={lastStay ? new Date(lastStay).toLocaleDateString("en-IN") : "—"} />
             </div>
 
             <div className="luxe-card rounded-xl p-5">

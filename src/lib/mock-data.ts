@@ -148,6 +148,7 @@ export const customerStatusStyles: Record<string, string> = {
 export const DEFAULT_TAGS = [
   "VIP",
   "Couple",
+  "Single Guest",
   "Corporate",
   "Travel Agent",
   "Repeat Guest",

@@ -82,6 +82,18 @@ export async function createCustomer(input: CustomerInput) {
 }
 
 export async function deleteCustomer(id: string) {
+  // Block delete when associated quotes or bookings exist.
+  const [q, b] = await Promise.all([
+    supabase.from("quotes").select("id", { count: "exact", head: true }).eq("customer_id", id),
+    supabase.from("bookings" as any).select("id", { count: "exact", head: true }).eq("customer_id", id),
+  ]);
+  const qCount = q.count ?? 0;
+  const bCount = b.count ?? 0;
+  if (qCount > 0 || bCount > 0) {
+    throw new Error(
+      `Cannot delete customer. Associated records found:\nQuotes: ${qCount}  Bookings: ${bCount}\nPlease delete the associated records first.`,
+    );
+  }
   const { error } = await supabase.from("customers" as any).delete().eq("id", id);
   if (error) throw error;
 }
