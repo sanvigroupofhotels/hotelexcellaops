@@ -138,6 +138,9 @@ function CustomersPage() {
               <X className="h-3 w-3" /> Clear
             </button>
           )}
+        </div>
+
+
 
         <div className="luxe-card rounded-xl overflow-hidden">
           <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-secondary/30">
