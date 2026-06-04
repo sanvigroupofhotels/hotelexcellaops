@@ -80,7 +80,6 @@ function AuditRow({ booking, onFixed }: { booking: any; onFixed: () => void }) {
 
   const checks: Record<string, boolean> = {
     Customer: booking.customer_id === quote.customer_id && booking.guest_name === quote.guest_name,
-    "Lead Source": (quote.lead_source ?? "") === (booking.lead_source ?? quote.lead_source ?? ""),
     Dates: booking.check_in === quote.check_in && booking.check_out === quote.check_out,
     Totals: Math.round(Number(booking.amount)) === Math.round(Number(quote.total)),
     Notes: (booking.notes ?? "") === (quote.special_requests ?? ""),
