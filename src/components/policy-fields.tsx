@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   EARLY_CHECK_IN_SLOTS,
@@ -13,7 +14,7 @@ import {
 import type { QuoteInput } from "@/lib/quotes-api";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
-import { Coffee, UserPlus, Car, PawPrint } from "lucide-react";
+import { Coffee, UserPlus, Car, PawPrint, ChevronDown, ChevronUp } from "lucide-react";
 
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
@@ -25,113 +26,130 @@ export function PolicyFields({
   form: QuoteInput;
   update: <K extends keyof QuoteInput>(k: K, v: QuoteInput[K]) => void;
 }) {
+  const anyExtra =
+    form.early_check_in ||
+    form.late_check_out ||
+    (form.pet_size && form.pet_size !== "none") ||
+    (form.extra_adults ?? 0) > 0 ||
+    (form.drivers ?? 0) > 0;
+  const [extrasOpen, setExtrasOpen] = useState<boolean>(!!anyExtra);
+
   return (
     <div className="space-y-4">
-      {/* Breakfast Included — moved above Early Check-in */}
+      {/* 1. Breakfast Included */}
       <div className="rounded-md bg-secondary/40 border border-border p-3">
         <ToggleRow
           icon={<Coffee className="h-4 w-4 text-gold" />}
           label="Breakfast Included"
           checked={form.breakfast_included}
-          onChange={(v) => {
-            update("breakfast_included", v);
-            if (v) update("extra_breakfast_guests", 0);
-          }}
+          onChange={(v) => update("breakfast_included", v)}
         />
       </div>
 
-      {/* Extra Breakfast — independent section, shown only when breakfast not included */}
-      {!form.breakfast_included && (
-        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="rounded-md bg-secondary/40 border border-border p-3">
-          <StepperRow
-            label={`Extra Breakfast Guests (₹${EXTRA_BREAKFAST_RATE}/head/night)`}
-            help="Only when breakfast not included in tariff"
-            value={form.extra_breakfast_guests}
-            onChange={(v) => update("extra_breakfast_guests", v)}
+      {/* 2. Extra Breakfast — independent, always visible */}
+      <div className="rounded-md bg-secondary/40 border border-border p-3">
+        <StepperRow
+          label={`Extra Breakfast Guests (₹${EXTRA_BREAKFAST_RATE}/head/night)`}
+          help="Independent of Breakfast Included"
+          value={form.extra_breakfast_guests}
+          onChange={(v) => update("extra_breakfast_guests", v)}
+        />
+      </div>
+
+      {/* 3. Collapsible Extras (Early / Late / Pet / Extra Adults / Drivers) */}
+      <button
+        type="button"
+        onClick={() => setExtrasOpen((v) => !v)}
+        className="w-full inline-flex items-center justify-between rounded-md border border-border bg-card/60 px-3 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:border-gold/30 transition"
+      >
+        <span>Extras (Early / Late / Pet / Extra Adults / Drivers){anyExtra ? " · active" : ""}</span>
+        {extrasOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+      </button>
+
+      {extrasOpen && (
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+          <SlotPicker
+            icon="🌅"
+            title="Early Check-in"
+            subtitle="Standard 1:00 PM · Subject to availability"
+            options={EARLY_CHECK_IN_SLOTS.map((s) => ({ value: s.value, label: s.label, fee: s.fee }))}
+            active={form.early_check_in}
+            selectedValue={form.early_check_in_slot}
+            onSelect={(val) => {
+              if (val === null) {
+                update("early_check_in", false);
+                update("early_check_in_slot", null);
+              } else {
+                update("early_check_in", true);
+                update("early_check_in_slot", val as EarlyCheckInSlot);
+              }
+            }}
           />
+
+          <SlotPicker
+            icon="🌙"
+            title="Late Check-out"
+            subtitle="Standard 11:00 AM · Subject to availability"
+            options={LATE_CHECK_OUT_SLOTS.map((s) => ({ value: s.value, label: s.label, fee: s.fee }))}
+            active={form.late_check_out}
+            selectedValue={form.late_check_out_slot}
+            onSelect={(val) => {
+              if (val === null) {
+                update("late_check_out", false);
+                update("late_check_out_slot", null);
+              } else {
+                update("late_check_out", true);
+                update("late_check_out_slot", val as LateCheckOutSlot);
+              }
+            }}
+          />
+
+          <div className="rounded-md bg-secondary/40 border border-border p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <PawPrint className="h-4 w-4 text-gold" />
+              <span className="text-sm">Pet</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {PET_OPTIONS.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => {
+                    update("pet_size", p.value as PetSize);
+                    update("pet_charges", p.value !== "none");
+                  }}
+                  className={cn(
+                    "rounded-md border px-2 py-2 text-xs transition text-left",
+                    form.pet_size === p.value
+                      ? "border-gold/60 bg-gold-soft text-gold"
+                      : "border-border bg-input/40 text-muted-foreground hover:text-foreground hover:border-gold/30",
+                  )}
+                >
+                  <div className="font-medium">{p.label}</div>
+                  <div className="text-[10px] opacity-80">{p.fee ? `₹${p.fee}/night` : "—"}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <StepperRow
+              icon={<UserPlus className="h-3.5 w-3.5 text-gold" />}
+              label={`Extra Adults (₹${EXTRA_ADULT_RATE}/night)`}
+              help="Includes Extra Mattress"
+              value={form.extra_adults}
+              onChange={(v) => update("extra_adults", v)}
+            />
+            <StepperRow
+              icon={<Car className="h-3.5 w-3.5 text-gold" />}
+              label={`Drivers (₹${DRIVER_RATE}/night)`}
+              help="Includes Extra Mattress"
+              value={form.drivers}
+              onChange={(v) => update("drivers", v)}
+            />
+          </div>
         </motion.div>
       )}
-
-      <SlotPicker
-        icon="🌅"
-        title="Early Check-in"
-        subtitle="Standard 1:00 PM · Subject to availability"
-        options={EARLY_CHECK_IN_SLOTS.map((s) => ({ value: s.value, label: s.label, fee: s.fee }))}
-        active={form.early_check_in}
-        selectedValue={form.early_check_in_slot}
-        onSelect={(val) => {
-          if (val === null) {
-            update("early_check_in", false);
-            update("early_check_in_slot", null);
-          } else {
-            update("early_check_in", true);
-            update("early_check_in_slot", val as EarlyCheckInSlot);
-          }
-        }}
-      />
-
-      <SlotPicker
-        icon="🌙"
-        title="Late Check-out"
-        subtitle="Standard 11:00 AM · Subject to availability"
-        options={LATE_CHECK_OUT_SLOTS.map((s) => ({ value: s.value, label: s.label, fee: s.fee }))}
-        active={form.late_check_out}
-        selectedValue={form.late_check_out_slot}
-        onSelect={(val) => {
-          if (val === null) {
-            update("late_check_out", false);
-            update("late_check_out_slot", null);
-          } else {
-            update("late_check_out", true);
-            update("late_check_out_slot", val as LateCheckOutSlot);
-          }
-        }}
-      />
-
-      <div className="rounded-md bg-secondary/40 border border-border p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <PawPrint className="h-4 w-4 text-gold" />
-          <span className="text-sm">Pet</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {PET_OPTIONS.map((p) => (
-            <button
-              key={p.value}
-              type="button"
-              onClick={() => {
-                update("pet_size", p.value as PetSize);
-                update("pet_charges", p.value !== "none");
-              }}
-              className={cn(
-                "rounded-md border px-2 py-2 text-xs transition text-left",
-                form.pet_size === p.value
-                  ? "border-gold/60 bg-gold-soft text-gold"
-                  : "border-border bg-input/40 text-muted-foreground hover:text-foreground hover:border-gold/30",
-              )}
-            >
-              <div className="font-medium">{p.label}</div>
-              <div className="text-[10px] opacity-80">{p.fee ? `₹${p.fee}/night` : "—"}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-        <StepperRow
-          icon={<UserPlus className="h-3.5 w-3.5 text-gold" />}
-          label={`Extra Adults (₹${EXTRA_ADULT_RATE}/night)`}
-          help="Includes Extra Mattress"
-          value={form.extra_adults}
-          onChange={(v) => update("extra_adults", v)}
-        />
-        <StepperRow
-          icon={<Car className="h-3.5 w-3.5 text-gold" />}
-          label={`Drivers (₹${DRIVER_RATE}/night)`}
-          help="Includes Extra Mattress"
-          value={form.drivers}
-          onChange={(v) => update("drivers", v)}
-        />
-      </div>
     </div>
   );
 }

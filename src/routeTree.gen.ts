@@ -28,7 +28,7 @@ import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenti
 import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenticated/bookings_.new'
 import { Route as AuthenticatedBookingsIdRouteImport } from './routes/_authenticated/bookings_.$id'
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
-import { Route as AuthenticatedBookingsIdEditRouteImport } from './routes/_authenticated/bookings_.$id.edit'
+import { Route as AuthenticatedBookingsIdEditRouteImport } from './routes/_authenticated/bookings_.$id_.edit'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -129,9 +129,9 @@ const AuthenticatedQuoteIdEditRoute =
   } as any)
 const AuthenticatedBookingsIdEditRoute =
   AuthenticatedBookingsIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => AuthenticatedBookingsIdRoute,
+    id: '/bookings_/$id_/edit',
+    path: '/bookings/$id/edit',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -148,7 +148,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
-  '/bookings/$id': typeof AuthenticatedBookingsIdRouteWithChildren
+  '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
@@ -169,7 +169,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
   '/': typeof AuthenticatedIndexRoute
-  '/bookings/$id': typeof AuthenticatedBookingsIdRouteWithChildren
+  '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
@@ -192,11 +192,11 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRouteWithChildren
+  '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
   '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
   '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
-  '/_authenticated/bookings_/$id/edit': typeof AuthenticatedBookingsIdEditRoute
+  '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
 }
 export interface FileRouteTypes {
@@ -262,7 +262,7 @@ export interface FileRouteTypes {
     | '/_authenticated/bookings_/new'
     | '/_authenticated/customers_/$id'
     | '/_authenticated/quote/$id'
-    | '/_authenticated/bookings_/$id/edit'
+    | '/_authenticated/bookings_/$id_/edit'
     | '/_authenticated/quote/$id_/edit'
   fileRoutesById: FileRoutesById
 }
@@ -406,29 +406,15 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedQuoteIdEditRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/bookings_/$id/edit': {
-      id: '/_authenticated/bookings_/$id/edit'
-      path: '/edit'
+    '/_authenticated/bookings_/$id_/edit': {
+      id: '/_authenticated/bookings_/$id_/edit'
+      path: '/bookings/$id/edit'
       fullPath: '/bookings/$id/edit'
       preLoaderRoute: typeof AuthenticatedBookingsIdEditRouteImport
-      parentRoute: typeof AuthenticatedBookingsIdRoute
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
-
-interface AuthenticatedBookingsIdRouteChildren {
-  AuthenticatedBookingsIdEditRoute: typeof AuthenticatedBookingsIdEditRoute
-}
-
-const AuthenticatedBookingsIdRouteChildren: AuthenticatedBookingsIdRouteChildren =
-  {
-    AuthenticatedBookingsIdEditRoute: AuthenticatedBookingsIdEditRoute,
-  }
-
-const AuthenticatedBookingsIdRouteWithChildren =
-  AuthenticatedBookingsIdRoute._addFileChildren(
-    AuthenticatedBookingsIdRouteChildren,
-  )
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
@@ -443,10 +429,11 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedBookingsIdRoute: typeof AuthenticatedBookingsIdRouteWithChildren
+  AuthenticatedBookingsIdRoute: typeof AuthenticatedBookingsIdRoute
   AuthenticatedBookingsNewRoute: typeof AuthenticatedBookingsNewRoute
   AuthenticatedCustomersIdRoute: typeof AuthenticatedCustomersIdRoute
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
+  AuthenticatedBookingsIdEditRoute: typeof AuthenticatedBookingsIdEditRoute
   AuthenticatedQuoteIdEditRoute: typeof AuthenticatedQuoteIdEditRoute
 }
 
@@ -463,10 +450,11 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedBookingsIdRoute: AuthenticatedBookingsIdRouteWithChildren,
+  AuthenticatedBookingsIdRoute: AuthenticatedBookingsIdRoute,
   AuthenticatedBookingsNewRoute: AuthenticatedBookingsNewRoute,
   AuthenticatedCustomersIdRoute: AuthenticatedCustomersIdRoute,
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
+  AuthenticatedBookingsIdEditRoute: AuthenticatedBookingsIdEditRoute,
   AuthenticatedQuoteIdEditRoute: AuthenticatedQuoteIdEditRoute,
 }
 
