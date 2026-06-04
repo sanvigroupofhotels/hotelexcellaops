@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_authenticated/audit")({
 });
 
 const FIELDS = [
-  "Customer", "Lead Source", "Dates", "Totals", "Notes", "Line Items",
+  "Customer", "Dates", "Totals", "Notes", "Line Items",
 ] as const;
 
 function AuditPage() {
