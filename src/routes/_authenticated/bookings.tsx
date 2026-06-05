@@ -47,14 +47,28 @@ function BookingsPage() {
               className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
             />
           </div>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-card border border-border rounded-md px-3 py-2 text-sm">
-            <option value="All">All statuses</option>
-            {BOOKING_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
           <Link to="/bookings/new" search={{ customerId: undefined, fromQuoteId: undefined } as any}
             className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal hover:shadow-[0_0_18px_oklch(0.82_0.13_82/0.35)]">
             <Plus className="h-4 w-4" /> New Booking
           </Link>
+        </div>
+
+        {/* Status tabs */}
+        <div className="flex gap-1 overflow-x-auto border-b border-border -mx-4 px-4 md:mx-0 md:px-0">
+          {(["All", ...BOOKING_STATUSES] as const).map((s) => {
+            const count = s === "All" ? bookings.length : bookings.filter((b) => b.status === s).length;
+            return (
+              <button key={s} onClick={() => setStatus(s)}
+                className={cn(
+                  "whitespace-nowrap px-3 py-2 text-xs border-b-2 -mb-px transition",
+                  status === s
+                    ? "border-gold text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
+                )}>
+                {s} <span className="ml-1 text-[10px] text-muted-foreground">({count})</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="luxe-card rounded-xl overflow-hidden">
