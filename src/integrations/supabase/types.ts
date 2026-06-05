@@ -196,6 +196,72 @@ export type Database = {
           },
         ]
       }
+      cash_transactions: {
+        Row: {
+          active: boolean
+          amount: number
+          booking_id: string | null
+          created_at: string
+          customer_id: string | null
+          description: string | null
+          guest_mobile: string | null
+          guest_name: string | null
+          id: string
+          kind: string
+          modified_by: string | null
+          notes: string | null
+          occurred_at: string
+          room_number: string | null
+          staff_id: string | null
+          staff_name: string | null
+          type_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount: number
+          booking_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          description?: string | null
+          guest_mobile?: string | null
+          guest_name?: string | null
+          id?: string
+          kind: string
+          modified_by?: string | null
+          notes?: string | null
+          occurred_at?: string
+          room_number?: string | null
+          staff_id?: string | null
+          staff_name?: string | null
+          type_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          booking_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          description?: string | null
+          guest_mobile?: string | null
+          guest_name?: string | null
+          id?: string
+          kind?: string
+          modified_by?: string | null
+          notes?: string | null
+          occurred_at?: string
+          room_number?: string | null
+          staff_id?: string | null
+          staff_name?: string | null
+          type_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           anniversary: string | null
@@ -302,6 +368,33 @@ export type Database = {
           total_bookings?: number
           total_quotes?: number
           total_revenue?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      expense_types: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
           updated_at?: string
           user_id?: string
         }
@@ -632,6 +725,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      staff: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          mobile: string | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          mobile?: string | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          mobile?: string | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       tasks: {
         Row: {
