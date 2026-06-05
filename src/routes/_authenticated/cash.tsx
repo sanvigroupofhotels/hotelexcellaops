@@ -264,7 +264,7 @@ function TransactionHistory({ tx, isAdmin }: { tx: CashTxRow[]; isAdmin: boolean
 // ---------- Tx Form Modal ----------
 function TxFormModal({ kind, onClose, prefill }: { kind: "collection"|"expense"; onClose: ()=>void; prefill?: Partial<any> }) {
   const qc = useQueryClient();
-  const navigate = useNavigate();
+  // form state
   const { data: staff = [] } = useQuery({ queryKey: ["staff","active"], queryFn: () => listStaff(true) });
   const { data: etypes = [] } = useQuery({ queryKey: ["etypes","active"], queryFn: () => listExpenseTypes(true) });
   const { data: bookings = [] } = useQuery({
