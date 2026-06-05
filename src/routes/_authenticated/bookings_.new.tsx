@@ -86,11 +86,19 @@ function NewBooking() {
     const emailOk = !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     if (!phoneOk && !emailOk) { setMatchedCustomer(null); return; }
     const t = setTimeout(async () => {
-      const c = await findCustomerByContact(phoneOk ? phone : undefined, emailOk ? email : undefined);
+      const c = await findCustomerByContact(phoneOk ? phone : undefined, emailOk ? email : undefined, form.guest_name);
+      if (!c) { setMatchedCustomer(null); return; }
+      const exact = phoneOk && c.phone === phone
+        && (c.guest_name ?? "").trim().toLowerCase() === (form.guest_name ?? "").trim().toLowerCase();
+      if (exact) {
+        setForm((f) => ({ ...f, customer_id: c.id }));
+        setMatchedCustomer(null);
+        return;
+      }
       setMatchedCustomer(c);
     }, 400);
     return () => clearTimeout(t);
-  }, [form.phone, form.email, forceNew, form.customer_id]);
+  }, [form.phone, form.email, form.guest_name, forceNew, form.customer_id]);
 
   const useExistingCustomer = () => {
     if (!matchedCustomer) return;
