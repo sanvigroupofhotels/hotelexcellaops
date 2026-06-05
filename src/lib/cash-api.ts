@@ -93,14 +93,13 @@ export async function listCashTx(opts?: { from?: string; to?: string }) {
 export async function createCashTx(input: CashTxInput) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
-  if (input.kind === "collection") {
+  const isOther = input.type_name === "Other" || input.type_name === "Others";
+  if (input.kind === "collection" && !isOther) {
     if (!input.guest_name?.trim()) throw new Error("Guest name is required");
     if (!input.guest_mobile?.trim()) throw new Error("Guest mobile is required");
   }
   if (!input.type_name) throw new Error("Type is required");
-  if (input.type_name === "Other" || input.type_name === "Others") {
-    if (!input.description?.trim()) throw new Error("Description is required when type is Other");
-  }
+  if (isOther && !input.description?.trim()) throw new Error("Description is required when type is Other");
   if (!input.staff_id) throw new Error("Staff is required");
   if (!(input.amount > 0)) throw new Error("Amount must be greater than zero");
   const row: any = {
