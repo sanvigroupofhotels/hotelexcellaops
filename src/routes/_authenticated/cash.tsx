@@ -291,9 +291,11 @@ function TxFormModal({ kind, onClose, prefill }: { kind: "collection"|"expense";
   });
 
   const isOther = typeName === "Other" || typeName === "Others";
-  const collectionMatchesETypes = kind==="expense" && etypes.length>0 && !typeName;
-  // initialize expense type when list loads
-  if (collectionMatchesETypes) setTypeName(etypes[0].name);
+  // initialize expense type once list loads
+  if (kind==="expense" && etypes.length>0 && !typeName) {
+    // defer to next tick to avoid setState during render
+    queueMicrotask(() => setTypeName(etypes[0].name));
+  }
 
   const filteredBookings = useMemo(() => {
     const s = bookingSearch.trim().toLowerCase();
