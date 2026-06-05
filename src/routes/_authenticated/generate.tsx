@@ -389,9 +389,7 @@ function GenerateQuote() {
         form={form}
         saving={save.isPending}
         primaryLabel="Save & Preview"
-        onPrimary={() => save.mutate(false)}
-        secondaryLabel="Draft"
-        onSecondary={() => save.mutate(true)}
+        onPrimary={() => save.mutate()}
       />
     </>
   );
