@@ -68,7 +68,7 @@ function CalendarView() {
             <h3 className="font-display text-xl">{monthLabel}</h3>
             <div className="flex gap-2">
               <button onClick={() => setCursor(new Date(year, month - 1, 1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronLeft className="h-4 w-4" /></button>
-              <button onClick={() => { const t = new Date(); setCursor(t); setSelected(t.toISOString().slice(0, 10)); }} className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
+              <button onClick={() => { const t = new Date(); setCursor(t); setSelected(localDateKey(t)); }} className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
               <button onClick={() => setCursor(new Date(year, month + 1, 1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
