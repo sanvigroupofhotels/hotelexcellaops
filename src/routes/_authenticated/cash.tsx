@@ -356,7 +356,7 @@ function TxFormModal({ kind, onClose, prefill }: { kind: "collection"|"expense";
           )}
 
           {/* Collection-only guest/booking fields */}
-          {kind==="collection" && (
+          {kind==="collection" && !isOther && (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Guest Name" required>
