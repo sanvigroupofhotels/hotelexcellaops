@@ -160,12 +160,12 @@ function GenerateQuote() {
   }, [form, extraItems]);
 
   const save = useMutation({
-    mutationFn: (asDraft?: boolean) => {
+    mutationFn: () => {
       if (!form.guest_name.trim()) throw new Error("Guest name is required");
       if (!form.phone.trim()) throw new Error("Phone is required");
       if (new Date(form.check_out) <= new Date(form.check_in))
         throw new Error("Check-out must be after check-in");
-      return createQuote(form, asDraft ? "Draft" : undefined, extraItems);
+      return createQuote(form, "Pending", extraItems);
     },
     onSuccess: (q) => {
       toast.success(`Quote ${q.reference_code} created`);
