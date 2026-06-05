@@ -109,6 +109,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             <div className="text-[10px] text-muted-foreground truncate">{user?.email}</div>
           </div>
         </div>
+        <AppearanceRow />
         <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60 transition">
           <HelpCircle className="h-4 w-4" /> Help & Support
         </button>
