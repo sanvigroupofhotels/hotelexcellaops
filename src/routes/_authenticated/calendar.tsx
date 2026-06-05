@@ -12,9 +12,17 @@ export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarView,
 });
 
+/** Local YYYY-MM-DD (no UTC shift). */
+function localDateKey(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function CalendarView() {
   const [cursor, setCursor] = useState(new Date());
-  const [selected, setSelected] = useState<string | null>(new Date().toISOString().slice(0, 10));
+  const [selected, setSelected] = useState<string | null>(localDateKey(new Date()));
   const { data: quotes = [], isLoading: lq } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const isLoading = lq || lb;
@@ -60,7 +68,7 @@ function CalendarView() {
             <h3 className="font-display text-xl">{monthLabel}</h3>
             <div className="flex gap-2">
               <button onClick={() => setCursor(new Date(year, month - 1, 1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronLeft className="h-4 w-4" /></button>
-              <button onClick={() => { const t = new Date(); setCursor(t); setSelected(t.toISOString().slice(0, 10)); }} className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
+              <button onClick={() => { const t = new Date(); setCursor(t); setSelected(localDateKey(t)); }} className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
               <button onClick={() => setCursor(new Date(year, month + 1, 1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
@@ -74,7 +82,7 @@ function CalendarView() {
               </div>
               <div className="grid grid-cols-7 gap-1">
                 {days.map((d, i) => {
-                  const k = d ? d.toISOString().slice(0, 10) : "";
+                  const k = d ? localDateKey(d) : "";
                   const qCount = (qByArrival[k]?.length ?? 0) + (qByDep[k]?.length ?? 0);
                   const bCount = (bByArrival[k]?.length ?? 0) + (bByDep[k]?.length ?? 0);
                   const isToday = d && d.toDateString() === new Date().toDateString();

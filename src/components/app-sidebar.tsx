@@ -3,8 +3,9 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, History, Bell, Calendar, BarChart3,
   Users, ListChecks, HelpCircle, Settings, Menu, X, LogOut, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
+  Sun, Moon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/use-role";
@@ -108,6 +109,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             <div className="text-[10px] text-muted-foreground truncate">{user?.email}</div>
           </div>
         </div>
+        <AppearanceRow />
         <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60 transition">
           <HelpCircle className="h-4 w-4" /> Help & Support
         </button>
@@ -123,6 +125,44 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
         >
           <LogOut className="h-4 w-4" /> Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AppearanceRow() {
+  const [theme, setTheme] = useState<"light"|"dark">("dark");
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("excella-theme");
+      const t = (v === "light" || v === "dark") ? v : "dark";
+      setTheme(t);
+    } catch {}
+  }, []);
+  const setT = (t: "light"|"dark") => {
+    setTheme(t);
+    try { localStorage.setItem("excella-theme", t); } catch {}
+    if (typeof document !== "undefined") {
+      const html = document.documentElement;
+      html.classList.remove("light","dark");
+      html.classList.add(t);
+      html.setAttribute("data-theme", t);
+    }
+  };
+  return (
+    <div className="rounded-md border border-border bg-card/40 p-2">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-1 mb-1.5">Appearance</div>
+      <div className="grid grid-cols-2 gap-1">
+        <button onClick={() => setT("light")}
+          className={cn("flex items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs transition",
+            theme === "light" ? "bg-gold-soft border border-gold/40 text-gold" : "text-muted-foreground hover:text-foreground")}>
+          <Sun className="h-3.5 w-3.5" /> Light
+        </button>
+        <button onClick={() => setT("dark")}
+          className={cn("flex items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs transition",
+            theme === "dark" ? "bg-gold-soft border border-gold/40 text-gold" : "text-muted-foreground hover:text-foreground")}>
+          <Moon className="h-3.5 w-3.5" /> Dark
         </button>
       </div>
     </div>

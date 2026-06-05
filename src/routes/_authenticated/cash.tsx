@@ -14,9 +14,10 @@ import { listBookings } from "@/lib/bookings-api";
 import { toast } from "sonner";
 import {
   Plus, Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Search, X,
-  Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2,
+  Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { downloadCSV } from "@/lib/csv";
 
 export const Route = createFileRoute("/_authenticated/cash")({
   component: CashPage,
@@ -48,6 +49,24 @@ function rangeBounds(key: RangeKey, customFrom?: string, customTo?: string) {
     from: customFrom ? new Date(customFrom + "T00:00:00").toISOString() : undefined,
     to: customTo ? new Date(customTo + "T23:59:59").toISOString() : undefined,
   };
+}
+
+function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
+  if (tx.length === 0) { toast.error("No transactions to export"); return; }
+  const rows = tx.map(t => ({
+    Date: new Date(t.occurred_at).toLocaleString("en-IN"),
+    Kind: t.kind === "collection" ? "In" : "Out",
+    Category: t.type_name,
+    Description: t.description ?? "",
+    Guest: t.guest_name ?? "",
+    Mobile: t.guest_mobile ?? "",
+    Room: t.room_number ?? "",
+    Staff: t.staff_name ?? "",
+    Amount: Number(t.amount),
+    Notes: t.notes ?? "",
+  }));
+  downloadCSV(`cash-${range}-${new Date().toISOString().slice(0,10)}.csv`, rows);
+  toast.success("Exported");
 }
 
 function CashPage() {
@@ -118,6 +137,14 @@ function CashPage() {
               <button onClick={()=>setOpenForm("expense")}
                 className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium hover:border-gold/40">
                 <Plus className="h-4 w-4"/> Add Cash Expense
+              </button>
+              <button onClick={() => exportCashCSV(tx, range)}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+                <Download className="h-4 w-4 text-gold"/> Export Excel
+              </button>
+              <button onClick={() => window.print()}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+                <Printer className="h-4 w-4 text-gold"/> Export PDF
               </button>
             </div>
 
@@ -356,7 +383,7 @@ function TxFormModal({ kind, onClose, prefill }: { kind: "collection"|"expense";
           )}
 
           {/* Collection-only guest/booking fields */}
-          {kind==="collection" && (
+          {kind==="collection" && !isOther && (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Guest Name" required>

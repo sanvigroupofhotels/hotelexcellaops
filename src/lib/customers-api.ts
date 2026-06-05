@@ -98,8 +98,12 @@ export async function deleteCustomer(id: string) {
   if (error) throw error;
 }
 
-/** Find existing customer by phone or email — used by Generate Quote to surface "Returning Guest". */
-export async function findCustomerByContact(phone?: string, email?: string) {
+/**
+ * Find existing customer by phone (preferred) or email.
+ * Returns match plus a `matchType` indicating exactness so callers can decide
+ * whether to auto-link silently or prompt the user.
+ */
+export async function findCustomerByContact(phone?: string, email?: string, name?: string) {
   if (!phone && !email) return null;
   let q = supabase.from("customers" as any).select("*");
   if (phone && email) {
@@ -109,9 +113,29 @@ export async function findCustomerByContact(phone?: string, email?: string) {
   } else if (email) {
     q = q.eq("email", email);
   }
-  const { data, error } = await q.limit(1);
+  const { data, error } = await q.limit(5);
   if (error) return null;
-  return (data?.[0] as unknown as CustomerRow) ?? null;
+  const rows = (data ?? []) as unknown as CustomerRow[];
+  if (rows.length === 0) return null;
+  // Prefer the exact name+phone row if the caller provided a name.
+  const lname = (name ?? "").trim().toLowerCase();
+  const exact = lname
+    ? rows.find(r => (r.guest_name ?? "").trim().toLowerCase() === lname && (!phone || r.phone === phone))
+    : undefined;
+  return exact ?? rows[0];
+}
+
+/** Strict name + phone exact match (used to silently auto-link). */
+export async function findCustomerByNameAndPhone(name: string, phone: string) {
+  if (!name?.trim() || !phone?.trim()) return null;
+  const { data, error } = await supabase
+    .from("customers" as any)
+    .select("*")
+    .eq("phone", phone.trim())
+    .ilike("guest_name", name.trim())
+    .limit(1);
+  if (error) return null;
+  return ((data?.[0] as unknown as CustomerRow) ?? null);
 }
 
 /** Search customers by partial name OR phone for autocomplete. */
