@@ -20,16 +20,11 @@ export type QuoteStatus =
   | "Failed";
 
 export const QUOTE_STATUSES: QuoteStatus[] = [
-  "Draft",
   "Pending",
   "Sent",
   "Negotiation",
   "Confirmed",
-  "Checked In",
-  "Completed",
-  "Cancelled",
   "Lost",
-  "Expired",
 ];
 
 /** Statuses that represent a booked / revenue-generating quote. */
@@ -175,26 +170,35 @@ export const LEAD_SOURCES = [
 
 // ---------- Bookings ----------
 export type BookingStatus =
-  | "Draft"
+  | "Pending"
   | "Confirmed"
-  | "Cancelled"
   | "Advance Paid"
   | "Full Paid"
-  | "Stay Completed";
+  | "Checked-In"
+  | "Checked-Out"
+  | "Stay Completed"
+  | "Cancelled"
+  // legacy
+  | "Draft";
 export const BOOKING_STATUSES: BookingStatus[] = [
-  "Draft",
+  "Pending",
   "Confirmed",
   "Advance Paid",
   "Full Paid",
+  "Checked-In",
+  "Checked-Out",
   "Stay Completed",
   "Cancelled",
 ];
 export const bookingStatusStyles: Record<BookingStatus, string> = {
+  Pending: "bg-warning/10 text-warning border-warning/30",
   Draft: "bg-muted/60 text-muted-foreground border-border",
   Confirmed: "bg-success/15 text-success border-success/40",
   Cancelled: "bg-destructive/10 text-destructive border-destructive/40",
   "Advance Paid": "bg-info/15 text-info border-info/40",
   "Full Paid": "bg-success/20 text-success border-success/50",
+  "Checked-In": "bg-gold/15 text-gold border-gold/40",
+  "Checked-Out": "bg-info/10 text-info border-info/30",
   "Stay Completed": "bg-gold/15 text-gold border-gold/40",
 };
 

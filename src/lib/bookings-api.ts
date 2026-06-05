@@ -28,7 +28,7 @@ export interface BookingRow {
 }
 
 export interface BookingInput {
-  customer_id: string;
+  customer_id?: string | null;
   source_quote_id?: string | null;
   guest_name: string;
   phone?: string | null;
@@ -48,7 +48,6 @@ export interface BookingInput {
 }
 
 export function validateBookingInput(b: BookingInput) {
-  if (!b.customer_id) throw new Error("Customer is required");
   if (!b.guest_name?.trim()) throw new Error("Guest name is required");
   if (!b.check_in || !b.check_out) throw new Error("Stay dates are required");
   if (new Date(b.check_out) <= new Date(b.check_in))
@@ -85,20 +84,21 @@ export async function createBooking(input: BookingInput) {
   validateBookingInput(input);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
-  const row = {
+  const row: any = {
     ...input,
+    customer_id: input.customer_id || null, // trigger will link or create
     phone: input.phone ?? null,
     email: input.email ?? null,
     room_details: input.room_details ?? null,
     notes: input.notes ?? null,
     internal_notes: input.internal_notes ?? null,
-    status: input.status ?? "Draft",
+    status: input.status ?? "Pending",
     payment_status: input.payment_status ?? "None",
     advance_paid: input.advance_paid ?? 0,
     user_id: user.id,
   };
   const { data, error } = await supabase
-    .from("bookings" as any).insert(row as any).select().single();
+    .from("bookings" as any).insert(row).select().single();
   if (error) throw error;
   return data as unknown as BookingRow;
 }

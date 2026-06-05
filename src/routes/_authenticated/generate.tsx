@@ -160,12 +160,12 @@ function GenerateQuote() {
   }, [form, extraItems]);
 
   const save = useMutation({
-    mutationFn: (asDraft?: boolean) => {
+    mutationFn: () => {
       if (!form.guest_name.trim()) throw new Error("Guest name is required");
       if (!form.phone.trim()) throw new Error("Phone is required");
       if (new Date(form.check_out) <= new Date(form.check_in))
         throw new Error("Check-out must be after check-in");
-      return createQuote(form, asDraft ? "Draft" : undefined, extraItems);
+      return createQuote(form, "Pending", extraItems);
     },
     onSuccess: (q) => {
       toast.success(`Quote ${q.reference_code} created`);
@@ -369,20 +369,11 @@ function GenerateQuote() {
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
             <LiveSummaryCard c={c} form={form} />
 
-            <div className="grid grid-cols-2 gap-2">
+            <div>
               <button
-                onClick={() => save.mutate(true)}
+                onClick={() => save.mutate()}
                 disabled={save.isPending}
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-medium text-foreground hover:border-gold/40 transition disabled:opacity-60"
-                title="Save as draft — won't send to guest"
-              >
-                <Save className="h-4 w-4" />
-                Save Draft
-              </button>
-              <button
-                onClick={() => save.mutate(false)}
-                disabled={save.isPending}
-                className="inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60"
               >
                 {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 Save & Preview →
@@ -398,9 +389,7 @@ function GenerateQuote() {
         form={form}
         saving={save.isPending}
         primaryLabel="Save & Preview"
-        onPrimary={() => save.mutate(false)}
-        secondaryLabel="Draft"
-        onSecondary={() => save.mutate(true)}
+        onPrimary={() => save.mutate()}
       />
     </>
   );

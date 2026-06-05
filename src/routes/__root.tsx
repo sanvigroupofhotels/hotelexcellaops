@@ -106,10 +106,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {
+  const themeBootstrap = `
+    (function(){
+      try {
+        var t = localStorage.getItem('excella-theme');
+        if (t !== 'light' && t !== 'dark') t = 'dark';
+        document.documentElement.classList.remove('light','dark');
+        document.documentElement.classList.add(t);
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  `;
   return (
     <html lang="en" className="dark">
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
       <body className="bg-background text-foreground">
         {children}
@@ -121,6 +135,15 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // Auto-sweep Stay Completed bookings once on app load
+  if (typeof window !== "undefined" && !(window as any).__excella_swept) {
+    (window as any).__excella_swept = true;
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      supabase.rpc("sweep_stay_completed" as any).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      });
+    }).catch(() => {});
+  }
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

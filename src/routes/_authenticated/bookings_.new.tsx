@@ -1,17 +1,18 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
-import { getCustomer } from "@/lib/customers-api";
+import { getCustomer, findCustomerByContact, type CustomerRow } from "@/lib/customers-api";
 import { getQuote } from "@/lib/quotes-api";
 import { createBooking, type BookingInput } from "@/lib/bookings-api";
 import { addBookingItems, quoteItemsToBookingInputs } from "@/lib/booking-items-api";
 import { listQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
-import { CustomerAutocomplete } from "@/components/customer-lookup";
+import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
 import { LineItemsEditor, lineItemsTotal, emptyLine, type LineItem } from "@/components/line-items-editor";
-import { BOOKING_STATUSES } from "@/lib/mock-data";
+import { BOOKING_STATUSES, LEAD_SOURCES } from "@/lib/mock-data";
 import { NumField } from "@/components/num-field";
-import { ArrowLeft, Loader2, BedDouble, User, Phone, Mail } from "lucide-react";
+import { ArrowLeft, Loader2, BedDouble, User, Phone, Mail, Users, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -33,19 +34,20 @@ function NewBooking() {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
   const [form, setForm] = useState<BookingInput>({
-    customer_id: customerId ?? "",
+    customer_id: customerId ?? null,
     source_quote_id: fromQuoteId ?? null,
     guest_name: "", phone: "", email: "",
     check_in: today, check_out: tomorrow,
     adults: 2, children: 0, guests: 2,
     room_details: "", amount: 0, advance_paid: 0,
     notes: "", internal_notes: "",
-    status: "Draft", payment_status: "None",
+    status: "Pending", payment_status: "None",
   });
+  const [leadSource, setLeadSource] = useState<string>("Direct");
   const update = <K extends keyof BookingInput>(k: K, v: BookingInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  // Line items (primary + extras; uses the same editor as Generate Quote)
+  // Line items
   const [bookingItems, setBookingItems] = useState<LineItem[]>([emptyLine()]);
   const itemsTotal = useMemo(() => lineItemsTotal(bookingItems), [bookingItems]);
   useEffect(() => {
@@ -53,10 +55,14 @@ function NewBooking() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemsTotal]);
 
-  // Prefill from customer
+  // Existing-customer matching (parity with Generate Quote)
+  const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
+  const [forceNew, setForceNew] = useState(false);
+
+  // Prefill if ?customerId
   const { data: cust } = useQuery({
     queryKey: ["customer", form.customer_id],
-    queryFn: () => getCustomer(form.customer_id),
+    queryFn: () => getCustomer(form.customer_id as string),
     enabled: !!form.customer_id,
   });
   useEffect(() => {
@@ -64,12 +70,41 @@ function NewBooking() {
     setForm((f) => ({
       ...f,
       guest_name: f.guest_name || cust.guest_name,
-      phone: f.phone || cust.phone,
-      email: f.email || cust.email,
+      phone: f.phone || cust.phone || "",
+      email: f.email || cust.email || "",
     }));
+    setMatchedCustomer(cust);
   }, [cust]);
 
-  // Prefill from source quote (Convert to Booking flow)
+  // Auto-detect existing customer by contact
+  useEffect(() => {
+    if (forceNew || form.customer_id) return;
+    const phone = (form.phone ?? "").trim();
+    const email = (form.email ?? "").trim();
+    const phoneOk = phone.length >= 7;
+    const emailOk = !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!phoneOk && !emailOk) { setMatchedCustomer(null); return; }
+    const t = setTimeout(async () => {
+      const c = await findCustomerByContact(phoneOk ? phone : undefined, emailOk ? email : undefined);
+      setMatchedCustomer(c);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [form.phone, form.email, forceNew, form.customer_id]);
+
+  const useExistingCustomer = () => {
+    if (!matchedCustomer) return;
+    setForm((f) => ({
+      ...f,
+      customer_id: matchedCustomer.id,
+      guest_name: matchedCustomer.guest_name,
+      phone: matchedCustomer.phone ?? f.phone,
+      email: matchedCustomer.email ?? f.email,
+    }));
+    setForceNew(false);
+    toast.success(`Using existing customer: ${matchedCustomer.guest_name}`);
+  };
+
+  // Prefill from source quote (Convert to Booking)
   const { data: quote } = useQuery({
     queryKey: ["quote", fromQuoteId],
     queryFn: () => getQuote(fromQuoteId!),
@@ -84,7 +119,7 @@ function NewBooking() {
     if (!quote) return;
     setForm((f) => ({
       ...f,
-      customer_id: f.customer_id || quote.customer_id || "",
+      customer_id: f.customer_id || quote.customer_id || null,
       source_quote_id: quote.id,
       guest_name: quote.guest_name,
       phone: quote.phone,
@@ -104,11 +139,18 @@ function NewBooking() {
     if (fromQuoteId && qItems.length > 0) setBookingItems(qItems.map(rowToLineItem));
   }, [fromQuoteId, qItems]);
 
+  const balance = Math.max(0, Number(form.amount) - Number(form.advance_paid ?? 0));
+
   const save = useMutation({
     mutationFn: async () => {
       const b = await createBooking(form);
       if (fromQuoteId && qItems.length > 0) {
         await addBookingItems(b.id, quoteItemsToBookingInputs(qItems));
+        // Mark source quote Confirmed on successful conversion
+        try {
+          const { setStatus } = await import("@/lib/quotes-api");
+          await setStatus(fromQuoteId, "Confirmed");
+        } catch {}
       } else if (bookingItems.length > 0) {
         await addBookingItems(b.id, bookingItems);
       }
@@ -121,8 +163,6 @@ function NewBooking() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const balance = Math.max(0, Number(form.amount) - Number(form.advance_paid ?? 0));
-
   return (
     <>
       <Topbar title="New Booking" subtitle={fromQuoteId ? "Converting quote to booking" : "Create a direct booking"} />
@@ -133,27 +173,35 @@ function NewBooking() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
           <div className="space-y-6">
-            <section className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
-              <h4 className="font-display text-lg">Guest Details</h4>
+            <Card title="Guest Details">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Guest Name" icon={User} required>
                   <input className={inputCls} value={form.guest_name} onChange={(e) => update("guest_name", e.target.value)} />
                 </Field>
-                <Field label="Phone" icon={Phone}>
-                  <input className={inputCls} value={form.phone ?? ""} onChange={(e) => update("phone", e.target.value)} />
-                </Field>
-                <Field label="Email" icon={Mail}>
-                  <input className={inputCls} value={form.email ?? ""} onChange={(e) => update("email", e.target.value)} />
-                </Field>
-                <Field label="Status">
-                  <select className={inputCls} value={form.status} onChange={(e) => update("status", e.target.value as any)}>
-                    {BOOKING_STATUSES.map((s) => <option key={s}>{s}</option>)}
-                  </select>
+                <Field label="Phone" icon={Phone} required>
+                  <input className={inputCls} placeholder="+91 ..." value={form.phone ?? ""} onChange={(e) => update("phone", e.target.value)} />
                 </Field>
               </div>
 
-              {!form.customer_id && (
-                <div>
+              {matchedCustomer && !forceNew && !form.customer_id && (
+                <div className="mt-4">
+                  <ExistingCustomerBanner
+                    customer={matchedCustomer}
+                    onUseExisting={useExistingCustomer}
+                    onCreateNew={() => { setForceNew(true); toast.info("Will create a new customer record."); }}
+                  />
+                </div>
+              )}
+
+              {form.customer_id && cust && (
+                <div className="mt-3 rounded-md border border-gold/30 bg-gold-soft/30 px-3 py-2 text-xs flex items-center justify-between">
+                  <span>Linked to <Link to="/customers/$id" params={{ id: cust.id }} className="text-gold font-medium hover:underline">{cust.guest_name}</Link> <span className="font-mono text-muted-foreground">{cust.customer_reference}</span></span>
+                  <button onClick={() => { update("customer_id", null); setMatchedCustomer(null); }} className="text-[10px] uppercase text-muted-foreground hover:text-foreground">Change</button>
+                </div>
+              )}
+
+              {!form.customer_id && !matchedCustomer && ((form.guest_name?.trim().length ?? 0) >= 2 || (form.phone?.trim().length ?? 0) >= 2) && (
+                <div className="mt-3">
                   <CustomerAutocomplete
                     name={form.guest_name}
                     phone={form.phone ?? ""}
@@ -166,60 +214,83 @@ function NewBooking() {
                         phone: c.phone ?? f.phone,
                         email: c.email ?? f.email,
                       }));
+                      setMatchedCustomer(c);
+                      setForceNew(false);
                     }}
                   />
                 </div>
               )}
-              {cust && (
-                <div className="rounded-md border border-gold/30 bg-gold-soft/30 px-3 py-2 text-xs flex items-center justify-between">
-                  <span>Linked to <Link to="/customers/$id" params={{ id: cust.id }} className="text-gold font-medium hover:underline">{cust.guest_name}</Link> <span className="font-mono text-muted-foreground">{cust.customer_reference}</span></span>
-                  <button onClick={() => update("customer_id", "")} className="text-[10px] uppercase text-muted-foreground hover:text-foreground">Change</button>
-                </div>
-              )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <NumField label="Guests" value={form.guests} min={1} onChange={(v) => update("guests", v)} />
-                <NumField label="Adults" value={form.adults} min={1} onChange={(v) => update("adults", v)} />
-                <NumField label="Children" value={form.children} min={0} onChange={(v) => update("children", v)} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <Field label="Email" icon={Mail}>
+                  <input className={inputCls} value={form.email ?? ""} onChange={(e) => update("email", e.target.value)} />
+                </Field>
+                <Field label="Lead Source">
+                  <select className={inputCls} value={leadSource} onChange={(e) => setLeadSource(e.target.value)}>
+                    {LEAD_SOURCES.map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                </Field>
               </div>
-            </section>
 
-            <section className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
-              <h4 className="font-display text-lg flex items-center gap-2"><BedDouble className="h-4 w-4 text-gold" /> Stay Items</h4>
+              <div className="mt-5 rounded-lg border border-border bg-secondary/30 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="h-4 w-4 text-gold" />
+                  <span className="text-sm font-medium">Group Size</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <NumField label="# of Guests" value={form.guests} min={1} onChange={(v) => { update("guests", v); if (form.adults > v) update("adults", v); }} />
+                  <NumField label="# of Adults" value={form.adults} min={1} onChange={(v) => update("adults", v)} />
+                  <NumField label="# of Children" hint="Age below 8 years" value={form.children} min={0} onChange={(v) => update("children", v)} />
+                </div>
+              </div>
+            </Card>
+
+            <Card title="Stay Dates">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Check-in" icon={CalendarDays} required>
+                  <input type="date" className={inputCls} value={form.check_in} onChange={(e) => update("check_in", e.target.value)} />
+                </Field>
+                <Field label="Check-out" icon={CalendarDays} required>
+                  <input type="date" className={inputCls} value={form.check_out} onChange={(e) => update("check_out", e.target.value)} />
+                </Field>
+              </div>
+            </Card>
+
+            <Card title="Rooms / Split Stay">
               <LineItemsEditor
                 items={bookingItems}
                 onChange={setBookingItems}
-                title="Rooms / Split Stay"
-                hint="Add rooms and stays. Amount auto-syncs with items total."
+                title="Rooms / Stay Items"
+                hint="Add rooms and stays. Total auto-syncs with items."
                 startIndex={1}
               />
-              <div className="flex items-baseline justify-between border-t border-border pt-3 text-sm">
+              <div className="flex items-baseline justify-between border-t border-border pt-3 mt-3 text-sm">
                 <span className="text-muted-foreground">Items Total</span>
                 <span className="font-display text-xl gold-text-gradient">₹{itemsTotal.toLocaleString("en-IN")}</span>
               </div>
-            </section>
+            </Card>
 
-            <section className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
-              <h4 className="font-display text-lg">Payment</h4>
+            <Card title="Booking & Payment">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Field label="Status">
+                  <select className={inputCls} value={form.status} onChange={(e) => update("status", e.target.value as any)}>
+                    {BOOKING_STATUSES.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </Field>
                 <NumField label="Total Amount (₹)" value={form.amount} min={0} onChange={(v) => update("amount", v)} prefix="₹" />
                 <NumField label="Advance Paid (₹)" value={form.advance_paid ?? 0} min={0} onChange={(v) => update("advance_paid", v)} prefix="₹" />
-                <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Balance Payable</div>
-                  <div className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</div>
-                </div>
               </div>
-              <Field label="Room Details (summary)">
-                <input className={inputCls} placeholder="e.g. Oak Room × 1, Deluxe × 2"
-                  value={form.room_details ?? ""} onChange={(e) => update("room_details", e.target.value)} />
-              </Field>
+              <div className="mt-3 rounded-md bg-secondary/40 border border-border px-3 py-2.5 flex items-center justify-between">
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>
+                <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
+              </div>
               <Field label="Notes (visible)">
-                <textarea rows={2} className={cn(inputCls, "resize-none")} value={form.notes ?? ""} onChange={(e) => update("notes", e.target.value)} />
+                <textarea rows={2} className={cn(inputCls, "resize-none mt-1")} value={form.notes ?? ""} onChange={(e) => update("notes", e.target.value)} />
               </Field>
               <Field label="Internal Notes (never shared)">
-                <textarea rows={2} className={cn(inputCls, "resize-none")} value={form.internal_notes ?? ""} onChange={(e) => update("internal_notes", e.target.value)} />
+                <textarea rows={2} className={cn(inputCls, "resize-none mt-1")} value={form.internal_notes ?? ""} onChange={(e) => update("internal_notes", e.target.value)} />
               </Field>
-            </section>
+            </Card>
           </div>
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
@@ -233,22 +304,22 @@ function NewBooking() {
                 <span className="font-display text-2xl gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
               </div>
             </div>
-            <button onClick={() => save.mutate()} disabled={save.isPending || !form.guest_name.trim() || !form.customer_id}
+            <button onClick={() => save.mutate()} disabled={save.isPending || !form.guest_name.trim()}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] disabled:opacity-60">
               {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Create Booking
+              <BedDouble className="h-4 w-4" /> Create Booking
             </button>
-            {!form.customer_id && <p className="text-[11px] text-warning text-center">Pick or create a customer first.</p>}
+            <p className="text-[10px] text-muted-foreground text-center">Customer is automatically created/linked from phone or email.</p>
           </div>
         </div>
 
-        {/* Mobile create button */}
+        {/* Mobile sticky create */}
         <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur p-3">
           <div className="flex items-center justify-between mb-2 px-1">
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance</span>
             <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
           </div>
-          <button onClick={() => save.mutate()} disabled={save.isPending || !form.guest_name.trim() || !form.customer_id}
+          <button onClick={() => save.mutate()} disabled={save.isPending || !form.guest_name.trim()}
             className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60">
             {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Create Booking
@@ -256,6 +327,16 @@ function NewBooking() {
         </div>
       </div>
     </>
+  );
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      className="luxe-card rounded-xl p-5 md:p-6">
+      <h4 className="font-display text-lg mb-4">{title}</h4>
+      {children}
+    </motion.section>
   );
 }
 
