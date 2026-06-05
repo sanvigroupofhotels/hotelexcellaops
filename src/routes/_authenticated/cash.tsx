@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
 import { useUserRole } from "@/hooks/use-role";
 import {
-  listCashTx, createCashTx, softDeleteCashTx,
+  listCashTx, createCashTx, updateCashTx, softDeleteCashTx, reactivateCashTx, hardDeleteCashTx,
+  getCashTxCreator, listCashTxActivities,
   listStaff, createStaff, updateStaff,
   listExpenseTypes, createExpenseType, updateExpenseType,
   COLLECTION_TYPES, type CashTxRow,
@@ -15,6 +16,7 @@ import { toast } from "sonner";
 import {
   Plus, Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Search, X,
   Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download, Printer,
+  Pencil, PowerOff, Power, Clock, User as UserIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
@@ -64,29 +66,36 @@ function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
     Staff: t.staff_name ?? "",
     Amount: Number(t.amount),
     Notes: t.notes ?? "",
+    Active: t.active ? "Yes" : "No",
   }));
   downloadCSV(`cash-${range}-${new Date().toISOString().slice(0,10)}.csv`, rows);
   toast.success("Exported");
 }
 
 function CashPage() {
-  const { isAdmin } = useUserRole();
+  const { isAdmin, canManage } = useUserRole();
   const [tab, setTab] = useState<"dashboard" | "staff" | "etypes">("dashboard");
   const [range, setRange] = useState<RangeKey>("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [openForm, setOpenForm] = useState<null | "collection" | "expense">(null);
+  const [openForm, setOpenForm] = useState<null | { kind: "collection" | "expense"; tx?: CashTxRow }>(null);
+  const [detailTx, setDetailTx] = useState<CashTxRow | null>(null);
+  const [includeInactive, setIncludeInactive] = useState(false);
 
-  const bounds = useMemo(() => rangeBounds(range, customFrom, customTo), [range, customFrom, customTo]);
+  const bounds = useMemo(() => ({ ...rangeBounds(range, customFrom, customTo), includeInactive }),
+    [range, customFrom, customTo, includeInactive]);
 
   const { data: tx = [] } = useQuery({
-    queryKey: ["cash-tx", bounds.from, bounds.to],
+    queryKey: ["cash-tx", bounds.from, bounds.to, includeInactive],
     queryFn: () => listCashTx(bounds),
   });
 
   const totals = useMemo(() => {
     let collected = 0, spent = 0;
-    for (const t of tx) { if (t.kind === "collection") collected += Number(t.amount); else spent += Number(t.amount); }
+    for (const t of tx) {
+      if (!t.active) continue;
+      if (t.kind === "collection") collected += Number(t.amount); else spent += Number(t.amount);
+    }
     return { collected, spent, balance: collected - spent };
   }, [tx]);
 
@@ -119,6 +128,10 @@ function CashPage() {
                   <input type="date" className={cn(inputCls,"!py-1.5 w-auto")} value={customTo} onChange={e=>setCustomTo(e.target.value)} />
                 </div>
               )}
+              <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <input type="checkbox" checked={includeInactive} onChange={e=>setIncludeInactive(e.target.checked)} />
+                Show inactive
+              </label>
             </div>
 
             {/* Top cards */}
@@ -128,27 +141,35 @@ function CashPage() {
               <StatCard label="Current Balance" value={totals.balance} icon={Wallet} tone="gold" />
             </div>
 
-            {/* Actions */}
+            {/* Primary actions — same size, shape, prominence; only color differs */}
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={()=>setOpenForm({ kind: "collection" })}
+                className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white shadow-[0_0_24px_oklch(0.72_0.18_150/0.25)] transition hover:brightness-110"
+                style={{ background: "linear-gradient(135deg, oklch(0.65 0.18 150), oklch(0.55 0.18 150))" }}>
+                <ArrowDownCircle className="h-4 w-4"/> Add Cash Collection
+              </button>
+              <button onClick={()=>setOpenForm({ kind: "expense" })}
+                className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white shadow-[0_0_24px_oklch(0.6_0.22_25/0.25)] transition hover:brightness-110"
+                style={{ background: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.52 0.22 25))" }}>
+                <ArrowUpCircle className="h-4 w-4"/> Add Cash Expense
+              </button>
+            </div>
+
+            {/* Secondary actions */}
             <div className="flex flex-wrap gap-2">
-              <button onClick={()=>setOpenForm("collection")}
-                className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal">
-                <Plus className="h-4 w-4"/> Add Cash Collection
-              </button>
-              <button onClick={()=>setOpenForm("expense")}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium hover:border-gold/40">
-                <Plus className="h-4 w-4"/> Add Cash Expense
-              </button>
               <button onClick={() => exportCashCSV(tx, range)}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
                 <Download className="h-4 w-4 text-gold"/> Export Excel
               </button>
               <button onClick={() => window.print()}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
                 <Printer className="h-4 w-4 text-gold"/> Export PDF
               </button>
             </div>
 
-            <TransactionHistory tx={tx} isAdmin={isAdmin} />
+            <TransactionHistory tx={tx} isAdmin={isAdmin} canManage={canManage}
+              onEdit={(t) => setOpenForm({ kind: t.kind, tx: t })}
+              onOpen={(t) => setDetailTx(t)} />
           </>
         )}
 
@@ -157,7 +178,11 @@ function CashPage() {
       </div>
 
       {openForm && (
-        <TxFormModal kind={openForm} onClose={()=>setOpenForm(null)} />
+        <TxFormModal kind={openForm.kind} edit={openForm.tx} onClose={()=>setOpenForm(null)} />
+      )}
+      {detailTx && (
+        <TxDetailModal tx={detailTx} onClose={()=>setDetailTx(null)}
+          onEdit={() => { setOpenForm({ kind: detailTx.kind, tx: detailTx }); setDetailTx(null); }} />
       )}
     </>
   );
@@ -188,16 +213,33 @@ function StatCard({ label, value, icon: Icon, tone }: { label: string; value: nu
 }
 
 // ---------- Transaction History ----------
-function TransactionHistory({ tx, isAdmin }: { tx: CashTxRow[]; isAdmin: boolean }) {
+function TransactionHistory({
+  tx, isAdmin, canManage, onEdit, onOpen,
+}: {
+  tx: CashTxRow[]; isAdmin: boolean; canManage: boolean;
+  onEdit: (t: CashTxRow) => void; onOpen: (t: CashTxRow) => void;
+}) {
   const [q, setQ] = useState("");
   const [kind, setKind] = useState<""|"collection"|"expense">("");
   const [type, setType] = useState("");
   const [staff, setStaff] = useState("");
   const qc = useQueryClient();
-  const del = useMutation({
+  const [confirmDelete, setConfirmDelete] = useState<CashTxRow | null>(null);
+
+  const deact = useMutation({
     mutationFn: softDeleteCashTx,
-    onSuccess: () => { toast.success("Entry removed"); qc.invalidateQueries({ queryKey:["cash-tx"] }); },
-    onError: (e: any) => toast.error(e.message),
+    onSuccess: () => { toast.success("Transaction deactivated"); qc.invalidateQueries({ queryKey:["cash-tx"] }); },
+    onError: (e:any) => toast.error(e.message),
+  });
+  const react = useMutation({
+    mutationFn: reactivateCashTx,
+    onSuccess: () => { toast.success("Transaction reactivated"); qc.invalidateQueries({ queryKey:["cash-tx"] }); },
+    onError: (e:any) => toast.error(e.message),
+  });
+  const hard = useMutation({
+    mutationFn: hardDeleteCashTx,
+    onSuccess: () => { toast.success("Transaction deleted"); setConfirmDelete(null); qc.invalidateQueries({ queryKey:["cash-tx"] }); },
+    onError: (e:any) => toast.error(e.message),
   });
 
   const filtered = useMemo(() => tx.filter(t => {
@@ -236,62 +278,202 @@ function TransactionHistory({ tx, isAdmin }: { tx: CashTxRow[]; isAdmin: boolean
       </div>
 
       <div className="overflow-x-auto -mx-4 md:mx-0">
-        <table className="w-full text-sm min-w-[760px]">
+        <table className="w-full text-sm min-w-[860px]">
           <thead className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
             <tr>
               <th className="px-3 py-2">Date</th><th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">Category</th><th className="px-3 py-2">Guest</th>
-              <th className="px-3 py-2">Booking/Room</th><th className="px-3 py-2">Staff</th>
+              <th className="px-3 py-2">Entered By</th>
               <th className="px-3 py-2 text-right">Amount</th>
-              {isAdmin && <th className="px-3 py-2"></th>}
+              <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={isAdmin?8:7} className="text-center text-muted-foreground py-8">No transactions</td></tr>
+              <tr><td colSpan={7} className="text-center text-muted-foreground py-8">No transactions</td></tr>
             )}
             {filtered.map(t => (
-              <tr key={t.id} className="border-b border-border/60 hover:bg-secondary/40">
+              <tr key={t.id} className={cn("border-b border-border/60 hover:bg-secondary/40", !t.active && "opacity-50")}>
                 <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{new Date(t.occurred_at).toLocaleString("en-IN",{dateStyle:"short",timeStyle:"short"})}</td>
                 <td className="px-3 py-2">
                   <span className={cn("text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5",
                     t.kind==="collection" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
                     {t.kind==="collection"?"In":"Out"}
                   </span>
+                  {!t.active && <span className="ml-1 text-[9px] uppercase text-muted-foreground">Inactive</span>}
                 </td>
-                <td className="px-3 py-2">{t.type_name}{t.description ? <span className="block text-[10px] text-muted-foreground">{t.description}</span> : null}</td>
+                <td className="px-3 py-2">
+                  {t.type_name}
+                  {t.description ? <span className="block text-[10px] text-muted-foreground">{t.description}</span> : null}
+                  {t.booking_id && <Link to="/bookings/$id" params={{id:t.booking_id}} className="block text-[10px] text-gold hover:underline">View booking</Link>}
+                </td>
                 <td className="px-3 py-2">
                   {t.guest_name ?? "—"}
                   {t.guest_mobile && <span className="block text-[10px] text-muted-foreground">{t.guest_mobile}</span>}
                 </td>
-                <td className="px-3 py-2 text-[11px]">
-                  {t.booking_id ? <Link to="/bookings/$id" params={{id:t.booking_id}} className="text-gold hover:underline">Booking</Link> : "—"}
-                  {t.room_number && <span className="block text-muted-foreground">Room {t.room_number}</span>}
-                </td>
-                <td className="px-3 py-2">{t.staff_name ?? "—"}</td>
+                <td className="px-3 py-2 text-[11px]">{t.staff_name ?? "—"}</td>
                 <td className={cn("px-3 py-2 text-right font-medium tabular-nums",
                   t.kind==="collection" ? "text-success" : "text-destructive")}>
                   {t.kind==="collection"?"+":"-"}₹{Number(t.amount).toLocaleString("en-IN")}
                 </td>
-                {isAdmin && (
-                  <td className="px-3 py-2 text-right">
-                    <button onClick={()=>{ if (confirm("Remove this entry?")) del.mutate(t.id); }}
-                      className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4"/></button>
-                  </td>
-                )}
+                <td className="px-3 py-2">
+                  <div className="flex items-center justify-end gap-1">
+                    <button title="View / activity" onClick={()=>onOpen(t)} className="p-1 text-muted-foreground hover:text-foreground"><HistoryIcon className="h-4 w-4"/></button>
+                    <button title="Edit" onClick={()=>onEdit(t)} className="p-1 text-muted-foreground hover:text-foreground"><Pencil className="h-4 w-4"/></button>
+                    {t.active ? (
+                      <button title="Deactivate" onClick={()=>{ if (confirm("Deactivate this transaction?")) deact.mutate(t.id); }}
+                        className="p-1 text-muted-foreground hover:text-warning"><PowerOff className="h-4 w-4"/></button>
+                    ) : canManage ? (
+                      <button title="Reactivate" onClick={()=>react.mutate(t.id)}
+                        className="p-1 text-muted-foreground hover:text-success"><Power className="h-4 w-4"/></button>
+                    ) : null}
+                    {isAdmin && (
+                      <button title="Delete (admin)" onClick={()=>setConfirmDelete(t)}
+                        className="p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4"/></button>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete Transaction?"
+          message={<>This will permanently delete <strong>{confirmDelete.type_name} · ₹{Number(confirmDelete.amount).toLocaleString("en-IN")}</strong>.<br/><span className="text-destructive">This action cannot be undone.</span></>}
+          confirmLabel="Delete permanently"
+          danger
+          loading={hard.isPending}
+          onConfirm={() => hard.mutate(confirmDelete.id)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }
 
-// ---------- Tx Form Modal ----------
-function TxFormModal({ kind, onClose, prefill }: { kind: "collection"|"expense"; onClose: ()=>void; prefill?: Partial<any> }) {
+function ConfirmDialog({ title, message, confirmLabel, danger, loading, onConfirm, onCancel }: {
+  title: string; message: React.ReactNode; confirmLabel: string; danger?: boolean; loading?: boolean;
+  onConfirm: () => void; onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onCancel}>
+      <div onClick={e=>e.stopPropagation()} className="w-full max-w-md bg-card border border-border rounded-xl p-6 shadow-2xl">
+        <h3 className="font-display text-lg mb-2">{title}</h3>
+        <div className="text-sm text-muted-foreground mb-5">{message}</div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onCancel} className="px-4 py-2 text-sm rounded-md border border-border">Cancel</button>
+          <button onClick={onConfirm} disabled={loading}
+            className={cn("inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md font-medium text-white disabled:opacity-60",
+              danger ? "bg-destructive hover:bg-destructive/90" : "gold-gradient text-charcoal")}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin"/>}{confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Tx Detail / Activity Modal ----------
+function TxDetailModal({ tx, onClose, onEdit }: { tx: CashTxRow; onClose: () => void; onEdit: () => void }) {
+  const { data: activities = [] } = useQuery({
+    queryKey: ["cash-tx-activities", tx.id],
+    queryFn: () => listCashTxActivities(tx.id),
+  });
+  const { data: creator } = useQuery({
+    queryKey: ["cash-tx-creator", tx.id],
+    queryFn: () => getCashTxCreator(tx),
+  });
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/70 backdrop-blur-sm p-0 md:p-4" onClick={onClose}>
+      <motion.div initial={{y:40,opacity:0}} animate={{y:0,opacity:1}}
+        onClick={e=>e.stopPropagation()}
+        className="w-full md:max-w-2xl bg-card border border-border rounded-t-2xl md:rounded-xl max-h-[92vh] overflow-y-auto">
+        <div className="sticky top-0 bg-card border-b border-border px-5 py-4 flex items-center justify-between">
+          <div>
+            <h3 className="font-display text-lg">{tx.kind==="collection"?"Cash Collection":"Cash Expense"}</h3>
+            <p className="text-[11px] text-muted-foreground">{tx.type_name} · ₹{Number(tx.amount).toLocaleString("en-IN")}</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={onEdit} className="p-2 text-muted-foreground hover:text-foreground" title="Edit"><Pencil className="h-4 w-4"/></button>
+            <button onClick={onClose} className="p-2 text-muted-foreground hover:text-foreground"><X className="h-5 w-5"/></button>
+          </div>
+        </div>
+        <div className="p-5 space-y-4">
+          {/* Entered By prominent */}
+          <div className="rounded-lg border border-gold/30 bg-gold-soft/30 p-4 grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1"><UserIcon className="h-3 w-3"/> Entered By</div>
+              <div className="font-medium mt-0.5">{creator?.name ?? "—"} {creator?.role && <span className="text-[10px] text-muted-foreground">({creator.role})</span>}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3"/> Created</div>
+              <div className="font-medium mt-0.5">{new Date(creator?.at ?? tx.created_at).toLocaleString("en-IN")}</div>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <DetailRow label="Category" value={tx.type_name} />
+            <DetailRow label="Amount" value={`₹${Number(tx.amount).toLocaleString("en-IN")}`} />
+            {tx.description && <DetailRow label="Description" value={tx.description} />}
+            {tx.guest_name && <DetailRow label="Guest" value={tx.guest_name} />}
+            {tx.guest_mobile && <DetailRow label="Mobile" value={tx.guest_mobile} />}
+            {tx.room_number && <DetailRow label="Room" value={tx.room_number} />}
+            {tx.staff_name && <DetailRow label="Staff" value={tx.staff_name} />}
+            <DetailRow label="Date/Time" value={new Date(tx.occurred_at).toLocaleString("en-IN")} />
+            <DetailRow label="Status" value={tx.active ? "Active" : "Inactive"} />
+            {tx.booking_id && <DetailRow label="Booking" value={<Link to="/bookings/$id" params={{id:tx.booking_id}} className="text-gold hover:underline">Open booking</Link>} />}
+            {tx.notes && <DetailRow label="Notes" value={tx.notes} full />}
+          </div>
+
+          {/* Activity History */}
+          <div className="border-t border-border pt-4">
+            <h4 className="text-sm font-medium mb-3 flex items-center gap-2"><HistoryIcon className="h-4 w-4 text-gold"/> Activity History</h4>
+            <div className="space-y-3">
+              {activities.length === 0 && <p className="text-xs text-muted-foreground">No activity recorded.</p>}
+              {activities.map(a => (
+                <div key={a.id} className="flex gap-3 text-sm">
+                  <div className={cn("mt-1 h-2 w-2 rounded-full shrink-0",
+                    a.action==="created" ? "bg-success" : a.action==="deleted" ? "bg-destructive" :
+                    a.action==="deactivated" ? "bg-warning" : a.action==="reactivated" ? "bg-success" : "bg-gold")} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[11px] text-muted-foreground">
+                      {new Date(a.created_at).toLocaleString("en-IN")} · {a.actor_name ?? "Unknown"} {a.actor_role && <span className="text-[10px]">({a.actor_role})</span>}
+                    </div>
+                    <div className="text-sm">{a.summary ?? a.action}</div>
+                    {a.field && (a.old_value || a.new_value) && (
+                      <div className="mt-1 text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground">{a.field}:</span>{" "}
+                        <span className="line-through">{a.old_value ?? "—"}</span>{" → "}
+                        <span className="text-foreground">{a.new_value ?? "—"}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, full }: { label: string; value: React.ReactNode; full?: boolean }) {
+  return (
+    <div className={cn(full && "col-span-2")}>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-sm">{value}</div>
+    </div>
+  );
+}
+
+// ---------- Tx Form Modal (Create + Edit) ----------
+function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; edit?: CashTxRow; onClose: ()=>void }) {
   const qc = useQueryClient();
-  // form state
   const { data: staff = [] } = useQuery({ queryKey: ["staff","active"], queryFn: () => listStaff(true) });
   const { data: etypes = [] } = useQuery({ queryKey: ["etypes","active"], queryFn: () => listExpenseTypes(true) });
   const { data: bookings = [] } = useQuery({
@@ -300,27 +482,25 @@ function TxFormModal({ kind, onClose, prefill }: { kind: "collection"|"expense";
     enabled: kind === "collection",
   });
 
-  const [typeName, setTypeName] = useState<string>(
-    prefill?.type_name ?? (kind === "collection" ? COLLECTION_TYPES[0] : (etypes[0]?.name ?? "")),
-  );
-  const [description, setDescription] = useState(prefill?.description ?? "");
-  const [guestName, setGuestName] = useState(prefill?.guest_name ?? "");
-  const [guestMobile, setGuestMobile] = useState(prefill?.guest_mobile ?? "");
-  const [roomNumber, setRoomNumber] = useState(prefill?.room_number ?? "");
-  const [bookingId, setBookingId] = useState<string | null>(prefill?.booking_id ?? null);
+  const isEdit = !!edit;
+  const [typeName, setTypeName] = useState<string>(edit?.type_name ?? (kind === "collection" ? COLLECTION_TYPES[0] : (etypes[0]?.name ?? "")));
+  const [description, setDescription] = useState(edit?.description ?? "");
+  const [guestName, setGuestName] = useState(edit?.guest_name ?? "");
+  const [guestMobile, setGuestMobile] = useState(edit?.guest_mobile ?? "");
+  const [roomNumber, setRoomNumber] = useState(edit?.room_number ?? "");
+  const [bookingId, setBookingId] = useState<string | null>(edit?.booking_id ?? null);
   const [bookingSearch, setBookingSearch] = useState("");
-  const [staffId, setStaffId] = useState<string>(prefill?.staff_id ?? "");
-  const [amount, setAmount] = useState<number>(prefill?.amount ?? 0);
-  const [notes, setNotes] = useState("");
+  const [staffId, setStaffId] = useState<string>(edit?.staff_id ?? "");
+  const [amount, setAmount] = useState<number>(edit?.amount ?? 0);
+  const [notes, setNotes] = useState(edit?.notes ?? "");
   const [occurredAt, setOccurredAt] = useState<string>(() => {
-    const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    const d = edit ? new Date(edit.occurred_at) : new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     return d.toISOString().slice(0,16);
   });
 
   const isOther = typeName === "Other" || typeName === "Others";
-  // initialize expense type once list loads
   if (kind==="expense" && etypes.length>0 && !typeName) {
-    // defer to next tick to avoid setState during render
     queueMicrotask(() => setTypeName(etypes[0].name));
   }
 
@@ -336,23 +516,26 @@ function TxFormModal({ kind, onClose, prefill }: { kind: "collection"|"expense";
 
   const selectedBooking = bookings.find(b => b.id === bookingId);
 
+  const payload = () => ({
+    kind, type_name: typeName,
+    description: isOther ? description : null,
+    guest_name: guestName || null,
+    guest_mobile: guestMobile || null,
+    room_number: roomNumber || null,
+    booking_id: bookingId,
+    staff_id: staffId,
+    staff_name: staff.find(s => s.id === staffId)?.name ?? null,
+    amount: Number(amount),
+    notes: notes || null,
+    occurred_at: new Date(occurredAt).toISOString(),
+  });
+
   const save = useMutation({
-    mutationFn: () => createCashTx({
-      kind, type_name: typeName,
-      description: isOther ? description : null,
-      guest_name: guestName || null,
-      guest_mobile: guestMobile || null,
-      room_number: roomNumber || null,
-      booking_id: bookingId,
-      staff_id: staffId,
-      staff_name: staff.find(s => s.id === staffId)?.name ?? null,
-      amount: Number(amount),
-      notes: notes || null,
-      occurred_at: new Date(occurredAt).toISOString(),
-    }),
+    mutationFn: () => isEdit ? updateCashTx(edit!.id, payload()) : createCashTx(payload()),
     onSuccess: () => {
-      toast.success(kind==="collection" ? "Collection recorded" : "Expense recorded");
+      toast.success(isEdit ? "Transaction updated" : (kind==="collection" ? "Collection recorded" : "Expense recorded"));
       qc.invalidateQueries({ queryKey: ["cash-tx"] });
+      qc.invalidateQueries({ queryKey: ["cash-tx-activities"] });
       onClose();
     },
     onError: (e: any) => toast.error(e.message),
@@ -364,11 +547,12 @@ function TxFormModal({ kind, onClose, prefill }: { kind: "collection"|"expense";
         onClick={e=>e.stopPropagation()}
         className="w-full md:max-w-xl bg-card border border-border rounded-t-2xl md:rounded-xl max-h-[92vh] overflow-y-auto">
         <div className="sticky top-0 bg-card border-b border-border px-5 py-4 flex items-center justify-between">
-          <h3 className="font-display text-lg">{kind==="collection"?"Add Cash Collection":"Add Cash Expense"}</h3>
+          <h3 className="font-display text-lg">
+            {isEdit ? "Edit " : "Add "}{kind==="collection"?"Cash Collection":"Cash Expense"}
+          </h3>
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-5 w-5"/></button>
         </div>
         <div className="p-5 space-y-4">
-          {/* Type */}
           <Field label={kind==="collection"?"Collection Type":"Expense Type"} required>
             <select className={inputCls} value={typeName} onChange={e=>setTypeName(e.target.value)}>
               {kind==="collection"
@@ -382,7 +566,6 @@ function TxFormModal({ kind, onClose, prefill }: { kind: "collection"|"expense";
             </Field>
           )}
 
-          {/* Collection-only guest/booking fields */}
           {kind==="collection" && !isOther && (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -454,7 +637,7 @@ function TxFormModal({ kind, onClose, prefill }: { kind: "collection"|"expense";
           <button onClick={()=>save.mutate()} disabled={save.isPending}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md gold-gradient text-charcoal font-medium disabled:opacity-60">
             {save.isPending && <Loader2 className="h-4 w-4 animate-spin"/>}
-            Save
+            {isEdit ? "Save Changes" : "Save"}
           </button>
         </div>
       </motion.div>
