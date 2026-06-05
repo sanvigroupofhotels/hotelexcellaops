@@ -382,8 +382,8 @@ function TxFormModal({ kind, onClose, prefill }: { kind: "collection"|"expense";
                         {filteredBookings.map(b => (
                           <button key={b.id} type="button" onClick={() => {
                             setBookingId(b.id);
-                            setGuestName(prev => prev || b.guest_name);
-                            setGuestMobile(prev => prev || (b.phone ?? ""));
+                            setGuestName((prev: string) => prev || b.guest_name);
+                            setGuestMobile((prev: string) => prev || (b.phone ?? ""));
                             setBookingSearch("");
                           }}
                             className="block w-full text-left px-3 py-2 text-xs hover:bg-secondary/60 border-b border-border last:border-0">

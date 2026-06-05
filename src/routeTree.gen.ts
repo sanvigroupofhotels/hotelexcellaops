@@ -19,6 +19,7 @@ import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedGenerateRouteImport } from './routes/_authenticated/generate'
 import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authenticated/follow-ups'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
+import { Route as AuthenticatedCashRouteImport } from './routes/_authenticated/cash'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticated/bookings'
 import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
@@ -77,6 +78,11 @@ const AuthenticatedFollowUpsRoute = AuthenticatedFollowUpsRouteImport.update({
 const AuthenticatedCustomersRoute = AuthenticatedCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedCashRoute = AuthenticatedCashRouteImport.update({
+  id: '/cash',
+  path: '/cash',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AuthenticatedAuditRoute
   '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
+  '/cash': typeof AuthenticatedCashRoute
   '/customers': typeof AuthenticatedCustomersRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/generate': typeof AuthenticatedGenerateRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByTo {
   '/audit': typeof AuthenticatedAuditRoute
   '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
+  '/cash': typeof AuthenticatedCashRoute
   '/customers': typeof AuthenticatedCustomersRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/generate': typeof AuthenticatedGenerateRoute
@@ -184,6 +192,7 @@ export interface FileRoutesById {
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
   '/_authenticated/bookings': typeof AuthenticatedBookingsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
+  '/_authenticated/cash': typeof AuthenticatedCashRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/_authenticated/generate': typeof AuthenticatedGenerateRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/bookings'
     | '/calendar'
+    | '/cash'
     | '/customers'
     | '/follow-ups'
     | '/generate'
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/bookings'
     | '/calendar'
+    | '/cash'
     | '/customers'
     | '/follow-ups'
     | '/generate'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/_authenticated/audit'
     | '/_authenticated/bookings'
     | '/_authenticated/calendar'
+    | '/_authenticated/cash'
     | '/_authenticated/customers'
     | '/_authenticated/follow-ups'
     | '/_authenticated/generate'
@@ -343,6 +355,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/cash': {
+      id: '/_authenticated/cash'
+      path: '/cash'
+      fullPath: '/cash'
+      preLoaderRoute: typeof AuthenticatedCashRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/calendar': {
       id: '/_authenticated/calendar'
       path: '/calendar'
@@ -421,6 +440,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAuditRoute: typeof AuthenticatedAuditRoute
   AuthenticatedBookingsRoute: typeof AuthenticatedBookingsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
+  AuthenticatedCashRoute: typeof AuthenticatedCashRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
   AuthenticatedGenerateRoute: typeof AuthenticatedGenerateRoute
@@ -442,6 +462,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAuditRoute: AuthenticatedAuditRoute,
   AuthenticatedBookingsRoute: AuthenticatedBookingsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
+  AuthenticatedCashRoute: AuthenticatedCashRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
   AuthenticatedGenerateRoute: AuthenticatedGenerateRoute,
