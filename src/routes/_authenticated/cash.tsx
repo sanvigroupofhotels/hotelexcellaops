@@ -51,6 +51,24 @@ function rangeBounds(key: RangeKey, customFrom?: string, customTo?: string) {
   };
 }
 
+function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
+  if (tx.length === 0) { toast.error("No transactions to export"); return; }
+  const rows = tx.map(t => ({
+    Date: new Date(t.occurred_at).toLocaleString("en-IN"),
+    Kind: t.kind === "collection" ? "In" : "Out",
+    Category: t.type_name,
+    Description: t.description ?? "",
+    Guest: t.guest_name ?? "",
+    Mobile: t.guest_mobile ?? "",
+    Room: t.room_number ?? "",
+    Staff: t.staff_name ?? "",
+    Amount: Number(t.amount),
+    Notes: t.notes ?? "",
+  }));
+  downloadCSV(`cash-${range}-${new Date().toISOString().slice(0,10)}.csv`, rows);
+  toast.success("Exported");
+}
+
 function CashPage() {
   const { isAdmin } = useUserRole();
   const [tab, setTab] = useState<"dashboard" | "staff" | "etypes">("dashboard");
