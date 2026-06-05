@@ -28,7 +28,7 @@ export interface BookingRow {
 }
 
 export interface BookingInput {
-  customer_id: string;
+  customer_id?: string | null;
   source_quote_id?: string | null;
   guest_name: string;
   phone?: string | null;
@@ -48,7 +48,6 @@ export interface BookingInput {
 }
 
 export function validateBookingInput(b: BookingInput) {
-  if (!b.customer_id) throw new Error("Customer is required");
   if (!b.guest_name?.trim()) throw new Error("Guest name is required");
   if (!b.check_in || !b.check_out) throw new Error("Stay dates are required");
   if (new Date(b.check_out) <= new Date(b.check_in))
