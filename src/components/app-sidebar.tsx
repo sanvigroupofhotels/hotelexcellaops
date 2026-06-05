@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/use-role";
 import { toast } from "sonner";
+import { InstallAppButton } from "@/components/install-app-button";
 
 type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean };
 
