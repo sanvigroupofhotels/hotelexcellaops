@@ -3,8 +3,9 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, History, Bell, Calendar, BarChart3,
   Users, ListChecks, HelpCircle, Settings, Menu, X, LogOut, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
+  Sun, Moon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/use-role";
