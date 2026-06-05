@@ -20,16 +20,11 @@ export type QuoteStatus =
   | "Failed";
 
 export const QUOTE_STATUSES: QuoteStatus[] = [
-  "Draft",
   "Pending",
   "Sent",
   "Negotiation",
   "Confirmed",
-  "Checked In",
-  "Completed",
-  "Cancelled",
   "Lost",
-  "Expired",
 ];
 
 /** Statuses that represent a booked / revenue-generating quote. */
