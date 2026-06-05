@@ -738,6 +738,7 @@ export type Database = {
         Args: { p_customer_id: string }
         Returns: undefined
       }
+      sweep_stay_completed: { Args: never; Returns: number }
     }
     Enums: {
       activity_type:
