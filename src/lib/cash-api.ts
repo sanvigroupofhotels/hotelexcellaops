@@ -23,6 +23,13 @@ export interface CashTxRow {
   modified_by: string | null;
   created_at: string; updated_at: string;
 }
+export interface CashTxActivity {
+  id: string; tx_id: string;
+  actor_id: string | null; actor_name: string | null; actor_role: string | null;
+  action: "created" | "updated" | "deactivated" | "reactivated" | "deleted";
+  field: string | null; old_value: string | null; new_value: string | null;
+  summary: string | null; created_at: string;
+}
 
 // ---------- Staff ----------
 export async function listStaff(activeOnly = false) {
@@ -81,8 +88,9 @@ export interface CashTxInput {
   occurred_at?: string;
 }
 
-export async function listCashTx(opts?: { from?: string; to?: string }) {
-  let q = supabase.from("cash_transactions" as any).select("*").eq("active", true);
+export async function listCashTx(opts?: { from?: string; to?: string; includeInactive?: boolean }) {
+  let q = supabase.from("cash_transactions" as any).select("*");
+  if (!opts?.includeInactive) q = q.eq("active", true);
   if (opts?.from) q = q.gte("occurred_at", opts.from);
   if (opts?.to) q = q.lte("occurred_at", opts.to);
   const { data, error } = await q.order("occurred_at", { ascending: false }).limit(500);
@@ -90,9 +98,13 @@ export async function listCashTx(opts?: { from?: string; to?: string }) {
   return (data ?? []) as unknown as CashTxRow[];
 }
 
-export async function createCashTx(input: CashTxInput) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not signed in");
+export async function getCashTx(id: string) {
+  const { data, error } = await supabase.from("cash_transactions" as any).select("*").eq("id", id).single();
+  if (error) throw error;
+  return data as unknown as CashTxRow;
+}
+
+function validate(input: Partial<CashTxInput> & { kind: "collection"|"expense"; type_name: string; amount: number; staff_id?: string|null }) {
   const isOther = input.type_name === "Other" || input.type_name === "Others";
   if (input.kind === "collection" && !isOther) {
     if (!input.guest_name?.trim()) throw new Error("Guest name is required");
@@ -102,6 +114,12 @@ export async function createCashTx(input: CashTxInput) {
   if (isOther && !input.description?.trim()) throw new Error("Description is required when type is Other");
   if (!input.staff_id) throw new Error("Staff is required");
   if (!(input.amount > 0)) throw new Error("Amount must be greater than zero");
+}
+
+export async function createCashTx(input: CashTxInput) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+  validate(input);
   const row: any = {
     user_id: user.id, modified_by: user.id,
     occurred_at: input.occurred_at ?? new Date().toISOString(),
@@ -112,9 +130,52 @@ export async function createCashTx(input: CashTxInput) {
   return data as unknown as CashTxRow;
 }
 
+export async function updateCashTx(id: string, patch: Partial<CashTxInput>) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+  const merged: any = { ...patch, modified_by: user.id };
+  if (patch.occurred_at) merged.occurred_at = new Date(patch.occurred_at).toISOString();
+  const { data, error } = await supabase.from("cash_transactions" as any).update(merged).eq("id", id).select().single();
+  if (error) throw error;
+  return data as unknown as CashTxRow;
+}
+
+/** Soft-delete (set active=false). Allowed for staff/owner/admin. */
 export async function softDeleteCashTx(id: string) {
   const { data: { user } } = await supabase.auth.getUser();
   const { error } = await supabase.from("cash_transactions" as any)
     .update({ active: false, modified_by: user?.id ?? null } as any).eq("id", id);
   if (error) throw error;
+}
+
+/** Reactivate a deactivated transaction. */
+export async function reactivateCashTx(id: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase.from("cash_transactions" as any)
+    .update({ active: true, modified_by: user?.id ?? null } as any).eq("id", id);
+  if (error) throw error;
+}
+
+/** Hard-delete — admin only via RLS. */
+export async function hardDeleteCashTx(id: string) {
+  const { error } = await supabase.from("cash_transactions" as any).delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------- Activity log ----------
+export async function listCashTxActivities(txId: string) {
+  const { data, error } = await supabase.from("cash_tx_activities" as any)
+    .select("*").eq("tx_id", txId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as CashTxActivity[];
+}
+
+/** Returns name of the user who created the tx (from the first 'created' activity, fall back to profile of user_id). */
+export async function getCashTxCreator(tx: CashTxRow): Promise<{ name: string | null; role: string | null; at: string } | null> {
+  const { data } = await supabase.from("cash_tx_activities" as any)
+    .select("actor_name, actor_role, created_at")
+    .eq("tx_id", tx.id).eq("action", "created")
+    .order("created_at", { ascending: true }).limit(1).maybeSingle();
+  if (data) return { name: (data as any).actor_name, role: (data as any).actor_role, at: (data as any).created_at };
+  return { name: null, role: null, at: tx.created_at };
 }

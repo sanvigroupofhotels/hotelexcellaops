@@ -262,6 +262,48 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_tx_activities: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          created_at: string
+          field: string | null
+          id: string
+          new_value: string | null
+          old_value: string | null
+          summary: string | null
+          tx_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          created_at?: string
+          field?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          summary?: string | null
+          tx_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          created_at?: string
+          field?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          summary?: string | null
+          tx_id?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           anniversary: string | null
@@ -845,6 +887,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      current_actor: {
+        Args: never
+        Returns: {
+          display_name: string
+          role: string
+          uid: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -876,7 +926,7 @@ export type Database = {
         | "note_added"
         | "deleted"
         | "duplicated"
-      app_role: "admin" | "staff"
+      app_role: "admin" | "staff" | "owner"
       booking_status:
         | "Draft"
         | "Confirmed"
@@ -1042,7 +1092,7 @@ export const Constants = {
         "deleted",
         "duplicated",
       ],
-      app_role: ["admin", "staff"],
+      app_role: ["admin", "staff", "owner"],
       booking_status: [
         "Draft",
         "Confirmed",
