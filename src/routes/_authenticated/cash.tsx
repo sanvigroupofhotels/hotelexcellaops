@@ -14,9 +14,10 @@ import { listBookings } from "@/lib/bookings-api";
 import { toast } from "sonner";
 import {
   Plus, Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Search, X,
-  Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2,
+  Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { downloadCSV } from "@/lib/csv";
 
 export const Route = createFileRoute("/_authenticated/cash")({
   component: CashPage,
