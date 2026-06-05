@@ -12,9 +12,17 @@ export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarView,
 });
 
+/** Local YYYY-MM-DD (no UTC shift). */
+function localDateKey(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function CalendarView() {
   const [cursor, setCursor] = useState(new Date());
-  const [selected, setSelected] = useState<string | null>(new Date().toISOString().slice(0, 10));
+  const [selected, setSelected] = useState<string | null>(localDateKey(new Date()));
   const { data: quotes = [], isLoading: lq } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const isLoading = lq || lb;
