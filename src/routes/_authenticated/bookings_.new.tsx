@@ -44,6 +44,7 @@ function NewBooking() {
     status: "Pending", payment_status: "None",
   });
   const [leadSource, setLeadSource] = useState<string>("Direct");
+  const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
   const update = <K extends keyof BookingInput>(k: K, v: BookingInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
@@ -156,8 +157,33 @@ function NewBooking() {
       }
       return b;
     },
-    onSuccess: (b) => {
+    onSuccess: async (b) => {
       toast.success(`Booking ${b.booking_reference} created`);
+      const advance = Number(form.advance_paid ?? 0);
+      if (paymentMethod === "Cash" && advance > 0) {
+        if (window.confirm(`Cash payment detected.\n\nCreate a Cash Collection entry of ₹${advance.toLocaleString("en-IN")} for this booking?`)) {
+          try {
+            const { listStaff, createCashTx } = await import("@/lib/cash-api");
+            const staff = await listStaff(true);
+            if (staff.length === 0) {
+              toast.error("No active staff configured. Add staff in Cash Management → Staff Master.");
+            } else {
+              const collector = window.prompt(
+                `Collected By? Enter staff name:\n${staff.map(s => `• ${s.name}`).join("\n")}`,
+                staff[0].name,
+              );
+              const chosen = staff.find(s => s.name.toLowerCase() === (collector ?? "").trim().toLowerCase()) ?? staff[0];
+              await createCashTx({
+                kind: "collection", type_name: "Advance Payment",
+                guest_name: b.guest_name, guest_mobile: b.phone, booking_id: b.id,
+                staff_id: chosen.id, staff_name: chosen.name,
+                amount: advance, notes: `Advance for booking ${b.booking_reference}`,
+              });
+              toast.success("Cash collection recorded");
+            }
+          } catch (e: any) { toast.error(e.message); }
+        }
+      }
       navigate({ to: "/bookings/$id", params: { id: b.id } });
     },
     onError: (e: any) => toast.error(e.message),
