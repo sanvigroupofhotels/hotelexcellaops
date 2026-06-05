@@ -82,7 +82,7 @@ function CalendarView() {
               </div>
               <div className="grid grid-cols-7 gap-1">
                 {days.map((d, i) => {
-                  const k = d ? d.toISOString().slice(0, 10) : "";
+                  const k = d ? localDateKey(d) : "";
                   const qCount = (qByArrival[k]?.length ?? 0) + (qByDep[k]?.length ?? 0);
                   const bCount = (bByArrival[k]?.length ?? 0) + (bByDep[k]?.length ?? 0);
                   const isToday = d && d.toDateString() === new Date().toDateString();
