@@ -131,6 +131,44 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+function AppearanceRow() {
+  const [theme, setTheme] = useState<"light"|"dark">("dark");
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("excella-theme");
+      const t = (v === "light" || v === "dark") ? v : "dark";
+      setTheme(t);
+    } catch {}
+  }, []);
+  const setT = (t: "light"|"dark") => {
+    setTheme(t);
+    try { localStorage.setItem("excella-theme", t); } catch {}
+    if (typeof document !== "undefined") {
+      const html = document.documentElement;
+      html.classList.remove("light","dark");
+      html.classList.add(t);
+      html.setAttribute("data-theme", t);
+    }
+  };
+  return (
+    <div className="rounded-md border border-border bg-card/40 p-2">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-1 mb-1.5">Appearance</div>
+      <div className="grid grid-cols-2 gap-1">
+        <button onClick={() => setT("light")}
+          className={cn("flex items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs transition",
+            theme === "light" ? "bg-gold-soft border border-gold/40 text-gold" : "text-muted-foreground hover:text-foreground")}>
+          <Sun className="h-3.5 w-3.5" /> Light
+        </button>
+        <button onClick={() => setT("dark")}
+          className={cn("flex items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs transition",
+            theme === "dark" ? "bg-gold-soft border border-gold/40 text-gold" : "text-muted-foreground hover:text-foreground")}>
+          <Moon className="h-3.5 w-3.5" /> Dark
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AppSidebar() {
   const [open, setOpen] = useState(false);
   return (
