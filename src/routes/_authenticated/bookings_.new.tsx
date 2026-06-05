@@ -306,6 +306,13 @@ function NewBooking() {
                 <NumField label="Total Amount (₹)" value={form.amount} min={0} onChange={(v) => update("amount", v)} prefix="₹" />
                 <NumField label="Advance Paid (₹)" value={form.advance_paid ?? 0} min={0} onChange={(v) => update("advance_paid", v)} prefix="₹" />
               </div>
+              <div className="mt-3">
+                <Field label="Advance Payment Method">
+                  <select className={inputCls} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                    <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
+                  </select>
+                </Field>
+              </div>
               <div className="mt-3 rounded-md bg-secondary/40 border border-border px-3 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>
                 <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
