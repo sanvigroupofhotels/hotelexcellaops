@@ -145,11 +145,21 @@ function GenerateQuote() {
       const c = await findCustomerByContact(
         phoneOk ? form.phone.trim() : undefined,
         emailOk ? form.email! : undefined,
+        form.guest_name,
       );
+      if (!c) { setMatchedCustomer(null); return; }
+      // Exact name + phone → auto-link silently, skip banner.
+      const exact = phoneOk && c.phone === form.phone.trim()
+        && (c.guest_name ?? "").trim().toLowerCase() === form.guest_name.trim().toLowerCase();
+      if (exact) {
+        setForm((f) => ({ ...f, lead_source: c.lead_source ?? f.lead_source }));
+        setMatchedCustomer(null); // suppress banner; will link on save via DB trigger
+        return;
+      }
       setMatchedCustomer(c);
     }, 400);
     return () => clearTimeout(t);
-  }, [form.phone, form.email, forceNew]);
+  }, [form.phone, form.email, form.guest_name, forceNew]);
 
   const c = useMemo(() => {
     const base = calc(form);
