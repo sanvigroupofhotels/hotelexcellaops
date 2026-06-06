@@ -123,8 +123,8 @@ function EditBooking() {
               <Field label="Room Details (summary)">
                 <input className={inputCls} value={form.room_details ?? ""} onChange={(e) => update("room_details", e.target.value)} />
               </Field>
-              <Field label="Notes (visible)">
-                <textarea rows={2} className={cn(inputCls, "resize-none")} value={form.notes ?? ""} onChange={(e) => update("notes", e.target.value)} />
+              <Field label="Special Requests (visible to guest)">
+                <textarea rows={2} className={cn(inputCls, "resize-none")} value={form.notes ?? ""} onChange={(e) => update("notes", e.target.value)} placeholder="Any specific guest requests…" />
               </Field>
               <Field label="Internal Notes (never shared)">
                 <textarea rows={2} className={cn(inputCls, "resize-none")} value={form.internal_notes ?? ""} onChange={(e) => update("internal_notes", e.target.value)} />

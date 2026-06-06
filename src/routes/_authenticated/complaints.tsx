@@ -35,19 +35,39 @@ function ComplaintsPage() {
   const { isAdmin, canManage } = useUserRole();
 
   const [filters, setFilters] = useState<{
-    status: ComplaintStatus | "all";
+    status: ComplaintStatus | "all" | "active";
     priority: ComplaintPriority | "all";
     category: string | "all";
     assignedTo: string | "all" | "unassigned";
     room: string;
+    customer: string;
     from?: string; to?: string;
     search: string;
-  }>({ status: "all", priority: "all", category: "all", assignedTo: "all", room: "", search: "" });
+  }>({ status: "active", priority: "all", category: "all", assignedTo: "all", room: "", customer: "", search: "" });
 
-  const { data: list = [], isLoading } = useQuery({
-    queryKey: ["complaints", filters],
-    queryFn: () => listComplaints(filters),
+  // Translate "active" sentinel into a server-compatible filter, then post-filter client-side.
+  const serverFilters = useMemo(() => ({
+    ...filters,
+    status: filters.status === "active" ? "all" as const : filters.status,
+  }), [filters]);
+
+  const { data: listRaw = [], isLoading } = useQuery({
+    queryKey: ["complaints", serverFilters],
+    queryFn: () => listComplaints(serverFilters as any),
   });
+  const list = useMemo(() => {
+    let rows = listRaw;
+    if (filters.status === "active") rows = rows.filter(r => r.status === "Open" || r.status === "In Progress");
+    if (filters.customer.trim()) {
+      const s = filters.customer.trim().toLowerCase();
+      rows = rows.filter(r =>
+        (r.entered_by_name ?? "").toLowerCase().includes(s) ||
+        (r.assigned_to_name ?? "").toLowerCase().includes(s) ||
+        (r.description ?? "").toLowerCase().includes(s),
+      );
+    }
+    return rows;
+  }, [listRaw, filters.status, filters.customer]);
   const { data: categories = [] } = useQuery({
     queryKey: ["complaint-categories"],
     queryFn: () => listComplaintCategories(),
@@ -115,9 +135,9 @@ function ComplaintsPage() {
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatCard label="Open" value={stats.open} icon={MessageSquareWarning} tone="warning"
-            active={filters.status === "Open"} onClick={() => setFilters(f => ({ ...f, status: f.status === "Open" ? "all" : "Open", priority: "all" }))} />
+            active={filters.status === "Open"} onClick={() => setFilters(f => ({ ...f, status: f.status === "Open" ? "active" : "Open", priority: "all" }))} />
           <StatCard label="In Progress" value={stats.inProgress} icon={Clock} tone="gold"
-            active={filters.status === "In Progress"} onClick={() => setFilters(f => ({ ...f, status: f.status === "In Progress" ? "all" : "In Progress", priority: "all" }))} />
+            active={filters.status === "In Progress"} onClick={() => setFilters(f => ({ ...f, status: f.status === "In Progress" ? "active" : "In Progress", priority: "all" }))} />
           <StatCard label="Resolved Today" value={stats.resolvedToday} icon={CheckCircle2} tone="success"
             onClick={() => setFilters(f => ({ ...f, status: "Resolved" }))} />
           <StatCard label="Critical" value={stats.critical} icon={AlertTriangle} tone="destructive"
@@ -126,9 +146,9 @@ function ComplaintsPage() {
           <StatCard label="Avg Resolution" value={stats.avgHrs === null ? "—" : `${stats.avgHrs}h`} icon={Activity} tone="gold" />
         </div>
 
-        {/* Filters */}
-        <div className="luxe-card rounded-xl p-3 flex flex-wrap gap-2 items-center">
-          <div className="flex items-center gap-2 rounded-md bg-input/60 border border-border px-2.5 py-1.5 flex-1 min-w-[200px]">
+        {/* Filters — 2-col grid (mobile-first) */}
+        <div className="luxe-card rounded-xl p-3 space-y-2">
+          <div className="flex items-center gap-2 rounded-md bg-input/60 border border-border px-2.5 py-1.5">
             <Search className="h-4 w-4 text-muted-foreground" />
             <input
               value={filters.search}
@@ -137,23 +157,38 @@ function ComplaintsPage() {
               className="bg-transparent text-sm outline-none flex-1"
             />
           </div>
-          <FilterSelect label="Status" value={filters.status} onChange={v => setFilters(f => ({ ...f, status: v as any }))}
-            options={[["all", "All Status"], ...COMPLAINT_STATUSES.map(s => [s, s] as [string, string])]} />
-          <FilterSelect label="Priority" value={filters.priority} onChange={v => setFilters(f => ({ ...f, priority: v as any }))}
-            options={[["all", "All Priority"], ...COMPLAINT_PRIORITIES.map(p => [p, p] as [string, string])]} />
-          <FilterSelect label="Category" value={filters.category} onChange={v => setFilters(f => ({ ...f, category: v }))}
-            options={[["all", "All Categories"], ...categories.filter(c => c.active).map(c => [c.name, c.name] as [string, string])]} />
-          <FilterSelect label="Assignee" value={filters.assignedTo} onChange={v => setFilters(f => ({ ...f, assignedTo: v as any }))}
-            options={[["all", "Any Assignee"], ["unassigned", "Unassigned"], ...staff.map(s => [s.id, s.name] as [string, string])]} />
-          <input
-            value={filters.room}
-            onChange={e => setFilters(f => ({ ...f, room: e.target.value }))}
-            placeholder="Room"
-            className="w-24 bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm" />
-          <input type="date" value={filters.from ?? ""} onChange={e => setFilters(f => ({ ...f, from: e.target.value || undefined }))}
-            className="bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm" />
-          <input type="date" value={filters.to ?? ""} onChange={e => setFilters(f => ({ ...f, to: e.target.value || undefined }))}
-            className="bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm" />
+          <div className="grid grid-cols-2 gap-2">
+            <FilterSelect label="Status" value={filters.status} onChange={v => setFilters(f => ({ ...f, status: v as any }))}
+              options={[["active", "Active (Open + In Progress)"], ["all", "All Status"], ...COMPLAINT_STATUSES.map(s => [s, s] as [string, string])]} />
+            <FilterSelect label="Priority" value={filters.priority} onChange={v => setFilters(f => ({ ...f, priority: v as any }))}
+              options={[["all", "All Priority"], ...COMPLAINT_PRIORITIES.map(p => [p, p] as [string, string])]} />
+            <FilterSelect label="Category" value={filters.category} onChange={v => setFilters(f => ({ ...f, category: v }))}
+              options={[["all", "All Categories"], ...categories.filter(c => c.active).map(c => [c.name, c.name] as [string, string])]} />
+            <FilterSelect label="Assignee" value={filters.assignedTo} onChange={v => setFilters(f => ({ ...f, assignedTo: v as any }))}
+              options={[["all", "Any Assignee"], ["unassigned", "Unassigned"], ...staff.map(s => [s.id, s.name] as [string, string])]} />
+            <input
+              value={filters.room}
+              onChange={e => setFilters(f => ({ ...f, room: e.target.value }))}
+              placeholder="Room number"
+              className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/50" />
+            <input
+              value={filters.customer}
+              onChange={e => setFilters(f => ({ ...f, customer: e.target.value }))}
+              placeholder="Customer / staff name"
+              className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/50" />
+            <input
+              type="text" placeholder="From"
+              onFocus={(e) => (e.currentTarget.type = "date")}
+              onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.type = "text"; }}
+              value={filters.from ?? ""} onChange={e => setFilters(f => ({ ...f, from: e.target.value || undefined }))}
+              className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/50" />
+            <input
+              type="text" placeholder="To"
+              onFocus={(e) => (e.currentTarget.type = "date")}
+              onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.type = "text"; }}
+              value={filters.to ?? ""} onChange={e => setFilters(f => ({ ...f, to: e.target.value || undefined }))}
+              className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/50" />
+          </div>
         </div>
 
         {/* List */}
@@ -241,7 +276,7 @@ function FilterSelect({ label, value, onChange, options }: {
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue placeholder={label} /></SelectTrigger>
+      <SelectTrigger className="w-full h-9 text-xs"><SelectValue placeholder={label} /></SelectTrigger>
       <SelectContent>{options.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
     </Select>
   );

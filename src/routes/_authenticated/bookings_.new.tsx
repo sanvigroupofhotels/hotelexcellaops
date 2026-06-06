@@ -325,8 +325,8 @@ function NewBooking() {
                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>
                 <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
               </div>
-              <Field label="Notes (visible)">
-                <textarea rows={2} className={cn(inputCls, "resize-none mt-1")} value={form.notes ?? ""} onChange={(e) => update("notes", e.target.value)} />
+              <Field label="Special Requests (visible to guest)">
+                <textarea rows={2} className={cn(inputCls, "resize-none mt-1")} value={form.notes ?? ""} onChange={(e) => update("notes", e.target.value)} placeholder="Any specific guest requests…" />
               </Field>
               <Field label="Internal Notes (never shared)">
                 <textarea rows={2} className={cn(inputCls, "resize-none mt-1")} value={form.internal_notes ?? ""} onChange={(e) => update("internal_notes", e.target.value)} />

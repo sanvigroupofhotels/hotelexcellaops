@@ -36,11 +36,18 @@ function CalendarView() {
   for (let i = 0; i < startPad; i++) days.push(null);
   for (let d = 1; d <= last.getDate(); d++) days.push(new Date(year, month, d));
 
-  // Index by date — arrivals (check_in) for quotes & bookings
+  // Index by date — arrivals (check_in) for quotes & bookings.
+  // Dedup: if a quote was converted into a booking (booking.source_quote_id === quote.id),
+  // hide the originating quote from the calendar so only the operational record shows.
   const { qByArrival, bByArrival, qByDep, bByDep } = useMemo(() => {
     const qa: Record<string, any[]> = {}, ba: Record<string, any[]> = {};
     const qd: Record<string, any[]> = {}, bd: Record<string, any[]> = {};
+    const convertedQuoteIds = new Set<string>();
+    for (const b of bookings as any[]) {
+      if (b.source_quote_id) convertedQuoteIds.add(b.source_quote_id);
+    }
     for (const q of quotes as any[]) {
+      if (convertedQuoteIds.has(q.id)) continue;
       (qa[q.check_in?.slice(0, 10)] ||= []).push(q);
       (qd[q.check_out?.slice(0, 10)] ||= []).push(q);
     }
