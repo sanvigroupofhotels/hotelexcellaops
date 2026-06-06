@@ -1,16 +1,14 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard, History, Bell, Calendar, BarChart3,
-  Users, ListChecks, HelpCircle, Settings, Menu, X, LogOut, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
-  Sun, Moon,
+  Users, ListChecks, Menu, X, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
+  MessageSquareWarning,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/use-role";
-import { toast } from "sonner";
-import { InstallAppButton } from "@/components/install-app-button";
+import { UserMenu } from "@/components/user-menu";
 
 type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean };
 
@@ -20,6 +18,7 @@ const nav: NavItem[] = [
   { to: "/history", label: "Quotes", icon: History },
   { to: "/bookings", label: "Bookings", icon: BedDouble },
   { to: "/cash", label: "Cash Management", icon: Wallet },
+  { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/follow-ups", label: "Follow-ups", icon: Bell },
   { to: "/calendar", label: "Calendar", icon: Calendar },
@@ -27,7 +26,6 @@ const nav: NavItem[] = [
   { to: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: true },
   { to: "/users", label: "Users", icon: ShieldCheck, adminOnly: true },
 ];
-
 
 function Logo() {
   return (
@@ -52,8 +50,6 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
       {visible.map((item, i) => {
         const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to));
         const Icon = item.icon;
-
-
         return (
           <motion.div
             key={item.to}
@@ -87,85 +83,19 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
-  const initials = (user?.user_metadata?.display_name || user?.email || "?")
-    .split(/[\s@]/).filter(Boolean).slice(0, 2)
-    .map((s: string) => s[0]?.toUpperCase()).join("");
-
   return (
     <div className="flex h-full flex-col">
-      <div className="px-4 py-6"><Logo /></div>
+      <div className="px-4 py-6 flex items-center justify-between">
+        <Logo />
+        <div className="md:hidden">
+          <UserMenu />
+        </div>
+      </div>
       <div className="luxe-divider mx-4 mb-4" />
       <NavItems onNavigate={onNavigate} />
-      <div className="px-3 py-4 space-y-1 border-t border-border/50">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-md">
-          <div className="h-8 w-8 rounded-full bg-gold-soft border border-gold/30 flex items-center justify-center text-xs font-medium text-gold">
-            {initials}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs text-foreground truncate">
-              {user?.user_metadata?.display_name || user?.email}
-            </div>
-            <div className="text-[10px] text-muted-foreground truncate">{user?.email}</div>
-          </div>
-        </div>
-        <InstallAppButton />
-        <AppearanceRow />
-        <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60 transition">
-          <HelpCircle className="h-4 w-4" /> Help & Support
-        </button>
-        <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60 transition">
-          <Settings className="h-4 w-4" /> Settings
-        </button>
-        <button
-          onClick={async () => {
-            await signOut();
-            toast.success("Signed out");
-            navigate({ to: "/login" });
-          }}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
-        >
-          <LogOut className="h-4 w-4" /> Sign out
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function AppearanceRow() {
-  const [theme, setTheme] = useState<"light"|"dark">("dark");
-  useEffect(() => {
-    try {
-      const v = localStorage.getItem("excella-theme");
-      const t = (v === "light" || v === "dark") ? v : "dark";
-      setTheme(t);
-    } catch {}
-  }, []);
-  const setT = (t: "light"|"dark") => {
-    setTheme(t);
-    try { localStorage.setItem("excella-theme", t); } catch {}
-    if (typeof document !== "undefined") {
-      const html = document.documentElement;
-      html.classList.remove("light","dark");
-      html.classList.add(t);
-      html.setAttribute("data-theme", t);
-    }
-  };
-  return (
-    <div className="rounded-md border border-border bg-card/40 p-2">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-1 mb-1.5">Appearance</div>
-      <div className="grid grid-cols-2 gap-1">
-        <button onClick={() => setT("light")}
-          className={cn("flex items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs transition",
-            theme === "light" ? "bg-gold-soft border border-gold/40 text-gold" : "text-muted-foreground hover:text-foreground")}>
-          <Sun className="h-3.5 w-3.5" /> Light
-        </button>
-        <button onClick={() => setT("dark")}
-          className={cn("flex items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs transition",
-            theme === "dark" ? "bg-gold-soft border border-gold/40 text-gold" : "text-muted-foreground hover:text-foreground")}>
-          <Moon className="h-3.5 w-3.5" /> Dark
-        </button>
+      <div className="hidden md:flex items-center justify-between gap-2 px-3 py-3 border-t border-border/50">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Account</span>
+        <UserMenu />
       </div>
     </div>
   );
@@ -177,9 +107,12 @@ export function AppSidebar() {
     <>
       <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-lg border-b border-border print:hidden">
         <Logo />
-        <button onClick={() => setOpen(true)} className="p-2 rounded-md text-muted-foreground hover:text-foreground" aria-label="Open menu">
-          <Menu className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <UserMenu />
+          <button onClick={() => setOpen(true)} className="p-2 rounded-md text-muted-foreground hover:text-foreground" aria-label="Open menu">
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {open && (
