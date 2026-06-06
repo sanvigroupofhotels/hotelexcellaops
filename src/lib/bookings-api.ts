@@ -23,6 +23,7 @@ export interface BookingRow {
   internal_notes: string | null;
   status: BookingStatus;
   payment_status: string;
+  discount: number;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +42,7 @@ export interface BookingInput {
   room_details?: string | null;
   amount: number;
   advance_paid?: number;
+  discount?: number;
   notes?: string | null;
   internal_notes?: string | null;
   status?: BookingStatus;
