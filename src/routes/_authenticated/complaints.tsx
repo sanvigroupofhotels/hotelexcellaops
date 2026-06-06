@@ -276,7 +276,7 @@ function FilterSelect({ label, value, onChange, options }: {
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue placeholder={label} /></SelectTrigger>
+      <SelectTrigger className="w-full h-9 text-xs"><SelectValue placeholder={label} /></SelectTrigger>
       <SelectContent>{options.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
     </Select>
   );
