@@ -125,7 +125,7 @@ function QuoteDetail() {
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] space-y-6 print:p-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
           <Link to="/history" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> Back
+            <ArrowLeft className="h-4 w-4" /> All Quotes
           </Link>
           <div className="flex flex-wrap gap-2">
             <a
