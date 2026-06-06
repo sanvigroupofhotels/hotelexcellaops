@@ -28,28 +28,55 @@ export const Route = createFileRoute("/_authenticated/cash")({
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
 
-type RangeKey = "today" | "yesterday" | "week" | "month" | "custom";
+type RangeKey = "today" | "yesterday" | "week" | "prevWeek" | "month" | "prevMonth" | "custom";
 
-function rangeBounds(key: RangeKey, customFrom?: string, customTo?: string) {
+const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "week", label: "This Week" },
+  { value: "prevWeek", label: "Previous Week" },
+  { value: "month", label: "This Month" },
+  { value: "prevMonth", label: "Previous Month" },
+  { value: "custom", label: "Custom" },
+];
+
+function ymd(d: Date) {
+  const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,"0"); const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
+function presetDates(key: RangeKey): { from: string; to: string } | null {
   const now = new Date();
-  const start = new Date(now); start.setHours(0,0,0,0);
-  const end = new Date(now); end.setHours(23,59,59,999);
-  if (key === "today") return { from: start.toISOString(), to: end.toISOString() };
-  if (key === "yesterday") {
-    start.setDate(start.getDate()-1); end.setDate(end.getDate()-1);
-    return { from: start.toISOString(), to: end.toISOString() };
-  }
+  const today = new Date(now); today.setHours(0,0,0,0);
+  if (key === "today") return { from: ymd(today), to: ymd(today) };
+  if (key === "yesterday") { const d = new Date(today); d.setDate(d.getDate()-1); return { from: ymd(d), to: ymd(d) }; }
   if (key === "week") {
-    start.setDate(start.getDate() - start.getDay());
-    return { from: start.toISOString(), to: end.toISOString() };
+    const s = new Date(today); s.setDate(s.getDate() - s.getDay());
+    const e = new Date(s); e.setDate(s.getDate()+6);
+    return { from: ymd(s), to: ymd(e) };
+  }
+  if (key === "prevWeek") {
+    const s = new Date(today); s.setDate(s.getDate() - s.getDay() - 7);
+    const e = new Date(s); e.setDate(s.getDate()+6);
+    return { from: ymd(s), to: ymd(e) };
   }
   if (key === "month") {
-    start.setDate(1);
-    return { from: start.toISOString(), to: end.toISOString() };
+    const s = new Date(today.getFullYear(), today.getMonth(), 1);
+    const e = new Date(today.getFullYear(), today.getMonth()+1, 0);
+    return { from: ymd(s), to: ymd(e) };
   }
+  if (key === "prevMonth") {
+    const s = new Date(today.getFullYear(), today.getMonth()-1, 1);
+    const e = new Date(today.getFullYear(), today.getMonth(), 0);
+    return { from: ymd(s), to: ymd(e) };
+  }
+  return null;
+}
+
+function rangeBounds(from?: string, to?: string) {
   return {
-    from: customFrom ? new Date(customFrom + "T00:00:00").toISOString() : undefined,
-    to: customTo ? new Date(customTo + "T23:59:59").toISOString() : undefined,
+    from: from ? new Date(from + "T00:00:00").toISOString() : undefined,
+    to: to ? new Date(to + "T23:59:59").toISOString() : undefined,
   };
 }
 
