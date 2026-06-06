@@ -1,13 +1,20 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, updateBooking } from "@/lib/bookings-api";
 import { listBookingItems, replaceBookingItems, rowToLineItem } from "@/lib/booking-items-api";
-import { LineItemsEditor, lineItemsTotal, type LineItem } from "@/components/line-items-editor";
-import { BOOKING_STATUSES } from "@/lib/mock-data";
+import {
+  lineItemsTotal, lineSubtotal, type LineItem,
+} from "@/components/line-items-editor";
+import { BOOKING_STATUSES, getRoomRate } from "@/lib/mock-data";
 import { NumField } from "@/components/num-field";
-import { ArrowLeft, Loader2, BedDouble, User, Phone, Mail, Save } from "lucide-react";
+import {
+  StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
+  type SharedStayValue,
+} from "@/components/shared/stay-form-sections";
+import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -28,28 +35,57 @@ function EditBooking() {
     queryKey: ["booking-items", id], queryFn: () => listBookingItems(id), enabled: !!b,
   });
 
-  const [form, setForm] = useState<any>(null);
-  const [items, setItems] = useState<LineItem[]>([]);
-  useEffect(() => { if (b && !form) setForm({ ...b }); }, [b, form]);
-  useEffect(() => { if (existingItems.length > 0 && items.length === 0) setItems(existingItems.map(rowToLineItem)); }, [existingItems, items.length]);
+  const [stay, setStay] = useState<SharedStayValue>(() => emptyStayValue());
+  const [extras, setExtras] = useState<LineItem[]>([]);
+  const [status, setStatus] = useState<string>("Pending");
+  const [advancePaid, setAdvancePaid] = useState<number>(0);
+  const [loaded, setLoaded] = useState(false);
 
-  const itemsTotal = useMemo(() => lineItemsTotal(items), [items]);
   useEffect(() => {
-    if (items.length > 0) setForm((f: any) => f ? { ...f, amount: itemsTotal } : f);
-  }, [itemsTotal, items.length]);
+    if (!b || loaded) return;
+    setStay((s) => ({
+      ...s,
+      guest_name: b.guest_name ?? "",
+      phone: b.phone ?? "", email: b.email ?? "",
+      adults: b.adults, children: b.children, guests: b.guests,
+      check_in: b.check_in, check_out: b.check_out,
+      discount: Number((b as any).discount ?? 0),
+      special_requests: b.notes ?? "",
+      internal_notes: b.internal_notes ?? "",
+    }));
+    setStatus(b.status as any);
+    setAdvancePaid(Number(b.advance_paid ?? 0));
+  }, [b, loaded]);
+
+  useEffect(() => {
+    if (!b || existingItems.length === 0 || loaded) return;
+    const items = existingItems.map(rowToLineItem);
+    setStay((s) => ({ ...s, ...lineItemToPrimary(items[0]) } as SharedStayValue));
+    setExtras(items.slice(1));
+    setLoaded(true);
+  }, [b, existingItems, loaded]);
+
+  const itemsTotal = useMemo(() => {
+    const rate = getRoomRate(stay.room_type, stay.breakfast_included);
+    return lineSubtotal(primaryToLineItem(stay, rate)) + lineItemsTotal(extras);
+  }, [stay, extras]);
+  const amount = Math.max(0, itemsTotal - (Number(stay.discount) || 0));
+  const balance = Math.max(0, amount - Number(advancePaid));
 
   const save = useMutation({
     mutationFn: async () => {
-      if (!form) return;
       await updateBooking(id, {
-        guest_name: form.guest_name, phone: form.phone, email: form.email,
-        check_in: form.check_in, check_out: form.check_out,
-        adults: form.adults, children: form.children, guests: form.guests,
-        room_details: form.room_details, amount: form.amount, advance_paid: form.advance_paid,
-        notes: form.notes, internal_notes: form.internal_notes,
-        status: form.status, payment_status: form.payment_status, customer_id: form.customer_id,
+        guest_name: stay.guest_name, phone: stay.phone, email: stay.email,
+        check_in: stay.check_in, check_out: stay.check_out,
+        adults: stay.adults, children: stay.children, guests: stay.guests,
+        room_details: `${stay.room_type} × ${stay.rooms}`,
+        amount, advance_paid: advancePaid, discount: stay.discount,
+        notes: stay.special_requests, internal_notes: stay.internal_notes,
+        status: status as any,
       });
-      if (items.length > 0) await replaceBookingItems(id, items);
+      const rate = getRoomRate(stay.room_type, stay.breakfast_included);
+      const primary = primaryToLineItem(stay, rate);
+      await replaceBookingItems(id, [primary, ...extras]);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["booking", id] });
@@ -60,14 +96,11 @@ function EditBooking() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  if (isLoading || !form) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
-
-  const update = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
-  const balance = Math.max(0, Number(form.amount) - Number(form.advance_paid ?? 0));
+  if (isLoading || !b) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
   return (
     <>
-      <Topbar title="Edit Booking" subtitle={b!.booking_reference} />
+      <Topbar title="Edit Booking" subtitle={b.booking_reference} />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-32 lg:pb-8">
         <Link to="/bookings/$id" params={{ id }} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="h-4 w-4" /> Back to booking
@@ -75,68 +108,42 @@ function EditBooking() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
           <div className="space-y-6">
-            <section className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
-              <h4 className="font-display text-lg">Guest Details</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Guest Name" icon={User} required>
-                  <input className={inputCls} value={form.guest_name ?? ""} onChange={(e) => update("guest_name", e.target.value)} />
-                </Field>
-                <Field label="Phone" icon={Phone}>
-                  <input className={inputCls} value={form.phone ?? ""} onChange={(e) => update("phone", e.target.value)} />
-                </Field>
-                <Field label="Email" icon={Mail}>
-                  <input className={inputCls} value={form.email ?? ""} onChange={(e) => update("email", e.target.value)} />
-                </Field>
-                <Field label="Status">
-                  <select className={inputCls} value={form.status} onChange={(e) => update("status", e.target.value)}>
+            <StayFormSections
+              value={stay} onChange={setStay}
+              extras={extras} onExtrasChange={setExtras}
+              mode="booking"
+            />
+
+            <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
+              <h4 className="font-display text-lg">Booking &amp; Payment</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label className="block">
+                  <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">Status</span>
+                  <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)}>
                     {BOOKING_STATUSES.map((s) => <option key={s}>{s}</option>)}
                   </select>
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <NumField label="Guests" value={form.guests} min={1} onChange={(v) => update("guests", v)} />
-                <NumField label="Adults" value={form.adults} min={1} onChange={(v) => update("adults", v)} />
-                <NumField label="Children" value={form.children} min={0} onChange={(v) => update("children", v)} />
-              </div>
-            </section>
-
-            <section className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
-              <h4 className="font-display text-lg flex items-center gap-2"><BedDouble className="h-4 w-4 text-gold" /> Stay Items</h4>
-              <LineItemsEditor items={items} onChange={setItems} title="Rooms / Split Stay"
-                hint="Edit rooms and stays. Amount auto-syncs with items total." startIndex={1} />
-              <div className="flex items-baseline justify-between border-t border-border pt-3 text-sm">
-                <span className="text-muted-foreground">Items Total</span>
-                <span className="font-display text-xl gold-text-gradient">₹{itemsTotal.toLocaleString("en-IN")}</span>
-              </div>
-            </section>
-
-            <section className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
-              <h4 className="font-display text-lg">Payment</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <NumField label="Total Amount (₹)" value={form.amount} min={0} onChange={(v) => update("amount", v)} prefix="₹" />
-                <NumField label="Advance Paid (₹)" value={form.advance_paid ?? 0} min={0} onChange={(v) => update("advance_paid", v)} prefix="₹" />
+                </label>
                 <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Balance Payable</div>
-                  <div className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Amount</div>
+                  <div className="font-display text-lg gold-text-gradient">₹{amount.toLocaleString("en-IN")}</div>
                 </div>
+                <NumField label="Advance Paid (₹)" value={advancePaid} min={0} onChange={setAdvancePaid} prefix="₹" />
               </div>
-              <Field label="Room Details (summary)">
-                <input className={inputCls} value={form.room_details ?? ""} onChange={(e) => update("room_details", e.target.value)} />
-              </Field>
-              <Field label="Special Requests (visible to guest)">
-                <textarea rows={2} className={cn(inputCls, "resize-none")} value={form.notes ?? ""} onChange={(e) => update("notes", e.target.value)} placeholder="Any specific guest requests…" />
-              </Field>
-              <Field label="Internal Notes (never shared)">
-                <textarea rows={2} className={cn(inputCls, "resize-none")} value={form.internal_notes ?? ""} onChange={(e) => update("internal_notes", e.target.value)} />
-              </Field>
-            </section>
+              <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5 flex items-center justify-between">
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>
+                <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
+              </div>
+            </motion.section>
           </div>
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
             <div className="luxe-card rounded-xl p-5">
               <h4 className="font-display text-lg mb-3">Summary</h4>
-              <Row label="Items Total" value={itemsTotal} />
-              <Row label="Advance Paid" value={-Number(form.advance_paid ?? 0)} mute={!form.advance_paid} />
+              <SummaryRow label="Items Total" value={itemsTotal} />
+              {stay.discount > 0 && <SummaryRow label="Discount" value={-stay.discount} />}
+              <SummaryRow label="Total Amount" value={amount} />
+              <SummaryRow label="Advance Paid" value={-Number(advancePaid)} mute={!advancePaid} />
               <div className="luxe-divider my-3" />
               <div className="flex items-baseline justify-between">
                 <span className="text-sm text-muted-foreground">Balance</span>
@@ -161,19 +168,7 @@ function EditBooking() {
   );
 }
 
-function Field({ label, icon: Icon, required, children }: any) {
-  return (
-    <label className="block">
-      <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">
-        {Icon && <Icon className="h-3 w-3" />}
-        {label}{required && <span className="text-gold ml-0.5">*</span>}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function Row({ label, value, mute }: { label: string; value: number; mute?: boolean }) {
+function SummaryRow({ label, value, mute }: { label: string; value: number; mute?: boolean }) {
   return (
     <div className={cn("flex items-center justify-between py-1.5 text-sm", mute && "text-muted-foreground/60")}>
       <span className="text-muted-foreground">{label}</span>

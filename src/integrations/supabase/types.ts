@@ -114,6 +114,7 @@ export type Database = {
           children: number
           created_at: string
           customer_id: string
+          discount: number
           email: string | null
           guest_name: string
           guests: number
@@ -139,6 +140,7 @@ export type Database = {
           children?: number
           created_at?: string
           customer_id: string
+          discount?: number
           email?: string | null
           guest_name: string
           guests?: number
@@ -164,6 +166,7 @@ export type Database = {
           children?: number
           created_at?: string
           customer_id?: string
+          discount?: number
           email?: string | null
           guest_name?: string
           guests?: number
