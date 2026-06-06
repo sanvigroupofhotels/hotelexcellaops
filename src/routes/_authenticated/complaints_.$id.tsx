@@ -157,11 +157,16 @@ function ComplaintDetail() {
                 <Pencil className="h-4 w-4 text-gold" /> Edit
               </button>
             ) : (
-              <button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending} className="inline-flex items-center gap-2 rounded-md gold-gradient text-charcoal px-3 py-2 text-sm font-medium">
-                <Save className="h-4 w-4" /> Save
-              </button>
+              <>
+                <button onClick={cancelEdit} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm hover:border-gold/40">
+                  <X className="h-4 w-4" /> Cancel
+                </button>
+                <button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending} className="inline-flex items-center gap-2 rounded-md gold-gradient text-charcoal px-3 py-2 text-sm font-medium disabled:opacity-60">
+                  <Save className="h-4 w-4" /> {saveEdit.isPending ? "Saving…" : "Save"}
+                </button>
+              </>
             )}
-            {isAdmin && (
+            {isAdmin && !editing && (
               <button onClick={() => { if (confirm("Delete this complaint?")) del.mutate(); }}
                 className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-destructive hover:bg-destructive/10">
                 <Trash2 className="h-4 w-4" /> Delete
