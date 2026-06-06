@@ -19,6 +19,7 @@ import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedGenerateRouteImport } from './routes/_authenticated/generate'
 import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authenticated/follow-ups'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
+import { Route as AuthenticatedComplaintsRouteImport } from './routes/_authenticated/complaints'
 import { Route as AuthenticatedCashRouteImport } from './routes/_authenticated/cash'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticated/bookings'
@@ -26,6 +27,7 @@ import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
+import { Route as AuthenticatedComplaintsIdRouteImport } from './routes/_authenticated/complaints_.$id'
 import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenticated/bookings_.new'
 import { Route as AuthenticatedBookingsIdRouteImport } from './routes/_authenticated/bookings_.$id'
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
@@ -80,6 +82,11 @@ const AuthenticatedCustomersRoute = AuthenticatedCustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedComplaintsRoute = AuthenticatedComplaintsRouteImport.update({
+  id: '/complaints',
+  path: '/complaints',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedCashRoute = AuthenticatedCashRouteImport.update({
   id: '/cash',
   path: '/cash',
@@ -116,6 +123,12 @@ const AuthenticatedCustomersIdRoute =
     path: '/customers/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedComplaintsIdRoute =
+  AuthenticatedComplaintsIdRouteImport.update({
+    id: '/complaints_/$id',
+    path: '/complaints/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedBookingsNewRoute =
   AuthenticatedBookingsNewRouteImport.update({
     id: '/bookings_/new',
@@ -148,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/cash': typeof AuthenticatedCashRoute
+  '/complaints': typeof AuthenticatedComplaintsRoute
   '/customers': typeof AuthenticatedCustomersRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/generate': typeof AuthenticatedGenerateRoute
@@ -157,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/users': typeof AuthenticatedUsersRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
+  '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
@@ -169,6 +184,7 @@ export interface FileRoutesByTo {
   '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/cash': typeof AuthenticatedCashRoute
+  '/complaints': typeof AuthenticatedComplaintsRoute
   '/customers': typeof AuthenticatedCustomersRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/generate': typeof AuthenticatedGenerateRoute
@@ -179,6 +195,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
+  '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
@@ -193,6 +210,7 @@ export interface FileRoutesById {
   '/_authenticated/bookings': typeof AuthenticatedBookingsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/cash': typeof AuthenticatedCashRoute
+  '/_authenticated/complaints': typeof AuthenticatedComplaintsRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/_authenticated/generate': typeof AuthenticatedGenerateRoute
@@ -203,6 +221,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
   '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
+  '/_authenticated/complaints_/$id': typeof AuthenticatedComplaintsIdRoute
   '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
@@ -218,6 +237,7 @@ export interface FileRouteTypes {
     | '/bookings'
     | '/calendar'
     | '/cash'
+    | '/complaints'
     | '/customers'
     | '/follow-ups'
     | '/generate'
@@ -227,6 +247,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/bookings/$id'
     | '/bookings/new'
+    | '/complaints/$id'
     | '/customers/$id'
     | '/quote/$id'
     | '/bookings/$id/edit'
@@ -239,6 +260,7 @@ export interface FileRouteTypes {
     | '/bookings'
     | '/calendar'
     | '/cash'
+    | '/complaints'
     | '/customers'
     | '/follow-ups'
     | '/generate'
@@ -249,6 +271,7 @@ export interface FileRouteTypes {
     | '/'
     | '/bookings/$id'
     | '/bookings/new'
+    | '/complaints/$id'
     | '/customers/$id'
     | '/quote/$id'
     | '/bookings/$id/edit'
@@ -262,6 +285,7 @@ export interface FileRouteTypes {
     | '/_authenticated/bookings'
     | '/_authenticated/calendar'
     | '/_authenticated/cash'
+    | '/_authenticated/complaints'
     | '/_authenticated/customers'
     | '/_authenticated/follow-ups'
     | '/_authenticated/generate'
@@ -272,6 +296,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/bookings_/$id'
     | '/_authenticated/bookings_/new'
+    | '/_authenticated/complaints_/$id'
     | '/_authenticated/customers_/$id'
     | '/_authenticated/quote/$id'
     | '/_authenticated/bookings_/$id_/edit'
@@ -355,6 +380,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/complaints': {
+      id: '/_authenticated/complaints'
+      path: '/complaints'
+      fullPath: '/complaints'
+      preLoaderRoute: typeof AuthenticatedComplaintsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/cash': {
       id: '/_authenticated/cash'
       path: '/cash'
@@ -404,6 +436,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/complaints_/$id': {
+      id: '/_authenticated/complaints_/$id'
+      path: '/complaints/$id'
+      fullPath: '/complaints/$id'
+      preLoaderRoute: typeof AuthenticatedComplaintsIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/bookings_/new': {
       id: '/_authenticated/bookings_/new'
       path: '/bookings/new'
@@ -441,6 +480,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedBookingsRoute: typeof AuthenticatedBookingsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCashRoute: typeof AuthenticatedCashRoute
+  AuthenticatedComplaintsRoute: typeof AuthenticatedComplaintsRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
   AuthenticatedGenerateRoute: typeof AuthenticatedGenerateRoute
@@ -451,6 +491,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedBookingsIdRoute: typeof AuthenticatedBookingsIdRoute
   AuthenticatedBookingsNewRoute: typeof AuthenticatedBookingsNewRoute
+  AuthenticatedComplaintsIdRoute: typeof AuthenticatedComplaintsIdRoute
   AuthenticatedCustomersIdRoute: typeof AuthenticatedCustomersIdRoute
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
   AuthenticatedBookingsIdEditRoute: typeof AuthenticatedBookingsIdEditRoute
@@ -463,6 +504,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBookingsRoute: AuthenticatedBookingsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCashRoute: AuthenticatedCashRoute,
+  AuthenticatedComplaintsRoute: AuthenticatedComplaintsRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
   AuthenticatedGenerateRoute: AuthenticatedGenerateRoute,
@@ -473,6 +515,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedBookingsIdRoute: AuthenticatedBookingsIdRoute,
   AuthenticatedBookingsNewRoute: AuthenticatedBookingsNewRoute,
+  AuthenticatedComplaintsIdRoute: AuthenticatedComplaintsIdRoute,
   AuthenticatedCustomersIdRoute: AuthenticatedCustomersIdRoute,
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
   AuthenticatedBookingsIdEditRoute: AuthenticatedBookingsIdEditRoute,
@@ -490,13 +533,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

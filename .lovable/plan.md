@@ -1,82 +1,75 @@
+# Implementation Plan
 
-# Turn 5 — Customer Maturity, Multi-Line Quotes, Booking Foundation
+This is a large turn (3 parts). I'll keep it incremental and reuse existing code aggressively to limit regression risk and token spend.
 
-A large turn touching schema, generate flow, edit flow, PDF/WhatsApp/share, and a brand-new bookings surface. Sequenced to keep the app working at every step.
+## Part 1 — Quote ↔ Booking Structural Parity (Option b)
 
-## Module 1 — Customer Profile Maturity
+Extract shared components — do NOT remove the primary-stay concept.
 
-- **Edit Customer modal** on `customers_.$id.tsx`: name, phone, email, city, state, country, company_name, gst_number, company address (reuse `special_notes`-style or add `company_address` column), birthday, anniversary, preferred_room, preferred_food.
-- **Lead Source** options expanded in `mock-data.ts` to the 10 listed (Walk-in, Phone Call, WhatsApp, Website, Google Business Profile, Travel Agent, Corporate Referral, Repeat Guest, OTA, Other).
-- **Tags**: already multi-select; expand `DEFAULT_TAGS` to the 7 listed.
-- **Internal Notes**: already present; confirm exclusion from PDF/WhatsApp/share (audit `share-quote.ts` and `quote-summary.tsx`).
-- **Customer Actions** row: Call, WhatsApp, Create Quote (already there), + **Create Booking** linking to `/bookings/new?customerId=...`.
-- **Insights**: Total Quotes, Latest Quote, Lifetime Quoted Value are already shown. Add placeholder Bookings stat (count from new table).
+New shared modules:
+- `src/components/shared/StayDetailsForm.tsx` — primary stay fields (dates, room type, rooms, adults, children, extras toggles, breakfast). Used by New Quote, New Booking, Edit Quote, Edit Booking.
+- `src/components/shared/ExtrasFields.tsx` — early CI / late CO / pets / drivers / extra beds / extra adults (currently duplicated in `generate.tsx` and `bookings_.new.tsx`).
+- `src/components/shared/StaySummary.tsx` — totals + breakdown (uses existing `quote-summary.tsx` logic, generalized to accept either a quote or booking shape).
+- `src/components/shared/StayPreview.tsx` — preview/PDF-style layout used by Quote Preview AND Booking Preview, with optional booking-only sections (status, advance, balance, comms).
+- `src/components/shared/StayDetailView.tsx` — detail-page renderer (Customer / Stay Info / Extras / Rooms / Split-stay / Summary / Totals).
+- `src/lib/stay-calc.ts` — shared subtotal/nights/taxes/totals/advance/balance helpers.
 
-## Module 2 — Advanced Quote Creation
+Integration:
+- `routes/_authenticated/generate.tsx` (New/Edit Quote) → wrap shared form/summary; keep Convert-to-Booking & lead source.
+- `routes/_authenticated/bookings_.new.tsx` & `bookings_.$id_.edit.tsx` → wrap shared form/summary; keep status, advance paid, balance, communication buttons.
+- `routes/_authenticated/quote.$id.tsx` and `bookings_.$id.tsx` → use `StayDetailView` + `StayPreview`.
 
-### Schema
-- New `quote_items` table:
-  - `id`, `quote_id` FK, `position` int, `room_type`, `adults`, `children`, `check_in`, `check_out`, `nights` (generated or computed), `breakfast_included`, `extra_bed`, `rate`, `subtotal`, `notes`, timestamps.
-  - RLS: same shared-team model as `quotes` (SELECT all authenticated; INSERT/UPDATE/DELETE gated by parent quote ownership via `EXISTS` on quotes.user_id).
-  - GRANTs to `authenticated` + `service_role`.
-- Backfill: trigger or one-shot SQL inserting one `quote_items` row per existing `quotes` row from current columns.
-- Keep legacy columns on `quotes` for now (rooms, room_type, room_rate, check_in, check_out, adults, children, nights, subtotal) — they become the rollup/summary; `quote_items` is the source of truth going forward.
+Goal: identical operational UX; booking-only additions remain (Status, Advance, Balance, Comms); quote-only addition remains (Convert).
 
-### Customer Lookup on Generate
-- Debounced autocomplete on phone & name fields in `generate.tsx`.
-- Query top 5 matches (`ilike`). Dropdown shows name, phone, quote_count.
-- If match found before submit: banner "Existing Customer Found" with [Use Existing Customer] (default) / [Create New Anyway]. Selecting an existing customer prefills all fields and sets `customer_id`.
+## Part 2 — Sidebar & User Menu
 
-### Line Items UI
-- `generate.tsx` and `quote.$id_.edit.tsx`: add a Line Items section.
-- Controls: Add Line, Duplicate Line, Remove Line.
-- Each line: Room Type, Adults, Children, Check-In, Check-Out, Breakfast toggle, Extra Bed, Rate. Subtotal auto-computed (nights * rate + extras).
-- Quote-level summary aggregates: total nights span (min check_in → max check_out), total guests, sum subtotal → taxes → discount → total.
-- PDF, WhatsApp, share image (`share-quote.ts`, `quote-summary.tsx`, `quote.$id.tsx`) updated to render each line item.
+- Sidebar keeps only operational nav (Dashboard, Customers, Quotes, Bookings, Cash, Complaints, Tasks, Follow-ups, Calendar, Audit, Analytics, Users).
+- New `src/components/user-menu.tsx`: avatar button → popover with: Install App, Appearance (Sun/Moon icons inline), Help & Support, Settings, Sign out.
+- Remove the bottom user/install/appearance block from sidebar; replace with avatar trigger that opens the user menu (popover on desktop, sheet on mobile).
+- Appearance simplified: two icon buttons (☀️ / 🌙), no "Appearance" label.
 
-## Module 3 — Booking Foundation
+## Part 3 — Install App native trigger
 
-### Schema
-- New `bookings` table:
-  - `id`, `user_id`, `customer_id` FK (NOT NULL), `source_quote_id` FK nullable, `booking_reference` (auto `HEXB-NNN`-style), `check_in`, `check_out`, `nights`, `guests`, `adults`, `children`, `room_details` text, `amount` numeric, `notes`, `internal_notes`, `status` ('Draft' | 'Confirmed' | 'Cancelled'), `payment_status`, timestamps.
-  - RLS mirrors quotes (shared-team SELECT, INSERT auth, UPDATE WITH CHECK ownership, DELETE admin).
-  - GRANTs to `authenticated` + `service_role`.
-- `customers.total_bookings` already exists — wire trigger to recompute on bookings change.
+Refactor `install-app-button.tsx`:
+- On click: if installed → toast "App is already installed on this device."
+- Else if `beforeinstallprompt` captured → call `prompt()` directly.
+- Else if browser supports PWA but no prompt yet (Chrome/Edge desktop/Android) → show short toast with one-tap menu hint (we cannot synthesize the native prompt without the event).
+- Else (iOS Safari, Firefox) → manual instructions.
 
-### Routes
-- `src/routes/_authenticated/bookings.tsx` — list (search + status filter + CSV export pattern reused from history).
-- `src/routes/_authenticated/bookings.new.tsx` — create form. Accepts `?customerId=` and `?fromQuoteId=` search params.
-- `src/routes/_authenticated/bookings.$id.tsx` — detail view with status switcher.
-- Sidebar entry: "Bookings" with calendar/bed icon.
+## Part 4 — Complaint Management V1
 
-### Convert Quote → Booking
-- On `quote.$id.tsx`, add "Convert to Booking" action (Confirmed quotes). Navigates to `/bookings/new?fromQuoteId=...` prefilled from quote + its line items rolled up.
+### Sidebar
+Add "Complaints" under operational nav (no separate "Operations" group heading needed to keep things compact — single item).
 
-### Customer linkage
-- Customer Profile gains a "Bookings" section listing bookings for that customer (placeholder if 0), separate from the existing Quotes list.
+### Database migration
+- `complaint_categories` (id, user_id, name, active, timestamps) — admin-managed master, seed defaults: AC, TV, WiFi, Geyser, Water, Housekeeping, Noise, Food, Staff, Parking, Other.
+- `complaints`:
+  - id, user_id, complaint_number (auto `CMP-XXXXXX`),
+  - complaint_type ('Room' | 'General'),
+  - room_number (nullable),
+  - customer_id (nullable), booking_id (nullable),
+  - category (text), category_other (nullable),
+  - priority ('Low'|'Medium'|'High'|'Critical', default Medium),
+  - status ('Open'|'In Progress'|'Resolved', default Open),
+  - entered_by_staff_id, entered_by_name,
+  - assigned_to_staff_id (nullable), assigned_to_name,
+  - description (text), resolved_at, created_at, updated_at.
+- `complaint_activities`: id, complaint_id, actor_id/name/role, action, field, old_value, new_value, summary, created_at.
+- Triggers: `complaints_audit` (insert/update/delete logging incl. assignment + status changes + resolved_at stamping when status → Resolved).
+- GRANTs + RLS: select all authenticated; insert auth (user_id = auth.uid()); update auth (any staff); delete admin only. Categories: select all, insert/update/delete admin only.
 
-## Property-Awareness Hygiene
+### API & UI
+- `src/lib/complaints-api.ts` — list, get, create, update, setStatus, assign, listActivities; `complaint-categories-api.ts` for master.
+- `src/routes/_authenticated/complaints.tsx` — dashboard cards (Open / In Progress / Resolved Today / Critical / This Month / Avg Resolution Time) clickable to filter; list with filters (status, priority, category, assignee, room, date range, search); default sort by priority desc then created desc; "+ New Complaint" opens dialog.
+- New Complaint dialog — fields per spec; when Room Complaint + room selected, look up active booking on that room and show "Use Current Guest / Skip" suggestion.
+- `src/routes/_authenticated/complaints_.$id.tsx` — detail page (Complaint / Customer / Booking / Activity History) with status & assignment actions.
+- Complaint Category Master — accessible from the dashboard for admins (inline dialog), with Add/Edit/Deactivate.
 
-- New strings avoid hardcoded "Hotel Excella"; pull brand name from existing config where present (Topbar / share templates).
-- No multi-property tables this turn.
+## Out of scope (per request)
+- Complaint photos/attachments, SLAs, WhatsApp/maintenance integrations.
+- No architectural overhauls to existing quote/booking schemas.
 
-## Out of Scope (explicit)
-
-- Check-in/out workflows, housekeeping, room inventory, channel manager, multi-property, SaaS billing.
-
-## Technical Sequencing
-
-1. Migration 1: `quote_items` + backfill + RLS + GRANTs.
-2. Migration 2: `bookings` + RLS + GRANTs + trigger to recompute `customers.total_bookings`.
-3. Migration 3: customer field additions (`company_address` if needed).
-4. APIs: `quote-items-api.ts`, `bookings-api.ts`; extend `customers-api.ts` with `searchCustomers(phoneOrName)`.
-5. UI: Generate (lookup + line items), Edit (line items), Customer Profile (edit modal + Create Booking + Bookings list), Bookings routes, sidebar.
-6. Render layer: PDF / WhatsApp / share image / quote detail iterate over line items with backwards-compatible fallback (if a quote has 0 items, render legacy columns).
-7. `mock-data.ts`: expand `LEAD_SOURCES`, `DEFAULT_TAGS`, add `BOOKING_STATUSES`.
-
-## Risks / Mitigations
-
-- **PDF/WhatsApp/share regression**: keep legacy single-line fallback for any quote with no `quote_items` rows.
-- **Edit page rate parity**: reuse `NumField` component for line-item rate/extras.
-- **RLS on quote_items**: insert/update/delete policies check `EXISTS(quotes WHERE id = quote_id AND user_id = auth.uid())` for owner gating, and shared SELECT (`true`) consistent with quotes table.
-- **Realtime**: add `quote_items` and `bookings` to existing `useRealtimeInvalidate` channels.
+## Risk & rollout
+- Shared components added first as drop-ins; pages refactored one at a time.
+- DB migration is additive only.
+- No breaking changes to existing tables.
