@@ -196,27 +196,78 @@ function ComplaintDetail() {
                 </div>
               </div>
               {editing ? (
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Priority</div>
-                    <Select value={draft.priority} onValueChange={(v) => setDraft(d => ({ ...d!, priority: v as ComplaintPriority }))}>
-                      <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <EditField label="Complaint Type">
+                    <Select value={draft.complaint_type} onValueChange={v => setDraft(d => ({ ...d!, complaint_type: v as ComplaintType }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Room">Room Complaint</SelectItem>
+                        <SelectItem value="General">General Complaint</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </EditField>
+                  {draft.complaint_type === "Room" && (
+                    <EditField label="Room Number">
+                      <Input value={draft.room_number} onChange={e => setDraft(d => ({ ...d!, room_number: e.target.value }))} placeholder="e.g. 101" />
+                    </EditField>
+                  )}
+                  <EditField label="Category">
+                    <Select value={draft.category} onValueChange={v => setDraft(d => ({ ...d!, category: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>{categories.map(cat => <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </EditField>
+                  {draft.category === "Other" && (
+                    <EditField label="Other Category">
+                      <Input value={draft.category_other} onChange={e => setDraft(d => ({ ...d!, category_other: e.target.value }))} placeholder="Describe category" />
+                    </EditField>
+                  )}
+                  <EditField label="Priority">
+                    <Select value={draft.priority} onValueChange={v => setDraft(d => ({ ...d!, priority: v as ComplaintPriority }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>{COMPLAINT_PRIORITIES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                     </Select>
-                  </div>
-                  <div>
-                    <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Description</div>
-                    <Textarea rows={5} value={draft.description} onChange={e => setDraft(d => ({ ...d!, description: e.target.value }))} />
+                  </EditField>
+                  <EditField label="Status">
+                    <Select value={draft.status} onValueChange={v => setDraft(d => ({ ...d!, status: v as ComplaintStatus }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{COMPLAINT_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </EditField>
+                  <EditField label="Entered By">
+                    <Select value={draft.entered_by_staff_id || "_none"} onValueChange={v => setDraft(d => ({ ...d!, entered_by_staff_id: v === "_none" ? "" : v }))}>
+                      <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">— None —</SelectItem>
+                        {staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </EditField>
+                  <EditField label="Assigned To">
+                    <Select value={draft.assigned_to_staff_id || "_none"} onValueChange={v => setDraft(d => ({ ...d!, assigned_to_staff_id: v === "_none" ? "" : v }))}>
+                      <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">— Unassigned —</SelectItem>
+                        {staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </EditField>
+                  <div className="md:col-span-2">
+                    <EditField label="Description">
+                      <Textarea rows={5} value={draft.description} onChange={e => setDraft(d => ({ ...d!, description: e.target.value }))} />
+                    </EditField>
                   </div>
                 </div>
               ) : (
                 <p className="text-sm whitespace-pre-wrap">{c.description}</p>
               )}
-              <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                <div>Entered by: <span className="text-foreground">{c.entered_by_name ?? "—"}</span></div>
-                <div>Assigned to: <span className="text-foreground">{c.assigned_to_name ?? "—"}</span></div>
-                {c.resolved_at && <div>Resolved: <span className="text-foreground">{new Date(c.resolved_at).toLocaleString("en-IN")}</span></div>}
-              </div>
+              {!editing && (
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <div>Entered by: <span className="text-foreground">{c.entered_by_name ?? "—"}</span></div>
+                  <div>Assigned to: <span className="text-foreground">{c.assigned_to_name ?? "—"}</span></div>
+                  {c.resolved_at && <div>Resolved: <span className="text-foreground">{new Date(c.resolved_at).toLocaleString("en-IN")}</span></div>}
+                </div>
+              )}
             </div>
 
             {/* Customer */}
