@@ -304,6 +304,141 @@ export type Database = {
         }
         Relationships: []
       }
+      complaint_activities: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          complaint_id: string
+          created_at: string
+          field: string | null
+          id: string
+          new_value: string | null
+          old_value: string | null
+          summary: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          complaint_id: string
+          created_at?: string
+          field?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          summary?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          complaint_id?: string
+          created_at?: string
+          field?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          summary?: string | null
+        }
+        Relationships: []
+      }
+      complaint_categories: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      complaints: {
+        Row: {
+          assigned_to_name: string | null
+          assigned_to_staff_id: string | null
+          booking_id: string | null
+          category: string
+          category_other: string | null
+          complaint_number: string
+          complaint_type: Database["public"]["Enums"]["complaint_type"]
+          created_at: string
+          customer_id: string | null
+          description: string
+          entered_by_name: string | null
+          entered_by_staff_id: string | null
+          id: string
+          priority: Database["public"]["Enums"]["complaint_priority"]
+          resolved_at: string | null
+          room_number: string | null
+          status: Database["public"]["Enums"]["complaint_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to_name?: string | null
+          assigned_to_staff_id?: string | null
+          booking_id?: string | null
+          category: string
+          category_other?: string | null
+          complaint_number?: string
+          complaint_type?: Database["public"]["Enums"]["complaint_type"]
+          created_at?: string
+          customer_id?: string | null
+          description: string
+          entered_by_name?: string | null
+          entered_by_staff_id?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["complaint_priority"]
+          resolved_at?: string | null
+          room_number?: string | null
+          status?: Database["public"]["Enums"]["complaint_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to_name?: string | null
+          assigned_to_staff_id?: string | null
+          booking_id?: string | null
+          category?: string
+          category_other?: string | null
+          complaint_number?: string
+          complaint_type?: Database["public"]["Enums"]["complaint_type"]
+          created_at?: string
+          customer_id?: string | null
+          description?: string
+          entered_by_name?: string | null
+          entered_by_staff_id?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["complaint_priority"]
+          resolved_at?: string | null
+          room_number?: string | null
+          status?: Database["public"]["Enums"]["complaint_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           anniversary: string | null
@@ -937,6 +1072,9 @@ export type Database = {
         | "Pending"
         | "Checked-In"
         | "Checked-Out"
+      complaint_priority: "Low" | "Medium" | "High" | "Critical"
+      complaint_status: "Open" | "In Progress" | "Resolved"
+      complaint_type: "Room" | "General"
       quote_status:
         | "Pending"
         | "Sent"
@@ -1104,6 +1242,9 @@ export const Constants = {
         "Checked-In",
         "Checked-Out",
       ],
+      complaint_priority: ["Low", "Medium", "High", "Critical"],
+      complaint_status: ["Open", "In Progress", "Resolved"],
+      complaint_type: ["Room", "General"],
       quote_status: [
         "Pending",
         "Sent",
