@@ -123,9 +123,19 @@ function CashPage() {
               ))}
               {range==="custom" && (
                 <div className="flex items-center gap-2 ml-2">
-                  <input type="date" className={cn(inputCls,"!py-1.5 w-auto")} value={customFrom} onChange={e=>setCustomFrom(e.target.value)} />
+                  <input
+                    type="text" placeholder="From"
+                    onFocus={(e) => (e.currentTarget.type = "date")}
+                    onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.type = "text"; }}
+                    className={cn(inputCls, "!py-1.5 w-[110px] placeholder:text-muted-foreground/50")}
+                    value={customFrom} onChange={e=>setCustomFrom(e.target.value)} />
                   <span className="text-muted-foreground text-xs">to</span>
-                  <input type="date" className={cn(inputCls,"!py-1.5 w-auto")} value={customTo} onChange={e=>setCustomTo(e.target.value)} />
+                  <input
+                    type="text" placeholder="To"
+                    onFocus={(e) => (e.currentTarget.type = "date")}
+                    onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.type = "text"; }}
+                    className={cn(inputCls, "!py-1.5 w-[110px] placeholder:text-muted-foreground/50")}
+                    value={customTo} onChange={e=>setCustomTo(e.target.value)} />
                 </div>
               )}
               <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
