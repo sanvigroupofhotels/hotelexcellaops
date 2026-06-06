@@ -4,26 +4,40 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import {
   getComplaint, listComplaintActivities, updateComplaint, deleteComplaint,
-  setComplaintStatus, assignComplaint,
+  setComplaintStatus, assignComplaint, listComplaintCategories,
   COMPLAINT_STATUSES, COMPLAINT_PRIORITIES,
   priorityStyles, statusStyles,
-  type ComplaintPriority, type ComplaintStatus,
+  type ComplaintPriority, type ComplaintStatus, type ComplaintType,
 } from "@/lib/complaints-api";
 import { listStaff } from "@/lib/cash-api";
 import { getCustomer } from "@/lib/customers-api";
 import { getBooking } from "@/lib/bookings-api";
 import { useUserRole } from "@/hooks/use-role";
 import {
-  ArrowLeft, Loader2, Trash2, User, BedDouble, Clock, Save, Pencil,
+  ArrowLeft, Loader2, Trash2, User, BedDouble, Clock, Save, Pencil, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/complaints_/$id")({
   component: ComplaintDetail,
 });
+
+type EditDraft = {
+  complaint_type: ComplaintType;
+  room_number: string;
+  category: string;
+  category_other: string;
+  priority: ComplaintPriority;
+  status: ComplaintStatus;
+  entered_by_staff_id: string;
+  assigned_to_staff_id: string;
+  description: string;
+};
 
 function ComplaintDetail() {
   const { id } = Route.useParams();
@@ -40,6 +54,7 @@ function ComplaintDetail() {
     queryKey: ["booking", c?.booking_id], queryFn: () => getBooking(c!.booking_id!), enabled: !!c?.booking_id,
   });
   const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
+  const { data: categories = [] } = useQuery({ queryKey: ["complaint-categories"], queryFn: () => listComplaintCategories(true) });
 
   const setStatusM = useMutation({
     mutationFn: (s: ComplaintStatus) => setComplaintStatus(id, s),
@@ -67,18 +82,64 @@ function ComplaintDetail() {
   });
 
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<{ priority: ComplaintPriority; description: string } | null>(null);
-  useEffect(() => { if (c && !draft) setDraft({ priority: c.priority, description: c.description }); }, [c, draft]);
+  const [draft, setDraft] = useState<EditDraft | null>(null);
+  useEffect(() => {
+    if (c && !draft) setDraft({
+      complaint_type: c.complaint_type,
+      room_number: c.room_number ?? "",
+      category: c.category,
+      category_other: c.category_other ?? "",
+      priority: c.priority,
+      status: c.status,
+      entered_by_staff_id: c.entered_by_staff_id ?? "",
+      assigned_to_staff_id: c.assigned_to_staff_id ?? "",
+      description: c.description,
+    });
+  }, [c, draft]);
 
   const saveEdit = useMutation({
-    mutationFn: () => updateComplaint(id, { priority: draft!.priority, description: draft!.description, category: c!.category }),
+    mutationFn: () => {
+      const d = draft!;
+      const entered = staff.find(s => s.id === d.entered_by_staff_id);
+      const assigned = staff.find(s => s.id === d.assigned_to_staff_id);
+      return updateComplaint(id, {
+        complaint_type: d.complaint_type,
+        room_number: d.complaint_type === "Room" ? d.room_number.trim() || null : null,
+        category: d.category,
+        category_other: d.category === "Other" ? (d.category_other.trim() || null) : null,
+        priority: d.priority,
+        status: d.status,
+        entered_by_staff_id: d.entered_by_staff_id || null,
+        entered_by_name: entered?.name ?? null,
+        assigned_to_staff_id: d.assigned_to_staff_id || null,
+        assigned_to_name: assigned?.name ?? null,
+        description: d.description.trim(),
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["complaint", id] });
       qc.invalidateQueries({ queryKey: ["complaint-acts", id] });
+      qc.invalidateQueries({ queryKey: ["complaints"] });
       setEditing(false);
-      toast.success("Updated");
+      toast.success("Complaint updated");
     },
+    onError: (e: any) => toast.error(e?.message ?? "Failed to update"),
   });
+
+  const cancelEdit = () => {
+    if (!c) return;
+    setDraft({
+      complaint_type: c.complaint_type,
+      room_number: c.room_number ?? "",
+      category: c.category, category_other: c.category_other ?? "",
+      priority: c.priority, status: c.status,
+      entered_by_staff_id: c.entered_by_staff_id ?? "",
+      assigned_to_staff_id: c.assigned_to_staff_id ?? "",
+      description: c.description,
+    });
+    setEditing(false);
+  };
+
 
   if (isLoading || !c || !draft) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
