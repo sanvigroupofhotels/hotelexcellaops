@@ -28,28 +28,55 @@ export const Route = createFileRoute("/_authenticated/cash")({
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
 
-type RangeKey = "today" | "yesterday" | "week" | "month" | "custom";
+type RangeKey = "today" | "yesterday" | "week" | "prevWeek" | "month" | "prevMonth" | "custom";
 
-function rangeBounds(key: RangeKey, customFrom?: string, customTo?: string) {
+const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "week", label: "This Week" },
+  { value: "prevWeek", label: "Previous Week" },
+  { value: "month", label: "This Month" },
+  { value: "prevMonth", label: "Previous Month" },
+  { value: "custom", label: "Custom" },
+];
+
+function ymd(d: Date) {
+  const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,"0"); const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
+function presetDates(key: RangeKey): { from: string; to: string } | null {
   const now = new Date();
-  const start = new Date(now); start.setHours(0,0,0,0);
-  const end = new Date(now); end.setHours(23,59,59,999);
-  if (key === "today") return { from: start.toISOString(), to: end.toISOString() };
-  if (key === "yesterday") {
-    start.setDate(start.getDate()-1); end.setDate(end.getDate()-1);
-    return { from: start.toISOString(), to: end.toISOString() };
-  }
+  const today = new Date(now); today.setHours(0,0,0,0);
+  if (key === "today") return { from: ymd(today), to: ymd(today) };
+  if (key === "yesterday") { const d = new Date(today); d.setDate(d.getDate()-1); return { from: ymd(d), to: ymd(d) }; }
   if (key === "week") {
-    start.setDate(start.getDate() - start.getDay());
-    return { from: start.toISOString(), to: end.toISOString() };
+    const s = new Date(today); s.setDate(s.getDate() - s.getDay());
+    const e = new Date(s); e.setDate(s.getDate()+6);
+    return { from: ymd(s), to: ymd(e) };
+  }
+  if (key === "prevWeek") {
+    const s = new Date(today); s.setDate(s.getDate() - s.getDay() - 7);
+    const e = new Date(s); e.setDate(s.getDate()+6);
+    return { from: ymd(s), to: ymd(e) };
   }
   if (key === "month") {
-    start.setDate(1);
-    return { from: start.toISOString(), to: end.toISOString() };
+    const s = new Date(today.getFullYear(), today.getMonth(), 1);
+    const e = new Date(today.getFullYear(), today.getMonth()+1, 0);
+    return { from: ymd(s), to: ymd(e) };
   }
+  if (key === "prevMonth") {
+    const s = new Date(today.getFullYear(), today.getMonth()-1, 1);
+    const e = new Date(today.getFullYear(), today.getMonth(), 0);
+    return { from: ymd(s), to: ymd(e) };
+  }
+  return null;
+}
+
+function rangeBounds(from?: string, to?: string) {
   return {
-    from: customFrom ? new Date(customFrom + "T00:00:00").toISOString() : undefined,
-    to: customTo ? new Date(customTo + "T23:59:59").toISOString() : undefined,
+    from: from ? new Date(from + "T00:00:00").toISOString() : undefined,
+    to: to ? new Date(to + "T23:59:59").toISOString() : undefined,
   };
 }
 
@@ -75,15 +102,22 @@ function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
 function CashPage() {
   const { isAdmin, canManage } = useUserRole();
   const [tab, setTab] = useState<"dashboard" | "staff" | "etypes">("dashboard");
+  const initial = presetDates("today")!;
   const [range, setRange] = useState<RangeKey>("today");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
+  const [customFrom, setCustomFrom] = useState(initial.from);
+  const [customTo, setCustomTo] = useState(initial.to);
   const [openForm, setOpenForm] = useState<null | { kind: "collection" | "expense"; tx?: CashTxRow }>(null);
   const [detailTx, setDetailTx] = useState<CashTxRow | null>(null);
   const [includeInactive, setIncludeInactive] = useState(false);
 
-  const bounds = useMemo(() => ({ ...rangeBounds(range, customFrom, customTo), includeInactive }),
-    [range, customFrom, customTo, includeInactive]);
+  const onRangeChange = (k: RangeKey) => {
+    setRange(k);
+    const p = presetDates(k);
+    if (p) { setCustomFrom(p.from); setCustomTo(p.to); }
+  };
+
+  const bounds = useMemo(() => ({ ...rangeBounds(customFrom, customTo), includeInactive }),
+    [customFrom, customTo, includeInactive]);
 
   const { data: tx = [] } = useQuery({
     queryKey: ["cash-tx", bounds.from, bounds.to, includeInactive],
@@ -112,36 +146,30 @@ function CashPage() {
 
         {tab === "dashboard" && (
           <>
-            {/* Filter chips */}
-            <div className="flex flex-wrap items-center gap-2">
-              {(["today","yesterday","week","month","custom"] as RangeKey[]).map(k => (
-                <button key={k} onClick={() => setRange(k)}
-                  className={cn("px-3 py-1.5 text-xs rounded-full border transition",
-                    range===k ? "bg-gold-soft border-gold/40 text-gold" : "border-border text-muted-foreground hover:text-foreground")}>
-                  {k==="today"?"Today":k==="yesterday"?"Yesterday":k==="week"?"This Week":k==="month"?"This Month":"Custom"}
-                </button>
-              ))}
-              {range==="custom" && (
-                <div className="flex items-center gap-2 ml-2">
-                  <input
-                    type="text" placeholder="From"
-                    onFocus={(e) => (e.currentTarget.type = "date")}
-                    onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.type = "text"; }}
-                    className={cn(inputCls, "!py-1.5 w-[110px] placeholder:text-muted-foreground/50")}
-                    value={customFrom} onChange={e=>setCustomFrom(e.target.value)} />
-                  <span className="text-muted-foreground text-xs">to</span>
-                  <input
-                    type="text" placeholder="To"
-                    onFocus={(e) => (e.currentTarget.type = "date")}
-                    onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.type = "text"; }}
-                    className={cn(inputCls, "!py-1.5 w-[110px] placeholder:text-muted-foreground/50")}
-                    value={customTo} onChange={e=>setCustomTo(e.target.value)} />
+            {/* Date Range + From/To + Show Inactive */}
+            <div className="luxe-card rounded-xl p-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Date Range</label>
+                  <select className={cn(inputCls,"!py-2")} value={range} onChange={e=>onRangeChange(e.target.value as RangeKey)}>
+                    {RANGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
                 </div>
-              )}
-              <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <input type="checkbox" checked={includeInactive} onChange={e=>setIncludeInactive(e.target.checked)} />
-                Show inactive
-              </label>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">From</label>
+                  <input type="date" className={cn(inputCls,"!py-2")} value={customFrom}
+                    onChange={e=>{ setCustomFrom(e.target.value); setRange("custom"); }} />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">To</label>
+                  <input type="date" className={cn(inputCls,"!py-2")} value={customTo}
+                    onChange={e=>{ setCustomTo(e.target.value); setRange("custom"); }} />
+                </div>
+                <label className="inline-flex items-center gap-2 text-xs text-muted-foreground pb-2">
+                  <input type="checkbox" checked={includeInactive} onChange={e=>setIncludeInactive(e.target.checked)} />
+                  Show Inactive
+                </label>
+              </div>
             </div>
 
             {/* Top cards */}
@@ -151,7 +179,7 @@ function CashPage() {
               <StatCard label="Current Balance" value={totals.balance} icon={Wallet} tone="gold" />
             </div>
 
-            {/* Primary actions — same size, shape, prominence; only color differs */}
+            {/* Primary actions */}
             <div className="grid grid-cols-2 gap-3">
               <button onClick={()=>setOpenForm({ kind: "collection" })}
                 className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white shadow-[0_0_24px_oklch(0.72_0.18_150/0.25)] transition hover:brightness-110"
@@ -176,6 +204,7 @@ function CashPage() {
                 <Printer className="h-4 w-4 text-gold"/> Export PDF
               </button>
             </div>
+
 
             <TransactionHistory tx={tx} isAdmin={isAdmin} canManage={canManage}
               onEdit={(t) => setOpenForm({ kind: t.kind, tx: t })}
@@ -269,20 +298,20 @@ function TransactionHistory({
 
   return (
     <div className="luxe-card rounded-xl p-4 md:p-5">
-      <div className="flex flex-wrap gap-2 mb-4">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-card flex-1 min-w-[180px]">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+        <div className="col-span-2 md:col-span-1 flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-card">
           <Search className="h-4 w-4 text-muted-foreground" />
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search…" className="bg-transparent outline-none text-sm flex-1" />
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search…" className="bg-transparent outline-none text-sm flex-1 min-w-0" />
         </div>
-        <select className={cn(inputCls,"w-auto")} value={kind} onChange={e=>setKind(e.target.value as any)}>
-          <option value="">All Types</option><option value="collection">Collections</option><option value="expense">Expenses</option>
+        <select className={inputCls} value={kind} onChange={e=>setKind(e.target.value as any)}>
+          <option value="">All Transaction Types</option><option value="collection">Collections</option><option value="expense">Expenses</option>
         </select>
-        <select className={cn(inputCls,"w-auto")} value={type} onChange={e=>setType(e.target.value)}>
+        <select className={inputCls} value={type} onChange={e=>setType(e.target.value)}>
           <option value="">All Categories</option>
           {types.map(t => <option key={t}>{t}</option>)}
         </select>
-        <select className={cn(inputCls,"w-auto")} value={staff} onChange={e=>setStaff(e.target.value)}>
-          <option value="">All Staff</option>
+        <select className={inputCls} value={staff} onChange={e=>setStaff(e.target.value)}>
+          <option value="">All Entered By</option>
           {staffs.map(t => <option key={t}>{t}</option>)}
         </select>
       </div>
