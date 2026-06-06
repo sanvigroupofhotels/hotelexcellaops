@@ -18,6 +18,7 @@ import {
   Send, Wallet, HandPlatter, Heart, Share2, Printer, Pencil, CalendarDays, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { StayItemsList } from "@/components/shared/stay-items-list";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({

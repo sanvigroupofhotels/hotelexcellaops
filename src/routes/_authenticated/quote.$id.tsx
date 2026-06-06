@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
+import { StayItemsList } from "@/components/shared/stay-items-list";
 
 export const Route = createFileRoute("/_authenticated/quote/$id")({
   component: QuoteDetail,
