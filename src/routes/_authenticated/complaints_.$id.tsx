@@ -39,6 +39,15 @@ type EditDraft = {
   description: string;
 };
 
+function EditField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
 function ComplaintDetail() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
