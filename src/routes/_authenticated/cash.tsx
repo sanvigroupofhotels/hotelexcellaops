@@ -102,15 +102,22 @@ function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
 function CashPage() {
   const { isAdmin, canManage } = useUserRole();
   const [tab, setTab] = useState<"dashboard" | "staff" | "etypes">("dashboard");
+  const initial = presetDates("today")!;
   const [range, setRange] = useState<RangeKey>("today");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
+  const [customFrom, setCustomFrom] = useState(initial.from);
+  const [customTo, setCustomTo] = useState(initial.to);
   const [openForm, setOpenForm] = useState<null | { kind: "collection" | "expense"; tx?: CashTxRow }>(null);
   const [detailTx, setDetailTx] = useState<CashTxRow | null>(null);
   const [includeInactive, setIncludeInactive] = useState(false);
 
-  const bounds = useMemo(() => ({ ...rangeBounds(range, customFrom, customTo), includeInactive }),
-    [range, customFrom, customTo, includeInactive]);
+  const onRangeChange = (k: RangeKey) => {
+    setRange(k);
+    const p = presetDates(k);
+    if (p) { setCustomFrom(p.from); setCustomTo(p.to); }
+  };
+
+  const bounds = useMemo(() => ({ ...rangeBounds(customFrom, customTo), includeInactive }),
+    [customFrom, customTo, includeInactive]);
 
   const { data: tx = [] } = useQuery({
     queryKey: ["cash-tx", bounds.from, bounds.to, includeInactive],
@@ -139,36 +146,30 @@ function CashPage() {
 
         {tab === "dashboard" && (
           <>
-            {/* Filter chips */}
-            <div className="flex flex-wrap items-center gap-2">
-              {(["today","yesterday","week","month","custom"] as RangeKey[]).map(k => (
-                <button key={k} onClick={() => setRange(k)}
-                  className={cn("px-3 py-1.5 text-xs rounded-full border transition",
-                    range===k ? "bg-gold-soft border-gold/40 text-gold" : "border-border text-muted-foreground hover:text-foreground")}>
-                  {k==="today"?"Today":k==="yesterday"?"Yesterday":k==="week"?"This Week":k==="month"?"This Month":"Custom"}
-                </button>
-              ))}
-              {range==="custom" && (
-                <div className="flex items-center gap-2 ml-2">
-                  <input
-                    type="text" placeholder="From"
-                    onFocus={(e) => (e.currentTarget.type = "date")}
-                    onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.type = "text"; }}
-                    className={cn(inputCls, "!py-1.5 w-[110px] placeholder:text-muted-foreground/50")}
-                    value={customFrom} onChange={e=>setCustomFrom(e.target.value)} />
-                  <span className="text-muted-foreground text-xs">to</span>
-                  <input
-                    type="text" placeholder="To"
-                    onFocus={(e) => (e.currentTarget.type = "date")}
-                    onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.type = "text"; }}
-                    className={cn(inputCls, "!py-1.5 w-[110px] placeholder:text-muted-foreground/50")}
-                    value={customTo} onChange={e=>setCustomTo(e.target.value)} />
+            {/* Date Range + From/To + Show Inactive */}
+            <div className="luxe-card rounded-xl p-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Date Range</label>
+                  <select className={cn(inputCls,"!py-2")} value={range} onChange={e=>onRangeChange(e.target.value as RangeKey)}>
+                    {RANGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
                 </div>
-              )}
-              <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <input type="checkbox" checked={includeInactive} onChange={e=>setIncludeInactive(e.target.checked)} />
-                Show inactive
-              </label>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">From</label>
+                  <input type="date" className={cn(inputCls,"!py-2")} value={customFrom}
+                    onChange={e=>{ setCustomFrom(e.target.value); setRange("custom"); }} />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">To</label>
+                  <input type="date" className={cn(inputCls,"!py-2")} value={customTo}
+                    onChange={e=>{ setCustomTo(e.target.value); setRange("custom"); }} />
+                </div>
+                <label className="inline-flex items-center gap-2 text-xs text-muted-foreground pb-2">
+                  <input type="checkbox" checked={includeInactive} onChange={e=>setIncludeInactive(e.target.checked)} />
+                  Show Inactive
+                </label>
+              </div>
             </div>
 
             {/* Top cards */}
@@ -178,7 +179,7 @@ function CashPage() {
               <StatCard label="Current Balance" value={totals.balance} icon={Wallet} tone="gold" />
             </div>
 
-            {/* Primary actions — same size, shape, prominence; only color differs */}
+            {/* Primary actions */}
             <div className="grid grid-cols-2 gap-3">
               <button onClick={()=>setOpenForm({ kind: "collection" })}
                 className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white shadow-[0_0_24px_oklch(0.72_0.18_150/0.25)] transition hover:brightness-110"
@@ -203,6 +204,7 @@ function CashPage() {
                 <Printer className="h-4 w-4 text-gold"/> Export PDF
               </button>
             </div>
+
 
             <TransactionHistory tx={tx} isAdmin={isAdmin} canManage={canManage}
               onEdit={(t) => setOpenForm({ kind: t.kind, tx: t })}
