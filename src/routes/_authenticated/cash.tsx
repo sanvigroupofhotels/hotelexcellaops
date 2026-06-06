@@ -298,20 +298,20 @@ function TransactionHistory({
 
   return (
     <div className="luxe-card rounded-xl p-4 md:p-5">
-      <div className="flex flex-wrap gap-2 mb-4">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-card flex-1 min-w-[180px]">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+        <div className="col-span-2 md:col-span-1 flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-card">
           <Search className="h-4 w-4 text-muted-foreground" />
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search…" className="bg-transparent outline-none text-sm flex-1" />
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search…" className="bg-transparent outline-none text-sm flex-1 min-w-0" />
         </div>
-        <select className={cn(inputCls,"w-auto")} value={kind} onChange={e=>setKind(e.target.value as any)}>
-          <option value="">All Types</option><option value="collection">Collections</option><option value="expense">Expenses</option>
+        <select className={inputCls} value={kind} onChange={e=>setKind(e.target.value as any)}>
+          <option value="">All Transaction Types</option><option value="collection">Collections</option><option value="expense">Expenses</option>
         </select>
-        <select className={cn(inputCls,"w-auto")} value={type} onChange={e=>setType(e.target.value)}>
+        <select className={inputCls} value={type} onChange={e=>setType(e.target.value)}>
           <option value="">All Categories</option>
           {types.map(t => <option key={t}>{t}</option>)}
         </select>
-        <select className={cn(inputCls,"w-auto")} value={staff} onChange={e=>setStaff(e.target.value)}>
-          <option value="">All Staff</option>
+        <select className={inputCls} value={staff} onChange={e=>setStaff(e.target.value)}>
+          <option value="">All Entered By</option>
           {staffs.map(t => <option key={t}>{t}</option>)}
         </select>
       </div>
