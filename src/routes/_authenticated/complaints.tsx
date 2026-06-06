@@ -35,19 +35,39 @@ function ComplaintsPage() {
   const { isAdmin, canManage } = useUserRole();
 
   const [filters, setFilters] = useState<{
-    status: ComplaintStatus | "all";
+    status: ComplaintStatus | "all" | "active";
     priority: ComplaintPriority | "all";
     category: string | "all";
     assignedTo: string | "all" | "unassigned";
     room: string;
+    customer: string;
     from?: string; to?: string;
     search: string;
-  }>({ status: "all", priority: "all", category: "all", assignedTo: "all", room: "", search: "" });
+  }>({ status: "active", priority: "all", category: "all", assignedTo: "all", room: "", customer: "", search: "" });
 
-  const { data: list = [], isLoading } = useQuery({
-    queryKey: ["complaints", filters],
-    queryFn: () => listComplaints(filters),
+  // Translate "active" sentinel into a server-compatible filter, then post-filter client-side.
+  const serverFilters = useMemo(() => ({
+    ...filters,
+    status: filters.status === "active" ? "all" as const : filters.status,
+  }), [filters]);
+
+  const { data: listRaw = [], isLoading } = useQuery({
+    queryKey: ["complaints", serverFilters],
+    queryFn: () => listComplaints(serverFilters as any),
   });
+  const list = useMemo(() => {
+    let rows = listRaw;
+    if (filters.status === "active") rows = rows.filter(r => r.status === "Open" || r.status === "In Progress");
+    if (filters.customer.trim()) {
+      const s = filters.customer.trim().toLowerCase();
+      rows = rows.filter(r =>
+        (r.entered_by_name ?? "").toLowerCase().includes(s) ||
+        (r.assigned_to_name ?? "").toLowerCase().includes(s) ||
+        (r.description ?? "").toLowerCase().includes(s),
+      );
+    }
+    return rows;
+  }, [listRaw, filters.status, filters.customer]);
   const { data: categories = [] } = useQuery({
     queryKey: ["complaint-categories"],
     queryFn: () => listComplaintCategories(),
