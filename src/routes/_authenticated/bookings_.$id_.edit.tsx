@@ -14,6 +14,7 @@ import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
   type SharedStayValue,
 } from "@/components/shared/stay-form-sections";
+import { RoomAssignmentField } from "@/components/room-assignment-field";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
