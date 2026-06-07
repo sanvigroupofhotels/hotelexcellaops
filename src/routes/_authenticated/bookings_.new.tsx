@@ -287,6 +287,10 @@ function NewBooking() {
                   <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
                 </select>
               </label>
+              <RoomAssignmentField
+                value={roomId} onChange={setRoomId}
+                check_in={stay.check_in} check_out={stay.check_out}
+              />
               <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>
                 <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
