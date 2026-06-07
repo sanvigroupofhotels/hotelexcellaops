@@ -46,6 +46,7 @@ function NewBooking() {
   const [status, setStatus] = useState<string>("Pending");
   const [advancePaid, setAdvancePaid] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
+  const [roomId, setRoomId] = useState<string | null>(null);
   const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(customerId ?? null);
   const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
   const [forceNew, setForceNew] = useState(false);
