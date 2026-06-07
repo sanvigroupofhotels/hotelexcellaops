@@ -15,10 +15,11 @@ import {
 } from "@/lib/booking-messages";
 import {
   ArrowLeft, Loader2, Trash2, BedDouble, Phone, Mail, User, Copy,
-  Send, Wallet, HandPlatter, Heart, Share2, Printer, Pencil, CalendarDays, Star,
+  Send, Wallet, HandPlatter, Heart, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
+import { listRooms } from "@/lib/rooms-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
