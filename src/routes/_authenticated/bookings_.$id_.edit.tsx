@@ -134,6 +134,11 @@ function EditBooking() {
                 </div>
                 <NumField label="Advance Paid (₹)" value={advancePaid} min={0} onChange={setAdvancePaid} prefix="₹" />
               </div>
+              <RoomAssignmentField
+                value={roomId} onChange={setRoomId}
+                check_in={stay.check_in} check_out={stay.check_out}
+                excludeBookingId={id}
+              />
               <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>
                 <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
