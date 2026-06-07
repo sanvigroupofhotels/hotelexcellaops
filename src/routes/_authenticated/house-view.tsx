@@ -156,36 +156,26 @@ function HouseView() {
               {rooms.map((r) => {
                 const bs = byRoom.m.get(r.id) ?? [];
                 return (
-                  <div key={r.id} className="grid relative border-b border-border/50"
-                    style={{ gridTemplateColumns: `120px repeat(${DAY_COUNT}, minmax(${CELL_W_MOB}px, ${CELL_W}px))` }}>
-                    <div className="px-2 py-3 text-xs border-r border-border/50">
+                  <div key={r.id} className="grid border-b border-border/50"
+                    style={{ gridTemplateColumns: `120px repeat(${DAY_COUNT}, minmax(${CELL_W_MOB}px, ${CELL_W}px))`, gridAutoRows: "minmax(56px, auto)" }}>
+                    <div className="px-2 py-3 text-xs border-r border-border/50" style={{ gridRow: 1, gridColumn: 1 }}>
                       <div className="font-medium">Room {r.room_number}</div>
                       <div className="text-[10px] text-muted-foreground">{r.room_type} · F{r.floor}</div>
                     </div>
-                    {/* empty cells (for visual grid lines) */}
                     {days.map((_, i) => (
-                      <div key={i} className="h-14 border-r border-border/30" />
+                      <div key={i} className="border-r border-border/30" style={{ gridRow: 1, gridColumn: i + 2 }} />
                     ))}
-                    {/* booking blocks overlaid */}
                     {bs.map((b) => {
-                      const inIdx = Math.max(0, dayKeys.indexOf(b.check_in));
-                      const outDateKey = b.check_out;
-                      const outIdx = dayKeys.indexOf(outDateKey);
-                      // booking starts before range: clamp to 0; ends after range: clamp to DAY_COUNT
-                      const startCol = b.check_in < rangeStart ? 0 : dayKeys.indexOf(b.check_in);
-                      const span = (outIdx < 0 ? DAY_COUNT : outIdx) - startCol;
+                      const startCol = b.check_in < rangeStart ? 0 : Math.max(0, dayKeys.indexOf(b.check_in));
+                      const outIdx = dayKeys.indexOf(b.check_out);
+                      const endCol = outIdx < 0 ? DAY_COUNT : outIdx;
+                      const span = endCol - startCol;
                       if (span <= 0) return null;
                       return (
                         <button key={b.id} onClick={() => setSelected(b)}
-                          className={cn("absolute top-1.5 bottom-1.5 rounded-md border px-2 text-[11px] text-left flex items-center overflow-hidden hover:ring-2 hover:ring-gold/40 transition",
+                          className={cn("m-1 rounded-md border px-2 text-[11px] text-left flex items-center overflow-hidden hover:ring-2 hover:ring-gold/40 transition",
                             blockColor(b.status))}
-                          style={{
-                            left: `calc(120px + ${startCol} * max(${CELL_W_MOB}px, ${(100 - 120 / 16) / DAY_COUNT}%))`,
-                            // simpler: use absolute via grid-column? easier: use grid-area on a child
-                            gridColumn: `${startCol + 2} / span ${span}`,
-                            position: "relative",
-                            left: "auto",
-                          }}>
+                          style={{ gridRow: 1, gridColumn: `${startCol + 2} / span ${span}` }}>
                           <span className="truncate font-medium">{b.guest_name}</span>
                         </button>
                       );
