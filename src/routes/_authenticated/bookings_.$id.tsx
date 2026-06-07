@@ -15,10 +15,11 @@ import {
 } from "@/lib/booking-messages";
 import {
   ArrowLeft, Loader2, Trash2, BedDouble, Phone, Mail, User, Copy,
-  Send, Wallet, HandPlatter, Heart, Share2, Printer, Pencil, CalendarDays, Star,
+  Send, Wallet, HandPlatter, Heart, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
+import { listRooms } from "@/lib/rooms-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
@@ -39,6 +40,7 @@ function BookingDetail() {
   const { data: c } = useQuery({
     queryKey: ["customer", b?.customer_id], queryFn: () => getCustomer(b!.customer_id), enabled: !!b?.customer_id,
   });
+  const { data: rooms = [] } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
 
   const status = useMutation({
     mutationFn: (s: BookingStatus) => setBookingStatus(id, s),
@@ -136,6 +138,29 @@ function BookingDetail() {
               <div className="mb-3">
                 <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs", bookingStatusStyles[b.status])}>{b.status}</span>
               </div>
+              {/* Check-In / Check-Out quick actions */}
+              {(() => {
+                const canCheckIn = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any)
+                  && new Date().toISOString().slice(0, 10) >= b.check_in;
+                const canCheckOut = b.status === "Checked-In";
+                if (!canCheckIn && !canCheckOut) return null;
+                return (
+                  <div className="flex gap-2 mb-3">
+                    {canCheckIn && (
+                      <button onClick={() => status.mutate("Checked-In" as any)}
+                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">
+                        <LogIn className="h-3.5 w-3.5" /> Check-In
+                      </button>
+                    )}
+                    {canCheckOut && (
+                      <button onClick={() => status.mutate("Checked-Out" as any)}
+                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
+                        <LogOut className="h-3.5 w-3.5" /> Check-Out
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="grid grid-cols-2 gap-2">
                 {BOOKING_STATUSES.map((s) => (
                   <button key={s} onClick={() => status.mutate(s)} disabled={s === b.status}
@@ -145,6 +170,20 @@ function BookingDetail() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Assigned room */}
+            <div className="luxe-card rounded-xl p-5">
+              <h4 className="font-display text-lg mb-2 flex items-center gap-2"><DoorOpen className="h-4 w-4 text-gold" /> Room Assignment</h4>
+              {(() => {
+                const room = rooms.find((r: any) => r.id === (b as any).room_id);
+                return room ? (
+                  <div className="text-sm">Room <span className="font-medium">{room.room_number}</span> · {room.room_type} · Floor {room.floor}</div>
+                ) : (
+                  <div className="text-xs text-muted-foreground italic">No room assigned</div>
+                );
+              })()}
+              <Link to="/bookings/$id/edit" params={{ id }} className="text-[11px] text-gold hover:underline mt-2 inline-block">Assign / Change →</Link>
             </div>
 
             <div className="luxe-card rounded-xl p-5">

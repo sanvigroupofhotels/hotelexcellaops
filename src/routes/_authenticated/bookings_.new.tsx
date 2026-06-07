@@ -18,6 +18,7 @@ import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
   type SharedStayValue,
 } from "@/components/shared/stay-form-sections";
+import { RoomAssignmentField } from "@/components/room-assignment-field";
 import { ArrowLeft, Loader2, BedDouble } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -45,6 +46,7 @@ function NewBooking() {
   const [status, setStatus] = useState<string>("Pending");
   const [advancePaid, setAdvancePaid] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
+  const [roomId, setRoomId] = useState<string | null>(null);
   const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(customerId ?? null);
   const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
   const [forceNew, setForceNew] = useState(false);
@@ -163,6 +165,7 @@ function NewBooking() {
         check_in: stay.check_in, check_out: stay.check_out,
         adults: stay.adults, children: stay.children, guests: stay.guests,
         room_details: `${stay.room_type} × ${stay.rooms}`,
+        room_id: roomId,
         amount, advance_paid: advancePaid, discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
         status: status as any, payment_status: "None",
@@ -284,6 +287,10 @@ function NewBooking() {
                   <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
                 </select>
               </label>
+              <RoomAssignmentField
+                value={roomId} onChange={setRoomId}
+                check_in={stay.check_in} check_out={stay.check_out}
+              />
               <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>
                 <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>

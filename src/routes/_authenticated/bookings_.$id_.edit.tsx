@@ -14,6 +14,7 @@ import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
   type SharedStayValue,
 } from "@/components/shared/stay-form-sections";
+import { RoomAssignmentField } from "@/components/room-assignment-field";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -39,6 +40,7 @@ function EditBooking() {
   const [extras, setExtras] = useState<LineItem[]>([]);
   const [status, setStatus] = useState<string>("Pending");
   const [advancePaid, setAdvancePaid] = useState<number>(0);
+  const [roomId, setRoomId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -55,6 +57,7 @@ function EditBooking() {
     }));
     setStatus(b.status as any);
     setAdvancePaid(Number(b.advance_paid ?? 0));
+    setRoomId((b as any).room_id ?? null);
   }, [b, loaded]);
 
   useEffect(() => {
@@ -79,6 +82,7 @@ function EditBooking() {
         check_in: stay.check_in, check_out: stay.check_out,
         adults: stay.adults, children: stay.children, guests: stay.guests,
         room_details: `${stay.room_type} × ${stay.rooms}`,
+        room_id: roomId,
         amount, advance_paid: advancePaid, discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
         status: status as any,
@@ -130,6 +134,11 @@ function EditBooking() {
                 </div>
                 <NumField label="Advance Paid (₹)" value={advancePaid} min={0} onChange={setAdvancePaid} prefix="₹" />
               </div>
+              <RoomAssignmentField
+                value={roomId} onChange={setRoomId}
+                check_in={stay.check_in} check_out={stay.check_out}
+                excludeBookingId={id}
+              />
               <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>
                 <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>

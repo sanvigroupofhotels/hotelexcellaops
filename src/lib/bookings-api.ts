@@ -17,6 +17,7 @@ export interface BookingRow {
   children: number;
   guests: number;
   room_details: string | null;
+  room_id: string | null;
   amount: number;
   advance_paid: number;
   notes: string | null;
@@ -40,6 +41,7 @@ export interface BookingInput {
   children: number;
   guests: number;
   room_details?: string | null;
+  room_id?: string | null;
   amount: number;
   advance_paid?: number;
   discount?: number;

@@ -125,6 +125,7 @@ export type Database = {
           payment_status: string
           phone: string | null
           room_details: string | null
+          room_id: string | null
           source_quote_id: string | null
           status: Database["public"]["Enums"]["booking_status"]
           updated_at: string
@@ -151,6 +152,7 @@ export type Database = {
           payment_status?: string
           phone?: string | null
           room_details?: string | null
+          room_id?: string | null
           source_quote_id?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string
@@ -177,6 +179,7 @@ export type Database = {
           payment_status?: string
           phone?: string | null
           room_details?: string | null
+          room_id?: string | null
           source_quote_id?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string
@@ -188,6 +191,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
             referencedColumns: ["id"]
           },
           {
@@ -905,6 +915,83 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      room_maintenance: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          reason: string | null
+          room_id: string
+          start_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          reason?: string | null
+          room_id: string
+          start_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          reason?: string | null
+          room_id?: string
+          start_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_maintenance_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rooms: {
+        Row: {
+          active: boolean
+          created_at: string
+          floor: number
+          id: string
+          notes: string | null
+          room_number: string
+          room_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          floor: number
+          id?: string
+          notes?: string | null
+          room_number: string
+          room_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          floor?: number
+          id?: string
+          notes?: string | null
+          room_number?: string
+          room_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       staff: {
         Row: {
