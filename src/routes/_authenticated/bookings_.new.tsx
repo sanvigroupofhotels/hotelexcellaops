@@ -165,6 +165,7 @@ function NewBooking() {
         check_in: stay.check_in, check_out: stay.check_out,
         adults: stay.adults, children: stay.children, guests: stay.guests,
         room_details: `${stay.room_type} × ${stay.rooms}`,
+        room_id: roomId,
         amount, advance_paid: advancePaid, discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
         status: status as any, payment_status: "None",
