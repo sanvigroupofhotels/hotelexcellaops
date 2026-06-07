@@ -40,6 +40,7 @@ function BookingDetail() {
   const { data: c } = useQuery({
     queryKey: ["customer", b?.customer_id], queryFn: () => getCustomer(b!.customer_id), enabled: !!b?.customer_id,
   });
+  const { data: rooms = [] } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
 
   const status = useMutation({
     mutationFn: (s: BookingStatus) => setBookingStatus(id, s),
