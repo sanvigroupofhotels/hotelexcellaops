@@ -57,6 +57,7 @@ function EditBooking() {
     }));
     setStatus(b.status as any);
     setAdvancePaid(Number(b.advance_paid ?? 0));
+    setRoomId((b as any).room_id ?? null);
   }, [b, loaded]);
 
   useEffect(() => {
