@@ -40,6 +40,7 @@ function EditBooking() {
   const [extras, setExtras] = useState<LineItem[]>([]);
   const [status, setStatus] = useState<string>("Pending");
   const [advancePaid, setAdvancePaid] = useState<number>(0);
+  const [roomId, setRoomId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
