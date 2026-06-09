@@ -58,6 +58,15 @@ export async function createBookingPayment(input: BookingPaymentInput) {
   return data as unknown as BookingPaymentRow;
 }
 
+export async function updateBookingPayment(id: string, patch: Partial<BookingPaymentInput>) {
+  const row: any = { ...patch };
+  if (patch.occurred_at) row.occurred_at = patch.occurred_at;
+  const { data, error } = await supabase
+    .from("booking_payments" as any).update(row).eq("id", id).select().single();
+  if (error) throw error;
+  return data as unknown as BookingPaymentRow;
+}
+
 export async function deleteBookingPayment(id: string) {
   const { error } = await supabase.from("booking_payments" as any).delete().eq("id", id);
   if (error) throw error;

@@ -106,12 +106,8 @@ function CustomersPage() {
                     {c.phone && (
                       <div className="text-[11px] text-muted-foreground mt-0.5 font-mono">{c.phone}</div>
                     )}
-                    <div className="mt-1">
-                      <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[10px] text-muted-foreground">
-                        {c.status || "—"}
-                      </span>
-                    </div>
                   </Link>
+
 
                   {/* Right: Lead Source + Tag chips on one row above actions */}
                   <div className="flex flex-col items-end gap-2 shrink-0">
