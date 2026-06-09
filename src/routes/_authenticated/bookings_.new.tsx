@@ -187,6 +187,7 @@ function NewBooking() {
         discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
         payment_status: "None",
+        lead_source: stay.lead_source || "Direct",
       };
       const b = await createBooking(input);
       const rate = getRoomRate(stay.room_type, stay.breakfast_included);
