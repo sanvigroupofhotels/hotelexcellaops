@@ -65,15 +65,24 @@ function BookingDetail() {
   });
 
   const cardRef = useRef<HTMLDivElement>(null);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const { data: payments = [] } = useQuery({
+    queryKey: ["booking-payments", id],
+    queryFn: () => listBookingPayments(id),
+    enabled: !!b,
+  });
 
   if (isLoading || !b) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
   const balance = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+  const isCheckedOut = b.status === "Checked-Out";
 
-  const sendWa = (template: "confirm" | "payment" | "checkin" | "checkout") => {
+  const sendWa = (template: WhatsAppTemplate) => {
     if (!b.phone) { toast.error("Customer has no phone number"); return; }
+    if (template === "empty") { window.open(waLink(b.phone), "_blank"); return; }
     const text =
-      template === "confirm" ? confirmationMessage(b, items) :
+      template === "confirmation" ? confirmationMessage(b, items) :
       template === "payment" ? paymentReminderMessage(b, balance > 0 ? balance : undefined) :
       template === "checkin" ? checkInWelcomeMessage(b) :
       checkOutThankYouMessage(b);
@@ -111,16 +120,11 @@ function BookingDetail() {
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
               <Pencil className="h-4 w-4 text-gold" /> Edit
             </Link>
-            <CommBtn icon={Send} label="Send Confirmation" onClick={() => sendWa("confirm")} disabled={!b.phone} />
-            <CommBtn icon={Wallet} label="Send Payment Reminder" onClick={() => sendWa("payment")} disabled={!b.phone} />
-            <CommBtn icon={HandPlatter} label="Send Check-In Welcome" onClick={() => sendWa("checkin")} disabled={!b.phone} />
-            <CommBtn icon={Heart} label="Send Check-Out Thank You" onClick={() => sendWa("checkout")} disabled={!b.phone} />
-            {isAdmin && (
-              <button onClick={() => { if (confirm("Delete this booking?")) del.mutate(); }}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10">
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
-            )}
+            <WhatsAppMenu disabled={!b.phone} onSelect={sendWa} />
+            <button onClick={() => setInvoiceOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-soft text-gold px-4 py-2.5 text-sm font-medium hover:bg-gold/20">
+              <FileText className="h-4 w-4" /> {isCheckedOut ? "Generate Invoice" : "Generate Proforma Invoice"}
+            </button>
           </div>
         </div>
 
@@ -128,6 +132,7 @@ function BookingDetail() {
           <div ref={cardRef}>
             <BookingCard b={b} items={items} balance={balance} />
           </div>
+
 
           <div className="space-y-4 print:hidden">
             {c && (
