@@ -42,8 +42,7 @@ function NewBooking() {
   const [stay, setStay] = useState<SharedStayValue>(() => emptyStayValue());
   const [extras, setExtras] = useState<LineItem[]>([]);
 
-  // Booking-only fields
-  const [status, setStatus] = useState<string>("Pending");
+  // Booking-only fields. Payment status (Pending/Advance Paid/Full Paid) is auto-derived server-side.
   const [advancePaid, setAdvancePaid] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
   const [roomId, setRoomId] = useState<string | null>(null);
