@@ -49,6 +49,7 @@ export function AddBookingPaymentModal({
     onSuccess: () => {
       toast.success(isEdit ? "Payment updated" : "Payment added");
       qc.invalidateQueries({ queryKey: ["booking-payments", bookingId] });
+      qc.invalidateQueries({ queryKey: ["booking-payment-activities", bookingId] });
       qc.invalidateQueries({ queryKey: ["booking", bookingId] });
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["cash"] });
