@@ -73,44 +73,49 @@ function History() {
             return (
               <motion.div key={q.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
                 className="px-4 md:px-6 py-4 border-b border-border/60 last:border-0 hover:bg-secondary/40 transition">
-                <div className="flex items-start gap-3">
-                  <Link to="/quote/$id" params={{ id: q.id }} className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">{q.guest_name}</div>
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
-                      <StatusPill status={q.status} />
-                      <span className="text-gold/80 font-medium">{q.room_type}</span>
+                <Link to="/quote/$id" params={{ id: q.id }} className="block">
+                  <div className="grid grid-cols-3 gap-3 items-start">
+                    {/* Col 1: Guest + Status */}
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{q.guest_name}</div>
+                      <div className="mt-1"><StatusPill status={q.status} /></div>
                     </div>
-                  </Link>
-                  <Link to="/quote/$id" params={{ id: q.id }} className="text-right shrink-0">
-                    <div className="text-xs">
-                      {new Date(q.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – {new Date(q.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+
+                    {/* Col 2: Dates + Guests + Room Type (second row) */}
+                    <div className="text-[11px] text-muted-foreground min-w-0">
+                      <div className="whitespace-nowrap">
+                        {new Date(q.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – {new Date(q.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                      </div>
+                      <div className="mt-0.5">{q.nights}N · {guestCount}</div>
+                      <div className="text-gold/80 font-medium mt-0.5 truncate">{q.room_type}</div>
                     </div>
-                    <div className="text-[11px] text-muted-foreground">{q.nights}N · {guestCount}</div>
-                    <div className="text-sm font-medium gold-text-gradient mt-0.5">₹{Number(q.total).toLocaleString("en-IN")}</div>
-                  </Link>
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    {q.phone && (
-                      <a href={`tel:${q.phone.replace(/\s+/g, "")}`} onClick={(e) => e.stopPropagation()}
-                        className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Call">
-                        <Phone className="h-3.5 w-3.5" />
-                      </a>
-                    )}
-                    <a href={buildWhatsAppLink(q)} target="_blank" rel="noreferrer"
-                      onClick={(e) => { e.stopPropagation(); logWhatsApp(q.id); }}
-                      className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition" title="WhatsApp">
-                      <MessageCircle className="h-3.5 w-3.5" />
-                    </a>
-                    {isAdmin && (
-                      <button onClick={() => { if (confirm(`Delete quote ${q.reference_code}?`)) del.mutate(q.id); }}
-                        className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition" title="Delete">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    <Link to="/quote/$id" params={{ id: q.id }} className="p-1.5 rounded text-muted-foreground hover:text-gold">
-                      <ChevronRight className="h-4 w-4" />
-                    </Link>
+
+                    {/* Col 3: Amount (first row) + Actions */}
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span className="text-sm font-medium gold-text-gradient whitespace-nowrap">₹{Number(q.total).toLocaleString("en-IN")}</span>
+                      <div className="flex items-center gap-0.5">
+                        {q.phone && (
+                          <a href={`tel:${q.phone.replace(/\s+/g, "")}`} onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Call">
+                            <Phone className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        <a href={buildWhatsAppLink(q)} target="_blank" rel="noreferrer"
+                          onClick={(e) => { e.stopPropagation(); logWhatsApp(q.id); }}
+                          className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition" title="WhatsApp">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </a>
+                        {isAdmin && (
+                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (confirm(`Delete quote ${q.reference_code}?`)) del.mutate(q.id); }}
+                            className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition" title="Delete">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </Link>
               </motion.div>
             );
           })}
