@@ -2,7 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
-import { getBooking, setBookingStatus, deleteBooking, setAdvancePaid } from "@/lib/bookings-api";
+import { getBooking, setBookingStatus, deleteBooking } from "@/lib/bookings-api";
+import { listBookingPayments, createBookingPayment, deleteBookingPayment, PAYMENT_MODES } from "@/lib/booking-payments-api";
+import { listStaff } from "@/lib/cash-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
@@ -46,17 +48,10 @@ function BookingDetail() {
     mutationFn: (s: BookingStatus) => setBookingStatus(id, s),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["booking", id] }); qc.invalidateQueries({ queryKey: ["bookings"] }); toast.success("Status updated"); },
   });
-  const advance = useMutation({
-    mutationFn: (n: number) => setAdvancePaid(id, n),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["booking", id] }); toast.success("Advance updated"); },
-  });
   const del = useMutation({
     mutationFn: () => deleteBooking(id),
     onSuccess: () => { toast.success("Deleted"); navigate({ to: "/bookings" }); },
   });
-
-  const [advanceInput, setAdvanceInput] = useState(0);
-  useEffect(() => { if (b) setAdvanceInput(Number(b.advance_paid) || 0); }, [b]);
 
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -186,21 +181,8 @@ function BookingDetail() {
               <Link to="/bookings/$id/edit" params={{ id }} className="text-[11px] text-gold hover:underline mt-2 inline-block">Assign / Change →</Link>
             </div>
 
-            <div className="luxe-card rounded-xl p-5">
-              <h4 className="font-display text-lg mb-3 flex items-center gap-2"><Wallet className="h-4 w-4 text-gold" /> Payment</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="tabular-nums">₹{Number(b.amount).toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Advance Paid</span><span className="tabular-nums">₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between border-t border-border pt-2"><span className="font-medium">Balance Payable</span><span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <input type="number" min={0} max={Number(b.amount)} value={advanceInput}
-                  onChange={(e) => setAdvanceInput(Number(e.target.value))}
-                  className="flex-1 bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
-                <button onClick={() => advance.mutate(advanceInput)}
-                  className="rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">Update</button>
-              </div>
-            </div>
+            <PaymentsLedger bookingId={id} bookingAmount={Number(b.amount)} advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id} />
+
 
             {b.source_quote_id && (
               <div className="luxe-card rounded-xl p-4 text-xs">
@@ -320,5 +302,158 @@ function CommBtn({ icon: Icon, label, onClick, disabled }: any) {
       <Icon className="h-4 w-4 text-gold" />
       <span className="text-left">{label}</span>
     </button>
+  );
+}
+
+function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId }: {
+  bookingId: string; bookingAmount: number; advance: number; balance: number; customerId: string;
+}) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const { data: payments = [] } = useQuery({
+    queryKey: ["booking-payments", bookingId],
+    queryFn: () => listBookingPayments(bookingId),
+  });
+  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
+
+  const del = useMutation({
+    mutationFn: (id: string) => deleteBookingPayment(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["booking-payments", bookingId] });
+      qc.invalidateQueries({ queryKey: ["booking", bookingId] });
+      toast.success("Payment removed");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <div className="luxe-card rounded-xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-display text-lg flex items-center gap-2"><Wallet className="h-4 w-4 text-gold" /> Payments</h4>
+        <button
+          onClick={() => setOpen(true)}
+          disabled={balance <= 0}
+          className="rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal disabled:opacity-50 disabled:cursor-not-allowed">
+          + Add Payment
+        </button>
+      </div>
+      <div className="space-y-1 text-sm">
+        <div className="flex justify-between"><span className="text-muted-foreground">Total Booking Amount</span><span className="tabular-nums">₹{bookingAmount.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Total Advance Paid</span><span className="tabular-nums">₹{advance.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between border-t border-border pt-2"><span className="font-medium">Balance Due</span><span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
+      </div>
+
+      {payments.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Payment History</div>
+          {payments.map((p) => (
+            <div key={p.id} className="text-xs rounded-md border border-border bg-secondary/40 px-3 py-2 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-medium tabular-nums">₹{Number(p.amount).toLocaleString("en-IN")} <span className="text-muted-foreground">· {p.payment_mode}</span></div>
+                <div className="text-[10px] text-muted-foreground">Collected By: {p.collected_by} · {new Date(p.occurred_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</div>
+                {p.notes && <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{p.notes}</div>}
+              </div>
+              <button onClick={() => { if (confirm("Remove this payment?")) del.mutate(p.id); }}
+                className="p-1 text-muted-foreground hover:text-destructive shrink-0" title="Remove">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {open && (
+        <AddPaymentModal
+          bookingId={bookingId} customerId={customerId} maxAmount={balance}
+          staff={staff as any[]}
+          onClose={() => setOpen(false)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["booking-payments", bookingId] });
+            qc.invalidateQueries({ queryKey: ["booking", bookingId] });
+            setOpen(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AddPaymentModal({ bookingId, customerId, maxAmount, staff, onClose, onSaved }: {
+  bookingId: string; customerId: string; maxAmount: number; staff: any[];
+  onClose: () => void; onSaved: () => void;
+}) {
+  const [amount, setAmount] = useState<number>(maxAmount);
+  const [mode, setMode] = useState<string>(PAYMENT_MODES[0]);
+  const [collectedBy, setCollectedBy] = useState<string>("");
+  const [occurredAt, setOccurredAt] = useState<string>(() => {
+    const d = new Date();
+    const tz = d.getTimezoneOffset();
+    const local = new Date(d.getTime() - tz * 60000);
+    return local.toISOString().slice(0, 16);
+  });
+  const [notes, setNotes] = useState("");
+  const save = useMutation({
+    mutationFn: () => createBookingPayment({
+      booking_id: bookingId,
+      customer_id: customerId,
+      amount,
+      payment_mode: mode,
+      collected_by: collectedBy,
+      occurred_at: new Date(occurredAt).toISOString(),
+      notes: notes || null,
+    }),
+    onSuccess: () => { toast.success("Payment added"); onSaved(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="luxe-card rounded-xl w-full max-w-md p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-display text-xl">Add Payment</h3>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <label className="col-span-1 block">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Amount *</span>
+            <input type="number" min={0.01} step="0.01" value={amount} onChange={(e) => setAmount(Number(e.target.value))}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+          </label>
+          <label className="col-span-1 block">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Payment Mode *</span>
+            <select value={mode} onChange={(e) => setMode(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
+              {PAYMENT_MODES.map((m) => <option key={m}>{m}</option>)}
+            </select>
+          </label>
+          <label className="col-span-2 block">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Collected By *</span>
+            {staff.length > 0 ? (
+              <select value={collectedBy} onChange={(e) => setCollectedBy(e.target.value)}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
+                <option value="">Select…</option>
+                {staff.map((s: any) => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
+            ) : (
+              <input value={collectedBy} onChange={(e) => setCollectedBy(e.target.value)} placeholder="Staff name"
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+            )}
+          </label>
+          <label className="col-span-2 block">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Date &amp; Time</span>
+            <input type="datetime-local" value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+          </label>
+          <label className="col-span-2 block">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Notes</span>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+          </label>
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <button onClick={onClose} className="rounded-md border border-border bg-card px-3 py-2 text-xs">Cancel</button>
+          <button onClick={() => save.mutate()} disabled={save.isPending || !collectedBy || !(amount > 0)}
+            className="rounded-md gold-gradient px-4 py-2 text-xs font-medium text-charcoal disabled:opacity-50">
+            {save.isPending ? "Saving…" : "Save Payment"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

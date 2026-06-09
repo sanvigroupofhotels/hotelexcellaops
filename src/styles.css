@@ -106,43 +106,54 @@
 /* Light theme — Hotel Excella light variant.
    Keeps gold accent; switches surfaces to off-white / paper. */
 .light {
-  --background: oklch(0.985 0.005 80);          /* near-white paper */
-  --foreground: oklch(0.18 0.01 60);            /* near-black ink */
+  --background: oklch(0.985 0.005 80);          /* warm paper */
+  --foreground: oklch(0.16 0.01 60);            /* near-black ink — primary text */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.01 60);
+  --card-foreground: oklch(0.16 0.01 60);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.01 60);
-  --primary: oklch(0.72 0.14 75);
+  --popover-foreground: oklch(0.16 0.01 60);
+  --primary: oklch(0.58 0.14 75);               /* darker gold so primary buttons stay legible */
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.005 80);
-  --secondary-foreground: oklch(0.18 0.01 60);
-  --muted: oklch(0.95 0.005 80);
-  --muted-foreground: oklch(0.45 0.01 70);
-  --accent: oklch(0.93 0.02 75);
+  --secondary: oklch(0.95 0.005 80);
+  --secondary-foreground: oklch(0.22 0.01 60);  /* dark grey on secondary surfaces */
+  --muted: oklch(0.94 0.005 80);
+  --muted-foreground: oklch(0.38 0.012 70);     /* medium grey — readable */
+  --accent: oklch(0.92 0.02 75);
   --accent-foreground: oklch(0.18 0.01 60);
-  --destructive: oklch(0.55 0.2 25);
+  --destructive: oklch(0.5 0.2 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.86 0.008 70 / 0.9);
+  --border: oklch(0.82 0.008 70 / 0.95);
   --input: oklch(0.97 0.005 80);
-  --ring: oklch(0.72 0.14 75 / 0.5);
+  --ring: oklch(0.58 0.14 75 / 0.5);
 
-  --gold: oklch(0.66 0.14 72);
-  --gold-soft: oklch(0.82 0.13 82 / 0.18);
+  --gold: oklch(0.58 0.14 72);                  /* deeper hotel-excella gold for contrast */
+  --gold-soft: oklch(0.82 0.13 82 / 0.22);
   --cream: oklch(0.99 0.005 80);
-  --charcoal: oklch(0.18 0.01 60);
+  --charcoal: oklch(0.16 0.01 60);
 
-  --success: oklch(0.55 0.16 155);
-  --warning: oklch(0.65 0.18 70);
-  --info: oklch(0.55 0.15 230);
+  --success: oklch(0.5 0.16 155);
+  --warning: oklch(0.6 0.18 70);
+  --info: oklch(0.5 0.15 230);
 
   --sidebar: oklch(0.97 0.005 80);
-  --sidebar-foreground: oklch(0.25 0.01 60);
-  --sidebar-primary: oklch(0.66 0.14 72);
+  --sidebar-foreground: oklch(0.22 0.01 60);
+  --sidebar-primary: oklch(0.58 0.14 72);
   --sidebar-primary-foreground: oklch(0.99 0 0);
   --sidebar-accent: oklch(0.93 0.01 75);
   --sidebar-accent-foreground: oklch(0.18 0.01 60);
-  --sidebar-border: oklch(0.86 0.008 70 / 0.7);
-  --sidebar-ring: oklch(0.72 0.14 75 / 0.5);
+  --sidebar-border: oklch(0.82 0.008 70 / 0.8);
+  --sidebar-ring: oklch(0.58 0.14 72 / 0.5);
+}
+
+/* Gold gradient text needs darker stops in light mode to stay legible. */
+.light .gold-text-gradient {
+  background: linear-gradient(135deg, oklch(0.58 0.14 75), oklch(0.5 0.13 70));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.light .gold-gradient {
+  background: linear-gradient(135deg, oklch(0.78 0.14 80), oklch(0.62 0.14 72));
 }
 
 .light .luxe-card {
