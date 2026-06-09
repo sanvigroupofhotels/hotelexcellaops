@@ -103,29 +103,15 @@ function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
 function CashPage() {
   const { isAdmin, canManage } = useUserRole();
   const [tab, setTab] = useState<"dashboard" | "staff" | "etypes">("dashboard");
-  const initial = presetDates("today")!;
-  const [range, setRange] = useState<RangeKey>("today");
-  const [customFrom, setCustomFrom] = useState(initial.from);
-  const [customTo, setCustomTo] = useState(initial.to);
   const [openForm, setOpenForm] = useState<null | { kind: "collection" | "expense"; tx?: CashTxRow }>(null);
   const [detailTx, setDetailTx] = useState<CashTxRow | null>(null);
-  const [includeInactive, setIncludeInactive] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
-  const onRangeChange = (k: RangeKey) => {
-    setRange(k);
-    const p = presetDates(k);
-    if (p) { setCustomFrom(p.from); setCustomTo(p.to); }
-  };
-
-  const bounds = useMemo(() => {
-    if (range === "all") return { from: undefined, to: undefined, includeInactive } as const;
-    return { ...rangeBounds(customFrom, customTo), includeInactive } as const;
-  }, [range, customFrom, customTo, includeInactive]);
-
+  // Main dashboard is ALWAYS All-Time. Filters live in the Reports modal.
   const { data: tx = [] } = useQuery({
-    queryKey: ["cash-tx", bounds.from, bounds.to, includeInactive],
-    queryFn: () => listCashTx(bounds),
+    queryKey: ["cash-tx", "all-time"],
+    queryFn: () => listCashTx({}),
   });
 
   const totals = useMemo(() => {
@@ -137,9 +123,21 @@ function CashPage() {
     return { collected, spent, balance: collected - spent };
   }, [tx]);
 
+  // Search by remark/notes/description/guest or amount
+  const filteredHistory = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    if (!s) return tx;
+    const asNumber = Number(s);
+    return tx.filter((t) => {
+      if (!isNaN(asNumber) && Number(t.amount) === asNumber) return true;
+      return [t.notes, t.description, t.guest_name, t.type_name, t.staff_name, t.room_number]
+        .filter(Boolean).some((v) => String(v).toLowerCase().includes(s));
+    });
+  }, [tx, search]);
+
   return (
     <>
-      <Topbar title="Cash Management" subtitle="Track collections, expenses and current balance" />
+      <Topbar title="CashBook" subtitle="All-time cash collections, expenses & balance" />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-32 lg:pb-8 space-y-6">
         {/* Tabs */}
         <div className="flex items-center gap-2 border-b border-border overflow-x-auto">
@@ -150,68 +148,41 @@ function CashPage() {
 
         {tab === "dashboard" && (
           <>
-            {/* Date Range filter — From/To only when Custom */}
-            <div className="luxe-card rounded-xl p-3">
-              <div className={cn("grid gap-2 items-end",
-                range === "custom" ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 md:grid-cols-2")}>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Date Range</label>
-                  <select className={cn(inputCls,"!py-2")} value={range} onChange={e=>onRangeChange(e.target.value as RangeKey)}>
-                    {RANGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-                {range === "custom" && (
-                  <>
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">From</label>
-                      <input type="date" className={cn(inputCls,"!py-2")} value={customFrom}
-                        onChange={e=>setCustomFrom(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">To</label>
-                      <input type="date" className={cn(inputCls,"!py-2")} value={customTo}
-                        onChange={e=>setCustomTo(e.target.value)} />
-                    </div>
-                  </>
-                )}
-                <label className="inline-flex items-center gap-2 text-xs text-muted-foreground pb-2">
-                  <input type="checkbox" checked={includeInactive} onChange={e=>setIncludeInactive(e.target.checked)} />
-                  Show Inactive
-                </label>
-              </div>
-            </div>
-
-            {/* Top cards */}
+            {/* Top cards — All-time only */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <StatCard label="Cash Collected" value={totals.collected} icon={ArrowDownCircle} tone="success" />
-              <StatCard label="Cash Spent" value={totals.spent} icon={ArrowUpCircle} tone="danger" />
-              <StatCard label="Current Balance" value={totals.balance} icon={Wallet} tone="gold" />
+              <StatCard label="Total In (+)" value={totals.collected} icon={ArrowDownCircle} tone="success" />
+              <StatCard label="Total Out (-)" value={totals.spent} icon={ArrowUpCircle} tone="danger" />
+              <StatCard label="Net Balance" value={totals.balance} icon={Wallet} tone="gold" />
             </div>
 
             {/* Primary actions */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button onClick={()=>setOpenForm({ kind: "collection" })}
-                className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white shadow-[0_0_24px_oklch(0.72_0.18_150/0.25)] transition hover:brightness-110"
+                className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                 style={{ background: "linear-gradient(135deg, oklch(0.65 0.18 150), oklch(0.55 0.18 150))" }}>
                 <ArrowDownCircle className="h-4 w-4"/> Add Cash Collection
               </button>
               <button onClick={()=>setOpenForm({ kind: "expense" })}
-                className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white shadow-[0_0_24px_oklch(0.6_0.22_25/0.25)] transition hover:brightness-110"
+                className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                 style={{ background: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.52 0.22 25))" }}>
                 <ArrowUpCircle className="h-4 w-4"/> Add Cash Expense
               </button>
-            </div>
-
-            {/* View Reports replaces direct exports */}
-            <div className="flex flex-wrap gap-2">
               <button onClick={() => setReportsOpen(true)}
-                className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-2 text-sm hover:bg-gold-soft/50">
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-3 text-sm hover:bg-gold-soft/50">
                 📊 View Reports
               </button>
             </div>
 
+            {/* Search */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-card">
+              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+              <input value={search} onChange={(e)=>setSearch(e.target.value)}
+                placeholder="Search by remark or amount…"
+                className="bg-transparent outline-none text-sm flex-1" />
+              {search && <button onClick={()=>setSearch("")} className="text-[10px] uppercase text-muted-foreground hover:text-foreground">Clear</button>}
+            </div>
 
-            <TransactionHistory tx={tx} isAdmin={isAdmin} canManage={canManage}
+            <SimpleHistory tx={filteredHistory} isAdmin={isAdmin} canManage={canManage}
               onEdit={(t) => setOpenForm({ kind: t.kind, tx: t })}
               onOpen={(t) => setDetailTx(t)} />
           </>
@@ -232,6 +203,94 @@ function CashPage() {
         <ReportsModal tx={tx} onClose={() => setReportsOpen(false)} />
       )}
     </>
+  );
+}
+
+// ---------- Simple history list (no inline filters; advanced filters live in Reports modal) ----------
+function SimpleHistory({ tx, isAdmin, canManage, onEdit, onOpen }: {
+  tx: CashTxRow[]; isAdmin: boolean; canManage: boolean;
+  onEdit: (t: CashTxRow) => void; onOpen: (t: CashTxRow) => void;
+}) {
+  const qc = useQueryClient();
+  const [confirmDelete, setConfirmDelete] = useState<CashTxRow | null>(null);
+  const deact = useMutation({ mutationFn: softDeleteCashTx, onSuccess: () => { toast.success("Deactivated"); qc.invalidateQueries({ queryKey:["cash-tx"] }); }, onError: (e:any) => toast.error(e.message) });
+  const react = useMutation({ mutationFn: reactivateCashTx, onSuccess: () => { toast.success("Reactivated"); qc.invalidateQueries({ queryKey:["cash-tx"] }); }, onError: (e:any) => toast.error(e.message) });
+  const hard = useMutation({ mutationFn: hardDeleteCashTx, onSuccess: () => { toast.success("Deleted"); setConfirmDelete(null); qc.invalidateQueries({ queryKey:["cash-tx"] }); }, onError: (e:any) => toast.error(e.message) });
+
+  return (
+    <div className="luxe-card rounded-xl p-4 md:p-5">
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Transaction History</div>
+      <div className="overflow-x-auto -mx-4 md:mx-0">
+        <table className="w-full text-sm min-w-[760px]">
+          <thead className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
+            <tr>
+              <th className="px-3 py-2">Date</th><th className="px-3 py-2">Type</th>
+              <th className="px-3 py-2">Category</th><th className="px-3 py-2">Guest</th>
+              <th className="px-3 py-2">Entered By</th>
+              <th className="px-3 py-2 text-right">Amount</th>
+              <th className="px-3 py-2 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tx.length === 0 && (<tr><td colSpan={7} className="text-center text-muted-foreground py-8">No transactions</td></tr>)}
+            {tx.map(t => (
+              <tr key={t.id} className={cn("border-b border-border/60 hover:bg-secondary/40", !t.active && "opacity-50")}>
+                <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{new Date(t.occurred_at).toLocaleString("en-IN",{dateStyle:"short",timeStyle:"short"})}</td>
+                <td className="px-3 py-2">
+                  <span className={cn("text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5",
+                    t.kind==="collection" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
+                    {t.kind==="collection"?"In":"Out"}
+                  </span>
+                  {!t.active && <span className="ml-1 text-[9px] uppercase text-muted-foreground">Inactive</span>}
+                </td>
+                <td className="px-3 py-2">
+                  {t.type_name}
+                  {t.description ? <span className="block text-[10px] text-muted-foreground">{t.description}</span> : null}
+                  {t.booking_id && <Link to="/bookings/$id" params={{id:t.booking_id}} className="block text-[10px] text-gold hover:underline">View booking</Link>}
+                </td>
+                <td className="px-3 py-2">
+                  {t.guest_name ?? "—"}
+                  {t.guest_mobile && <span className="block text-[10px] text-muted-foreground">{t.guest_mobile}</span>}
+                </td>
+                <td className="px-3 py-2 text-[11px]">{t.staff_name ?? "—"}</td>
+                <td className={cn("px-3 py-2 text-right font-medium tabular-nums",
+                  t.kind==="collection" ? "text-success" : "text-destructive")}>
+                  {t.kind==="collection"?"+":"-"}₹{Number(t.amount).toLocaleString("en-IN")}
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex items-center justify-end gap-1">
+                    <button title="View / activity" onClick={()=>onOpen(t)} className="p-1 text-muted-foreground hover:text-foreground"><HistoryIcon className="h-4 w-4"/></button>
+                    <button title="Edit" onClick={()=>onEdit(t)} className="p-1 text-muted-foreground hover:text-foreground"><Pencil className="h-4 w-4"/></button>
+                    {t.active ? (
+                      <button title="Deactivate" onClick={()=>{ if (confirm("Deactivate this transaction?")) deact.mutate(t.id); }}
+                        className="p-1 text-muted-foreground hover:text-warning"><PowerOff className="h-4 w-4"/></button>
+                    ) : canManage ? (
+                      <button title="Reactivate" onClick={()=>react.mutate(t.id)}
+                        className="p-1 text-muted-foreground hover:text-success"><Power className="h-4 w-4"/></button>
+                    ) : null}
+                    {isAdmin && (
+                      <button title="Delete (admin)" onClick={()=>setConfirmDelete(t)}
+                        className="p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4"/></button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete Transaction?"
+          message={<>This will permanently delete <strong>{confirmDelete.type_name} · ₹{Number(confirmDelete.amount).toLocaleString("en-IN")}</strong>.<br/><span className="text-destructive">This action cannot be undone.</span></>}
+          confirmLabel="Delete permanently"
+          danger
+          loading={hard.isPending}
+          onConfirm={() => hard.mutate(confirmDelete.id)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+    </div>
   );
 }
 
