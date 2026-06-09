@@ -780,3 +780,158 @@ function ExpenseTypeMaster() {
     </div>
   );
 }
+
+// -------- Reports Modal --------
+function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void }) {
+  type ReportType = "all" | "day" | "category" | "staff";
+  const [type, setType] = useState<ReportType>("all");
+  const [kindFilter, setKindFilter] = useState<""|"collection"|"expense">("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [staffFilter, setStaffFilter] = useState<string>("");
+
+  const filtered = useMemo(() => tx.filter(t => {
+    if (kindFilter && t.kind !== kindFilter) return false;
+    if (categoryFilter && t.type_name !== categoryFilter) return false;
+    if (staffFilter && t.staff_name !== staffFilter) return false;
+    return t.active;
+  }), [tx, kindFilter, categoryFilter, staffFilter]);
+
+  const categories = Array.from(new Set(tx.map(t => t.type_name))).sort();
+  const staffs = Array.from(new Set(tx.map(t => t.staff_name).filter(Boolean))) as string[];
+
+  const grouped = useMemo(() => {
+    if (type === "all") return null;
+    const m = new Map<string, { collected: number; spent: number; count: number }>();
+    for (const t of filtered) {
+      let key = "";
+      if (type === "day") key = new Date(t.occurred_at).toLocaleDateString("en-IN");
+      else if (type === "category") key = t.type_name;
+      else if (type === "staff") key = t.staff_name || "—";
+      const cur = m.get(key) ?? { collected: 0, spent: 0, count: 0 };
+      if (t.kind === "collection") cur.collected += Number(t.amount); else cur.spent += Number(t.amount);
+      cur.count += 1;
+      m.set(key, cur);
+    }
+    return Array.from(m.entries()).map(([k, v]) => ({ key: k, ...v, net: v.collected - v.spent }));
+  }, [filtered, type]);
+
+  const onExportExcel = () => {
+    if (type === "all") {
+      if (filtered.length === 0) { toast.error("No transactions"); return; }
+      downloadCSV(`cash-report-all-${new Date().toISOString().slice(0,10)}.csv`,
+        filtered.map(t => ({
+          Date: new Date(t.occurred_at).toLocaleString("en-IN"),
+          Kind: t.kind === "collection" ? "In" : "Out",
+          Category: t.type_name, Description: t.description ?? "",
+          Guest: t.guest_name ?? "", Mobile: t.guest_mobile ?? "", Room: t.room_number ?? "",
+          Staff: t.staff_name ?? "", Amount: Number(t.amount), Notes: t.notes ?? "",
+        })));
+    } else if (grouped) {
+      if (grouped.length === 0) { toast.error("No data"); return; }
+      const label = type === "day" ? "Date" : type === "category" ? "Category" : "Entered By";
+      downloadCSV(`cash-report-${type}-${new Date().toISOString().slice(0,10)}.csv`,
+        grouped.map(g => ({ [label]: g.key, Collected: g.collected, Spent: g.spent, Net: g.net, Count: g.count })));
+    }
+    toast.success("Exported");
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="luxe-card rounded-xl w-full max-w-3xl p-5 space-y-4 max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-xl">📊 Cash Reports</h3>
+          <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+          <div>
+            <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Report Type</label>
+            <select className={inputCls} value={type} onChange={e=>setType(e.target.value as ReportType)}>
+              <option value="all">All Transactions</option>
+              <option value="day">Day-wise Summary</option>
+              <option value="category">Category-wise Summary</option>
+              <option value="staff">Entered By Summary</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Entry Type</label>
+            <select className={inputCls} value={kindFilter} onChange={e=>setKindFilter(e.target.value as any)}>
+              <option value="">All</option><option value="collection">Collections</option><option value="expense">Expenses</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Category</label>
+            <select className={inputCls} value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}>
+              <option value="">All</option>
+              {categories.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Entered By</label>
+            <select className={inputCls} value={staffFilter} onChange={e=>setStaffFilter(e.target.value)}>
+              <option value="">All</option>
+              {staffs.map(s => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border overflow-x-auto">
+          {type === "all" ? (
+            <table className="w-full text-sm min-w-[640px]">
+              <thead className="text-[10px] uppercase text-muted-foreground border-b border-border">
+                <tr><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Kind</th><th className="px-3 py-2 text-left">Category</th><th className="px-3 py-2 text-left">Staff</th><th className="px-3 py-2 text-right">Amount</th></tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 && <tr><td colSpan={5} className="text-center text-muted-foreground py-6">No transactions</td></tr>}
+                {filtered.map(t => (
+                  <tr key={t.id} className="border-b border-border/60">
+                    <td className="px-3 py-2 whitespace-nowrap">{new Date(t.occurred_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</td>
+                    <td className="px-3 py-2">{t.kind === "collection" ? "In" : "Out"}</td>
+                    <td className="px-3 py-2">{t.type_name}</td>
+                    <td className="px-3 py-2">{t.staff_name ?? "—"}</td>
+                    <td className={cn("px-3 py-2 text-right tabular-nums", t.kind === "collection" ? "text-success" : "text-destructive")}>₹{Number(t.amount).toLocaleString("en-IN")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full text-sm min-w-[560px]">
+              <thead className="text-[10px] uppercase text-muted-foreground border-b border-border">
+                <tr>
+                  <th className="px-3 py-2 text-left">{type === "day" ? "Date" : type === "category" ? "Category" : "Entered By"}</th>
+                  <th className="px-3 py-2 text-right">Collected</th>
+                  <th className="px-3 py-2 text-right">Spent</th>
+                  <th className="px-3 py-2 text-right">Net</th>
+                  <th className="px-3 py-2 text-right">Count</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(grouped ?? []).length === 0 && <tr><td colSpan={5} className="text-center text-muted-foreground py-6">No data</td></tr>}
+                {(grouped ?? []).map(g => (
+                  <tr key={g.key} className="border-b border-border/60">
+                    <td className="px-3 py-2">{g.key}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-success">₹{g.collected.toLocaleString("en-IN")}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-destructive">₹{g.spent.toLocaleString("en-IN")}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">₹{g.net.toLocaleString("en-IN")}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{g.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onExportExcel}
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
+            <Download className="h-4 w-4 text-gold" /> Export Excel (CSV)
+          </button>
+          <button onClick={() => window.print()}
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
+            <Printer className="h-4 w-4 text-gold" /> Export PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
