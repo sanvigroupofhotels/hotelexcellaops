@@ -18,7 +18,7 @@ const nav: NavItem[] = [
   { to: "/history", label: "Quotes", icon: History },
   { to: "/bookings", label: "Bookings", icon: BedDouble },
   { to: "/house-view", label: "House View", icon: Building2 },
-  { to: "/cash", label: "Cash Management", icon: Wallet },
+  { to: "/cash", label: "CashBook", icon: Wallet },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/follow-ups", label: "Follow-ups", icon: Bell },
