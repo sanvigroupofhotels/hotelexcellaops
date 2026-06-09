@@ -165,7 +165,10 @@ function NewBooking() {
         adults: stay.adults, children: stay.children, guests: stay.guests,
         room_details: `${stay.room_type} × ${stay.rooms}`,
         room_id: roomId,
-        amount, advance_paid: advancePaid, discount: stay.discount,
+        amount,
+        // Don't write advance_paid directly — booking_payments trigger recomputes it.
+        advance_paid: advancePaid > 0 ? 0 : 0,
+        discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
         payment_status: "None",
       };
@@ -173,6 +176,25 @@ function NewBooking() {
       const rate = getRoomRate(stay.room_type, stay.breakfast_included);
       const primary = primaryToLineItem(stay, rate);
       await addBookingItems(b.id, [primary, ...extras]);
+
+      // If an initial advance was entered, record it as a real booking payment.
+      // The DB trigger will (a) recompute b.advance_paid and (b) auto-create a CashBook
+      // collection entry when payment_mode = Cash.
+      if (advancePaid > 0) {
+        try {
+          const { createBookingPayment } = await import("@/lib/booking-payments-api");
+          const { listStaff } = await import("@/lib/cash-api");
+          const staff = await listStaff(true);
+          const collectedBy = staff[0]?.name ?? "Front Desk";
+          await createBookingPayment({
+            booking_id: b.id, customer_id: b.customer_id,
+            amount: advancePaid, payment_mode: paymentMethod,
+            collected_by: collectedBy,
+            notes: `Initial advance · ${b.booking_reference}`,
+          });
+        } catch (e: any) { toast.error("Booking saved, but advance entry failed: " + e.message); }
+      }
+
       if (fromQuoteId) {
         try {
           const { setStatus: setQuoteStatus } = await import("@/lib/quotes-api");
@@ -181,31 +203,8 @@ function NewBooking() {
       }
       return b;
     },
-    onSuccess: async (b) => {
+    onSuccess: (b) => {
       toast.success(`Booking ${b.booking_reference} created`);
-      if (paymentMethod === "Cash" && advancePaid > 0) {
-        if (window.confirm(`Cash payment detected.\n\nCreate a Cash Collection entry of ₹${advancePaid.toLocaleString("en-IN")} for this booking?`)) {
-          try {
-            const { listStaff, createCashTx } = await import("@/lib/cash-api");
-            const staff = await listStaff(true);
-            if (staff.length === 0) toast.error("No active staff configured. Add staff in Cash Management → Staff Master.");
-            else {
-              const collector = window.prompt(
-                `Collected By? Enter staff name:\n${staff.map(s => `• ${s.name}`).join("\n")}`,
-                staff[0].name,
-              );
-              const chosen = staff.find(s => s.name.toLowerCase() === (collector ?? "").trim().toLowerCase()) ?? staff[0];
-              await createCashTx({
-                kind: "collection", type_name: "Advance Payment",
-                guest_name: b.guest_name, guest_mobile: b.phone, booking_id: b.id,
-                staff_id: chosen.id, staff_name: chosen.name,
-                amount: advancePaid, notes: `Advance for booking ${b.booking_reference}`,
-              });
-              toast.success("Cash collection recorded");
-            }
-          } catch (e: any) { toast.error(e.message); }
-        }
-      }
       navigate({ to: "/bookings/$id", params: { id: b.id } });
     },
     onError: (e: any) => toast.error(e.message),
