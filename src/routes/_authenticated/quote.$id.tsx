@@ -282,10 +282,39 @@ function QuoteDetail() {
             </div>
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="print:hidden mt-12 pt-6 border-t border-destructive/20">
+            <h4 className="text-[10px] uppercase tracking-[0.25em] text-destructive/70 mb-2">Danger Zone</h4>
+            <p className="text-xs text-muted-foreground mb-3">Permanently delete this quote. This cannot be undone.</p>
+            <button onClick={() => setDeleteOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-4 py-2.5 text-sm hover:bg-destructive/20">
+              <Trash2 className="h-4 w-4" /> Delete Quote
+            </button>
+          </div>
+        )}
       </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this quote?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You're about to permanently delete <span className="font-medium text-foreground">{q.reference_code}</span> for {q.guest_name}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => del.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Quote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
+
 
 function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
   const hasItems = items.length > 0;
