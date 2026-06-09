@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, History, Bell, Calendar, BarChart3,
   Users, ListChecks, Menu, X, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
-  MessageSquareWarning, Building2, DoorOpen,
+  MessageSquareWarning, Building2, DoorOpen, IndianRupee,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ const nav: NavItem[] = [
   { to: "/bookings", label: "Bookings", icon: BedDouble },
   { to: "/house-view", label: "House View", icon: Building2 },
   { to: "/cash", label: "CashBook", icon: Wallet },
+  { to: "/payments-reports", label: "Payments Reports", icon: IndianRupee, adminOnly: true },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/follow-ups", label: "Follow-ups", icon: Bell },
