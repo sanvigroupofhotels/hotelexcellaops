@@ -38,7 +38,6 @@ function EditBooking() {
 
   const [stay, setStay] = useState<SharedStayValue>(() => emptyStayValue());
   const [extras, setExtras] = useState<LineItem[]>([]);
-  const [status, setStatus] = useState<string>("Pending");
   const [advancePaid, setAdvancePaid] = useState<number>(0);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -55,7 +54,6 @@ function EditBooking() {
       special_requests: b.notes ?? "",
       internal_notes: b.internal_notes ?? "",
     }));
-    setStatus(b.status as any);
     setAdvancePaid(Number(b.advance_paid ?? 0));
     setRoomId((b as any).room_id ?? null);
   }, [b, loaded]);
