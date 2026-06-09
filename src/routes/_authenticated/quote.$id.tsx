@@ -154,15 +154,6 @@ function QuoteDetail() {
             <ArrowLeft className="h-4 w-4" /> All Quotes
           </Link>
           <div className="flex flex-wrap gap-2">
-            <a
-              href={buildWhatsAppLink(q, items)}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => logWhatsApp(id)}
-              className="inline-flex items-center gap-2 rounded-md bg-success/15 border border-success/40 text-success px-4 py-2.5 text-sm hover:bg-success/20"
-            >
-              <MessageCircle className="h-4 w-4" /> WhatsApp
-            </a>
             <button
               onClick={() => cardRef.current && shareQuoteImage(cardRef.current, q)}
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
@@ -176,6 +167,9 @@ function QuoteDetail() {
             >
               <Printer className="h-4 w-4 text-gold" /> PDF
             </button>
+            <button onClick={copyQuoteText} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <Copy className="h-4 w-4 text-gold" /> Copy
+            </button>
             <Link
               to="/quote/$id/edit"
               params={{ id }}
@@ -183,12 +177,7 @@ function QuoteDetail() {
             >
               <Pencil className="h-4 w-4 text-gold" /> Edit
             </Link>
-            <button onClick={copyQuoteText} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
-              <Copy className="h-4 w-4 text-gold" /> Copy
-            </button>
-            <button onClick={() => dup.mutate()} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
-              <Copy className="h-4 w-4 text-gold" /> Duplicate
-            </button>
+            <WhatsAppMenu disabled={!q.phone} onSelect={sendWa} />
             <Link
               to="/bookings/new"
               search={{ customerId: q.customer_id ?? undefined, fromQuoteId: q.id } as any}
@@ -196,16 +185,12 @@ function QuoteDetail() {
             >
               <BedDouble className="h-4 w-4" /> Convert to Booking
             </Link>
-            {isAdmin && (
-              <button
-                onClick={() => { if (confirm("Delete this quote?")) del.mutate(); }}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
-            )}
+            <button onClick={() => dup.mutate()} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <Copy className="h-4 w-4 text-gold" /> Duplicate
+            </button>
           </div>
         </div>
+
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:block">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
