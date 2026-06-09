@@ -13,9 +13,9 @@ import {
 import { listStaff } from "@/lib/cash-api";
 import { useUserRole } from "@/hooks/use-role";
 import {
-  Plus, Search, MessageSquareWarning, AlertTriangle, CheckCircle2, Clock,
-  CalendarRange, Activity, Settings2, Loader2,
+  Plus, Search, Settings2, Loader2, BarChart3, Download,
 } from "lucide-react";
+import { downloadCSV } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
