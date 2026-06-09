@@ -132,12 +132,11 @@ export function CustomerEditDialog({
           </Section>
 
           <Section title="Operations">
-            <Field label="Lead Source">
-              <select className={inputCls} value={form.lead_source} onChange={(e) => set("lead_source", e.target.value)}>
-                {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
-              </select>
+            <Field label="Internal Notes (never shared)" full>
+              <textarea rows={3} className={cn(inputCls, "resize-none")} value={form.internal_notes} onChange={(e) => set("internal_notes", e.target.value)} />
+              <p className="text-[10px] text-muted-foreground mt-1">Hidden from PDFs, WhatsApp, share images, and CSV exports.</p>
             </Field>
-            <Field label="Tags" full>
+            <Field label="Tag" full>
               <div className="flex flex-wrap gap-2">
                 {DEFAULT_TAGS.map((t) => (
                   <button key={t} type="button" onClick={() => toggleTag(t)}
@@ -148,9 +147,10 @@ export function CustomerEditDialog({
                 ))}
               </div>
             </Field>
-            <Field label="Internal Notes (never shared)" full>
-              <textarea rows={3} className={cn(inputCls, "resize-none")} value={form.internal_notes} onChange={(e) => set("internal_notes", e.target.value)} />
-              <p className="text-[10px] text-muted-foreground mt-1">Hidden from PDFs, WhatsApp, share images, and CSV exports.</p>
+            <Field label="Lead Source">
+              <select className={inputCls} value={form.lead_source} onChange={(e) => set("lead_source", e.target.value)}>
+                {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
+              </select>
             </Field>
           </Section>
         </div>
