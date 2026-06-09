@@ -2,9 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
-import { listRooms } from "@/lib/rooms-api";
+import { listRooms, listMaintenance } from "@/lib/rooms-api";
 import { listBookings } from "@/lib/bookings-api";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, BarChart3 } from "lucide-react";
+import { listBookingItems } from "@/lib/booking-items-api";
+import { supabase } from "@/integrations/supabase/client";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/house-view")({
@@ -12,8 +14,9 @@ export const Route = createFileRoute("/_authenticated/house-view")({
 });
 
 const DAY_COUNT = 7;
-const CELL_W = 96;
-const CELL_W_MOB = 88;
+const CELL_W = 110;
+const CELL_W_MOB = 96;
+const ROOM_COL_W = 110;
 
 function dateKey(d: Date) {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
@@ -23,14 +26,23 @@ function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDat
 function fmtShort(d: Date) { return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }); }
 function fmtFull(d: string) { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); }
 
-/** Pick block color from booking status. */
-function blockColor(status: string): string {
+/** Pill colors keyed by booking status. */
+function blockClasses(status: string): string {
   switch (status) {
-    case "Checked-In": return "bg-success/80 text-charcoal border-success";
-    case "Checked-Out": case "Stay Completed": return "bg-muted/60 text-muted-foreground border-border";
-    case "Advance Paid": case "Full Paid": return "bg-blue-500/80 text-white border-blue-600";
-    case "Cancelled": return "bg-destructive/30 text-foreground border-destructive/40 line-through";
-    default: return "bg-card border-border text-foreground";
+    case "Checked-In":
+      return "bg-green-500/85 text-white border-green-700";
+    case "Checked-Out":
+    case "Stay Completed":
+      return "bg-gray-400/70 text-white border-gray-600 dark:bg-gray-500/70 dark:border-gray-400";
+    case "Advance Paid":
+    case "Full Paid":
+      return "bg-blue-500/85 text-white border-blue-700";
+    case "Cancelled":
+      return "bg-destructive/40 text-foreground border-destructive/60 line-through";
+    case "Pending":
+    case "Confirmed":
+    default:
+      return "bg-white text-gray-900 border-gray-500 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-400";
   }
 }
 
@@ -41,10 +53,21 @@ function datesOverlap(aIn: string, aOut: string, bIn: string, bOut: string) {
 function HouseView() {
   const [anchor, setAnchor] = useState(() => { const t = new Date(); t.setHours(0,0,0,0); return t; });
   const [selected, setSelected] = useState<any | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<any | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
+  const { data: blocks = [] } = useQuery({ queryKey: ["room_maintenance"], queryFn: listMaintenance });
+  // All booking items (for breakfast lookup keyed by booking_id)
+  const { data: allItems = [] } = useQuery({
+    queryKey: ["booking-items-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("booking_items" as any).select("booking_id,breakfast_included");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
   const isLoading = lr || lb;
 
   const days = useMemo(() => Array.from({ length: DAY_COUNT }, (_, i) => addDays(anchor, i)), [anchor]);
@@ -52,15 +75,27 @@ function HouseView() {
   const rangeStart = dayKeys[0];
   const rangeEnd = dateKey(addDays(anchor, DAY_COUNT));
 
+  // Breakfast lookup: bookingId -> hasBreakfast (any item with breakfast=true)
+  const breakfastByBooking = useMemo(() => {
+    const m = new Map<string, boolean>();
+    for (const it of allItems as any[]) {
+      if (it.breakfast_included) m.set(it.booking_id, true);
+    }
+    return m;
+  }, [allItems]);
+
   const visibleBookings = useMemo(
     () => (bookings as any[]).filter((b) => b.status !== "Cancelled" && b.check_in < rangeEnd && b.check_out > rangeStart),
     [bookings, rangeStart, rangeEnd],
   );
 
-  /**
-   * Group bookings by room. Unassigned bookings are greedily placed into vacant rooms
-   * that have no conflict over the booking's date range. Display-only — does not persist.
-   */
+  // Blocks (maintenance) visible in range
+  const visibleBlocks = useMemo(
+    () => (blocks as any[]).filter((m) => m.start_date < rangeEnd && m.end_date > rangeStart),
+    [blocks, rangeStart, rangeEnd],
+  );
+
+  /** Greedy place unassigned bookings into vacant rooms (display-only). */
   const byRoom = useMemo(() => {
     const m = new Map<string, any[]>();
     const assigned = visibleBookings.filter((b) => b.room_id);
@@ -69,58 +104,71 @@ function HouseView() {
       const arr = m.get(b.room_id) ?? [];
       arr.push(b); m.set(b.room_id, arr);
     }
-    // Greedy place unassigned into rooms with no overlap
     for (const b of unassigned) {
       let placed = false;
       for (const r of rooms) {
         const arr = m.get(r.id) ?? [];
         const conflict = arr.some((x) => datesOverlap(b.check_in, b.check_out, x.check_in, x.check_out));
-        if (!conflict) {
-          arr.push({ ...b, _virtual: true });
-          m.set(r.id, arr);
-          placed = true;
-          break;
-        }
+        if (!conflict) { arr.push({ ...b, _virtual: true }); m.set(r.id, arr); placed = true; break; }
       }
-      if (!placed) {
-        // fall back: stick it on first room (will visually overlap, but visible)
-        const fr = rooms[0];
-        if (fr) {
-          const arr = m.get(fr.id) ?? [];
-          arr.push({ ...b, _virtual: true });
-          m.set(fr.id, arr);
-        }
+      if (!placed && rooms[0]) {
+        const arr = m.get(rooms[0].id) ?? [];
+        arr.push({ ...b, _virtual: true }); m.set(rooms[0].id, arr);
       }
     }
     return m;
   }, [visibleBookings, rooms]);
 
-  // Stats
+  const blocksByRoom = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const x of visibleBlocks) {
+      const arr = m.get(x.room_id) ?? [];
+      arr.push(x); m.set(x.room_id, arr);
+    }
+    return m;
+  }, [visibleBlocks]);
+
+  // -------- House Overview stats (for selected date = today) --------
   const todayKey = dateKey(new Date());
   const occupiedRooms = new Set<string>();
+  const inHouseBookings: any[] = [];
   let arrivalsToday = 0, departuresToday = 0;
   for (const b of (bookings as any[])) {
     if (b.status === "Cancelled") continue;
     if (b.check_in === todayKey) arrivalsToday++;
     if (b.check_out === todayKey) departuresToday++;
-    if (b.room_id && b.check_in <= todayKey && b.check_out > todayKey && b.status !== "Checked-Out" && b.status !== "Stay Completed") {
-      occupiedRooms.add(b.room_id);
+    const inHouse = b.check_in <= todayKey && b.check_out > todayKey
+      && b.status !== "Checked-Out" && b.status !== "Stay Completed";
+    if (inHouse) {
+      inHouseBookings.push(b);
+      if (b.room_id) occupiedRooms.add(b.room_id);
     }
   }
   const totalRooms = rooms.length;
   const vacant = totalRooms - occupiedRooms.size;
   const occPct = totalRooms ? Math.round((occupiedRooms.size / totalRooms) * 100) : 0;
-  const oakRooms = rooms.filter(r => r.room_type === "Oak");
-  const mappleRooms = rooms.filter(r => r.room_type === "Mapple");
-  const oakOcc = oakRooms.filter(r => occupiedRooms.has(r.id)).length;
-  const mappleOcc = mappleRooms.filter(r => occupiedRooms.has(r.id)).length;
+
+  const adultsInHouse = inHouseBookings.reduce((s, b) => s + (Number(b.adults) || 0), 0);
+  const childrenInHouse = inHouseBookings.reduce((s, b) => s + (Number(b.children) || 0), 0);
+
+  const breakfastBookings = inHouseBookings.filter((b) => breakfastByBooking.get(b.id));
+  const adultsBreakfast = breakfastBookings.reduce((s, b) => s + (Number(b.adults) || 0), 0);
+  const childrenBreakfast = breakfastBookings.reduce((s, b) => s + (Number(b.children) || 0), 0);
+
+  const roomNumber = (id: string | null) => {
+    if (!id) return null;
+    const r = rooms.find((x: any) => x.id === id);
+    return r ? r.room_number : null;
+  };
+  const breakfastRoomNumbers = breakfastBookings.map((b) => roomNumber(b.room_id)).filter(Boolean) as string[];
+  const inHouseRoomNumbers = inHouseBookings.map((b) => roomNumber(b.room_id)).filter(Boolean) as string[];
 
   return (
     <>
       <Topbar title="House View" subtitle="Room occupancy at a glance" />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1600px] space-y-6">
 
-        {/* Navigation + Stats trigger */}
+        {/* Navigation + House Overview */}
         <div className="luxe-card rounded-xl p-4 flex items-center justify-between gap-3">
           <button onClick={() => setAnchor((d) => addDays(d, -1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronLeft className="h-4 w-4" /></button>
           <div className="flex items-center gap-2 flex-wrap justify-center">
@@ -130,7 +178,7 @@ function HouseView() {
               className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
             <button onClick={() => setStatsOpen(true)}
               className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5">
-              <BarChart3 className="h-3.5 w-3.5" /> Statistics
+              <Hotel className="h-3.5 w-3.5" /> House Overview
             </button>
           </div>
           <button onClick={() => setAnchor((d) => addDays(d, 1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronRight className="h-4 w-4" /></button>
@@ -140,76 +188,131 @@ function HouseView() {
         {isLoading ? (
           <div className="p-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>
         ) : (
-          <div className="luxe-card rounded-xl p-3 overflow-x-auto">
-            <div className="min-w-fit">
-              {/* header row */}
-              <div className="grid sticky top-0 z-10 bg-card" style={{ gridTemplateColumns: `120px repeat(${DAY_COUNT}, minmax(${CELL_W_MOB}px, ${CELL_W}px))` }}>
-                <div className="px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground border-b-2 border-border">Room</div>
-                {days.map((d) => {
-                  const isToday = dateKey(d) === todayKey;
+          <div className="luxe-card rounded-xl p-0 overflow-x-auto relative">
+            <table className="border-separate border-spacing-0 min-w-fit">
+              <thead>
+                <tr>
+                  <th
+                    className="sticky left-0 z-20 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-left"
+                    style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
+                  >Room</th>
+                  {days.map((d) => {
+                    const isToday = dateKey(d) === todayKey;
+                    return (
+                      <th key={d.toISOString()}
+                        className={cn("border-b-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
+                          isToday ? "text-gold bg-gold-soft/40" : "text-muted-foreground")}
+                        style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
+                        <div>{d.toLocaleDateString("en-IN", { weekday: "short" })}</div>
+                        <div className="text-foreground text-xs">{fmtShort(d)}</div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {rooms.map((r) => {
+                  const bs = byRoom.get(r.id) ?? [];
+                  const ms = blocksByRoom.get(r.id) ?? [];
                   return (
-                    <div key={d.toISOString()} className={cn("px-2 py-2 text-[10px] uppercase tracking-wider border-b-2 border-border text-center",
-                      isToday ? "text-gold bg-gold-soft/40" : "text-muted-foreground")}>
-                      <div>{d.toLocaleDateString("en-IN", { weekday: "short" })}</div>
-                      <div className="text-foreground text-xs">{fmtShort(d)}</div>
-                    </div>
+                    <tr key={r.id} className="group">
+                      <td
+                        className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-2 py-3 text-xs align-top"
+                        style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
+                      >
+                        <div className="font-medium">Room {r.room_number}</div>
+                        <div className="text-[10px] text-muted-foreground">{r.room_type} · F{r.floor}</div>
+                      </td>
+                      {/* Per-day cells with relative wrapper so we can position pills absolutely */}
+                      {days.map((d, i) => {
+                        const dk = dateKey(d);
+                        const isToday = dk === todayKey;
+                        // Render pills only in the start cell to span across
+                        const startingBookings = bs.filter((b) => {
+                          const startKey = b.check_in < rangeStart ? rangeStart : b.check_in;
+                          return startKey === dk;
+                        });
+                        const startingBlocks = ms.filter((m: any) => {
+                          const startKey = m.start_date < rangeStart ? rangeStart : m.start_date;
+                          return startKey === dk;
+                        });
+                        return (
+                          <td key={i}
+                            className={cn("relative border-b border-border align-top h-14 p-0",
+                              isToday && "bg-gold-soft/10")}
+                            style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
+                            <div className="relative h-full" style={{ minHeight: 56 }}>
+                              {startingBookings.map((b) => {
+                                const startCol = b.check_in < rangeStart ? 0 : dayKeys.indexOf(b.check_in);
+                                const outIdx = dayKeys.indexOf(b.check_out);
+                                const endCol = outIdx < 0 ? DAY_COUNT : outIdx;
+                                const span = endCol - startCol;
+                                if (span <= 0) return null;
+                                const cellW = CELL_W_MOB;
+                                const hasBreakfast = breakfastByBooking.get(b.id);
+                                return (
+                                  <button key={b.id} onClick={() => setSelected(b)}
+                                    className={cn(
+                                      "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
+                                      blockClasses(b.status),
+                                      b._virtual && "border-dashed",
+                                    )}
+                                    style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: 5 }}
+                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}`}>
+                                    {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
+                                    <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
+                                  </button>
+                                );
+                              })}
+                              {startingBlocks.map((m: any) => {
+                                const startCol = m.start_date < rangeStart ? 0 : dayKeys.indexOf(m.start_date);
+                                const outIdx = dayKeys.indexOf(m.end_date);
+                                const endCol = outIdx < 0 ? DAY_COUNT : outIdx;
+                                const span = Math.max(1, endCol - startCol);
+                                const cellW = CELL_W_MOB;
+                                return (
+                                  <button key={m.id} onClick={() => setSelectedBlock(m)}
+                                    className="absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden shadow-sm bg-amber-700 text-white border-amber-900 hover:ring-2 hover:ring-amber-400"
+                                    style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: 5 }}
+                                    title={`Blocked: ${m.reason || "Maintenance"}`}>
+                                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                                    <span className="truncate">{m.reason || "Blocked"}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
                   );
                 })}
-              </div>
-
-              {/* room rows */}
-              {rooms.map((r) => {
-                const bs = byRoom.get(r.id) ?? [];
-                return (
-                  <div key={r.id} className="grid border-b border-border"
-                    style={{ gridTemplateColumns: `120px repeat(${DAY_COUNT}, minmax(${CELL_W_MOB}px, ${CELL_W}px))`, gridAutoRows: "minmax(56px, auto)" }}>
-                    <div className="px-2 py-3 text-xs border-r border-border" style={{ gridRow: 1, gridColumn: 1 }}>
-                      <div className="font-medium">Room {r.room_number}</div>
-                      <div className="text-[10px] text-muted-foreground">{r.room_type} · F{r.floor}</div>
-                    </div>
-                    {days.map((_, i) => (
-                      <div key={i} className="border-r border-border/70" style={{ gridRow: 1, gridColumn: i + 2 }} />
-                    ))}
-                    {bs.map((b) => {
-                      const startCol = b.check_in < rangeStart ? 0 : Math.max(0, dayKeys.indexOf(b.check_in));
-                      const outIdx = dayKeys.indexOf(b.check_out);
-                      const endCol = outIdx < 0 ? DAY_COUNT : outIdx;
-                      const span = endCol - startCol;
-                      if (span <= 0) return null;
-                      return (
-                        <button key={b.id} onClick={() => setSelected(b)}
-                          className={cn("m-1 rounded-md border px-2 text-[11px] text-left flex items-center overflow-hidden hover:ring-2 hover:ring-gold/40 transition",
-                            blockColor(b.status),
-                            b._virtual && "border-dashed")}
-                          style={{ gridRow: 1, gridColumn: `${startCol + 2} / span ${span}` }}
-                          title={b._virtual ? "Unassigned — shown in a vacant room" : ""}>
-                          <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
+              </tbody>
+            </table>
           </div>
         )}
 
         {/* Legend */}
         <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-          <Legend cls="bg-card border-border" label="Pending / Confirmed" />
-          <Legend cls="bg-blue-500/80 border-blue-600" label="Advance / Full Paid" />
-          <Legend cls="bg-success/80 border-success" label="Checked-In" />
-          <Legend cls="bg-muted/60 border-border" label="Checked-Out" />
+          <Legend cls="bg-white border-gray-500" label="Pending / Confirmed" />
+          <Legend cls="bg-blue-500/85 border-blue-700" label="Advance / Full Paid" />
+          <Legend cls="bg-green-500/85 border-green-700" label="Checked-In" />
+          <Legend cls="bg-gray-400/70 border-gray-600" label="Checked-Out / Stay Completed" />
+          <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />
           <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
+          <div className="flex items-center gap-1.5"><UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast included</div>
         </div>
       </div>
 
-      {selected && <BookingPopover b={selected} onClose={() => setSelected(null)} rooms={rooms} />}
+      {selected && <BookingPopover b={selected} onClose={() => setSelected(null)} rooms={rooms}
+        hasBreakfast={!!breakfastByBooking.get(selected.id)} />}
+      {selectedBlock && <BlockPopover m={selectedBlock} onClose={() => setSelectedBlock(null)} rooms={rooms} />}
+
       {statsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setStatsOpen(false)}>
-          <div className="luxe-card rounded-xl w-full max-w-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="luxe-card rounded-xl w-full max-w-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="font-display text-xl">Statistics</h3>
+              <h3 className="font-display text-xl flex items-center gap-2"><Hotel className="h-5 w-5 text-gold" /> House Overview</h3>
               <button onClick={() => setStatsOpen(false)} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -219,9 +322,23 @@ function HouseView() {
               <Stat label="Departures Today" value={departuresToday} />
               <Stat label="Occupancy" value={`${occPct}%`} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <TypeStat label="Oak" occupied={oakOcc} total={oakRooms.length} />
-              <TypeStat label="Mapple" occupied={mappleOcc} total={mappleRooms.length} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="luxe-card rounded-xl p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Guests In-House</div>
+                <div className="font-display text-2xl gold-text-gradient">{adultsInHouse}A, {childrenInHouse}C</div>
+                {inHouseRoomNumbers.length > 0 && (
+                  <div className="text-[11px] text-muted-foreground mt-1">Rooms: {inHouseRoomNumbers.join(", ")}</div>
+                )}
+              </div>
+              <div className="luxe-card rounded-xl p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">
+                  <UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast Count
+                </div>
+                <div className="font-display text-2xl gold-text-gradient">{adultsBreakfast}A, {childrenBreakfast}C</div>
+                {breakfastRoomNumbers.length > 0 && (
+                  <div className="text-[11px] text-muted-foreground mt-1">Rooms: {breakfastRoomNumbers.join(", ")}</div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -238,22 +355,11 @@ function Stat({ label, value }: { label: string; value: any }) {
     </div>
   );
 }
-function TypeStat({ label, occupied, total }: { label: string; occupied: number; total: number }) {
-  return (
-    <div className="luxe-card rounded-xl p-4">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label} Rooms</div>
-      <div className="flex items-baseline gap-3">
-        <div><span className="font-display text-xl gold-text-gradient">{occupied}</span><span className="text-xs text-muted-foreground ml-1">occupied</span></div>
-        <div><span className="font-display text-xl">{total - occupied}</span><span className="text-xs text-muted-foreground ml-1">vacant</span></div>
-      </div>
-    </div>
-  );
-}
 function Legend({ cls, label }: { cls: string; label: string }) {
-  return <div className="flex items-center gap-1.5"><span className={cn("inline-block h-3 w-5 rounded-sm border", cls)} />{label}</div>;
+  return <div className="flex items-center gap-1.5"><span className={cn("inline-block h-3 w-6 rounded-full border-2", cls)} />{label}</div>;
 }
 
-function BookingPopover({ b, onClose, rooms }: { b: any; onClose: () => void; rooms: any[] }) {
+function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean }) {
   const room = rooms.find((r: any) => r.id === b.room_id);
   const balance = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
   return (
@@ -272,6 +378,7 @@ function BookingPopover({ b, onClose, rooms }: { b: any; onClose: () => void; ro
           <Field label="Check-In" value={fmtFull(b.check_in)} />
           <Field label="Check-Out" value={fmtFull(b.check_out)} />
           <Field label="Guests" value={`${b.adults} Adult${b.adults === 1 ? "" : "s"}${b.children ? ` + ${b.children}` : ""}`} />
+          <Field label="Breakfast" value={hasBreakfast ? "Included" : "Not Included"} />
           {b.phone && <Field label="Mobile" value={b.phone} icon={<Phone className="h-3 w-3" />} />}
         </div>
         <div className="rounded-md bg-secondary/40 border border-border px-3 py-2 text-xs space-y-1">
@@ -287,6 +394,30 @@ function BookingPopover({ b, onClose, rooms }: { b: any; onClose: () => void; ro
     </div>
   );
 }
+
+function BlockPopover({ m, onClose, rooms }: { m: any; onClose: () => void; rooms: any[] }) {
+  const room = rooms.find((r: any) => r.id === m.room_id);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="luxe-card rounded-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between">
+          <h3 className="font-display text-xl flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" /> Blocked Room</h3>
+          <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <Field label="Room" value={room ? `Room ${room.room_number}` : "—"} />
+          <Field label="From" value={fmtFull(m.start_date)} />
+          <Field label="To" value={fmtFull(m.end_date)} />
+        </div>
+        <div className="text-sm">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Reason</div>
+          <div>{m.reason || "Maintenance"}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, value, icon }: { label: string; value: string; icon?: any }) {
   return (
     <div>
