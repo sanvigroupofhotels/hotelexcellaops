@@ -173,8 +173,23 @@ function NewBooking() {
 
   const save = useMutation({
     mutationFn: async () => {
+      // P0A FIX: when user explicitly clicks "Create New Customer Anyway",
+      // pre-create the customer here so the link_or_create_customer trigger
+      // does not silently reuse the existing phone match.
+      let effectiveCustomerId: string | null = linkedCustomerId;
+      if (!effectiveCustomerId && forceNew) {
+        const { createCustomer } = await import("@/lib/customers-api");
+        const created = await createCustomer({
+          guest_name: stay.guest_name,
+          phone: stay.phone || null,
+          email: stay.email || null,
+          lead_source: stay.lead_source || "Direct",
+        });
+        effectiveCustomerId = created.id;
+        toast.success(`New customer created: ${created.guest_name} (${created.customer_reference})`);
+      }
       const input: BookingInput = {
-        customer_id: linkedCustomerId,
+        customer_id: effectiveCustomerId,
         source_quote_id: fromQuoteId ?? null,
         guest_name: stay.guest_name, phone: stay.phone, email: stay.email,
         check_in: stay.check_in, check_out: stay.check_out,
