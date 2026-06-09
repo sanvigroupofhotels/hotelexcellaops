@@ -847,13 +847,31 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
   const [kindFilter, setKindFilter] = useState<""|"collection"|"expense">("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [staffFilter, setStaffFilter] = useState<string>("");
+  const [range, setRange] = useState<RangeKey>("all");
+  const initial = presetDates("today")!;
+  const [fromDate, setFromDate] = useState(initial.from);
+  const [toDate, setToDate] = useState(initial.to);
+  const [showInactive, setShowInactive] = useState(false);
+
+  const onRangeChange = (k: RangeKey) => {
+    setRange(k);
+    const p = presetDates(k);
+    if (p) { setFromDate(p.from); setToDate(p.to); }
+  };
 
   const filtered = useMemo(() => tx.filter(t => {
     if (kindFilter && t.kind !== kindFilter) return false;
     if (categoryFilter && t.type_name !== categoryFilter) return false;
     if (staffFilter && t.staff_name !== staffFilter) return false;
-    return t.active;
-  }), [tx, kindFilter, categoryFilter, staffFilter]);
+    if (!showInactive && !t.active) return false;
+    if (range !== "all") {
+      const occ = new Date(t.occurred_at);
+      const fromD = new Date(fromDate + "T00:00:00");
+      const toD = new Date(toDate + "T23:59:59");
+      if (occ < fromD || occ > toD) return false;
+    }
+    return true;
+  }), [tx, kindFilter, categoryFilter, staffFilter, range, fromDate, toDate, showInactive]);
 
   const categories = Array.from(new Set(tx.map(t => t.type_name))).sort();
   const staffs = Array.from(new Set(tx.map(t => t.staff_name).filter(Boolean))) as string[];
@@ -884,6 +902,7 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
           Category: t.type_name, Description: t.description ?? "",
           Guest: t.guest_name ?? "", Mobile: t.guest_mobile ?? "", Room: t.room_number ?? "",
           Staff: t.staff_name ?? "", Amount: Number(t.amount), Notes: t.notes ?? "",
+          Active: t.active ? "Yes" : "No",
         })));
     } else if (grouped) {
       if (grouped.length === 0) { toast.error("No data"); return; }
@@ -896,13 +915,13 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="luxe-card rounded-xl w-full max-w-3xl p-5 space-y-4 max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="luxe-card rounded-xl w-full max-w-4xl p-5 space-y-4 max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="font-display text-xl">📊 Cash Reports</h3>
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <div>
             <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Report Type</label>
             <select className={inputCls} value={type} onChange={e=>setType(e.target.value as ReportType)}>
@@ -913,7 +932,25 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
             </select>
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Entry Type</label>
+            <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Date Range</label>
+            <select className={cn(inputCls,"!py-2")} value={range} onChange={e=>onRangeChange(e.target.value as RangeKey)}>
+              {RANGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          {range !== "all" && (
+            <>
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">From</label>
+                <input type="date" className={cn(inputCls,"!py-2")} value={fromDate} onChange={e=>setFromDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">To</label>
+                <input type="date" className={cn(inputCls,"!py-2")} value={toDate} onChange={e=>setToDate(e.target.value)} />
+              </div>
+            </>
+          )}
+          <div>
+            <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Transaction Type</label>
             <select className={inputCls} value={kindFilter} onChange={e=>setKindFilter(e.target.value as any)}>
               <option value="">All</option><option value="collection">Collections</option><option value="expense">Expenses</option>
             </select>
@@ -932,7 +969,12 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
               {staffs.map(s => <option key={s}>{s}</option>)}
             </select>
           </div>
+          <label className="inline-flex items-center gap-2 text-xs text-muted-foreground self-end pb-2">
+            <input type="checkbox" checked={showInactive} onChange={e=>setShowInactive(e.target.checked)} />
+            Show Inactive
+          </label>
         </div>
+
 
         <div className="rounded-md border border-border overflow-x-auto">
           {type === "all" ? (
