@@ -290,6 +290,7 @@ function NewBooking() {
               <RoomAssignmentField
                 value={roomId} onChange={setRoomId}
                 check_in={stay.check_in} check_out={stay.check_out}
+                roomType={stay.room_type}
               />
               <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>
