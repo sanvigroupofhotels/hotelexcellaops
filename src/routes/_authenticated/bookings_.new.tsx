@@ -86,6 +86,22 @@ function NewBooking() {
     return () => clearTimeout(t);
   }, [stay.phone, stay.email, stay.guest_name, forceNew, linkedCustomerId]);
 
+  // P1 SAFETY: if user edits phone after a customer is linked, and the new phone
+  // does not match the linked customer's phone, automatically unlink so the booking
+  // doesn't get attached to the wrong customer (root cause of the Jayvardhan bug).
+  useEffect(() => {
+    if (!linkedCustomerId || !cust) return;
+    const norm = (s: string | null | undefined) => (s ?? "").replace(/[^0-9]/g, "");
+    const formPhone = norm(stay.phone);
+    const linkedPhone = norm(cust.phone);
+    if (formPhone && linkedPhone && formPhone !== linkedPhone) {
+      setLinkedCustomerId(null);
+      setMatchedCustomer(null);
+      setForceNew(false);
+      toast.info("Phone changed — customer link cleared. Re-link or create new on save.");
+    }
+  }, [stay.phone, cust, linkedCustomerId]);
+
   // Prefill from source quote (Convert to Booking)
   const { data: quote } = useQuery({
     queryKey: ["quote", fromQuoteId],
