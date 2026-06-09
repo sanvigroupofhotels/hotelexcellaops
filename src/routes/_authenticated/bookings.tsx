@@ -76,7 +76,7 @@ function BookingsPage() {
             <div className="col-span-3">Guest</div>
             <div className="col-span-2">Reference</div>
             <div className="col-span-3">Stay</div>
-            <div className="col-span-2 text-right">Amount</div>
+            <div className="col-span-2 text-right">Balance</div>
             <div className="col-span-2">Status</div>
           </div>
 
@@ -89,6 +89,7 @@ function BookingsPage() {
           )}
           {filtered.map((b, i) => {
             const c = customerById[b.customer_id];
+            const balance = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
             return (
               <motion.div key={b.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}>
                 <Link to="/bookings/$id" params={{ id: b.id }}
@@ -103,7 +104,11 @@ function BookingsPage() {
                     <span className="text-muted-foreground ml-1">· {b.nights}N · {b.guests}G</span>
                   </div>
                   <div className="md:col-span-2 text-right text-sm font-medium tabular-nums">
-                    ₹{Number(b.amount).toLocaleString("en-IN")}
+                    {balance > 0 ? (
+                      <span className="text-warning">Due ₹{balance.toLocaleString("en-IN")}</span>
+                    ) : (
+                      <span className="text-success">Paid</span>
+                    )}
                   </div>
                   <div className="md:col-span-2 flex items-center justify-between">
                     <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px]",
