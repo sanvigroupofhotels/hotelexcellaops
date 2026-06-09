@@ -186,21 +186,8 @@ function BookingDetail() {
               <Link to="/bookings/$id/edit" params={{ id }} className="text-[11px] text-gold hover:underline mt-2 inline-block">Assign / Change →</Link>
             </div>
 
-            <div className="luxe-card rounded-xl p-5">
-              <h4 className="font-display text-lg mb-3 flex items-center gap-2"><Wallet className="h-4 w-4 text-gold" /> Payment</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="tabular-nums">₹{Number(b.amount).toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Advance Paid</span><span className="tabular-nums">₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between border-t border-border pt-2"><span className="font-medium">Balance Payable</span><span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <input type="number" min={0} max={Number(b.amount)} value={advanceInput}
-                  onChange={(e) => setAdvanceInput(Number(e.target.value))}
-                  className="flex-1 bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
-                <button onClick={() => advance.mutate(advanceInput)}
-                  className="rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">Update</button>
-              </div>
-            </div>
+            <PaymentsLedger bookingId={id} bookingAmount={Number(b.amount)} advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id} />
+
 
             {b.source_quote_id && (
               <div className="luxe-card rounded-xl p-4 text-xs">
