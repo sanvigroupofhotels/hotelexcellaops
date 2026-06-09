@@ -48,17 +48,10 @@ function BookingDetail() {
     mutationFn: (s: BookingStatus) => setBookingStatus(id, s),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["booking", id] }); qc.invalidateQueries({ queryKey: ["bookings"] }); toast.success("Status updated"); },
   });
-  const advance = useMutation({
-    mutationFn: (n: number) => setAdvancePaid(id, n),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["booking", id] }); toast.success("Advance updated"); },
-  });
   const del = useMutation({
     mutationFn: () => deleteBooking(id),
     onSuccess: () => { toast.success("Deleted"); navigate({ to: "/bookings" }); },
   });
-
-  const [advanceInput, setAdvanceInput] = useState(0);
-  useEffect(() => { if (b) setAdvanceInput(Number(b.advance_paid) || 0); }, [b]);
 
   const cardRef = useRef<HTMLDivElement>(null);
 
