@@ -1,46 +1,53 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createBookingPayment, PAYMENT_MODES } from "@/lib/booking-payments-api";
+import { createBookingPayment, updateBookingPayment, PAYMENT_MODES, type BookingPaymentRow } from "@/lib/booking-payments-api";
 import { listStaff } from "@/lib/cash-api";
 import { toast } from "sonner";
 
 /**
- * Shared "Add Payment" modal used by the booking detail page and the
- * House View popup. Single source of truth for the add-payment UX so
- * the same business logic (mode, collected-by, cashbook side-effect)
- * runs regardless of entry point.
+ * Shared "Add / Edit Payment" modal used by the booking detail page and the
+ * House View popup. Pass `payment` to edit an existing row, omit to add a new one.
  */
 export function AddBookingPaymentModal({
-  bookingId, customerId, maxAmount, onClose, onSaved,
+  bookingId, customerId, maxAmount, payment, onClose, onSaved,
 }: {
   bookingId: string;
   customerId: string | null;
   maxAmount: number;
+  payment?: BookingPaymentRow | null;
   onClose: () => void;
   onSaved?: () => void;
 }) {
   const qc = useQueryClient();
+  const isEdit = !!payment;
   const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
-  const [amount, setAmount] = useState<number>(Math.max(0, maxAmount));
-  const [mode, setMode] = useState<string>(PAYMENT_MODES[0]);
-  const [collectedBy, setCollectedBy] = useState<string>("");
+  const [amount, setAmount] = useState<number>(payment ? Number(payment.amount) : Math.max(0, maxAmount));
+  const [mode, setMode] = useState<string>(payment?.payment_mode ?? PAYMENT_MODES[0]);
+  const [collectedBy, setCollectedBy] = useState<string>(payment?.collected_by ?? "");
   const [occurredAt, setOccurredAt] = useState<string>(() => {
-    const d = new Date(); const tz = d.getTimezoneOffset();
+    const d = payment ? new Date(payment.occurred_at) : new Date();
+    const tz = d.getTimezoneOffset();
     return new Date(d.getTime() - tz * 60000).toISOString().slice(0, 16);
   });
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(payment?.notes ?? "");
 
   useEffect(() => { if (!collectedBy && staff[0]?.name) setCollectedBy(staff[0].name); }, [staff, collectedBy]);
 
   const save = useMutation({
-    mutationFn: () => createBookingPayment({
-      booking_id: bookingId, customer_id: customerId,
-      amount, payment_mode: mode, collected_by: collectedBy,
-      occurred_at: new Date(occurredAt).toISOString(),
-      notes: notes || null,
-    }),
+    mutationFn: () =>
+      isEdit
+        ? updateBookingPayment(payment!.id, {
+            amount, payment_mode: mode, collected_by: collectedBy,
+            occurred_at: new Date(occurredAt).toISOString(), notes: notes || null,
+          })
+        : createBookingPayment({
+            booking_id: bookingId, customer_id: customerId,
+            amount, payment_mode: mode, collected_by: collectedBy,
+            occurred_at: new Date(occurredAt).toISOString(),
+            notes: notes || null,
+          }),
     onSuccess: () => {
-      toast.success("Payment added");
+      toast.success(isEdit ? "Payment updated" : "Payment added");
       qc.invalidateQueries({ queryKey: ["booking-payments", bookingId] });
       qc.invalidateQueries({ queryKey: ["booking", bookingId] });
       qc.invalidateQueries({ queryKey: ["bookings"] });
@@ -53,7 +60,7 @@ export function AddBookingPaymentModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="luxe-card rounded-xl w-full max-w-md p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-display text-xl">Add Payment</h3>
+        <h3 className="font-display text-xl">{isEdit ? "Edit Payment" : "Add Payment"}</h3>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <label className="block">
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Amount *</span>
@@ -95,7 +102,7 @@ export function AddBookingPaymentModal({
           <button onClick={onClose} className="rounded-md border border-border bg-card px-3 py-2 text-xs">Cancel</button>
           <button onClick={() => save.mutate()} disabled={save.isPending || !collectedBy || !(amount > 0)}
             className="rounded-md gold-gradient px-4 py-2 text-xs font-medium text-charcoal disabled:opacity-50">
-            {save.isPending ? "Saving…" : "Save Payment"}
+            {save.isPending ? "Saving…" : isEdit ? "Save Changes" : "Save Payment"}
           </button>
         </div>
       </div>
