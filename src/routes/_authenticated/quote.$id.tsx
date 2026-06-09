@@ -14,13 +14,21 @@ import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
-  ArrowLeft, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
+  ArrowLeft, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
   Star, Clock, Pencil, CheckCircle2, Share2, Printer, BedDouble,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
 import { StayItemsList } from "@/components/shared/stay-items-list";
+import { WhatsAppMenu, type WhatsAppTemplate } from "@/components/whatsapp-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  quotePaymentReminderMessage, quoteCheckInWelcomeMessage, quoteCheckOutThankYouMessage, waLink,
+} from "@/lib/quote-messages";
 
 export const Route = createFileRoute("/_authenticated/quote/$id")({
   component: QuoteDetail,
