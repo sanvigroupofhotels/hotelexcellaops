@@ -8,7 +8,7 @@ import { listBookingItems, replaceBookingItems, rowToLineItem } from "@/lib/book
 import {
   lineItemsTotal, lineSubtotal, type LineItem,
 } from "@/components/line-items-editor";
-import { BOOKING_STATUSES, getRoomRate } from "@/lib/mock-data";
+import { getRoomRate } from "@/lib/mock-data";
 import { NumField } from "@/components/num-field";
 import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
