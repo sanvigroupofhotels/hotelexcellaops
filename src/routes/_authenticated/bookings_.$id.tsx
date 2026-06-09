@@ -433,6 +433,44 @@ function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId
         </div>
       )}
 
+      {activities.length > 0 && (
+        <div className="mt-4 border-t border-border pt-3">
+          <button onClick={() => setAuditOpen(o => !o)}
+            className="w-full text-left text-[10px] uppercase tracking-wider text-muted-foreground hover:text-gold inline-flex items-center gap-1.5">
+            <History className="h-3 w-3" /> Audit History ({activities.length}) {auditOpen ? "▴" : "▾"}
+          </button>
+          {auditOpen && (
+            <div className="mt-2 space-y-1.5 max-h-64 overflow-auto">
+              {activities.map((a) => (
+                <div key={a.id} className="text-[11px] rounded-md bg-secondary/30 px-2.5 py-1.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className={cn(
+                      "font-medium",
+                      a.action === "created" && "text-success",
+                      a.action === "deleted" && "text-destructive",
+                      a.action === "updated" && "text-gold",
+                    )}>{a.summary}</span>
+                    <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                      {new Date(a.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
+                    </span>
+                  </div>
+                  {a.field && (a.old_value || a.new_value) && (
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      {a.field}: <span className="line-through">{a.old_value ?? "—"}</span> → <span className="text-foreground">{a.new_value ?? "—"}</span>
+                    </div>
+                  )}
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    By {a.actor_name ?? "system"}{a.actor_role ? ` (${a.actor_role})` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+
+
       {addOpen && (
         <AddBookingPaymentModal
           bookingId={bookingId} customerId={customerId} maxAmount={balance}
