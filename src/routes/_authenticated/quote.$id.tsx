@@ -14,13 +14,21 @@ import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
-  ArrowLeft, MessageCircle, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
+  ArrowLeft, Loader2, Copy, Trash2, Bell, User, Phone, Mail, CalendarDays,
   Star, Clock, Pencil, CheckCircle2, Share2, Printer, BedDouble,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
 import { StayItemsList } from "@/components/shared/stay-items-list";
+import { WhatsAppMenu, type WhatsAppTemplate } from "@/components/whatsapp-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  quotePaymentReminderMessage, quoteCheckInWelcomeMessage, quoteCheckOutThankYouMessage, waLink,
+} from "@/lib/quote-messages";
 
 export const Route = createFileRoute("/_authenticated/quote/$id")({
   component: QuoteDetail,
@@ -76,6 +84,24 @@ function QuoteDetail() {
   });
 
   const cardRef = useRef<HTMLDivElement>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const sendWa = (template: WhatsAppTemplate) => {
+    if (!q?.phone) { toast.error("Customer has no phone number"); return; }
+    if (template === "empty") { window.open(waLink(q.phone), "_blank"); return; }
+    if (template === "confirmation") {
+      window.open(buildWhatsAppLink(q, items), "_blank");
+      logWhatsApp(id);
+      return;
+    }
+    const text =
+      template === "payment" ? quotePaymentReminderMessage(q) :
+      template === "checkin" ? quoteCheckInWelcomeMessage(q) :
+      quoteCheckOutThankYouMessage(q);
+    window.open(waLink(q.phone, text), "_blank");
+    logWhatsApp(id);
+  };
+
 
   const [followDate, setFollowDate] = useState(() => {
     const d = new Date(Date.now() + 86400000);
@@ -128,15 +154,6 @@ function QuoteDetail() {
             <ArrowLeft className="h-4 w-4" /> All Quotes
           </Link>
           <div className="flex flex-wrap gap-2">
-            <a
-              href={buildWhatsAppLink(q, items)}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => logWhatsApp(id)}
-              className="inline-flex items-center gap-2 rounded-md bg-success/15 border border-success/40 text-success px-4 py-2.5 text-sm hover:bg-success/20"
-            >
-              <MessageCircle className="h-4 w-4" /> WhatsApp
-            </a>
             <button
               onClick={() => cardRef.current && shareQuoteImage(cardRef.current, q)}
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40"
@@ -150,6 +167,9 @@ function QuoteDetail() {
             >
               <Printer className="h-4 w-4 text-gold" /> PDF
             </button>
+            <button onClick={copyQuoteText} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <Copy className="h-4 w-4 text-gold" /> Copy
+            </button>
             <Link
               to="/quote/$id/edit"
               params={{ id }}
@@ -157,12 +177,7 @@ function QuoteDetail() {
             >
               <Pencil className="h-4 w-4 text-gold" /> Edit
             </Link>
-            <button onClick={copyQuoteText} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
-              <Copy className="h-4 w-4 text-gold" /> Copy
-            </button>
-            <button onClick={() => dup.mutate()} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
-              <Copy className="h-4 w-4 text-gold" /> Duplicate
-            </button>
+            <WhatsAppMenu disabled={!q.phone} onSelect={sendWa} />
             <Link
               to="/bookings/new"
               search={{ customerId: q.customer_id ?? undefined, fromQuoteId: q.id } as any}
@@ -170,16 +185,12 @@ function QuoteDetail() {
             >
               <BedDouble className="h-4 w-4" /> Convert to Booking
             </Link>
-            {isAdmin && (
-              <button
-                onClick={() => { if (confirm("Delete this quote?")) del.mutate(); }}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
-            )}
+            <button onClick={() => dup.mutate()} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <Copy className="h-4 w-4 text-gold" /> Duplicate
+            </button>
           </div>
         </div>
+
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:block">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
@@ -271,10 +282,39 @@ function QuoteDetail() {
             </div>
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="print:hidden mt-12 pt-6 border-t border-destructive/20">
+            <h4 className="text-[10px] uppercase tracking-[0.25em] text-destructive/70 mb-2">Danger Zone</h4>
+            <p className="text-xs text-muted-foreground mb-3">Permanently delete this quote. This cannot be undone.</p>
+            <button onClick={() => setDeleteOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-4 py-2.5 text-sm hover:bg-destructive/20">
+              <Trash2 className="h-4 w-4" /> Delete Quote
+            </button>
+          </div>
+        )}
       </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this quote?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You're about to permanently delete <span className="font-medium text-foreground">{q.reference_code}</span> for {q.guest_name}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => del.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Quote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
+
 
 function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
   const hasItems = items.length > 0;

@@ -237,3 +237,26 @@
   aside, header.sticky { display: none !important; }
 }
 
+
+/* Invoice-only print mode: when body has .printing-invoice, hide everything
+   except the invoice portal so window.print() outputs only the invoice. */
+@media print {
+  body.printing-invoice > *:not(.invoice-print-portal) { display: none !important; }
+  body.printing-invoice .invoice-print-portal {
+    position: static !important;
+    background: #fff !important;
+    inset: auto !important;
+    padding: 0 !important;
+  }
+  body.printing-invoice .invoice-print-portal .invoice-modal-shell {
+    background: #fff !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  body.printing-invoice .invoice-print-portal .invoice-print-hide { display: none !important; }
+}

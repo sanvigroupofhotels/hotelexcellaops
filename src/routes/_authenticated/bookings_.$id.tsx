@@ -4,25 +4,30 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, setBookingStatus, deleteBooking } from "@/lib/bookings-api";
 import { listBookingPayments, deleteBookingPayment, type BookingPaymentRow } from "@/lib/booking-payments-api";
+import { listBookingPaymentActivities } from "@/lib/booking-payment-activities-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
+import { InvoiceDialog } from "@/components/invoice-dialog";
+import { WhatsAppMenu, type WhatsAppTemplate } from "@/components/whatsapp-menu";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { listStaff } from "@/lib/cash-api";
+
 import { listBookingItems } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
-import { bookingStatusStyles, earlyCheckInLabel, lateCheckOutLabel, type BookingStatus } from "@/lib/mock-data";
+import { bookingStatusStyles, type BookingStatus } from "@/lib/mock-data";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { useUserRole } from "@/hooks/use-role";
 import {
   confirmationMessage, paymentReminderMessage, checkInWelcomeMessage,
   checkOutThankYouMessage, bookingWhatsAppLink,
 } from "@/lib/booking-messages";
+import { waLink } from "@/lib/quote-messages";
 import {
-  ArrowLeft, Loader2, Trash2, BedDouble, Phone, Mail, User, Copy,
-  Send, Wallet, HandPlatter, Heart, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
+  ArrowLeft, Loader2, Trash2, Phone, Mail, User, Copy,
+  Wallet, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
+  FileText, History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
@@ -32,6 +37,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
   component: BookingDetail,
 });
+
 
 function BookingDetail() {
   const { id } = Route.useParams();
@@ -59,15 +65,24 @@ function BookingDetail() {
   });
 
   const cardRef = useRef<HTMLDivElement>(null);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const { data: payments = [] } = useQuery({
+    queryKey: ["booking-payments", id],
+    queryFn: () => listBookingPayments(id),
+    enabled: !!b,
+  });
 
   if (isLoading || !b) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
   const balance = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+  const isCheckedOut = b.status === "Checked-Out";
 
-  const sendWa = (template: "confirm" | "payment" | "checkin" | "checkout") => {
+  const sendWa = (template: WhatsAppTemplate) => {
     if (!b.phone) { toast.error("Customer has no phone number"); return; }
+    if (template === "empty") { window.open(waLink(b.phone), "_blank"); return; }
     const text =
-      template === "confirm" ? confirmationMessage(b, items) :
+      template === "confirmation" ? confirmationMessage(b, items) :
       template === "payment" ? paymentReminderMessage(b, balance > 0 ? balance : undefined) :
       template === "checkin" ? checkInWelcomeMessage(b) :
       checkOutThankYouMessage(b);
@@ -105,16 +120,11 @@ function BookingDetail() {
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
               <Pencil className="h-4 w-4 text-gold" /> Edit
             </Link>
-            <CommBtn icon={Send} label="Send Confirmation" onClick={() => sendWa("confirm")} disabled={!b.phone} />
-            <CommBtn icon={Wallet} label="Send Payment Reminder" onClick={() => sendWa("payment")} disabled={!b.phone} />
-            <CommBtn icon={HandPlatter} label="Send Check-In Welcome" onClick={() => sendWa("checkin")} disabled={!b.phone} />
-            <CommBtn icon={Heart} label="Send Check-Out Thank You" onClick={() => sendWa("checkout")} disabled={!b.phone} />
-            {isAdmin && (
-              <button onClick={() => { if (confirm("Delete this booking?")) del.mutate(); }}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10">
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
-            )}
+            <WhatsAppMenu disabled={!b.phone} onSelect={sendWa} />
+            <button onClick={() => setInvoiceOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-soft text-gold px-4 py-2.5 text-sm font-medium hover:bg-gold/20">
+              <FileText className="h-4 w-4" /> {isCheckedOut ? "Generate Invoice" : "Generate Proforma Invoice"}
+            </button>
           </div>
         </div>
 
@@ -122,6 +132,7 @@ function BookingDetail() {
           <div ref={cardRef}>
             <BookingCard b={b} items={items} balance={balance} />
           </div>
+
 
           <div className="space-y-4 print:hidden">
             {c && (
@@ -202,10 +213,49 @@ function BookingDetail() {
             )}
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="print:hidden mt-12 pt-6 border-t border-destructive/20">
+            <h4 className="text-[10px] uppercase tracking-[0.25em] text-destructive/70 mb-2">Danger Zone</h4>
+            <p className="text-xs text-muted-foreground mb-3">Permanently delete this booking. This cannot be undone and will affect related payment and cashbook records.</p>
+            <button onClick={() => setDeleteOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-4 py-2.5 text-sm hover:bg-destructive/20">
+              <Trash2 className="h-4 w-4" /> Delete Booking
+            </button>
+          </div>
+        )}
       </div>
+
+      {invoiceOpen && (
+        <InvoiceDialog
+          booking={b}
+          items={items as any}
+          payments={payments}
+          onClose={() => setInvoiceOpen(false)}
+        />
+      )}
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You're about to permanently delete <span className="font-medium text-foreground">{b.booking_reference}</span> for {b.guest_name}.
+              This will remove all linked payments and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => del.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
+
 
 function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balance: number }) {
   const multi = items.length > 1;
@@ -303,18 +353,7 @@ function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balanc
   );
 }
 
-function CommBtn({ icon: Icon, label, onClick, disabled }: any) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-sm hover:border-gold/40 disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      <Icon className="h-4 w-4 text-gold" />
-      <span className="text-left">{label}</span>
-    </button>
-  );
-}
+
 
 function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId }: {
   bookingId: string; bookingAmount: number; advance: number; balance: number; customerId: string;
@@ -324,15 +363,22 @@ function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId
   const [addOpen, setAddOpen] = useState(false);
   const [editPayment, setEditPayment] = useState<BookingPaymentRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
   const { data: payments = [] } = useQuery({
     queryKey: ["booking-payments", bookingId],
     queryFn: () => listBookingPayments(bookingId),
   });
+  const { data: activities = [] } = useQuery({
+    queryKey: ["booking-payment-activities", bookingId],
+    queryFn: () => listBookingPaymentActivities(bookingId),
+  });
+
 
   const del = useMutation({
     mutationFn: (id: string) => deleteBookingPayment(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["booking-payments", bookingId] });
+      qc.invalidateQueries({ queryKey: ["booking-payment-activities", bookingId] });
       qc.invalidateQueries({ queryKey: ["booking", bookingId] });
       qc.invalidateQueries({ queryKey: ["cash"] });
       toast.success("Payment removed");
@@ -386,6 +432,44 @@ function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId
           ))}
         </div>
       )}
+
+      {activities.length > 0 && (
+        <div className="mt-4 border-t border-border pt-3">
+          <button onClick={() => setAuditOpen(o => !o)}
+            className="w-full text-left text-[10px] uppercase tracking-wider text-muted-foreground hover:text-gold inline-flex items-center gap-1.5">
+            <History className="h-3 w-3" /> Audit History ({activities.length}) {auditOpen ? "▴" : "▾"}
+          </button>
+          {auditOpen && (
+            <div className="mt-2 space-y-1.5 max-h-64 overflow-auto">
+              {activities.map((a) => (
+                <div key={a.id} className="text-[11px] rounded-md bg-secondary/30 px-2.5 py-1.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className={cn(
+                      "font-medium",
+                      a.action === "created" && "text-success",
+                      a.action === "deleted" && "text-destructive",
+                      a.action === "updated" && "text-gold",
+                    )}>{a.summary}</span>
+                    <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                      {new Date(a.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
+                    </span>
+                  </div>
+                  {a.field && (a.old_value || a.new_value) && (
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      {a.field}: <span className="line-through">{a.old_value ?? "—"}</span> → <span className="text-foreground">{a.new_value ?? "—"}</span>
+                    </div>
+                  )}
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    By {a.actor_name ?? "system"}{a.actor_role ? ` (${a.actor_role})` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+
 
       {addOpen && (
         <AddBookingPaymentModal
