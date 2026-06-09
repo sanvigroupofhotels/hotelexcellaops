@@ -14,9 +14,9 @@ export const Route = createFileRoute("/_authenticated/house-view")({
 });
 
 const DAY_COUNT = 7;
-const CELL_W = 110;
-const CELL_W_MOB = 96;
-const ROOM_COL_W = 110;
+const CELL_W = 170;
+const CELL_W_MOB = 150;
+const ROOM_COL_W = 120;
 
 function dateKey(d: Date) {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");

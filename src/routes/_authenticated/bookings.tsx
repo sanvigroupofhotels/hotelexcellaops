@@ -7,8 +7,13 @@ import { listBookings } from "@/lib/bookings-api";
 import { listCustomers } from "@/lib/customers-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { BOOKING_STATUSES, bookingStatusStyles } from "@/lib/mock-data";
-import { Search, Loader2, Plus, ChevronRight, BedDouble } from "lucide-react";
+import { downloadCSV } from "@/lib/csv";
+import { Search, Loader2, Plus, ChevronRight, BedDouble, Phone, MessageCircle, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/bookings")({
   component: BookingsPage,
@@ -21,10 +26,9 @@ function BookingsPage() {
   const customerById = useMemo(() => Object.fromEntries(customers.map((c) => [c.id, c])), [customers]);
 
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string>("All");
+  const [exportOpen, setExportOpen] = useState(false);
 
   const filtered = useMemo(() => bookings.filter((b) => {
-    if (status !== "All" && b.status !== status) return false;
     if (!q) return true;
     const ql = q.toLowerCase();
     return (
@@ -32,7 +36,7 @@ function BookingsPage() {
       b.booking_reference.toLowerCase().includes(ql) ||
       (b.phone ?? "").includes(q)
     );
-  }), [bookings, q, status]);
+  }), [bookings, q]);
 
   return (
     <>
@@ -47,80 +51,149 @@ function BookingsPage() {
               className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
             />
           </div>
+          <button onClick={() => setExportOpen(true)} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
+            <Download className="h-4 w-4 text-gold" /> Export
+          </button>
           <Link to="/bookings/new" search={{ customerId: undefined, fromQuoteId: undefined } as any}
             className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal hover:shadow-[0_0_18px_oklch(0.82_0.13_82/0.35)]">
             <Plus className="h-4 w-4" /> New Booking
           </Link>
         </div>
 
-        {/* Status tabs */}
-        <div className="flex gap-1 overflow-x-auto border-b border-border -mx-4 px-4 md:mx-0 md:px-0">
-          {(["All", ...BOOKING_STATUSES] as const).map((s) => {
-            const count = s === "All" ? bookings.length : bookings.filter((b) => b.status === s).length;
-            return (
-              <button key={s} onClick={() => setStatus(s)}
-                className={cn(
-                  "whitespace-nowrap px-3 py-2 text-xs border-b-2 -mb-px transition",
-                  status === s
-                    ? "border-gold text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                )}>
-                {s} <span className="ml-1 text-[10px] text-muted-foreground">({count})</span>
-              </button>
-            );
-          })}
-        </div>
-
         <div className="luxe-card rounded-xl overflow-hidden">
-          <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-secondary/30">
-            <div className="col-span-3">Guest</div>
-            <div className="col-span-2">Reference</div>
-            <div className="col-span-3">Stay</div>
-            <div className="col-span-2 text-right">Balance</div>
-            <div className="col-span-2">Status</div>
-          </div>
-
           {isLoading && <div className="p-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>}
           {!isLoading && filtered.length === 0 && (
             <div className="py-16 text-center text-sm text-muted-foreground">
               <BedDouble className="h-8 w-8 text-gold/60 mx-auto mb-3" />
-              No bookings yet. Create one to get started.
+              No bookings found.
             </div>
           )}
           {filtered.map((b, i) => {
-            const c = customerById[b.customer_id];
             const balance = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+            const roomType = (b.room_details || "").split("×")[0]?.trim() || null;
+            const guestCount = `${b.adults}A${b.children ? ` + ${b.children}C` : ""}`;
             return (
-              <motion.div key={b.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}>
-                <Link to="/bookings/$id" params={{ id: b.id }}
-                  className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-4 md:px-6 py-4 border-b border-border/60 last:border-0 hover:bg-secondary/40 transition">
-                  <div className="md:col-span-3 min-w-0">
+              <motion.div key={b.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+                className="px-4 md:px-6 py-4 border-b border-border/60 last:border-0 hover:bg-secondary/40 transition">
+                <div className="flex items-start gap-3">
+                  <Link to="/bookings/$id" params={{ id: b.id }} className="flex-1 min-w-0">
                     <div className="text-sm font-medium">{b.guest_name}</div>
-                    {c && <div className="text-[11px] font-mono text-muted-foreground">{c.customer_reference}</div>}
-                  </div>
-                  <div className="md:col-span-2 text-xs font-mono text-muted-foreground">{b.booking_reference}</div>
-                  <div className="md:col-span-3 text-xs">
-                    {new Date(b.check_in).toLocaleDateString("en-IN")} – {new Date(b.check_out).toLocaleDateString("en-IN")}
-                    <span className="text-muted-foreground ml-1">· {b.nights}N · {b.guests}G</span>
-                  </div>
-                  <div className="md:col-span-2 text-right text-sm font-medium tabular-nums">
-                    {balance > 0 ? (
-                      <span className="text-warning">Due ₹{balance.toLocaleString("en-IN")}</span>
-                    ) : (
-                      <span className="text-success">Paid</span>
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
+                      <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5", bookingStatusStyles[b.status])}>{b.status}</span>
+                      {roomType && <span className="text-gold/80 font-medium">{roomType}</span>}
+                      {balance > 0 ? (
+                        <span className="text-warning font-medium">Due ₹{balance.toLocaleString("en-IN")}</span>
+                      ) : (
+                        <span className="text-success font-medium">Paid</span>
+                      )}
+                    </div>
+                  </Link>
+                  <Link to="/bookings/$id" params={{ id: b.id }} className="text-right text-[11px] text-muted-foreground shrink-0">
+                    <div className="text-xs text-foreground">
+                      {new Date(b.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – {new Date(b.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                    </div>
+                    <div>{b.nights}N · {guestCount}</div>
+                  </Link>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    {b.phone && (
+                      <>
+                        <a href={`tel:${b.phone.replace(/\s+/g, "")}`} onClick={(e) => e.stopPropagation()}
+                          className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Call">
+                          <Phone className="h-3.5 w-3.5" />
+                        </a>
+                        <a href={`https://wa.me/${b.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                          className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition" title="WhatsApp">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </a>
+                      </>
                     )}
+                    <Link to="/bookings/$id" params={{ id: b.id }} className="p-1.5 rounded text-muted-foreground hover:text-gold">
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
                   </div>
-                  <div className="md:col-span-2 flex items-center justify-between">
-                    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px]",
-                      bookingStatusStyles[b.status])}>{b.status}</span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </Link>
+                </div>
               </motion.div>
             );
           })}
         </div>
       </div>
+      <ExportBookingsDialog open={exportOpen} onOpenChange={setExportOpen} bookings={bookings} customers={customerById as any} />
     </>
+  );
+}
+
+function ExportBookingsDialog({ open, onOpenChange, bookings, customers }: {
+  open: boolean; onOpenChange: (b: boolean) => void; bookings: any[]; customers: Record<string, any>;
+}) {
+  const [status, setStatus] = useState<string>("All");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+
+  const filtered = bookings.filter((b: any) => {
+    if (status !== "All" && b.status !== status) return false;
+    if (from && b.check_in < from) return false;
+    if (to && b.check_in > to) return false;
+    return true;
+  });
+
+  const onExport = () => {
+    try {
+      downloadCSV(`bookings-${new Date().toISOString().slice(0,10)}.csv`,
+        filtered.map((b: any) => ({
+          Reference: b.booking_reference,
+          Guest: b.guest_name,
+          Phone: b.phone ?? "",
+          Email: b.email ?? "",
+          Customer: customers[b.customer_id]?.guest_name ?? "",
+          "Customer Ref": customers[b.customer_id]?.customer_reference ?? "",
+          "Check-in": b.check_in,
+          "Check-out": b.check_out,
+          Nights: b.nights,
+          Adults: b.adults,
+          Children: b.children,
+          Rooms: b.room_details ?? "",
+          Amount: Number(b.amount),
+          "Advance Paid": Number(b.advance_paid || 0),
+          Balance: Math.max(0, Number(b.amount) - Number(b.advance_paid || 0)),
+          Status: b.status,
+          Created: new Date(b.created_at).toISOString().slice(0,10),
+        })));
+      toast.success(`Exported ${filtered.length} booking${filtered.length === 1 ? "" : "s"}`);
+      onOpenChange(false);
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Export Bookings</DialogTitle></DialogHeader>
+        <div className="space-y-3 py-2">
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Status</span>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
+              <option value="All">All statuses</option>
+              {BOOKING_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Check-In From</span>
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+            </label>
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Check-In To</span>
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+            </label>
+          </div>
+          <div className="text-xs text-muted-foreground">{filtered.length} booking{filtered.length === 1 ? "" : "s"} match</div>
+        </div>
+        <DialogFooter>
+          <button onClick={() => onOpenChange(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
+          <button onClick={onExport} className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal">
+            <Download className="h-4 w-4" /> Export CSV
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

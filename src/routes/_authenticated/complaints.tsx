@@ -13,9 +13,9 @@ import {
 import { listStaff } from "@/lib/cash-api";
 import { useUserRole } from "@/hooks/use-role";
 import {
-  Plus, Search, MessageSquareWarning, AlertTriangle, CheckCircle2, Clock,
-  CalendarRange, Activity, Settings2, Loader2,
+  Plus, Search, Settings2, Loader2, BarChart3, Download,
 } from "lucide-react";
+import { downloadCSV } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -45,161 +45,81 @@ function ComplaintsPage() {
     search: string;
   }>({ status: "active", priority: "all", category: "all", assignedTo: "all", room: "", customer: "", search: "" });
 
-  // Translate "active" sentinel into a server-compatible filter, then post-filter client-side.
-  const serverFilters = useMemo(() => ({
-    ...filters,
-    status: filters.status === "active" ? "all" as const : filters.status,
-  }), [filters]);
-
   const { data: listRaw = [], isLoading } = useQuery({
-    queryKey: ["complaints", serverFilters],
-    queryFn: () => listComplaints(serverFilters as any),
+    queryKey: ["complaints", "all"],
+    queryFn: () => listComplaints(),
   });
-  const list = useMemo(() => {
-    let rows = listRaw;
-    if (filters.status === "active") rows = rows.filter(r => r.status === "Open" || r.status === "In Progress");
-    if (filters.customer.trim()) {
-      const s = filters.customer.trim().toLowerCase();
+  // Main screen: active only + search box
+  const activeList = useMemo(() => {
+    let rows = listRaw.filter(r => r.status === "Open" || r.status === "In Progress");
+    if (filters.search.trim()) {
+      const s = filters.search.trim().toLowerCase();
       rows = rows.filter(r =>
-        (r.entered_by_name ?? "").toLowerCase().includes(s) ||
-        (r.assigned_to_name ?? "").toLowerCase().includes(s) ||
-        (r.description ?? "").toLowerCase().includes(s),
+        r.complaint_number.toLowerCase().includes(s) ||
+        (r.room_number ?? "").toLowerCase().includes(s) ||
+        r.category.toLowerCase().includes(s) ||
+        (r.description ?? "").toLowerCase().includes(s) ||
+        (r.assigned_to_name ?? "").toLowerCase().includes(s),
       );
     }
     return rows;
-  }, [listRaw, filters.status, filters.customer]);
+  }, [listRaw, filters.search]);
+
   const { data: categories = [] } = useQuery({
     queryKey: ["complaint-categories"],
     queryFn: () => listComplaintCategories(),
   });
   const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
 
-  // Dashboard counts (independent of filters)
-  const { data: allRecent = [] } = useQuery({
-    queryKey: ["complaints", "all"],
-    queryFn: () => listComplaints(),
-  });
-  const stats = useMemo(() => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const open = allRecent.filter(c => c.status === "Open").length;
-    const inProgress = allRecent.filter(c => c.status === "In Progress").length;
-    const resolvedToday = allRecent.filter(c => c.status === "Resolved" && c.resolved_at && new Date(c.resolved_at) >= today).length;
-    const critical = allRecent.filter(c => c.priority === "Critical" && c.status !== "Resolved").length;
-    const thisMonth = allRecent.filter(c => new Date(c.created_at) >= monthStart).length;
-    const resolutionDeltas = allRecent
-      .filter(c => c.status === "Resolved" && c.resolved_at)
-      .map(c => new Date(c.resolved_at!).getTime() - new Date(c.created_at).getTime());
-    const avgHrs = resolutionDeltas.length
-      ? Math.round(resolutionDeltas.reduce((a, b) => a + b, 0) / resolutionDeltas.length / 3_600_000)
-      : null;
-    return { open, inProgress, resolvedToday, critical, thisMonth, avgHrs };
-  }, [allRecent]);
-
   const [newOpen, setNewOpen] = useState(false);
   const [catMgrOpen, setCatMgrOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
 
   return (
     <>
-      <Topbar title="Complaints" subtitle="Operational complaints & issues" />
-      <div className="px-4 md:px-8 py-6 md:py-8 space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Dialog open={newOpen} onOpenChange={setNewOpen}>
-              <DialogTrigger asChild>
-                <button className="inline-flex items-center gap-2 rounded-md gold-gradient text-charcoal px-4 py-2.5 text-sm font-medium">
-                  <Plus className="h-4 w-4" /> New Complaint
-                </button>
-              </DialogTrigger>
-              <NewComplaintDialog
-                open={newOpen}
-                onOpenChange={setNewOpen}
-                categories={categories.filter(c => c.active)}
-                staff={staff}
-                onSaved={() => {
-                  qc.invalidateQueries({ queryKey: ["complaints"] });
-                  setNewOpen(false);
-                }}
-              />
-            </Dialog>
-            {isAdmin && (
-              <button
-                onClick={() => setCatMgrOpen(true)}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-sm hover:border-gold/40">
-                <Settings2 className="h-4 w-4 text-gold" /> Manage Categories
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <StatCard label="Open" value={stats.open} icon={MessageSquareWarning} tone="warning"
-            active={filters.status === "Open"} onClick={() => setFilters(f => ({ ...f, status: f.status === "Open" ? "active" : "Open", priority: "all" }))} />
-          <StatCard label="In Progress" value={stats.inProgress} icon={Clock} tone="gold"
-            active={filters.status === "In Progress"} onClick={() => setFilters(f => ({ ...f, status: f.status === "In Progress" ? "active" : "In Progress", priority: "all" }))} />
-          <StatCard label="Resolved Today" value={stats.resolvedToday} icon={CheckCircle2} tone="success"
-            onClick={() => setFilters(f => ({ ...f, status: "Resolved" }))} />
-          <StatCard label="Critical" value={stats.critical} icon={AlertTriangle} tone="destructive"
-            active={filters.priority === "Critical"} onClick={() => setFilters(f => ({ ...f, priority: f.priority === "Critical" ? "all" : "Critical" }))} />
-          <StatCard label="This Month" value={stats.thisMonth} icon={CalendarRange} tone="gold" />
-          <StatCard label="Avg Resolution" value={stats.avgHrs === null ? "—" : `${stats.avgHrs}h`} icon={Activity} tone="gold" />
-        </div>
-
-        {/* Filters — 2-col grid (mobile-first) */}
-        <div className="luxe-card rounded-xl p-3 space-y-2">
-          <div className="flex items-center gap-2 rounded-md bg-input/60 border border-border px-2.5 py-1.5">
+      <Topbar title="Complaints" subtitle={`${activeList.length} active`} />
+      <div className="px-4 md:px-8 py-6 md:py-8 space-y-5">
+        <div className="flex flex-col md:flex-row gap-2">
+          <div className="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-md bg-card border border-border">
             <Search className="h-4 w-4 text-muted-foreground" />
             <input
               value={filters.search}
               onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-              placeholder="Search complaint #, room, category…"
-              className="bg-transparent text-sm outline-none flex-1"
+              placeholder="Search active complaints…"
+              className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
             />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <FilterSelect label="Status" value={filters.status} onChange={v => setFilters(f => ({ ...f, status: v as any }))}
-              options={[["active", "Active (Open + In Progress)"], ["all", "All Status"], ...COMPLAINT_STATUSES.map(s => [s, s] as [string, string])]} />
-            <FilterSelect label="Priority" value={filters.priority} onChange={v => setFilters(f => ({ ...f, priority: v as any }))}
-              options={[["all", "All Priority"], ...COMPLAINT_PRIORITIES.map(p => [p, p] as [string, string])]} />
-            <FilterSelect label="Category" value={filters.category} onChange={v => setFilters(f => ({ ...f, category: v }))}
-              options={[["all", "All Categories"], ...categories.filter(c => c.active).map(c => [c.name, c.name] as [string, string])]} />
-            <FilterSelect label="Assignee" value={filters.assignedTo} onChange={v => setFilters(f => ({ ...f, assignedTo: v as any }))}
-              options={[["all", "Any Assignee"], ["unassigned", "Unassigned"], ...staff.map(s => [s.id, s.name] as [string, string])]} />
-            <input
-              value={filters.room}
-              onChange={e => setFilters(f => ({ ...f, room: e.target.value }))}
-              placeholder="Room number"
-              className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/50" />
-            <input
-              value={filters.customer}
-              onChange={e => setFilters(f => ({ ...f, customer: e.target.value }))}
-              placeholder="Customer / staff name"
-              className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/50" />
-            <input
-              type="text" placeholder="From"
-              onFocus={(e) => (e.currentTarget.type = "date")}
-              onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.type = "text"; }}
-              value={filters.from ?? ""} onChange={e => setFilters(f => ({ ...f, from: e.target.value || undefined }))}
-              className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/50" />
-            <input
-              type="text" placeholder="To"
-              onFocus={(e) => (e.currentTarget.type = "date")}
-              onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.type = "text"; }}
-              value={filters.to ?? ""} onChange={e => setFilters(f => ({ ...f, to: e.target.value || undefined }))}
-              className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/50" />
-          </div>
+          <button onClick={() => setReportsOpen(true)} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+            <BarChart3 className="h-4 w-4 text-gold" /> View Reports
+          </button>
+          {isAdmin && (
+            <button onClick={() => setCatMgrOpen(true)} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-sm hover:border-gold/40">
+              <Settings2 className="h-4 w-4 text-gold" /> Categories
+            </button>
+          )}
+          <Dialog open={newOpen} onOpenChange={setNewOpen}>
+            <DialogTrigger asChild>
+              <button className="inline-flex items-center gap-2 rounded-md gold-gradient text-charcoal px-4 py-2.5 text-sm font-medium">
+                <Plus className="h-4 w-4" /> New Complaint
+              </button>
+            </DialogTrigger>
+            <NewComplaintDialog
+              open={newOpen} onOpenChange={setNewOpen}
+              categories={categories.filter(c => c.active)} staff={staff}
+              onSaved={() => { qc.invalidateQueries({ queryKey: ["complaints"] }); setNewOpen(false); }}
+            />
+          </Dialog>
         </div>
 
-        {/* List */}
+        {/* Active list */}
         <div className="luxe-card rounded-xl overflow-hidden">
           {isLoading ? (
             <div className="p-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
-          ) : list.length === 0 ? (
-            <div className="p-12 text-center text-sm text-muted-foreground">No complaints match these filters.</div>
+          ) : activeList.length === 0 ? (
+            <div className="p-12 text-center text-sm text-muted-foreground">No active complaints. 🎉</div>
           ) : (
             <div className="divide-y divide-border">
-              {list.map(c => (
+              {activeList.map(c => (
                 <Link key={c.id} to="/complaints/$id" params={{ id: c.id }}
                   className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 px-4 py-3 hover:bg-accent/30">
                   <div className="flex items-center gap-2 md:w-44">
@@ -220,7 +140,6 @@ function ComplaintsPage() {
                       {c.status}
                     </span>
                     {c.assigned_to_name && <span>→ {c.assigned_to_name}</span>}
-                    {c.entered_by_name && <span className="hidden md:inline">by {c.entered_by_name}</span>}
                     <span>{new Date(c.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</span>
                   </div>
                 </Link>
@@ -232,42 +151,98 @@ function ComplaintsPage() {
 
       {isAdmin && (
         <CategoryManagerDialog
-          open={catMgrOpen}
-          onOpenChange={setCatMgrOpen}
-          categories={categories}
+          open={catMgrOpen} onOpenChange={setCatMgrOpen} categories={categories}
           onChanged={() => qc.invalidateQueries({ queryKey: ["complaint-categories"] })}
         />
       )}
-      {/* canManage referenced to avoid unused-var lint and reflect future per-row admin actions */}
+      <ComplaintsReportsDialog
+        open={reportsOpen} onOpenChange={setReportsOpen}
+        all={listRaw} categories={categories.filter(c => c.active)} staff={staff}
+        filters={filters} setFilters={setFilters}
+      />
       <span className="hidden">{canManage ? "1" : "0"}</span>
     </>
   );
 }
 
-function StatCard({
-  label, value, icon: Icon, tone, active, onClick,
+function ComplaintsReportsDialog({
+  open, onOpenChange, all, categories, staff, filters, setFilters,
 }: {
-  label: string; value: number | string; icon: any;
-  tone: "gold" | "warning" | "destructive" | "success";
-  active?: boolean; onClick?: () => void;
+  open: boolean; onOpenChange: (b: boolean) => void;
+  all: any[];
+  categories: { id: string; name: string }[];
+  staff: { id: string; name: string }[];
+  filters: any; setFilters: (fn: (f: any) => any) => void;
 }) {
-  const toneClass =
-    tone === "destructive" ? "text-destructive" :
-    tone === "warning" ? "text-warning" :
-    tone === "success" ? "text-success" : "text-gold";
+  const filtered = useMemo(() => all.filter((c: any) => {
+    if (filters.status !== "all" && filters.status !== "active" && c.status !== filters.status) return false;
+    if (filters.status === "active" && !(c.status === "Open" || c.status === "In Progress")) return false;
+    if (filters.priority !== "all" && c.priority !== filters.priority) return false;
+    if (filters.category !== "all" && c.category !== filters.category) return false;
+    if (filters.assignedTo === "unassigned" && c.assigned_to_staff_id) return false;
+    if (filters.assignedTo !== "all" && filters.assignedTo !== "unassigned" && c.assigned_to_staff_id !== filters.assignedTo) return false;
+    if (filters.room.trim() && !(c.room_number ?? "").toLowerCase().includes(filters.room.trim().toLowerCase())) return false;
+    if (filters.customer.trim()) {
+      const s = filters.customer.trim().toLowerCase();
+      if (!(c.entered_by_name ?? "").toLowerCase().includes(s) && !(c.assigned_to_name ?? "").toLowerCase().includes(s)) return false;
+    }
+    if (filters.from && c.created_at.slice(0,10) < filters.from) return false;
+    if (filters.to && c.created_at.slice(0,10) > filters.to) return false;
+    return true;
+  }), [all, filters]);
+
+  const onExport = () => {
+    try {
+      downloadCSV(`complaints-${new Date().toISOString().slice(0,10)}.csv`,
+        filtered.map((c: any) => ({
+          Number: c.complaint_number,
+          Type: c.complaint_type,
+          Room: c.room_number ?? "",
+          Category: c.category,
+          "Category Other": c.category_other ?? "",
+          Priority: c.priority,
+          Status: c.status,
+          "Entered By": c.entered_by_name ?? "",
+          "Assigned To": c.assigned_to_name ?? "",
+          Description: c.description ?? "",
+          Created: new Date(c.created_at).toISOString(),
+          Resolved: c.resolved_at ? new Date(c.resolved_at).toISOString() : "",
+        })));
+      toast.success(`Exported ${filtered.length} complaint${filtered.length === 1 ? "" : "s"}`);
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
+
   return (
-    <button onClick={onClick} disabled={!onClick}
-      className={cn(
-        "luxe-card rounded-xl p-3 text-left transition disabled:cursor-default",
-        onClick && "hover:border-gold/40 cursor-pointer",
-        active && "border-gold/60 bg-gold-soft/40",
-      )}>
-      <div className="flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-        <Icon className={cn("h-4 w-4", toneClass)} />
-      </div>
-      <div className="font-display text-2xl mt-1">{value}</div>
-    </button>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Complaints Report</DialogTitle></DialogHeader>
+        <div className="grid grid-cols-2 gap-2">
+          <FilterSelect label="Status" value={filters.status} onChange={v => setFilters((f: any) => ({ ...f, status: v }))}
+            options={[["active", "Active (Open+In Progress)"], ["all", "All Status"], ...COMPLAINT_STATUSES.map(s => [s, s] as [string, string])]} />
+          <FilterSelect label="Priority" value={filters.priority} onChange={v => setFilters((f: any) => ({ ...f, priority: v }))}
+            options={[["all", "All Priority"], ...COMPLAINT_PRIORITIES.map(p => [p, p] as [string, string])]} />
+          <FilterSelect label="Category" value={filters.category} onChange={v => setFilters((f: any) => ({ ...f, category: v }))}
+            options={[["all", "All Categories"], ...categories.map(c => [c.name, c.name] as [string, string])]} />
+          <FilterSelect label="Assignee" value={filters.assignedTo} onChange={v => setFilters((f: any) => ({ ...f, assignedTo: v }))}
+            options={[["all", "Any Assignee"], ["unassigned", "Unassigned"], ...staff.map(s => [s.id, s.name] as [string, string])]} />
+          <input value={filters.room} onChange={e => setFilters((f: any) => ({ ...f, room: e.target.value }))}
+            placeholder="Room number" className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm" />
+          <input value={filters.customer} onChange={e => setFilters((f: any) => ({ ...f, customer: e.target.value }))}
+            placeholder="Customer / staff name" className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm" />
+          <input type="date" value={filters.from ?? ""} onChange={e => setFilters((f: any) => ({ ...f, from: e.target.value || undefined }))}
+            className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm" />
+          <input type="date" value={filters.to ?? ""} onChange={e => setFilters((f: any) => ({ ...f, to: e.target.value || undefined }))}
+            className="bg-input/60 border border-border rounded-md px-2.5 py-1.5 text-sm" />
+        </div>
+        <div className="text-xs text-muted-foreground">{filtered.length} complaint{filtered.length === 1 ? "" : "s"} match</div>
+        <DialogFooter>
+          <button onClick={() => onOpenChange(false)} className="rounded-md border border-border px-4 py-2 text-sm">Close</button>
+          <button onClick={onExport} className="inline-flex items-center gap-2 rounded-md gold-gradient text-charcoal px-4 py-2 text-sm font-medium">
+            <Download className="h-4 w-4" /> Export CSV
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
