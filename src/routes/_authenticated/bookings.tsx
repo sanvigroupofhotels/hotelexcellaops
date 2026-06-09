@@ -75,46 +75,50 @@ function BookingsPage() {
             return (
               <motion.div key={b.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
                 className="px-4 md:px-6 py-4 border-b border-border/60 last:border-0 hover:bg-secondary/40 transition">
-                <div className="flex items-start gap-3">
-                  {/* Left: Guest name → Status → Dates/Nights/Guests → Room category */}
-                  <Link to="/bookings/$id" params={{ id: b.id }} className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">{b.guest_name}</div>
-                    <div className="flex items-center gap-2 text-[11px] mt-1 flex-wrap">
-                      <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5", bookingStatusStyles[b.status])}>{b.status}</span>
+                <Link to="/bookings/$id" params={{ id: b.id }} className="block">
+                  <div className="grid grid-cols-3 gap-3 items-start">
+                    {/* Col 1: Guest Name + Status */}
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{b.guest_name}</div>
+                      <div className="mt-1">
+                        <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]", bookingStatusStyles[b.status])}>{b.status}</span>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-1">
-                      {new Date(b.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – {new Date(b.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                      <span className="mx-1">·</span>{b.nights}N
-                      <span className="mx-1">·</span>{guestCount}
-                    </div>
-                    {roomType && <div className="text-[11px] text-gold/80 font-medium mt-0.5">{roomType}</div>}
-                  </Link>
 
-                  {/* Right: Due amount above actions */}
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    {balance > 0 && (
-                      <span className="text-warning font-medium text-xs whitespace-nowrap">Due ₹{balance.toLocaleString("en-IN")}</span>
-                    )}
-                    <div className="flex items-center gap-0.5">
-                      {b.phone && (
-                        <>
-                          <a href={`tel:${b.phone.replace(/\s+/g, "")}`} onClick={(e) => e.stopPropagation()}
-                            className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Call">
-                            <Phone className="h-3.5 w-3.5" />
-                          </a>
-                          <a href={`https://wa.me/${b.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
-                            className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition" title="WhatsApp">
-                            <MessageCircle className="h-3.5 w-3.5" />
-                          </a>
-                        </>
+                    {/* Col 2: Dates + Guests + Room Type */}
+                    <div className="text-[11px] text-muted-foreground min-w-0">
+                      <div className="whitespace-nowrap">
+                        {new Date(b.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – {new Date(b.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                      </div>
+                      <div className="mt-0.5">{b.nights}N · {guestCount}</div>
+                      {roomType && <div className="text-gold/80 font-medium mt-0.5 truncate">{roomType}</div>}
+                    </div>
+
+                    {/* Col 3: Due Amount + Actions */}
+                    <div className="flex flex-col items-end gap-1.5">
+                      {balance > 0 ? (
+                        <span className="text-warning font-medium text-xs whitespace-nowrap">Due ₹{balance.toLocaleString("en-IN")}</span>
+                      ) : (
+                        <span className="text-success font-medium text-xs">Paid</span>
                       )}
-                      <Link to="/bookings/$id" params={{ id: b.id }} title="Open"
-                        className="p-1.5 rounded text-muted-foreground hover:text-gold">
-                        <ChevronRight className="h-4 w-4" />
-                      </Link>
+                      <div className="flex items-center gap-0.5">
+                        {b.phone && (
+                          <>
+                            <a href={`tel:${b.phone.replace(/\s+/g, "")}`} onClick={(e) => e.stopPropagation()}
+                              className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Call">
+                              <Phone className="h-3.5 w-3.5" />
+                            </a>
+                            <a href={`https://wa.me/${b.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                              className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition" title="WhatsApp">
+                              <MessageCircle className="h-3.5 w-3.5" />
+                            </a>
+                          </>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               </motion.div>
             );
           })}

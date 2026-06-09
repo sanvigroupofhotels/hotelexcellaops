@@ -25,6 +25,12 @@ export interface BookingRow {
   status: BookingStatus;
   payment_status: string;
   discount: number;
+  lead_source: string | null;
+  allow_full_payment?: boolean;
+  allow_part_payment?: boolean;
+  allow_pay_at_hotel?: boolean;
+  part_payment_type?: "percent" | "fixed" | "none";
+  part_payment_value?: number;
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +55,7 @@ export interface BookingInput {
   internal_notes?: string | null;
   status?: BookingStatus;
   payment_status?: string;
+  lead_source?: string | null;
 }
 
 export function validateBookingInput(b: BookingInput) {

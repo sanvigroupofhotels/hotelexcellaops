@@ -155,17 +155,17 @@ export const DEFAULT_TAGS = [
 ] as const;
 
 export const LEAD_SOURCES = [
-  "Operations",
+  "Direct",
   "Walk-in",
   "Phone Call",
   "WhatsApp",
+  "Hotelzify",
   "Website",
   "Google Business Profile",
   "Travel Agent",
   "Corporate Referral",
   "Repeat Guest",
   "OTA",
-  "Direct",
   "Other",
 ] as const;
 

@@ -160,10 +160,60 @@ export type Database = {
           },
         ]
       }
+      booking_tokens: {
+        Row: {
+          booking_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          last_accessed_at: string | null
+          revoked_at: string | null
+          scope: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          revoked_at?: string | null
+          scope?: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          revoked_at?: string | null
+          scope?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_tokens_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           adults: number
           advance_paid: number
+          allow_full_payment: boolean
+          allow_part_payment: boolean
+          allow_pay_at_hotel: boolean
           amount: number
           booking_reference: string
           check_in: string
@@ -177,8 +227,11 @@ export type Database = {
           guests: number
           id: string
           internal_notes: string | null
+          lead_source: string | null
           nights: number | null
           notes: string | null
+          part_payment_type: string
+          part_payment_value: number
           payment_status: string
           phone: string | null
           room_details: string | null
@@ -191,6 +244,9 @@ export type Database = {
         Insert: {
           adults?: number
           advance_paid?: number
+          allow_full_payment?: boolean
+          allow_part_payment?: boolean
+          allow_pay_at_hotel?: boolean
           amount?: number
           booking_reference?: string
           check_in: string
@@ -204,8 +260,11 @@ export type Database = {
           guests?: number
           id?: string
           internal_notes?: string | null
+          lead_source?: string | null
           nights?: number | null
           notes?: string | null
+          part_payment_type?: string
+          part_payment_value?: number
           payment_status?: string
           phone?: string | null
           room_details?: string | null
@@ -218,6 +277,9 @@ export type Database = {
         Update: {
           adults?: number
           advance_paid?: number
+          allow_full_payment?: boolean
+          allow_part_payment?: boolean
+          allow_pay_at_hotel?: boolean
           amount?: number
           booking_reference?: string
           check_in?: string
@@ -231,8 +293,11 @@ export type Database = {
           guests?: number
           id?: string
           internal_notes?: string | null
+          lead_source?: string | null
           nights?: number | null
           notes?: string | null
+          part_payment_type?: string
+          part_payment_value?: number
           payment_status?: string
           phone?: string | null
           room_details?: string | null
