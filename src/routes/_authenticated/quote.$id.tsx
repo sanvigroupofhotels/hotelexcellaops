@@ -84,6 +84,24 @@ function QuoteDetail() {
   });
 
   const cardRef = useRef<HTMLDivElement>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const sendWa = (template: WhatsAppTemplate) => {
+    if (!q?.phone) { toast.error("Customer has no phone number"); return; }
+    if (template === "empty") { window.open(waLink(q.phone), "_blank"); return; }
+    if (template === "confirmation") {
+      window.open(buildWhatsAppLink(q, items), "_blank");
+      logWhatsApp(id);
+      return;
+    }
+    const text =
+      template === "payment" ? quotePaymentReminderMessage(q) :
+      template === "checkin" ? quoteCheckInWelcomeMessage(q) :
+      quoteCheckOutThankYouMessage(q);
+    window.open(waLink(q.phone, text), "_blank");
+    logWhatsApp(id);
+  };
+
 
   const [followDate, setFollowDate] = useState(() => {
     const d = new Date(Date.now() + 86400000);
