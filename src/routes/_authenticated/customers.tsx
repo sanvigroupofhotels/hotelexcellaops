@@ -87,69 +87,77 @@ function CustomersPage() {
         </div>
 
         <div className="luxe-card rounded-xl overflow-hidden">
-          <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-secondary/30">
-            <div className="col-span-4">Guest</div>
-            <div className="col-span-3">Status</div>
-            <div className="col-span-3">Tags</div>
-            <div className="col-span-2 text-right">Actions</div>
-          </div>
-
           {isLoading && <div className="p-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>}
           {!isLoading && filtered.length === 0 && (
             <div className="py-16 text-center text-sm text-muted-foreground">No customers found.</div>
           )}
-          {filtered.map((c, i) => (
-            <motion.div key={c.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
-              className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-4 md:px-6 py-4 border-b border-border/60 last:border-0 hover:bg-secondary/40 transition">
-              <Link to="/customers/$id" params={{ id: c.id }} className="md:col-span-4 min-w-0">
-                <div className="text-sm font-medium flex items-center gap-2">
-                  {c.total_bookings > 0 && <Star className="h-3 w-3 fill-gold text-gold" />}
-                  {c.guest_name}
+          {filtered.map((c, i) => {
+            const leadTag = (c.tags ?? [])[0];
+            return (
+              <motion.div key={c.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+                className="px-4 md:px-6 py-4 border-b border-border/60 last:border-0 hover:bg-secondary/40 transition">
+                <div className="flex items-start gap-3">
+                  {/* Left: Name → Phone → Status */}
+                  <Link to="/customers/$id" params={{ id: c.id }} className="flex-1 min-w-0">
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      {c.total_bookings > 0 && <Star className="h-3 w-3 fill-gold text-gold shrink-0" />}
+                      <span className="truncate">{c.guest_name}</span>
+                    </div>
+                    {c.phone && (
+                      <div className="text-[11px] text-muted-foreground mt-0.5 font-mono">{c.phone}</div>
+                    )}
+                    <div className="mt-1">
+                      <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[10px] text-muted-foreground">
+                        {c.status || "—"}
+                      </span>
+                    </div>
+                  </Link>
+
+                  {/* Right: Lead Source + Tag chips on one row above actions */}
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <div className="flex items-center gap-1 flex-wrap justify-end">
+                      {leadTag && (
+                        <span className="inline-flex items-center rounded-full border border-gold/40 bg-gold-soft text-gold px-2 py-0.5 text-[10px]">{leadTag}</span>
+                      )}
+                      {c.lead_source && (
+                        <span className="inline-flex items-center rounded-full border border-info/40 bg-info/10 text-info px-2 py-0.5 text-[10px]">{c.lead_source}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      {c.phone && (
+                        <>
+                          <a href={`tel:${c.phone.replace(/\s+/g, "")}`} onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Call">
+                            <Phone className="h-3.5 w-3.5" />
+                          </a>
+                          <a href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition" title="WhatsApp">
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          </a>
+                        </>
+                      )}
+                      {c.email && (
+                        <a href={`mailto:${c.email}`} onClick={(e) => e.stopPropagation()}
+                          className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Email">
+                          <Mail className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      <CreateForCustomerPopover customerId={c.id} />
+                      {isAdmin && (
+                        <button onClick={() => { if (confirm(`Remove ${c.guest_name}?`)) del.mutate(c.id); }}
+                          className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <Link to="/customers/$id" params={{ id: c.id }} className="p-1.5 rounded text-muted-foreground hover:text-gold">
+                        <ChevronRight className="h-4 w-4" />
+                      </Link>
+                    </div>
+                  </div>
                 </div>
-              </Link>
-              <div className="md:col-span-3 text-xs">
-                <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[10px] text-muted-foreground">
-                  {c.status || "—"}
-                </span>
-              </div>
-              <div className="md:col-span-3 flex flex-wrap gap-1 items-center">
-                {(c.tags ?? []).slice(0, 4).map((t) => (
-                  <span key={t} className="inline-flex items-center rounded-full border border-gold/40 bg-gold-soft text-gold px-2 py-0.5 text-[10px]">{t}</span>
-                ))}
-                {(c.tags ?? []).length > 4 && <span className="text-[10px] text-muted-foreground">+{(c.tags ?? []).length - 4}</span>}
-              </div>
-              <div className="md:col-span-2 flex items-center justify-end gap-1">
-                {c.phone && (
-                  <>
-                    <a href={`tel:${c.phone.replace(/\s+/g, "")}`} onClick={(e) => e.stopPropagation()}
-                      className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Call">
-                      <Phone className="h-3.5 w-3.5" />
-                    </a>
-                    <a href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
-                      className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition" title="WhatsApp">
-                      <MessageCircle className="h-3.5 w-3.5" />
-                    </a>
-                  </>
-                )}
-                {c.email && (
-                  <a href={`mailto:${c.email}`} onClick={(e) => e.stopPropagation()}
-                    className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Email">
-                    <Mail className="h-3.5 w-3.5" />
-                  </a>
-                )}
-                <CreateForCustomerPopover customerId={c.id} />
-                {isAdmin && (
-                  <button onClick={() => { if (confirm(`Remove ${c.guest_name}?`)) del.mutate(c.id); }}
-                    className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                <Link to="/customers/$id" params={{ id: c.id }} className="p-1.5 rounded text-muted-foreground hover:text-gold">
-                  <ChevronRight className="h-4 w-4" />
-                </Link>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
       </div>
       <CustomerEditDialog open={newOpen} onClose={() => setNewOpen(false)} customer={null} />
