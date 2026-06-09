@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { listRooms, listMaintenance } from "@/lib/rooms-api";
 import { listBookings } from "@/lib/bookings-api";
@@ -8,6 +8,8 @@ import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 
 export const Route = createFileRoute("/_authenticated/house-view")({
   component: HouseView,
@@ -363,9 +365,61 @@ function Legend({ cls, label }: { cls: string; label: string }) {
 }
 
 function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean }) {
+  const qc = useQueryClient();
   const room = rooms.find((r: any) => r.id === b.room_id);
   const balance = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+  const today = dateKey(new Date());
+  const status = b.status as string;
+  const [payOpen, setPayOpen] = useState(false);
+
+  const checkInMut = useMutation({
+    mutationFn: async () => {
+      const { setBookingStatus } = await import("@/lib/bookings-api");
+      await setBookingStatus(b.id, "Checked-In" as any);
+    },
+    onSuccess: () => {
+      toast.success("Checked-in");
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const checkOutMut = useMutation({
+    mutationFn: async () => {
+      const { setBookingStatus } = await import("@/lib/bookings-api");
+      await setBookingStatus(b.id, "Checked-Out" as any);
+    },
+    onSuccess: () => {
+      toast.success("Checked-out");
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Dynamic action button (P5):
+  //   Case 1: Balance > 0 (not yet checked-out)  → Add Payment
+  //   Case 2: Balance = 0 AND today >= check_in AND not yet in-house  → Check-In
+  //   Case 3: status = Checked-In                                     → Check-Out
+  //   Case 4: status = Checked-Out / Stay Completed                   → View Booking only
+  let primary: { label: string; onClick: () => void; tone?: "gold" | "green" | "blue" } | null = null;
+  if (status !== "Checked-Out" && status !== "Stay Completed" && status !== "Cancelled") {
+    if (status === "Checked-In") {
+      primary = { label: "Check-Out", onClick: () => checkOutMut.mutate(), tone: "blue" };
+    } else if (balance > 0) {
+      primary = { label: "Add Payment", onClick: () => setPayOpen(true), tone: "gold" };
+    } else if (today >= b.check_in) {
+      primary = { label: "Check-In", onClick: () => checkInMut.mutate(), tone: "green" };
+    }
+  }
+
+  const toneCls = (t?: string) =>
+    t === "green" ? "bg-green-600 text-white hover:bg-green-700" :
+    t === "blue" ? "bg-blue-600 text-white hover:bg-blue-700" :
+    "gold-gradient text-charcoal";
+
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="luxe-card rounded-xl w-full max-w-md p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
@@ -390,11 +444,25 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
           <div className="flex justify-between border-t border-border/50 pt-1"><span className="font-medium">Balance Due</span><span className="font-display text-base gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
         </div>
         <div className="flex gap-2 pt-1">
-          <Link to="/bookings/$id" params={{ id: b.id }} className="flex-1 text-center rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">View Booking</Link>
-          <Link to="/bookings/$id/edit" params={{ id: b.id }} className="flex-1 text-center rounded-md border border-border bg-card px-3 py-2 text-xs">Assign Room</Link>
+          <Link to="/bookings/$id" params={{ id: b.id }} className="flex-1 text-center rounded-md border border-border bg-card px-3 py-2 text-xs hover:border-gold/40">View Booking</Link>
+          {primary && (
+            <button onClick={primary.onClick}
+              disabled={checkInMut.isPending || checkOutMut.isPending}
+              className={cn("flex-1 text-center rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60", toneCls(primary.tone))}>
+              {(checkInMut.isPending || checkOutMut.isPending) ? "Working…" : primary.label}
+            </button>
+          )}
         </div>
       </div>
     </div>
+    {payOpen && (
+      <AddBookingPaymentModal
+        bookingId={b.id} customerId={b.customer_id} maxAmount={balance}
+        onClose={() => setPayOpen(false)}
+        onSaved={() => onClose()}
+      />
+    )}
+    </>
   );
 }
 
