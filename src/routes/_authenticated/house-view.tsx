@@ -303,6 +303,7 @@ function HouseView() {
           <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />
           <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
           <div className="flex items-center gap-1.5"><UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast included</div>
+          <div className="flex items-center gap-1.5"><span>💳</span> Balance due</div>
         </div>
       </div>
 
