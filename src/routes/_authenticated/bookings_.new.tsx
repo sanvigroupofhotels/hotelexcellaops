@@ -167,7 +167,7 @@ function NewBooking() {
         room_id: roomId,
         amount, advance_paid: advancePaid, discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
-        status: status as any, payment_status: "None",
+        payment_status: "None",
       };
       const b = await createBooking(input);
       const rate = getRoomRate(stay.room_type, stay.breakfast_included);
@@ -263,17 +263,11 @@ function NewBooking() {
               mode="booking"
             />
 
-            {/* Booking-only Payment & Status (below shared sections) */}
+            {/* Booking-only Payment (status is auto-derived server-side) */}
             <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
               <h4 className="font-display text-lg">Booking &amp; Payment</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label className="block">
-                  <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">Status</span>
-                  <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)}>
-                    {BOOKING_STATUSES.map((s) => <option key={s}>{s}</option>)}
-                  </select>
-                </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5">
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Amount</div>
                   <div className="font-display text-lg gold-text-gradient">₹{amount.toLocaleString("en-IN")}</div>
