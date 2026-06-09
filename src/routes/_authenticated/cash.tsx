@@ -110,6 +110,7 @@ function CashPage() {
   const [openForm, setOpenForm] = useState<null | { kind: "collection" | "expense"; tx?: CashTxRow }>(null);
   const [detailTx, setDetailTx] = useState<CashTxRow | null>(null);
   const [includeInactive, setIncludeInactive] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
 
   const onRangeChange = (k: RangeKey) => {
     setRange(k);
@@ -117,8 +118,10 @@ function CashPage() {
     if (p) { setCustomFrom(p.from); setCustomTo(p.to); }
   };
 
-  const bounds = useMemo(() => ({ ...rangeBounds(customFrom, customTo), includeInactive }),
-    [customFrom, customTo, includeInactive]);
+  const bounds = useMemo(() => {
+    if (range === "all") return { from: undefined, to: undefined, includeInactive } as const;
+    return { ...rangeBounds(customFrom, customTo), includeInactive } as const;
+  }, [range, customFrom, customTo, includeInactive]);
 
   const { data: tx = [] } = useQuery({
     queryKey: ["cash-tx", bounds.from, bounds.to, includeInactive],
@@ -147,25 +150,30 @@ function CashPage() {
 
         {tab === "dashboard" && (
           <>
-            {/* Date Range + From/To + Show Inactive */}
+            {/* Date Range filter — From/To only when Custom */}
             <div className="luxe-card rounded-xl p-3">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
+              <div className={cn("grid gap-2 items-end",
+                range === "custom" ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 md:grid-cols-2")}>
                 <div>
                   <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Date Range</label>
                   <select className={cn(inputCls,"!py-2")} value={range} onChange={e=>onRangeChange(e.target.value as RangeKey)}>
                     {RANGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">From</label>
-                  <input type="date" className={cn(inputCls,"!py-2")} value={customFrom}
-                    onChange={e=>{ setCustomFrom(e.target.value); setRange("custom"); }} />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">To</label>
-                  <input type="date" className={cn(inputCls,"!py-2")} value={customTo}
-                    onChange={e=>{ setCustomTo(e.target.value); setRange("custom"); }} />
-                </div>
+                {range === "custom" && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">From</label>
+                      <input type="date" className={cn(inputCls,"!py-2")} value={customFrom}
+                        onChange={e=>setCustomFrom(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">To</label>
+                      <input type="date" className={cn(inputCls,"!py-2")} value={customTo}
+                        onChange={e=>setCustomTo(e.target.value)} />
+                    </div>
+                  </>
+                )}
                 <label className="inline-flex items-center gap-2 text-xs text-muted-foreground pb-2">
                   <input type="checkbox" checked={includeInactive} onChange={e=>setIncludeInactive(e.target.checked)} />
                   Show Inactive
@@ -194,15 +202,11 @@ function CashPage() {
               </button>
             </div>
 
-            {/* Secondary actions */}
+            {/* View Reports replaces direct exports */}
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => exportCashCSV(tx, range)}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
-                <Download className="h-4 w-4 text-gold"/> Export Excel
-              </button>
-              <button onClick={() => window.print()}
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
-                <Printer className="h-4 w-4 text-gold"/> Export PDF
+              <button onClick={() => setReportsOpen(true)}
+                className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-2 text-sm hover:bg-gold-soft/50">
+                📊 View Reports
               </button>
             </div>
 
@@ -223,6 +227,9 @@ function CashPage() {
       {detailTx && (
         <TxDetailModal tx={detailTx} onClose={()=>setDetailTx(null)}
           onEdit={() => { setOpenForm({ kind: detailTx.kind, tx: detailTx }); setDetailTx(null); }} />
+      )}
+      {reportsOpen && (
+        <ReportsModal tx={tx} onClose={() => setReportsOpen(false)} />
       )}
     </>
   );
