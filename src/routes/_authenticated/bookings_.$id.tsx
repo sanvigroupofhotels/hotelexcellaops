@@ -8,7 +8,7 @@ import { listStaff } from "@/lib/cash-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
-import { BOOKING_STATUSES, bookingStatusStyles, earlyCheckInLabel, lateCheckOutLabel, type BookingStatus } from "@/lib/mock-data";
+import { bookingStatusStyles, earlyCheckInLabel, lateCheckOutLabel, type BookingStatus } from "@/lib/mock-data";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { useUserRole } from "@/hooks/use-role";
 import {
