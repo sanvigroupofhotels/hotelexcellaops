@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/cash")({
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
 
-type RangeKey = "today" | "yesterday" | "week" | "prevWeek" | "month" | "prevMonth" | "custom";
+type RangeKey = "all" | "today" | "yesterday" | "week" | "prevWeek" | "month" | "prevMonth" | "custom";
 
 const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
   { value: "all", label: "All Time" },
