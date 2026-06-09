@@ -4,7 +4,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, setBookingStatus, deleteBooking } from "@/lib/bookings-api";
 import { listBookingPayments, deleteBookingPayment, type BookingPaymentRow } from "@/lib/booking-payments-api";
+import { listBookingPaymentActivities } from "@/lib/booking-payment-activities-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
+import { InvoiceDialog } from "@/components/invoice-dialog";
+import { WhatsAppMenu, type WhatsAppTemplate } from "@/components/whatsapp-menu";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -20,9 +23,11 @@ import {
   confirmationMessage, paymentReminderMessage, checkInWelcomeMessage,
   checkOutThankYouMessage, bookingWhatsAppLink,
 } from "@/lib/booking-messages";
+import { waLink } from "@/lib/quote-messages";
 import {
   ArrowLeft, Loader2, Trash2, BedDouble, Phone, Mail, User, Copy,
-  Send, Wallet, HandPlatter, Heart, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
+  Wallet, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
+  FileText, History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
@@ -32,6 +37,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
   component: BookingDetail,
 });
+
 
 function BookingDetail() {
   const { id } = Route.useParams();
