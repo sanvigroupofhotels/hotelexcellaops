@@ -378,6 +378,7 @@ function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId
     mutationFn: (id: string) => deleteBookingPayment(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["booking-payments", bookingId] });
+      qc.invalidateQueries({ queryKey: ["booking-payment-activities", bookingId] });
       qc.invalidateQueries({ queryKey: ["booking", bookingId] });
       qc.invalidateQueries({ queryKey: ["cash"] });
       toast.success("Payment removed");
