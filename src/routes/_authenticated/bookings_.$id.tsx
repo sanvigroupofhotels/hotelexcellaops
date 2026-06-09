@@ -8,7 +8,7 @@ import { listStaff } from "@/lib/cash-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
-import { BOOKING_STATUSES, bookingStatusStyles, earlyCheckInLabel, lateCheckOutLabel, type BookingStatus } from "@/lib/mock-data";
+import { bookingStatusStyles, earlyCheckInLabel, lateCheckOutLabel, type BookingStatus } from "@/lib/mock-data";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { useUserRole } from "@/hooks/use-role";
 import {
@@ -133,38 +133,44 @@ function BookingDetail() {
               <div className="mb-3">
                 <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs", bookingStatusStyles[b.status])}>{b.status}</span>
               </div>
-              {/* Check-In / Check-Out quick actions */}
+              {/* Operational transitions are button-driven, not dropdown-driven */}
               {(() => {
                 const canCheckIn = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any)
-                  && new Date().toISOString().slice(0, 10) >= b.check_in;
+                  && new Date().toISOString().slice(0, 10) >= b.check_in
+                  && new Date().toISOString().slice(0, 10) < b.check_out;
                 const canCheckOut = b.status === "Checked-In";
-                if (!canCheckIn && !canCheckOut) return null;
+                const canCancel = !["Checked-In", "Checked-Out", "Cancelled"].includes(b.status as any);
                 return (
-                  <div className="flex gap-2 mb-3">
+                  <div className="space-y-2">
                     {canCheckIn && (
                       <button onClick={() => status.mutate("Checked-In" as any)}
-                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal">
                         <LogIn className="h-3.5 w-3.5" /> Check-In
                       </button>
                     )}
+                    {!canCheckIn && ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any) && (
+                      <div className="text-[11px] text-muted-foreground italic">
+                        Check-In available from {new Date(b.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                      </div>
+                    )}
                     {canCheckOut && (
                       <button onClick={() => status.mutate("Checked-Out" as any)}
-                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-xs hover:border-gold/40">
                         <LogOut className="h-3.5 w-3.5" /> Check-Out
                       </button>
                     )}
+                    {canCancel && (
+                      <button onClick={() => { if (confirm("Cancel this booking?")) status.mutate("Cancelled" as any); }}
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] text-destructive hover:bg-destructive/20">
+                        Cancel Booking
+                      </button>
+                    )}
+                    <p className="text-[10px] text-muted-foreground pt-1">
+                      Payment status (Pending / Advance Paid / Full Paid) is set automatically from collected payments.
+                    </p>
                   </div>
                 );
               })()}
-              <div className="grid grid-cols-2 gap-2">
-                {BOOKING_STATUSES.map((s) => (
-                  <button key={s} onClick={() => status.mutate(s)} disabled={s === b.status}
-                    className={cn("rounded-md border px-2 py-1.5 text-xs transition",
-                      s === b.status ? "border-gold/50 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30")}>
-                    {s}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* Assigned room */}

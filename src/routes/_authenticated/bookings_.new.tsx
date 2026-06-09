@@ -12,7 +12,7 @@ import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/custo
 import {
   lineItemsTotal, lineSubtotal, type LineItem,
 } from "@/components/line-items-editor";
-import { BOOKING_STATUSES, getRoomRate } from "@/lib/mock-data";
+import { getRoomRate } from "@/lib/mock-data";
 import { NumField } from "@/components/num-field";
 import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
@@ -42,8 +42,7 @@ function NewBooking() {
   const [stay, setStay] = useState<SharedStayValue>(() => emptyStayValue());
   const [extras, setExtras] = useState<LineItem[]>([]);
 
-  // Booking-only fields
-  const [status, setStatus] = useState<string>("Pending");
+  // Booking-only fields. Payment status (Pending/Advance Paid/Full Paid) is auto-derived server-side.
   const [advancePaid, setAdvancePaid] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -166,14 +165,36 @@ function NewBooking() {
         adults: stay.adults, children: stay.children, guests: stay.guests,
         room_details: `${stay.room_type} × ${stay.rooms}`,
         room_id: roomId,
-        amount, advance_paid: advancePaid, discount: stay.discount,
+        amount,
+        // Don't write advance_paid directly — booking_payments trigger recomputes it.
+        advance_paid: advancePaid > 0 ? 0 : 0,
+        discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
-        status: status as any, payment_status: "None",
+        payment_status: "None",
       };
       const b = await createBooking(input);
       const rate = getRoomRate(stay.room_type, stay.breakfast_included);
       const primary = primaryToLineItem(stay, rate);
       await addBookingItems(b.id, [primary, ...extras]);
+
+      // If an initial advance was entered, record it as a real booking payment.
+      // The DB trigger will (a) recompute b.advance_paid and (b) auto-create a CashBook
+      // collection entry when payment_mode = Cash.
+      if (advancePaid > 0) {
+        try {
+          const { createBookingPayment } = await import("@/lib/booking-payments-api");
+          const { listStaff } = await import("@/lib/cash-api");
+          const staff = await listStaff(true);
+          const collectedBy = staff[0]?.name ?? "Front Desk";
+          await createBookingPayment({
+            booking_id: b.id, customer_id: b.customer_id,
+            amount: advancePaid, payment_mode: paymentMethod,
+            collected_by: collectedBy,
+            notes: `Initial advance · ${b.booking_reference}`,
+          });
+        } catch (e: any) { toast.error("Booking saved, but advance entry failed: " + e.message); }
+      }
+
       if (fromQuoteId) {
         try {
           const { setStatus: setQuoteStatus } = await import("@/lib/quotes-api");
@@ -182,31 +203,8 @@ function NewBooking() {
       }
       return b;
     },
-    onSuccess: async (b) => {
+    onSuccess: (b) => {
       toast.success(`Booking ${b.booking_reference} created`);
-      if (paymentMethod === "Cash" && advancePaid > 0) {
-        if (window.confirm(`Cash payment detected.\n\nCreate a Cash Collection entry of ₹${advancePaid.toLocaleString("en-IN")} for this booking?`)) {
-          try {
-            const { listStaff, createCashTx } = await import("@/lib/cash-api");
-            const staff = await listStaff(true);
-            if (staff.length === 0) toast.error("No active staff configured. Add staff in Cash Management → Staff Master.");
-            else {
-              const collector = window.prompt(
-                `Collected By? Enter staff name:\n${staff.map(s => `• ${s.name}`).join("\n")}`,
-                staff[0].name,
-              );
-              const chosen = staff.find(s => s.name.toLowerCase() === (collector ?? "").trim().toLowerCase()) ?? staff[0];
-              await createCashTx({
-                kind: "collection", type_name: "Advance Payment",
-                guest_name: b.guest_name, guest_mobile: b.phone, booking_id: b.id,
-                staff_id: chosen.id, staff_name: chosen.name,
-                amount: advancePaid, notes: `Advance for booking ${b.booking_reference}`,
-              });
-              toast.success("Cash collection recorded");
-            }
-          } catch (e: any) { toast.error(e.message); }
-        }
-      }
       navigate({ to: "/bookings/$id", params: { id: b.id } });
     },
     onError: (e: any) => toast.error(e.message),
@@ -264,17 +262,11 @@ function NewBooking() {
               mode="booking"
             />
 
-            {/* Booking-only Payment & Status (below shared sections) */}
+            {/* Booking-only Payment (status is auto-derived server-side) */}
             <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
               <h4 className="font-display text-lg">Booking &amp; Payment</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label className="block">
-                  <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">Status</span>
-                  <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)}>
-                    {BOOKING_STATUSES.map((s) => <option key={s}>{s}</option>)}
-                  </select>
-                </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5">
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Amount</div>
                   <div className="font-display text-lg gold-text-gradient">₹{amount.toLocaleString("en-IN")}</div>
@@ -290,6 +282,7 @@ function NewBooking() {
               <RoomAssignmentField
                 value={roomId} onChange={setRoomId}
                 check_in={stay.check_in} check_out={stay.check_out}
+                roomType={stay.room_type}
               />
               <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>

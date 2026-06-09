@@ -8,7 +8,7 @@ import { listBookingItems, replaceBookingItems, rowToLineItem } from "@/lib/book
 import {
   lineItemsTotal, lineSubtotal, type LineItem,
 } from "@/components/line-items-editor";
-import { BOOKING_STATUSES, getRoomRate } from "@/lib/mock-data";
+import { getRoomRate } from "@/lib/mock-data";
 import { NumField } from "@/components/num-field";
 import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
@@ -38,7 +38,6 @@ function EditBooking() {
 
   const [stay, setStay] = useState<SharedStayValue>(() => emptyStayValue());
   const [extras, setExtras] = useState<LineItem[]>([]);
-  const [status, setStatus] = useState<string>("Pending");
   const [advancePaid, setAdvancePaid] = useState<number>(0);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -55,7 +54,6 @@ function EditBooking() {
       special_requests: b.notes ?? "",
       internal_notes: b.internal_notes ?? "",
     }));
-    setStatus(b.status as any);
     setAdvancePaid(Number(b.advance_paid ?? 0));
     setRoomId((b as any).room_id ?? null);
   }, [b, loaded]);
@@ -85,7 +83,6 @@ function EditBooking() {
         room_id: roomId,
         amount, advance_paid: advancePaid, discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
-        status: status as any,
       });
       const rate = getRoomRate(stay.room_type, stay.breakfast_included);
       const primary = primaryToLineItem(stay, rate);
@@ -121,23 +118,21 @@ function EditBooking() {
             <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
               <h4 className="font-display text-lg">Booking &amp; Payment</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label className="block">
-                  <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">Status</span>
-                  <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)}>
-                    {BOOKING_STATUSES.map((s) => <option key={s}>{s}</option>)}
-                  </select>
-                </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5">
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Amount</div>
                   <div className="font-display text-lg gold-text-gradient">₹{amount.toLocaleString("en-IN")}</div>
                 </div>
                 <NumField label="Advance Paid (₹)" value={advancePaid} min={0} onChange={setAdvancePaid} prefix="₹" />
               </div>
+              <p className="text-[10px] text-muted-foreground -mt-2">
+                Status is auto-derived from amounts. Use Check-In / Check-Out buttons on the booking page for arrival &amp; departure.
+              </p>
               <RoomAssignmentField
                 value={roomId} onChange={setRoomId}
                 check_in={stay.check_in} check_out={stay.check_out}
                 excludeBookingId={id}
+                roomType={stay.room_type}
               />
               <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>

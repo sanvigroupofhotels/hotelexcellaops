@@ -250,6 +250,7 @@ function HouseView() {
                                 if (span <= 0) return null;
                                 const cellW = CELL_W_MOB;
                                 const hasBreakfast = breakfastByBooking.get(b.id);
+                                const balanceDue = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
                                 return (
                                   <button key={b.id} onClick={() => setSelected(b)}
                                     className={cn(
@@ -258,8 +259,9 @@ function HouseView() {
                                       b._virtual && "border-dashed",
                                     )}
                                     style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: 5 }}
-                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}`}>
+                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}`}>
                                     {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
+                                    {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
                                     <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
                                   </button>
                                 );
@@ -301,6 +303,7 @@ function HouseView() {
           <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />
           <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
           <div className="flex items-center gap-1.5"><UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast included</div>
+          <div className="flex items-center gap-1.5"><span>💳</span> Balance due</div>
         </div>
       </div>
 

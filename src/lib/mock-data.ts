@@ -171,23 +171,21 @@ export const LEAD_SOURCES = [
 // ---------- Bookings ----------
 export type BookingStatus =
   | "Pending"
-  | "Confirmed"
   | "Advance Paid"
   | "Full Paid"
   | "Checked-In"
   | "Checked-Out"
-  | "Stay Completed"
   | "Cancelled"
-  // legacy
+  // legacy values kept so old rows still render correctly
+  | "Confirmed"
+  | "Stay Completed"
   | "Draft";
 export const BOOKING_STATUSES: BookingStatus[] = [
   "Pending",
-  "Confirmed",
   "Advance Paid",
   "Full Paid",
   "Checked-In",
   "Checked-Out",
-  "Stay Completed",
   "Cancelled",
 ];
 export const bookingStatusStyles: Record<BookingStatus, string> = {
@@ -198,8 +196,8 @@ export const bookingStatusStyles: Record<BookingStatus, string> = {
   "Advance Paid": "bg-info/15 text-info border-info/40",
   "Full Paid": "bg-success/20 text-success border-success/50",
   "Checked-In": "bg-gold/15 text-gold border-gold/40",
-  "Checked-Out": "bg-info/10 text-info border-info/30",
-  "Stay Completed": "bg-gold/15 text-gold border-gold/40",
+  "Checked-Out": "bg-muted/60 text-muted-foreground border-border",
+  "Stay Completed": "bg-muted/60 text-muted-foreground border-border",
 };
 
 export const PAYMENT_STATUSES = [
