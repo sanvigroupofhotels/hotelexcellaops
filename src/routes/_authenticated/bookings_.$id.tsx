@@ -363,10 +363,16 @@ function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId
   const [addOpen, setAddOpen] = useState(false);
   const [editPayment, setEditPayment] = useState<BookingPaymentRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
   const { data: payments = [] } = useQuery({
     queryKey: ["booking-payments", bookingId],
     queryFn: () => listBookingPayments(bookingId),
   });
+  const { data: activities = [] } = useQuery({
+    queryKey: ["booking-payment-activities", bookingId],
+    queryFn: () => listBookingPaymentActivities(bookingId),
+  });
+
 
   const del = useMutation({
     mutationFn: (id: string) => deleteBookingPayment(id),
