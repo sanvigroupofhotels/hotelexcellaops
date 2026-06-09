@@ -16,7 +16,7 @@ import {
 import { listBookingItems } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
-import { bookingStatusStyles, earlyCheckInLabel, lateCheckOutLabel, type BookingStatus } from "@/lib/mock-data";
+import { bookingStatusStyles, type BookingStatus } from "@/lib/mock-data";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { useUserRole } from "@/hooks/use-role";
 import {
