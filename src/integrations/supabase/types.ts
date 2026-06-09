@@ -103,6 +103,63 @@ export type Database = {
           },
         ]
       }
+      booking_payments: {
+        Row: {
+          amount: number
+          booking_id: string
+          collected_by: string
+          created_at: string
+          customer_id: string | null
+          id: string
+          notes: string | null
+          occurred_at: string
+          payment_mode: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          booking_id: string
+          collected_by: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          payment_mode: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          booking_id?: string
+          collected_by?: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          payment_mode?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_payments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           adults: number
@@ -1128,6 +1185,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      recompute_booking_advance: {
+        Args: { p_booking_id: string }
+        Returns: undefined
+      }
       recompute_customer_bookings: {
         Args: { p_customer_id: string }
         Returns: undefined
