@@ -25,7 +25,7 @@ import {
 } from "@/lib/booking-messages";
 import { waLink } from "@/lib/quote-messages";
 import {
-  ArrowLeft, Loader2, Trash2, BedDouble, Phone, Mail, User, Copy,
+  ArrowLeft, Loader2, Trash2, Phone, Mail, User, Copy,
   Wallet, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
   FileText, History,
 } from "lucide-react";
