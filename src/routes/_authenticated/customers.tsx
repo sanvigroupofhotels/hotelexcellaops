@@ -9,7 +9,7 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
 import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
 import {
-  Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, Plus, X,
+  Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, Mail, Plus, X,
   FilePlus, BedDouble,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -89,7 +89,7 @@ function CustomersPage() {
         <div className="luxe-card rounded-xl overflow-hidden">
           <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-secondary/30">
             <div className="col-span-4">Guest</div>
-            <div className="col-span-3">Contact</div>
+            <div className="col-span-3">Status</div>
             <div className="col-span-3">Tags</div>
             <div className="col-span-2 text-right">Actions</div>
           </div>
@@ -106,11 +106,11 @@ function CustomersPage() {
                   {c.total_bookings > 0 && <Star className="h-3 w-3 fill-gold text-gold" />}
                   {c.guest_name}
                 </div>
-                <div className="text-[11px] font-mono text-muted-foreground">{c.customer_reference}</div>
               </Link>
-              <div className="md:col-span-3 text-xs text-muted-foreground">
-                {c.phone && <div>{c.phone}</div>}
-                {c.email && <div className="truncate">{c.email}</div>}
+              <div className="md:col-span-3 text-xs">
+                <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[10px] text-muted-foreground">
+                  {c.status || "—"}
+                </span>
               </div>
               <div className="md:col-span-3 flex flex-wrap gap-1 items-center">
                 {(c.tags ?? []).slice(0, 4).map((t) => (
@@ -130,6 +130,12 @@ function CustomersPage() {
                       <MessageCircle className="h-3.5 w-3.5" />
                     </a>
                   </>
+                )}
+                {c.email && (
+                  <a href={`mailto:${c.email}`} onClick={(e) => e.stopPropagation()}
+                    className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Email">
+                    <Mail className="h-3.5 w-3.5" />
+                  </a>
                 )}
                 <CreateForCustomerPopover customerId={c.id} />
                 {isAdmin && (

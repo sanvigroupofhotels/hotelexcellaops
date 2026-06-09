@@ -155,6 +155,7 @@ export const DEFAULT_TAGS = [
 ] as const;
 
 export const LEAD_SOURCES = [
+  "Operations",
   "Walk-in",
   "Phone Call",
   "WhatsApp",

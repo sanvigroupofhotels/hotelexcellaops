@@ -151,36 +151,33 @@ function CustomerDetail() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Stat label="Total Quotes" value={c.total_quotes} />
-              <Stat label="Bookings" value={bookingsCount} />
-              <Stat label="Conversion" value={`${conversion}%`} />
-              <Stat
-                label="Lifetime Quoted"
-                value={`₹${Number(lifetimeQuoted).toLocaleString("en-IN")}`}
-                accent
-              />
-              <Stat label="Booked Revenue" value={`₹${bookedRevenue.toLocaleString("en-IN")}`} accent />
-              <Stat label="Avg Booking" value={aov ? `₹${aov.toLocaleString("en-IN")}` : "—"} />
-              <Stat
-                label="Latest Quote"
-                value={latestQuote ? <span className="font-mono text-base">{latestQuote.reference_code}</span> : "—"}
-              />
-              <Stat label="Last Stay" value={lastStay ? new Date(lastStay).toLocaleDateString("en-IN") : "—"} />
-            </div>
-
-            <div className="luxe-card rounded-xl p-5">
-              <h3 className="font-display text-lg mb-3">Tags</h3>
-              <div className="flex flex-wrap gap-2">
-                {DEFAULT_TAGS.map((t) => (
-                  <button key={t} onClick={() => toggleTag(t)}
-                    className={cn("px-3 py-1 rounded-full text-xs border transition",
-                      c.tags.includes(t) ? "border-gold/50 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30")}>
-                    {t}
-                  </button>
-                ))}
+            {/* P9 — Hide stat groups when the section has no data */}
+            {(quotes.length > 0 || bookingsCount > 0) && (
+              <div className="space-y-3">
+                {quotes.length > 0 && (
+                  <div>
+                    <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Quote Summary</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <Stat label="Total Quotes" value={c.total_quotes} />
+                      <Stat label="Conversion" value={`${conversion}%`} />
+                      <Stat label="Lifetime Quoted" value={`₹${Number(lifetimeQuoted).toLocaleString("en-IN")}`} accent />
+                      <Stat label="Latest Quote" value={latestQuote ? <span className="font-mono text-base">{latestQuote.reference_code}</span> : "—"} />
+                    </div>
+                  </div>
+                )}
+                {bookingsCount > 0 && (
+                  <div>
+                    <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Booking Summary</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <Stat label="Total Bookings" value={bookingsCount} />
+                      <Stat label="Booked Revenue" value={`₹${bookedRevenue.toLocaleString("en-IN")}`} accent />
+                      <Stat label="Avg Booking" value={aov ? `₹${aov.toLocaleString("en-IN")}` : "—"} />
+                      <Stat label="Last Stay" value={lastStay ? new Date(lastStay).toLocaleDateString("en-IN") : "—"} />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             <div className="luxe-card rounded-xl overflow-hidden">
               <div className="px-5 py-4 border-b border-border flex items-center justify-between">
@@ -228,6 +225,7 @@ function CustomerDetail() {
               </div>
             </div>
 
+            {/* P10 — Stacked order: Internal Notes ↓ Tag ↓ Lead Source */}
             <div className="luxe-card rounded-xl p-5">
               <h3 className="font-display text-lg mb-3">Internal Notes</h3>
               <textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)}
@@ -236,13 +234,37 @@ function CustomerDetail() {
                 className="w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm resize-none" />
               <p className="text-[10px] text-muted-foreground mt-1">Hidden from PDFs, WhatsApp messages, images, and CSV exports.</p>
             </div>
+
+            <div className="luxe-card rounded-xl p-5">
+              <h3 className="font-display text-lg mb-3">Tag</h3>
+              <div className="flex flex-wrap gap-2">
+                {DEFAULT_TAGS.map((t) => (
+                  <button key={t} onClick={() => toggleTag(t)}
+                    className={cn("px-3 py-1 rounded-full text-xs border transition",
+                      c.tags.includes(t) ? "border-gold/50 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30")}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="luxe-card rounded-xl p-5">
+              <h3 className="font-display text-lg mb-3">Lead Source</h3>
+              <select value={c.lead_source ?? "Direct"} onChange={(e) => save.mutate({ lead_source: e.target.value })}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
+                {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-4">
-            <Panel title="Lead Source">
-              <select value={c.lead_source ?? "Direct"} onChange={(e) => save.mutate({ lead_source: e.target.value })} className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+            {/* Quick-glance contact / company panel (right rail) */}
+            <Panel title="Contact">
+              <div className="space-y-1 text-xs text-muted-foreground">
+                {c.phone && <div className="flex items-center gap-2"><Phone className="h-3 w-3" />{c.phone}</div>}
+                {c.email && <div className="flex items-center gap-2"><Mail className="h-3 w-3" />{c.email}</div>}
+                {!c.phone && !c.email && <div className="italic">No contact details</div>}
+              </div>
             </Panel>
           </div>
         </div>
