@@ -353,18 +353,7 @@ function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balanc
   );
 }
 
-function CommBtn({ icon: Icon, label, onClick, disabled }: any) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-sm hover:border-gold/40 disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      <Icon className="h-4 w-4 text-gold" />
-      <span className="text-left">{label}</span>
-    </button>
-  );
-}
+
 
 function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId }: {
   bookingId: string; bookingAmount: number; advance: number; balance: number; customerId: string;
