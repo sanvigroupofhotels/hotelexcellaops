@@ -213,10 +213,49 @@ function BookingDetail() {
             )}
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="print:hidden mt-12 pt-6 border-t border-destructive/20">
+            <h4 className="text-[10px] uppercase tracking-[0.25em] text-destructive/70 mb-2">Danger Zone</h4>
+            <p className="text-xs text-muted-foreground mb-3">Permanently delete this booking. This cannot be undone and will affect related payment and cashbook records.</p>
+            <button onClick={() => setDeleteOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-4 py-2.5 text-sm hover:bg-destructive/20">
+              <Trash2 className="h-4 w-4" /> Delete Booking
+            </button>
+          </div>
+        )}
       </div>
+
+      {invoiceOpen && (
+        <InvoiceDialog
+          booking={b}
+          items={items as any}
+          payments={payments}
+          onClose={() => setInvoiceOpen(false)}
+        />
+      )}
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You're about to permanently delete <span className="font-medium text-foreground">{b.booking_reference}</span> for {b.guest_name}.
+              This will remove all linked payments and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => del.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
+
 
 function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balance: number }) {
   const multi = items.length > 1;
