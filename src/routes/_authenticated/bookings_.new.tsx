@@ -371,7 +371,7 @@ function NewBooking() {
                 pricing={pricing}
                 nights={nights}
                 guests={stay.guests}
-                editable={canManage}
+                editable={true}
                 overrideValue={totalOverride}
                 onOverrideChange={setTotalOverride}
                 onTaxesIncludedChange={setTaxesIncluded}
@@ -386,7 +386,7 @@ function NewBooking() {
               pricing={pricing}
               nights={nights}
               guests={stay.guests}
-              editable={canManage}
+              editable={true}
               overrideValue={totalOverride}
               onOverrideChange={setTotalOverride}
               onTaxesIncludedChange={setTaxesIncluded}
