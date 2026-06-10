@@ -39,6 +39,8 @@ export function CustomerEditDialog({
   const qc = useQueryClient();
   const isCreate = !customer;
   const [form, setForm] = useState(empty);
+  const { values: leadSources } = useMasterData("lead_source", [...LEAD_SOURCES]);
+  const { values: tags } = useMasterData("tag", [...DEFAULT_TAGS]);
 
   useEffect(() => {
     if (!open) return;
