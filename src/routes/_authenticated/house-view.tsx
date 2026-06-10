@@ -245,10 +245,26 @@ function HouseView() {
                         });
                         return (
                           <td key={i}
-                            className={cn("relative border-b border-border align-top h-14 p-0",
+                            className={cn("relative border-b border-border align-top h-14 p-0 group/cell",
                               isToday && "bg-gold-soft/10")}
                             style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
                             <div className="relative h-full" style={{ minHeight: 56 }}>
+                              {/* Vacant action button — visible when no booking/block starts here AND no booking covers this day */}
+                              {(() => {
+                                const coveredByBooking = bs.some((b) => b.check_in <= dk && b.check_out > dk);
+                                const coveredByBlock = ms.some((m: any) => m.start_date <= dk && m.end_date > dk);
+                                if (coveredByBooking || coveredByBlock) return null;
+                                return (
+                                  <button
+                                    onClick={() => setVacantAction({ room: r, date: dk })}
+                                    className="absolute inset-1 rounded-md border border-dashed border-border opacity-0 group-hover/cell:opacity-100 hover:border-gold/50 hover:bg-gold-soft/20 text-muted-foreground hover:text-gold flex items-center justify-center transition"
+                                    title="Vacant — click for actions"
+                                    aria-label="Vacant room actions"
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                  </button>
+                                );
+                              })()}
                               {startingBookings.map((b) => {
                                 const startCol = b.check_in < rangeStart ? 0 : dayKeys.indexOf(b.check_in);
                                 const outIdx = dayKeys.indexOf(b.check_out);
