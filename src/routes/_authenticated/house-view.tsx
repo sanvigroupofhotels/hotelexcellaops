@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
@@ -6,12 +6,13 @@ import { listRooms, listMaintenance } from "@/lib/rooms-api";
 import { listBookings } from "@/lib/bookings-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { InvoiceDialog } from "@/components/invoice-dialog";
 import { listBookingPayments } from "@/lib/booking-payments-api";
+import { BlockRoomDialog } from "@/components/block-room-dialog";
 
 export const Route = createFileRoute("/_authenticated/house-view")({
   component: HouseView,
