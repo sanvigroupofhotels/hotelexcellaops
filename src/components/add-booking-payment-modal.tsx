@@ -74,7 +74,7 @@ export function AddBookingPaymentModal({
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Mode *</span>
             <select value={mode} onChange={(e) => setMode(e.target.value)}
               className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-              {PAYMENT_MODES.map((m) => <option key={m}>{m}</option>)}
+              {paymentModes.map((m) => <option key={m}>{m}</option>)}
             </select>
           </label>
           <label className="col-span-2 block">
