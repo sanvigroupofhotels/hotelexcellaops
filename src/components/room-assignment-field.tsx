@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listRooms, findRoomConflicts, type RoomConflict } from "@/lib/rooms-api";
+import { listActiveBlocks, isRoomBlockedInRange } from "@/lib/blocks-api";
 import { AlertTriangle, BedDouble } from "lucide-react";
 
 const inputCls =
@@ -18,17 +19,20 @@ interface Props {
 
 /**
  * Room picker with overlap warning.
- * Dropdown shows ALL active rooms (with a non-conflicting subset marked); we warn on conflict
- * but don't hard-block, per spec.
+ * Rooms with an active block covering the stay dates are hidden.
  */
 export function RoomAssignmentField({ value, onChange, check_in, check_out, excludeBookingId, roomType }: Props) {
   const { data: allRooms = [] } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
+  const { data: blocks = [] } = useQuery({ queryKey: ["blocks", "active"], queryFn: listActiveBlocks });
   const [conflicts, setConflicts] = useState<RoomConflict[]>([]);
 
-  // Filter by room type when provided (match by first word so "Oak Room" matches "Oak", etc.)
-  const rooms = roomType
+  // Filter by room type, then drop any room blocked for the stay dates.
+  const filteredByType = roomType
     ? allRooms.filter((r) => r.room_type.toLowerCase().includes(roomType.split(" ")[0].toLowerCase()))
     : allRooms;
+  const rooms = check_in && check_out
+    ? filteredByType.filter((r) => !isRoomBlockedInRange(blocks, r.id, check_in, check_out))
+    : filteredByType;
 
   useEffect(() => {
     let alive = true;
@@ -38,6 +42,8 @@ export function RoomAssignmentField({ value, onChange, check_in, check_out, excl
       .catch(() => { if (alive) setConflicts([]); });
     return () => { alive = false; };
   }, [value, check_in, check_out, excludeBookingId]);
+
+  const blockedHit = value ? isRoomBlockedInRange(blocks, value, check_in, check_out) : null;
 
   return (
     <div className="space-y-2">
@@ -53,6 +59,13 @@ export function RoomAssignmentField({ value, onChange, check_in, check_out, excl
           ))}
         </select>
       </label>
+
+      {blockedHit && (
+        <div className="rounded-md border border-amber-600/50 bg-amber-600/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+          <div className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5" /> Room is blocked</div>
+          <div className="opacity-80 mt-1">{blockedHit.reason || "Maintenance"} · {blockedHit.start_date} → {blockedHit.end_date}</div>
+        </div>
+      )}
 
       {conflicts.length > 0 && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs space-y-1.5">
@@ -70,3 +83,4 @@ export function RoomAssignmentField({ value, onChange, check_in, check_out, excl
     </div>
   );
 }
+
