@@ -166,6 +166,10 @@ function EditBooking() {
                 pricing={pricing}
                 nights={nights}
                 guests={stay.guests}
+                editable={canManage}
+                overrideValue={totalOverride}
+                onOverrideChange={setTotalOverride}
+                onTaxesIncludedChange={setTaxesIncluded}
               />
             </div>
           </div>
@@ -177,6 +181,10 @@ function EditBooking() {
               pricing={pricing}
               nights={nights}
               guests={stay.guests}
+              editable={canManage}
+              overrideValue={totalOverride}
+              onOverrideChange={setTotalOverride}
+              onTaxesIncludedChange={setTaxesIncluded}
             />
             {advancePaid > 0 && (
               <div className="luxe-card rounded-xl p-5">
