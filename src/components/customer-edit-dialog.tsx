@@ -141,7 +141,7 @@ export function CustomerEditDialog({
             </Field>
             <Field label="Tag" full>
               <div className="flex flex-wrap gap-2">
-                {DEFAULT_TAGS.map((t) => (
+                {tags.map((t) => (
                   <button key={t} type="button" onClick={() => toggleTag(t)}
                     className={cn("px-3 py-1 rounded-full text-xs border transition",
                       form.tags.includes(t) ? "border-gold/50 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30")}>
@@ -152,7 +152,7 @@ export function CustomerEditDialog({
             </Field>
             <Field label="Lead Source">
               <select className={inputCls} value={form.lead_source} onChange={(e) => set("lead_source", e.target.value)}>
-                {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
+                {leadSources.map((s) => <option key={s}>{s}</option>)}
               </select>
             </Field>
           </Section>
