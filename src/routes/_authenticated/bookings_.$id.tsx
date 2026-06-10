@@ -236,8 +236,7 @@ function BookingDetail() {
               {/* Operational transitions — staff cannot check out with balance due; admin can override */}
               {(() => {
                 const canCheckIn = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any)
-                  && new Date().toISOString().slice(0, 10) >= b.check_in
-                  && new Date().toISOString().slice(0, 10) < b.check_out;
+                  && new Date().toISOString().slice(0, 10) >= b.check_in;
                 const canCheckOut = b.status === "Checked-In";
                 const canCancel = !["Checked-In", "Checked-Out", "Cancelled"].includes(b.status as any);
                 const handleCheckOutClick = () => {
