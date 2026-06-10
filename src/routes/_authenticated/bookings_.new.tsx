@@ -67,6 +67,11 @@ function NewBooking() {
   const [totalOverride, setTotalOverride] = useState<number | null>(null);
   const [taxesIncluded, setTaxesIncluded] = useState<boolean>(false);
   const { canManage } = useUserRole();
+  const { data: paymentDefaults = DEFAULT_PAYMENT_SETTINGS } = useQuery({
+    queryKey: ["app-settings", "payment_settings"],
+    queryFn: getPaymentSettings,
+    staleTime: 5 * 60 * 1000,
+  });
 
 
   // Prefill customer (?customerId)
