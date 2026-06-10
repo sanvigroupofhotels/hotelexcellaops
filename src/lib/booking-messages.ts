@@ -1,4 +1,5 @@
 import type { BookingRow } from "@/lib/bookings-api";
+import { computePricing } from "@/lib/pricing";
 
 const fmtDate = (s: string) =>
   new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -36,12 +37,20 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
   }
 
   // Pricing breakdown — same model as Quotes / Invoices / Guest Portal.
-  // For legacy bookings (no taxes column), gracefully degrade.
-  const itemsTotal = Number((b as any).subtotal || 0) + Number(b.discount || 0);
+  // Itemise extras (Early CI / Late CO / Pet / Extra Adults / Drivers) via computePricing.
   const discount = Number(b.discount || 0);
+  const taxRate = Number((b as any).tax_rate ?? 0.05);
+  const taxesIncluded = !!(b as any).taxes_included;
+  const overrideTotal = (b as any).total_override ?? null;
+  let pricing: any = null;
+  try {
+    pricing = items && items.length > 0
+      ? computePricing(items as any, discount, taxRate, { totalOverride: overrideTotal, taxesIncluded })
+      : null;
+  } catch { pricing = null; }
+
   const subtotal = Number((b as any).subtotal || 0);
   const taxes = Number((b as any).taxes || 0);
-  const taxRate = Number((b as any).tax_rate || 0);
   const total = Number(b.amount || 0);
   const paid = Number(b.advance_paid || 0);
   const balance = Math.max(0, total - paid);
@@ -50,8 +59,11 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
   const pricingLines = showBreakdown
     ? [
         `💰 Pricing Breakdown`,
-        `• Room & Extra Charges: ${inr(itemsTotal)}`,
-        ...(discount > 0 ? [`• Discount: -${inr(discount)}`] : []),
+        `• Room Charges: ${inr(pricing?.mainStayCharges ?? (subtotal + discount))}`,
+        ...((pricing?.additionalLineItems ?? []).length > 0
+          ? [`• Additional Stay Charges:`, ...pricing.additionalLineItems.map((li: any) => `   – ${li.label}: ${inr(li.value)}`)]
+          : []),
+        ...(discount > 0 || (pricing?.discount ?? 0) > 0 ? [`• Discount: -${inr(Math.max(discount, pricing?.discount ?? 0))}`] : []),
         `• Taxable Amount: ${inr(subtotal)}`,
         `• Taxes${taxRate > 0 ? ` (${Math.round(taxRate * 100)}%)` : ""}: ${inr(taxes)}`,
         `• Final Booking Amount: ${inr(total)}`,
