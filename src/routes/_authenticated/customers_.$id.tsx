@@ -5,6 +5,7 @@ import { Topbar } from "@/components/topbar";
 import { getCustomer, listCustomerQuotes, updateCustomer } from "@/lib/customers-api";
 import { listCustomerBookings } from "@/lib/bookings-api";
 import { DEFAULT_TAGS, LEAD_SOURCES, bookingStatusStyles } from "@/lib/mock-data";
+import { useMasterData } from "@/hooks/use-master-data";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { StatusPill } from "@/components/status-pill";
 import { CustomerEditDialog } from "@/components/customer-edit-dialog";
