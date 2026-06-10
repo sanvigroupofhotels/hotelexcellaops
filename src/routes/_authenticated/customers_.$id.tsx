@@ -5,6 +5,7 @@ import { Topbar } from "@/components/topbar";
 import { getCustomer, listCustomerQuotes, updateCustomer } from "@/lib/customers-api";
 import { listCustomerBookings } from "@/lib/bookings-api";
 import { DEFAULT_TAGS, LEAD_SOURCES, bookingStatusStyles } from "@/lib/mock-data";
+import { useMasterData } from "@/hooks/use-master-data";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { StatusPill } from "@/components/status-pill";
 import { CustomerEditDialog } from "@/components/customer-edit-dialog";
@@ -43,6 +44,8 @@ function CustomerDetail() {
 
   const [notes, setNotes] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const { values: leadSources } = useMasterData("lead_source", [...LEAD_SOURCES]);
+  const { values: tags } = useMasterData("tag", [...DEFAULT_TAGS]);
   useEffect(() => { if (c) setNotes(c.internal_notes ?? ""); }, [c]);
 
   const save = useMutation({
@@ -238,7 +241,7 @@ function CustomerDetail() {
             <div className="luxe-card rounded-xl p-5">
               <h3 className="font-display text-lg mb-3">Tag</h3>
               <div className="flex flex-wrap gap-2">
-                {DEFAULT_TAGS.map((t) => (
+                {tags.map((t) => (
                   <button key={t} onClick={() => toggleTag(t)}
                     className={cn("px-3 py-1 rounded-full text-xs border transition",
                       c.tags.includes(t) ? "border-gold/50 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30")}>
@@ -252,7 +255,7 @@ function CustomerDetail() {
               <h3 className="font-display text-lg mb-3">Lead Source</h3>
               <select value={c.lead_source ?? "Direct"} onChange={(e) => save.mutate({ lead_source: e.target.value })}
                 className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+                {leadSources.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>

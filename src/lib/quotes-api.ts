@@ -97,14 +97,18 @@ export function validateQuoteInput(input: QuoteInput) {
     throw new Error("Booking probability must be 0–100");
 }
 
-export function calc(input: QuoteInput) {
+export function calc(input: QuoteInput, rateOverride?: number) {
   const nights = Math.max(
     1,
     Math.round(
       (new Date(input.check_out).getTime() - new Date(input.check_in).getTime()) / 86400000,
     ),
   );
-  const room_rate = getRoomRate(input.room_type, input.breakfast_included);
+  // Rate resolution: explicit override (from Rates & Inventory resolver) wins,
+  // otherwise fall back to legacy hardcoded tariff. Mirrors Bookings.
+  const room_rate = rateOverride && rateOverride > 0
+    ? rateOverride
+    : getRoomRate(input.room_type, input.breakfast_included);
   const roomTariff = room_rate * nights * input.rooms;
 
   let earlyCheck = 0;
@@ -184,10 +188,11 @@ export async function createQuote(
   input: QuoteInput,
   initialStatus: QuoteStatus = "Pending",
   extraLineItems: import("./quote-items-api").QuoteItemInput[] = [],
+  rateOverride?: number,
 ) {
   validateQuoteInput(input);
   const data = normalize(input);
-  const c = calc(data);
+  const c = calc(data, rateOverride);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
 
@@ -246,10 +251,10 @@ export async function createQuote(
   return created as unknown as QuoteRow;
 }
 
-export async function updateQuote(id: string, input: QuoteInput) {
+export async function updateQuote(id: string, input: QuoteInput, rateOverride?: number) {
   validateQuoteInput(input);
   const data = normalize(input);
-  const c = calc(data);
+  const c = calc(data, rateOverride);
   const { data: updated, error } = await supabase
     .from("quotes")
     .update({

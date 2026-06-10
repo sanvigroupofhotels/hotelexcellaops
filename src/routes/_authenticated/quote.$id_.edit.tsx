@@ -10,6 +10,7 @@ import { listQuoteItems, replaceQuoteItems, rowToLineItem } from "@/lib/quote-it
 import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
 import { lineItemsTotal, type LineItem } from "@/components/line-items-editor";
 import { StayFormSections, type SharedStayValue } from "@/components/shared/stay-form-sections";
+import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -113,13 +114,15 @@ function EditQuote() {
     setItemsLoaded(true);
   }, [existingItems, itemsLoaded]);
 
+  // Rate resolver: Override → Weekend → Weekday → Default (mirrors Bookings).
+  const resolvedRate = useResolvedRate(form.room_type, form.check_in, form.check_out, form.breakfast_included);
   const c = useMemo(() => {
-    const base = calc(form);
+    const base = calc(form, resolvedRate);
     const extra = lineItemsTotal(extraItems);
     const subtotal = base.subtotal + extra;
     const taxes = Math.round(subtotal * TAX_RATE);
     return { ...base, subtotal, taxes, total: subtotal + taxes };
-  }, [form, extraItems]);
+  }, [form, extraItems, resolvedRate]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -128,8 +131,8 @@ function EditQuote() {
       if (new Date(form.check_out) <= new Date(form.check_in))
         throw new Error("Check-out must be after check-in");
       if (form.discount < 0) throw new Error("Discount cannot be negative");
-      const updated = await updateQuote(id, form);
-      const baseCalc = calc(form);
+      const updated = await updateQuote(id, form, resolvedRate);
+      const baseCalc = calc(form, resolvedRate);
       const primary: LineItem = {
         room_type: form.room_type, rooms: form.rooms,
         adults: form.adults, children: form.children,

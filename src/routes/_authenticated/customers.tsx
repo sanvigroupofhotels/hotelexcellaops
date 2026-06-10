@@ -8,6 +8,7 @@ import { listQuotes } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
 import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
+import { useMasterData } from "@/hooks/use-master-data";
 import {
   Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, Mail, Plus, X,
   FilePlus, BedDouble,
@@ -196,6 +197,8 @@ function ExportCustomersDialog({ open, onOpenChange, customers }: {
 }) {
   const [source, setSource] = useState<string>("All");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const { values: leadSources } = useMasterData("lead_source", [...LEAD_SOURCES]);
+  const { values: tags } = useMasterData("tag", [...DEFAULT_TAGS]);
 
   const toggleTag = (t: string) =>
     setTagFilter((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
@@ -234,13 +237,13 @@ function ExportCustomersDialog({ open, onOpenChange, customers }: {
             <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Source</span>
             <select value={source} onChange={(e) => setSource(e.target.value)} className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
               <option value="All">All sources</option>
-              {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+              {leadSources.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
           <div>
             <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Tags</span>
             <div className="flex flex-wrap gap-1.5">
-              {DEFAULT_TAGS.map((t) => {
+              {tags.map((t) => {
                 const active = tagFilter.includes(t);
                 return (
                   <button key={t} onClick={() => toggleTag(t)}

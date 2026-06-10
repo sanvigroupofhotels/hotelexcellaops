@@ -9,6 +9,7 @@ import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary
 import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
 import { lineItemsTotal, type LineItem } from "@/components/line-items-editor";
 import { StayFormSections, type SharedStayValue } from "@/components/shared/stay-form-sections";
+import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import {
   Loader2, Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus,
 } from "lucide-react";
@@ -146,13 +147,15 @@ function GenerateQuote() {
     return () => clearTimeout(t);
   }, [form.phone, form.email, form.guest_name, forceNew]);
 
+  // Rate resolver: Override → Weekend → Weekday → Default (mirrors Bookings).
+  const resolvedRate = useResolvedRate(form.room_type, form.check_in, form.check_out, form.breakfast_included);
   const c = useMemo(() => {
-    const base = calc(form);
+    const base = calc(form, resolvedRate);
     const extra = lineItemsTotal(extraItems);
     const subtotal = base.subtotal + extra;
     const taxes = Math.round(subtotal * 0.05);
     return { ...base, subtotal, taxes, total: subtotal + taxes };
-  }, [form, extraItems]);
+  }, [form, extraItems, resolvedRate]);
 
   const save = useMutation({
     mutationFn: () => {
@@ -160,7 +163,7 @@ function GenerateQuote() {
       if (!form.phone.trim()) throw new Error("Phone is required");
       if (new Date(form.check_out) <= new Date(form.check_in))
         throw new Error("Check-out must be after check-in");
-      return createQuote(form, "Pending", extraItems);
+      return createQuote(form, "Pending", extraItems, resolvedRate);
     },
     onSuccess: (q) => {
       toast.success(`Quote ${q.reference_code} created`);
