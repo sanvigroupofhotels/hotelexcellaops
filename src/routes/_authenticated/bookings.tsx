@@ -69,7 +69,9 @@ function BookingsPage() {
             </div>
           )}
           {filtered.map((b, i) => {
-            const balance = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+            const diff = Number(b.amount) - Number(b.advance_paid || 0);
+            const balance = Math.max(0, diff);
+            const excess = diff < 0 ? -diff : 0;
             const roomType = (b.room_details || "").split("×")[0]?.trim() || null;
             const guestCount = `${b.adults}A${b.children ? ` + ${b.children}C` : ""}`;
             return (
@@ -98,6 +100,8 @@ function BookingsPage() {
                     <div className="flex flex-col items-end gap-1.5">
                       {balance > 0 ? (
                         <span className="text-warning font-medium text-xs whitespace-nowrap">Due ₹{balance.toLocaleString("en-IN")}</span>
+                      ) : excess > 0 ? (
+                        <span className="text-gold font-medium text-xs whitespace-nowrap">Excess Paid ₹{excess.toLocaleString("en-IN")}</span>
                       ) : (
                         <span className="text-success font-medium text-xs">Paid</span>
                       )}
