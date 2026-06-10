@@ -1,11 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Printer, Share2, X } from "lucide-react";
 import { toast } from "sonner";
 import type { BookingRow } from "@/lib/bookings-api";
 import type { BookingItemRow } from "@/lib/booking-items-api";
+import { rowToLineItem } from "@/lib/booking-items-api";
 import type { BookingPaymentRow } from "@/lib/booking-payments-api";
 import { nodeToBlob } from "@/lib/share-quote";
+import { computePricing } from "@/lib/pricing";
 
 const fmtDate = (s: string) =>
   new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
