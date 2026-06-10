@@ -10,6 +10,7 @@ import { listQuoteItems, replaceQuoteItems, rowToLineItem } from "@/lib/quote-it
 import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
 import { lineItemsTotal, type LineItem } from "@/components/line-items-editor";
 import { StayFormSections, type SharedStayValue } from "@/components/shared/stay-form-sections";
+import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
