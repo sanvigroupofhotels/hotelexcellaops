@@ -15,7 +15,12 @@ export const Route = createFileRoute("/_authenticated/rates")({ component: Rates
 const inputCls = "w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50";
 
 function monthKey(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; }
-function dateKey(d: Date) { return d.toISOString().slice(0, 10); }
+// Use LOCAL date components — d.toISOString() shifts to UTC and produces the
+// previous day in IST (UTC+5:30), causing the rates grid to look one day
+// shifted vs. what the user picked in the bulk dialog (15→16 became 16→17).
+function dateKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 function RatesPage() {
   return (
