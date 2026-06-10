@@ -869,6 +869,39 @@ export type Database = {
           },
         ]
       }
+      master_data: {
+        Row: {
+          active: boolean
+          category: string
+          created_at: string
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          active?: boolean
+          category: string
+          created_at?: string
+          id?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          created_at?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1154,34 +1187,82 @@ export type Database = {
           },
         ]
       }
+      rate_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          id: string
+          note: string | null
+          rate: number
+          room_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date: string
+          id?: string
+          note?: string | null
+          rate: number
+          room_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          id?: string
+          note?: string | null
+          rate?: number
+          room_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       room_maintenance: {
         Row: {
+          active: boolean
+          blocked_at: string
+          blocked_by: string | null
           created_at: string
           end_date: string
           id: string
           reason: string | null
           room_id: string
           start_date: string
+          unblocked_at: string | null
+          unblocked_by: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          active?: boolean
+          blocked_at?: string
+          blocked_by?: string | null
           created_at?: string
           end_date: string
           id?: string
           reason?: string | null
           room_id: string
           start_date: string
+          unblocked_at?: string | null
+          unblocked_by?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          active?: boolean
+          blocked_at?: string
+          blocked_by?: string | null
           created_at?: string
           end_date?: string
           id?: string
           reason?: string | null
           room_id?: string
           start_date?: string
+          unblocked_at?: string | null
+          unblocked_by?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1194,6 +1275,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      room_rates: {
+        Row: {
+          default_rate: number
+          room_type: string
+          updated_at: string
+          updated_by: string | null
+          weekday_rate: number | null
+          weekend_rate: number | null
+        }
+        Insert: {
+          default_rate?: number
+          room_type: string
+          updated_at?: string
+          updated_by?: string | null
+          weekday_rate?: number | null
+          weekend_rate?: number | null
+        }
+        Update: {
+          default_rate?: number
+          room_type?: string
+          updated_at?: string
+          updated_by?: string | null
+          weekday_rate?: number | null
+          weekend_rate?: number | null
+        }
+        Relationships: []
       }
       rooms: {
         Row: {
