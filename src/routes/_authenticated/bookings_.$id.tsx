@@ -505,7 +505,7 @@ function CheckoutOverrideForm({ balance, onCancel, onAddPayment, onProceed }: {
           Add Payment
         </button>
         <AlertDialogAction onClick={() => onProceed(reason.trim() || null)}
-          className="bg-warning text-warning-foreground hover:bg-warning/90">
+          className="bg-warning text-charcoal hover:bg-warning/90">
           Proceed with Override
         </AlertDialogAction>
       </AlertDialogFooter>
