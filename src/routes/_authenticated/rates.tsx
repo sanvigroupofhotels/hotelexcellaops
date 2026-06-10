@@ -100,7 +100,7 @@ function RatesContent() {
                     <td className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-3 py-2 text-xs align-top" style={{ minWidth: 180 }}>
                       <div className="font-medium">{rt.name}</div>
                       <div className="text-[10px] text-muted-foreground">
-                        Def ₹{cfg?.default_rate ?? rt.weekday}
+                        Def ₹{cfg?.default_rate ?? rt.rate}
                         {cfg?.weekday_rate != null && ` · Wk ₹${cfg.weekday_rate}`}
                         {cfg?.weekend_rate != null && ` · We ₹${cfg.weekend_rate}`}
                       </div>
@@ -111,7 +111,7 @@ function RatesContent() {
                     {days.map((d) => {
                       const dk = dateKey(d);
                       const ovr = overrides.find((o) => o.room_type === rt.name && o.date === dk);
-                      const effective = resolveRate(rt.name, dk, rates, overrides) ?? rt.weekday;
+                      const effective = resolveRate(rt.name, dk, rates, overrides) ?? rt.rate;
                       return (
                         <td key={dk} className="border-b border-border p-0.5 text-center">
                           <button onClick={() => setEditCell({ room_type: rt.name, date: dk })}
