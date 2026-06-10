@@ -333,7 +333,46 @@ function BookingDetail() {
                       <div className="rounded-md border border-warning/30 bg-warning/5 p-2 text-[10px] text-warning">
                         ⚠ Checked-out with outstanding ₹{Number((b as any).checkout_override_balance || 0).toLocaleString("en-IN")}
                         {(b as any).checkout_override_reason ? ` — ${(b as any).checkout_override_reason}` : ""}
-                      </div>
+        </div>
+
+        {/* Activity History — full width, at the very bottom (after Details, Pricing, Payments) */}
+        <div className="luxe-card rounded-xl p-5 print:hidden">
+          <button onClick={() => setActivityOpen(o => !o)}
+            className="w-full text-left flex items-center justify-between">
+            <h4 className="font-display text-lg flex items-center gap-2"><History className="h-4 w-4 text-gold" /> Activity History ({bookingActivities.length})</h4>
+            <span className="text-xs text-muted-foreground">{activityOpen ? "▴" : "▾"}</span>
+          </button>
+          {activityOpen && (
+            bookingActivities.length === 0 ? (
+              <div className="mt-3 text-xs text-muted-foreground italic">No activity recorded yet.</div>
+            ) : (
+              <div className="mt-3 space-y-1.5 max-h-96 overflow-auto">
+                {bookingActivities.map((a: any) => (
+                  <div key={a.id} className="text-[11px] rounded-md bg-secondary/30 px-2.5 py-1.5">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className={cn(
+                        "font-medium",
+                        a.action === "check_in" && "text-success",
+                        a.action === "check_out" && "text-info",
+                        a.action.startsWith("revert") && "text-gold",
+                        a.action === "checkout_override" && "text-warning",
+                        a.action === "cancelled" && "text-destructive",
+                      )}>{formatActivity(a)}</span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                        {new Date(a.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
+                      </span>
+                    </div>
+                    {a.notes && <div className="text-[10px] text-muted-foreground mt-0.5">"{a.notes}"</div>}
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      By {a.actor_name ?? "system"}{a.actor_role ? ` (${a.actor_role})` : ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+
                     )}
                     <p className="text-[10px] text-muted-foreground pt-1">
                       Payment status (Pending / Advance Paid / Full Paid) is set automatically from collected payments.
@@ -343,43 +382,8 @@ function BookingDetail() {
               })()}
             </div>
 
-            {/* Booking activity log — always visible (mirrors Quotes) */}
-            <div className="luxe-card rounded-xl p-5">
-              <button onClick={() => setActivityOpen(o => !o)}
-                className="w-full text-left flex items-center justify-between">
-                <h4 className="font-display text-lg flex items-center gap-2"><History className="h-4 w-4 text-gold" /> Activity ({bookingActivities.length})</h4>
-                <span className="text-xs text-muted-foreground">{activityOpen ? "▴" : "▾"}</span>
-              </button>
-              {activityOpen && (
-                bookingActivities.length === 0 ? (
-                  <div className="mt-3 text-xs text-muted-foreground italic">No activity recorded yet.</div>
-                ) : (
-                  <div className="mt-3 space-y-1.5 max-h-72 overflow-auto">
-                    {bookingActivities.map((a: any) => (
-                      <div key={a.id} className="text-[11px] rounded-md bg-secondary/30 px-2.5 py-1.5">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className={cn(
-                            "font-medium",
-                            a.action === "check_in" && "text-success",
-                            a.action === "check_out" && "text-info",
-                            a.action.startsWith("revert") && "text-gold",
-                            a.action === "checkout_override" && "text-warning",
-                            a.action === "cancelled" && "text-destructive",
-                          )}>{formatActivity(a)}</span>
-                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                            {new Date(a.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
-                          </span>
-                        </div>
-                        {a.notes && <div className="text-[10px] text-muted-foreground mt-0.5">"{a.notes}"</div>}
-                        <div className="text-[10px] text-muted-foreground mt-0.5">
-                          By {a.actor_name ?? "system"}{a.actor_role ? ` (${a.actor_role})` : ""}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )
-              )}
-            </div>
+            {/* (Activity moved to the bottom of the page — see below) */}
+
 
 
             {/* Assigned room */}
