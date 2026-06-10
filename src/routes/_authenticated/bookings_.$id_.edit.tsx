@@ -137,10 +137,13 @@ function EditBooking() {
               className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
               <h4 className="font-display text-lg">Booking &amp; Payment</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Amount</div>
-                  <div className="font-display text-lg gold-text-gradient">₹{amount.toLocaleString("en-IN")}</div>
-                </div>
+                <NumField
+                  label="Total Amount (₹)"
+                  value={amount}
+                  min={0}
+                  onChange={(v) => setTotalOverride(Number(v))}
+                  prefix="₹"
+                />
                 <NumField label="Advance Paid (₹)" value={advancePaid} min={0} onChange={setAdvancePaid} prefix="₹" />
               </div>
               <p className="text-[10px] text-muted-foreground -mt-2">
