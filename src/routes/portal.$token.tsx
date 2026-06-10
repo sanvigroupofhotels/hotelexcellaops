@@ -87,7 +87,8 @@ function GuestPortal() {
       </div>
     );
   }
-  if (q.error || !q.data) throw notFound();
+  if (q.error) throw q.error instanceof Error ? q.error : new Error(String(q.error));
+  if (!q.data) throw new Error("Booking link not found");
   const b = q.data;
 
   const onChoose = async (choice: PortalPaymentChoice) => {
