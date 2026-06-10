@@ -140,7 +140,7 @@ function EditBooking() {
                 <div>
                   <NumField
                     label="Total Amount (₹)"
-                    value={amount}
+                    value={totalOverride != null ? totalOverride : amount}
                     min={0}
                     onChange={(v) => setTotalOverride(Number(v))}
                     prefix="₹"
