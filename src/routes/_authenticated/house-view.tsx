@@ -59,6 +59,8 @@ function HouseView() {
   const [anchor, setAnchor] = useState(() => { const t = new Date(); t.setHours(0,0,0,0); return t; });
   const [selected, setSelected] = useState<any | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<any | null>(null);
+  const [editBlock, setEditBlock] = useState<any | null>(null);
+  const [vacantAction, setVacantAction] = useState<{ room: any; date: string } | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
