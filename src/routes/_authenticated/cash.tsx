@@ -13,6 +13,7 @@ import {
 } from "@/lib/cash-api";
 import { listBookings } from "@/lib/bookings-api";
 import { toast } from "sonner";
+import { useMasterData } from "@/hooks/use-master-data";
 import {
   Plus, Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Search, X,
   Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download, Printer,
