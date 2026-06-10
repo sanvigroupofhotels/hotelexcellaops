@@ -308,12 +308,7 @@ function PaymentSettingsEditor() {
   });
   const [draft, setDraft] = useState<PaymentSettings>(DEFAULT_PAYMENT_SETTINGS);
   const [dirty, setDirty] = useState(false);
-  // Sync local draft when query resolves
-  useState(() => { /* noop init */ });
-  if (data && !dirty && draft !== data) {
-    // hydrate once
-    setTimeout(() => setDraft(data), 0);
-  }
+  useEffect(() => { if (data) { setDraft(data); setDirty(false); } }, [data]);
   const saveMut = useMutation({
     mutationFn: () => setPaymentSettings(draft),
     onSuccess: () => {
