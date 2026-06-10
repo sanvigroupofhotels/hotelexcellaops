@@ -75,14 +75,14 @@ function EditBooking() {
   const resolvedRate = useResolvedRate(stay.room_type, stay.check_in, stay.check_out, stay.breakfast_included);
   const { pricing, roomCharges, extraCharges, nights } = useMemo(() => {
     const primary = primaryToLineItem(stay, resolvedRate);
-    const p = computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE);
+    const p = computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE, { totalOverride, taxesIncluded });
     return {
       pricing: p,
       roomCharges: lineSubtotal(primary),
       extraCharges: extras.reduce((s, i) => s + lineSubtotal(i), 0),
       nights: nightsOf(primary),
     };
-  }, [stay, extras, resolvedRate]);
+  }, [stay, extras, resolvedRate, totalOverride, taxesIncluded]);
   const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid));
 
