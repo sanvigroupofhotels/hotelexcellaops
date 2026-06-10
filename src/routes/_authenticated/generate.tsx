@@ -9,6 +9,7 @@ import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary
 import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
 import { lineItemsTotal, type LineItem } from "@/components/line-items-editor";
 import { StayFormSections, type SharedStayValue } from "@/components/shared/stay-form-sections";
+import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import {
   Loader2, Heart, Briefcase, UsersRound, Dog, CalendarRange, UserPlus,
 } from "lucide-react";
