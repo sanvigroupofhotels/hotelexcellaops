@@ -197,6 +197,8 @@ function ExportCustomersDialog({ open, onOpenChange, customers }: {
 }) {
   const [source, setSource] = useState<string>("All");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const { values: leadSources } = useMasterData("lead_source", [...LEAD_SOURCES]);
+  const { values: tags } = useMasterData("tag", [...DEFAULT_TAGS]);
 
   const toggleTag = (t: string) =>
     setTagFilter((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
