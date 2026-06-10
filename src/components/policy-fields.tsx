@@ -22,10 +22,20 @@ const inputCls =
 export function PolicyFields({
   form,
   update,
+  apply,
 }: {
   form: QuoteInput;
   update: <K extends keyof QuoteInput>(k: K, v: QuoteInput[K]) => void;
+  /** Atomic multi-field write. Falls back to sequential `update` calls if absent. */
+  apply?: (patch: Partial<QuoteInput>) => void;
 }) {
+  // Paired-field commits MUST go through `apply` so React's single render uses
+  // the merged patch — sequential `update(k,v)` calls share a stale closure and
+  // the last write wins, which is why Early/Late/Pet were "not selectable".
+  const applyMany = (patch: Partial<QuoteInput>) => {
+    if (apply) { apply(patch); return; }
+    for (const [k, v] of Object.entries(patch)) (update as any)(k, v);
+  };
   const anyExtra =
     form.early_check_in ||
     form.late_check_out ||
