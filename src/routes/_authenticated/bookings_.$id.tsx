@@ -26,10 +26,12 @@ import {
 } from "@/lib/booking-messages";
 import { waLink } from "@/lib/quote-messages";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { issueBookingToken } from "@/lib/portal.functions";
 import {
   ArrowLeft, Loader2, Trash2, Phone, Mail, User, Copy,
   Wallet, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
-  FileText, History, RotateCcw, AlertTriangle, MoreVertical, MessageCircle,
+  FileText, History, RotateCcw, AlertTriangle, MoreVertical, MessageCircle, Link2,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
