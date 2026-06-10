@@ -22,10 +22,20 @@ const inputCls =
 export function PolicyFields({
   form,
   update,
+  apply,
 }: {
   form: QuoteInput;
   update: <K extends keyof QuoteInput>(k: K, v: QuoteInput[K]) => void;
+  /** Atomic multi-field write. Falls back to sequential `update` calls if absent. */
+  apply?: (patch: Partial<QuoteInput>) => void;
 }) {
+  // Paired-field commits MUST go through `apply` so React's single render uses
+  // the merged patch — sequential `update(k,v)` calls share a stale closure and
+  // the last write wins, which is why Early/Late/Pet were "not selectable".
+  const applyMany = (patch: Partial<QuoteInput>) => {
+    if (apply) { apply(patch); return; }
+    for (const [k, v] of Object.entries(patch)) (update as any)(k, v);
+  };
   const anyExtra =
     form.early_check_in ||
     form.late_check_out ||
@@ -79,11 +89,9 @@ export function PolicyFields({
             selectedValue={form.early_check_in_slot}
             onSelect={(val) => {
               if (val === null) {
-                update("early_check_in", false);
-                update("early_check_in_slot", null);
+                applyMany({ early_check_in: false, early_check_in_slot: null });
               } else {
-                update("early_check_in", true);
-                update("early_check_in_slot", val as EarlyCheckInSlot);
+                applyMany({ early_check_in: true, early_check_in_slot: val as EarlyCheckInSlot });
               }
             }}
           />
@@ -97,11 +105,9 @@ export function PolicyFields({
             selectedValue={form.late_check_out_slot}
             onSelect={(val) => {
               if (val === null) {
-                update("late_check_out", false);
-                update("late_check_out_slot", null);
+                applyMany({ late_check_out: false, late_check_out_slot: null });
               } else {
-                update("late_check_out", true);
-                update("late_check_out_slot", val as LateCheckOutSlot);
+                applyMany({ late_check_out: true, late_check_out_slot: val as LateCheckOutSlot });
               }
             }}
           />
@@ -117,8 +123,10 @@ export function PolicyFields({
                   key={p.value}
                   type="button"
                   onClick={() => {
-                    update("pet_size", p.value as PetSize);
-                    update("pet_charges", p.value !== "none");
+                    applyMany({
+                      pet_size: p.value as PetSize,
+                      pet_charges: p.value !== "none",
+                    });
                   }}
                   className={cn(
                     "rounded-md border px-2 py-2 text-xs transition text-left",

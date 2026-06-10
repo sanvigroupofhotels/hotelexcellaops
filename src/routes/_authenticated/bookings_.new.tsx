@@ -321,7 +321,7 @@ function NewBooking() {
   return (
     <>
       <Topbar title="New Booking" subtitle={fromQuoteId ? "Converting quote to booking" : "Create a direct booking"} />
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-32 lg:pb-8">
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-56 lg:pb-8">
         <Link to="/bookings" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="h-4 w-4" /> All bookings
         </Link>
@@ -363,20 +363,8 @@ function NewBooking() {
               </div>
             </motion.section>
 
-            {/* Inline pricing breakdown — kept for mobile users who scroll past the sticky footer */}
-            <div className="lg:hidden">
-              <PricingBreakdownCard
-                roomCharges={roomCharges}
-                extraCharges={extraCharges}
-                pricing={pricing}
-                nights={nights}
-                guests={stay.guests}
-                editable={true}
-                overrideValue={totalOverride}
-                onOverrideChange={setTotalOverride}
-                onTaxesIncludedChange={setTaxesIncluded}
-              />
-            </div>
+            {/* Inline breakdown is hidden on mobile — the sticky footer below shows the
+                editable breakdown so it's always reachable above the keyboard. */}
           </div>
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
@@ -410,9 +398,13 @@ function NewBooking() {
           </div>
         </div>
 
-        {/* Sticky footer: collapsible pricing breakdown + Create Booking — mobile only */}
+        {/* Sticky footer: editable pricing breakdown + Create Booking — mobile only */}
         <StickyPricingFooter
           pricing={pricing}
+          editable={true}
+          overrideValue={totalOverride}
+          onOverrideChange={setTotalOverride}
+          onTaxesIncludedChange={setTaxesIncluded}
           actions={
             <button onClick={() => save.mutate()} disabled={save.isPending || !stay.guest_name.trim()}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60">

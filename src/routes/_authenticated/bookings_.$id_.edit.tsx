@@ -120,7 +120,7 @@ function EditBooking() {
   return (
     <>
       <Topbar title="Edit Booking" subtitle={b.booking_reference} />
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-32 lg:pb-8">
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-56 lg:pb-8">
         <Link to="/bookings/$id" params={{ id }} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="h-4 w-4" /> Back to booking
         </Link>
@@ -158,20 +158,7 @@ function EditBooking() {
               </div>
             </motion.section>
 
-            {/* Inline pricing breakdown — visible on every viewport (matches Quote form) */}
-            <div className="lg:hidden">
-              <PricingBreakdownCard
-                roomCharges={roomCharges}
-                extraCharges={extraCharges}
-                pricing={pricing}
-                nights={nights}
-                guests={stay.guests}
-                editable={true}
-                overrideValue={totalOverride}
-                onOverrideChange={setTotalOverride}
-                onTaxesIncludedChange={setTaxesIncluded}
-              />
-            </div>
+            {/* Inline breakdown hidden on mobile — sticky footer renders editable version. */}
           </div>
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
@@ -203,9 +190,13 @@ function EditBooking() {
           </div>
         </div>
 
-        {/* Sticky footer: collapsible pricing breakdown + Save Changes — mobile only */}
+        {/* Sticky footer: editable pricing breakdown + Save Changes — mobile only */}
         <StickyPricingFooter
           pricing={pricing}
+          editable={true}
+          overrideValue={totalOverride}
+          onOverrideChange={setTotalOverride}
+          onTaxesIncludedChange={setTaxesIncluded}
           actions={
             <button onClick={() => save.mutate()} disabled={save.isPending}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60">

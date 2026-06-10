@@ -165,6 +165,10 @@ export function StayFormSections({
 }: StayFormSectionsProps) {
   const update = <K extends keyof SharedStayValue>(k: K, v: SharedStayValue[K]) =>
     onChange({ ...value, [k]: v });
+  // Atomic multi-field write — prevents the closure-based clobber that
+  // occurred when PolicyFields called `update(...)` twice in a row for paired
+  // fields (e.g. early_check_in + early_check_in_slot, pet_size + pet_charges).
+  const apply = (patch: Partial<SharedStayValue>) => onChange({ ...value, ...patch });
 
   // Single source of truth: Master Data → lead_source. Hardcoded LEAD_SOURCES used only as fallback.
   const { values: leadSources, labels: leadLabels } = useMasterData("lead_source", [...LEAD_SOURCES]);
@@ -253,7 +257,7 @@ export function StayFormSections({
           <div />
         </div>
         <div className="mt-4">
-          <PolicyFields form={value as any} update={update as any} />
+          <PolicyFields form={value as any} update={update as any} apply={apply as any} />
         </div>
       </Card>
 
