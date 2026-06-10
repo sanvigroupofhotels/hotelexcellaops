@@ -539,7 +539,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
   );
 }
 
-function BlockPopover({ m, onClose, rooms }: { m: any; onClose: () => void; rooms: any[] }) {
+function BlockPopover({ m, onClose, rooms, onEdit }: { m: any; onClose: () => void; rooms: any[]; onEdit: () => void }) {
   const room = rooms.find((r: any) => r.id === m.room_id);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -557,6 +557,47 @@ function BlockPopover({ m, onClose, rooms }: { m: any; onClose: () => void; room
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Reason</div>
           <div>{m.reason || "Maintenance"}</div>
         </div>
+        {(m.blocked_at || m.unblocked_at) && (
+          <div className="rounded-md border border-border bg-secondary/30 p-2 text-[11px] text-muted-foreground space-y-0.5">
+            {m.blocked_at && <div>Blocked: {new Date(m.blocked_at).toLocaleString("en-IN")}</div>}
+            {m.unblocked_at && <div>Unblocked: {new Date(m.unblocked_at).toLocaleString("en-IN")}</div>}
+          </div>
+        )}
+        <button onClick={onEdit} className="w-full gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium">
+          Edit / Unblock
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function VacantActionMenu({ room, date, onBlock, onClose }: { room: any; date: string; onBlock: () => void; onClose: () => void }) {
+  const next = new Date(date); next.setDate(next.getDate() + 1);
+  const nextKey = next.toISOString().slice(0, 10);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="luxe-card rounded-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="font-display text-xl">Vacant · Room {room.room_number}</h3>
+            <div className="text-xs text-muted-foreground">{room.room_type} · {fmtFull(date)}</div>
+          </div>
+          <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+        </div>
+        <Link
+          to="/bookings/new"
+          search={{ roomId: room.id, roomType: room.room_type, checkIn: date, checkOut: nextKey }}
+          onClick={onClose}
+          className="w-full inline-flex items-center justify-center gap-2 gold-gradient text-charcoal rounded-md px-3 py-2.5 text-sm font-medium"
+        >
+          <Plus className="h-4 w-4" /> Create Booking
+        </Link>
+        <button
+          onClick={onBlock}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-amber-600/40 bg-amber-600/10 text-amber-800 dark:text-amber-300 px-3 py-2.5 text-sm font-medium hover:bg-amber-600/20"
+        >
+          <Ban className="h-4 w-4" /> Block Room
+        </button>
       </div>
     </div>
   );
