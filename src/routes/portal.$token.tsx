@@ -48,6 +48,17 @@ export const Route = createFileRoute("/portal/$token")({
 
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 
+/** Extract a readable message from any thrown value (Error, serverFn envelope, plain object). */
+function errMsg(e: any, fallback = "Something went wrong"): string {
+  if (!e) return fallback;
+  if (typeof e === "string") return e;
+  if (e instanceof Error && e.message) return e.message;
+  const m = e?.message ?? e?.error?.message ?? e?.body?.message ?? e?.data?.message ?? e?.json?.message;
+  if (typeof m === "string" && m) return m;
+  try { const s = JSON.stringify(e); if (s && s !== "{}") return s; } catch {}
+  return fallback;
+}
+
 declare global {
   interface Window {
     Razorpay?: any;
