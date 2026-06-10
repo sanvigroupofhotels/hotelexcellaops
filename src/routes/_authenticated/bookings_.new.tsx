@@ -208,6 +208,9 @@ function NewBooking() {
         room_details: `${stay.room_type} × ${stay.rooms}`,
         room_id: roomId,
         amount,
+        subtotal: pricing.subtotal,
+        taxes: pricing.taxes,
+        tax_rate: pricing.taxRate,
         // Don't write advance_paid directly — booking_payments trigger recomputes it.
         advance_paid: advancePaid > 0 ? 0 : 0,
         discount: stay.discount,
