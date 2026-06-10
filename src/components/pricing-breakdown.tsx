@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PricingBreakdown } from "@/lib/pricing";
 
@@ -10,6 +10,10 @@ import type { PricingBreakdown } from "@/lib/pricing";
  * Collapsed: shows only the Final Amount.
  * Expanded: Main Stay Charges → Additional Stay Charges (itemised) → Subtotal
  *           → Discount → Taxable → Tax → Final.
+ *
+ * When `editable` is set (admin/manager only), the Final Amount becomes
+ * editable and a "Taxes Included" switch appears. Override is persisted by
+ * the parent via `onOverrideChange` + `onTaxesIncludedChange`.
  */
 export function PricingBreakdownCard({
   roomCharges: _roomCharges,
@@ -20,6 +24,10 @@ export function PricingBreakdownCard({
   className,
   nights,
   guests,
+  editable = false,
+  overrideValue,
+  onOverrideChange,
+  onTaxesIncludedChange,
 }: {
   /** Legacy prop — kept for backwards compatibility but no longer rendered separately. */
   roomCharges?: number;
@@ -31,8 +39,16 @@ export function PricingBreakdownCard({
   className?: string;
   nights?: number;
   guests?: number;
+  /** When true, render override controls (admin/manager only). */
+  editable?: boolean;
+  /** Current persisted override (null = no override). */
+  overrideValue?: number | null;
+  onOverrideChange?: (v: number | null) => void;
+  onTaxesIncludedChange?: (v: boolean) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<string>("");
   return (
     <div className={cn("luxe-card rounded-xl p-5", className)}>
       <button
@@ -76,12 +92,73 @@ export function PricingBreakdownCard({
       )}
 
       <div className="luxe-divider my-2" />
-      <div className="flex items-baseline justify-between">
-        <span className="text-sm font-medium">Final Booking Amount</span>
-        <span className="font-display text-2xl gold-text-gradient">
-          ₹{pricing.total.toLocaleString("en-IN")}
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm font-medium flex items-center gap-1.5">
+          Final Booking Amount
+          {pricing.overrideApplied && (
+            <span className="rounded-sm bg-gold-soft border border-gold/40 text-gold text-[9px] uppercase tracking-wider px-1.5 py-0.5">Override</span>
+          )}
         </span>
+        {editing ? (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm">₹</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => {
+                const n = Number(draft);
+                if (draft.trim() === "" || !Number.isFinite(n)) {
+                  onOverrideChange?.(null);
+                } else {
+                  onOverrideChange?.(Math.max(0, n));
+                }
+                setEditing(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                if (e.key === "Escape") { setDraft(""); setEditing(false); }
+              }}
+              className="w-32 bg-input/60 border border-gold/40 rounded-md px-2 py-1 text-right text-lg font-display tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/40"
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => { if (editable) { setDraft(String(pricing.total)); setEditing(true); } }}
+            className={cn("font-display text-2xl gold-text-gradient tabular-nums inline-flex items-center gap-1.5", editable && "hover:opacity-80 cursor-text")}
+            title={editable ? "Click to edit total" : undefined}
+          >
+            ₹{pricing.total.toLocaleString("en-IN")}
+            {editable && <Pencil className="h-3.5 w-3.5 opacity-50" />}
+          </button>
+        )}
       </div>
+
+      {editable && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 accent-gold"
+              checked={pricing.taxesIncluded}
+              onChange={(e) => onTaxesIncludedChange?.(e.target.checked)}
+            />
+            <span>Taxes Included in Total</span>
+          </label>
+          {pricing.overrideApplied && (
+            <button
+              type="button"
+              onClick={() => { onOverrideChange?.(null); setDraft(""); }}
+              className="inline-flex items-center gap-1 text-gold hover:underline"
+            >
+              <RotateCcw className="h-3 w-3" /> Reset to computed
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
