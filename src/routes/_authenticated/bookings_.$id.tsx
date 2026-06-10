@@ -232,13 +232,18 @@ function BookingDetail() {
               <div className="mb-3">
                 <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs", bookingStatusStyles[b.status])}>{b.status}</span>
               </div>
-              {/* Operational transitions are button-driven, not dropdown-driven */}
+              {/* Operational transitions — staff cannot check out with balance due; admin can override */}
               {(() => {
                 const canCheckIn = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any)
                   && new Date().toISOString().slice(0, 10) >= b.check_in
                   && new Date().toISOString().slice(0, 10) < b.check_out;
                 const canCheckOut = b.status === "Checked-In";
                 const canCancel = !["Checked-In", "Checked-Out", "Cancelled"].includes(b.status as any);
+                const handleCheckOutClick = () => {
+                  if (balance <= 0) { status.mutate("Checked-Out" as any); return; }
+                  if (isAdmin) { setOverrideOpen(true); return; }
+                  toast.error("Balance due — collect payment before check-out");
+                };
                 return (
                   <div className="space-y-2">
                     {canCheckIn && (
@@ -253,9 +258,24 @@ function BookingDetail() {
                       </div>
                     )}
                     {canCheckOut && (
-                      <button onClick={() => status.mutate("Checked-Out" as any)}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-xs hover:border-gold/40">
-                        <LogOut className="h-3.5 w-3.5" /> Check-Out
+                      <>
+                        <button onClick={handleCheckOutClick}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-xs hover:border-gold/40">
+                          <LogOut className="h-3.5 w-3.5" /> Check-Out
+                        </button>
+                        {balance > 0 && !isAdmin && (
+                          <p className="text-[10px] text-warning">Balance due ₹{balance.toLocaleString("en-IN")} — collect payment to enable check-out.</p>
+                        )}
+                        <button onClick={() => setRevertInOpen(true)}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-[11px] text-muted-foreground hover:text-foreground hover:border-gold/40">
+                          <RotateCcw className="h-3 w-3" /> Revert Check-In
+                        </button>
+                      </>
+                    )}
+                    {b.status === "Checked-Out" && isAdmin && (
+                      <button onClick={() => setRevertOutOpen(true)}
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-[11px] text-muted-foreground hover:text-foreground hover:border-gold/40">
+                        <RotateCcw className="h-3 w-3" /> Revert Check-Out (Admin)
                       </button>
                     )}
                     {canCancel && (
@@ -264,6 +284,12 @@ function BookingDetail() {
                         Cancel Booking
                       </button>
                     )}
+                    {(b as any).checkout_override_at && (
+                      <div className="rounded-md border border-warning/30 bg-warning/5 p-2 text-[10px] text-warning">
+                        ⚠ Checked-out with outstanding ₹{Number((b as any).checkout_override_balance || 0).toLocaleString("en-IN")}
+                        {(b as any).checkout_override_reason ? ` — ${(b as any).checkout_override_reason}` : ""}
+                      </div>
+                    )}
                     <p className="text-[10px] text-muted-foreground pt-1">
                       Payment status (Pending / Advance Paid / Full Paid) is set automatically from collected payments.
                     </p>
@@ -271,6 +297,42 @@ function BookingDetail() {
                 );
               })()}
             </div>
+
+            {/* Booking activity log */}
+            {bookingActivities.length > 0 && (
+              <div className="luxe-card rounded-xl p-5">
+                <button onClick={() => setActivityOpen(o => !o)}
+                  className="w-full text-left flex items-center justify-between">
+                  <h4 className="font-display text-lg flex items-center gap-2"><History className="h-4 w-4 text-gold" /> Activity ({bookingActivities.length})</h4>
+                  <span className="text-xs text-muted-foreground">{activityOpen ? "▴" : "▾"}</span>
+                </button>
+                {activityOpen && (
+                  <div className="mt-3 space-y-1.5 max-h-72 overflow-auto">
+                    {bookingActivities.map((a: any) => (
+                      <div key={a.id} className="text-[11px] rounded-md bg-secondary/30 px-2.5 py-1.5">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={cn(
+                            "font-medium",
+                            a.action === "check_in" && "text-success",
+                            a.action === "check_out" && "text-info",
+                            a.action.startsWith("revert") && "text-gold",
+                            a.action === "checkout_override" && "text-warning",
+                            a.action === "cancelled" && "text-destructive",
+                          )}>{formatActivity(a)}</span>
+                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                            {new Date(a.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
+                          </span>
+                        </div>
+                        {a.notes && <div className="text-[10px] text-muted-foreground mt-0.5">"{a.notes}"</div>}
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          By {a.actor_name ?? "system"}{a.actor_role ? ` (${a.actor_role})` : ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Assigned room */}
             <div className="luxe-card rounded-xl p-5">
