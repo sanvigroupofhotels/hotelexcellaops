@@ -321,17 +321,7 @@ function BookingDetail() {
                         {balance > 0 && !isAdmin && (
                           <p className="text-[10px] text-warning">Balance due ₹{balance.toLocaleString("en-IN")} — collect payment to enable check-out.</p>
                         )}
-                        <button onClick={() => setRevertInOpen(true)}
-                          className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-[11px] text-muted-foreground hover:text-foreground hover:border-gold/40">
-                          <RotateCcw className="h-3 w-3" /> Revert Check-In
-                        </button>
                       </>
-                    )}
-                    {b.status === "Checked-Out" && isAdmin && (
-                      <button onClick={() => setRevertOutOpen(true)}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-[11px] text-muted-foreground hover:text-foreground hover:border-gold/40">
-                        <RotateCcw className="h-3 w-3" /> Revert Check-Out (Admin)
-                      </button>
                     )}
                     {canCancel && (
                       <button onClick={() => { if (confirm("Cancel this booking?")) status.mutate("Cancelled" as any); }}
