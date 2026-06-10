@@ -89,11 +89,9 @@ export function PolicyFields({
             selectedValue={form.early_check_in_slot}
             onSelect={(val) => {
               if (val === null) {
-                update("early_check_in", false);
-                update("early_check_in_slot", null);
+                applyMany({ early_check_in: false, early_check_in_slot: null });
               } else {
-                update("early_check_in", true);
-                update("early_check_in_slot", val as EarlyCheckInSlot);
+                applyMany({ early_check_in: true, early_check_in_slot: val as EarlyCheckInSlot });
               }
             }}
           />
@@ -107,11 +105,9 @@ export function PolicyFields({
             selectedValue={form.late_check_out_slot}
             onSelect={(val) => {
               if (val === null) {
-                update("late_check_out", false);
-                update("late_check_out_slot", null);
+                applyMany({ late_check_out: false, late_check_out_slot: null });
               } else {
-                update("late_check_out", true);
-                update("late_check_out_slot", val as LateCheckOutSlot);
+                applyMany({ late_check_out: true, late_check_out_slot: val as LateCheckOutSlot });
               }
             }}
           />
