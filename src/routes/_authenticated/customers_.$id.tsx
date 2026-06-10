@@ -255,7 +255,7 @@ function CustomerDetail() {
               <h3 className="font-display text-lg mb-3">Lead Source</h3>
               <select value={c.lead_source ?? "Direct"} onChange={(e) => save.mutate({ lead_source: e.target.value })}
                 className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+                {leadSources.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
