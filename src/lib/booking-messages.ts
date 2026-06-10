@@ -44,8 +44,6 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
   const overrideTotal = (b as any).total_override ?? null;
   let pricing: any = null;
   try {
-    // Lazy import to keep this module dependency-light if items omitted.
-    const { computePricing } = require("@/lib/pricing");
     pricing = items && items.length > 0
       ? computePricing(items as any, discount, taxRate, { totalOverride: overrideTotal, taxesIncluded })
       : null;
