@@ -40,6 +40,7 @@ import {
 import { cn } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
 import { lineSubtotal } from "@/components/line-items-editor";
+import { computePricing } from "@/lib/pricing";
 import { listRooms } from "@/lib/rooms-api";
 import { toast } from "sonner";
 
