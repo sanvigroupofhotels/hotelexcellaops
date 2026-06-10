@@ -152,20 +152,21 @@ function EditBooking() {
           </div>
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
-            <div className="luxe-card rounded-xl p-5">
-              <h4 className="font-display text-lg mb-3">Summary</h4>
-              <SummaryRow label="Items Total" value={pricing.itemsTotal} />
-              {pricing.discount > 0 && <SummaryRow label="Discount" value={-pricing.discount} />}
-              <SummaryRow label="Taxable Amount" value={pricing.subtotal} />
-              <SummaryRow label={`Taxes (${Math.round(pricing.taxRate * 100)}%)`} value={pricing.taxes} />
-              <SummaryRow label="Total Amount" value={amount} />
-              <SummaryRow label="Advance Paid" value={-Number(advancePaid)} mute={!advancePaid} />
-              <div className="luxe-divider my-3" />
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-muted-foreground">Balance</span>
-                <span className="font-display text-2xl gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
+            <PricingBreakdownCard
+              roomCharges={roomCharges}
+              extraCharges={extraCharges}
+              pricing={pricing}
+            />
+            {advancePaid > 0 && (
+              <div className="luxe-card rounded-xl p-5">
+                <SummaryRow label="Advance Paid" value={-Number(advancePaid)} />
+                <div className="luxe-divider my-2" />
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-muted-foreground">Balance</span>
+                  <span className="font-display text-2xl gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
+                </div>
               </div>
-            </div>
+            )}
             <button onClick={() => save.mutate()} disabled={save.isPending}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal disabled:opacity-60">
               {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save Changes
