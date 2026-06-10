@@ -888,6 +888,19 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
     return true;
   }), [tx, kindFilter, categoryFilter, staffFilter, range, fromDate, toDate, showInactive]);
 
+  // Filter-aware totals: Total In / Total Out / Net / Owner-paid
+  const filteredTotals = useMemo(() => {
+    let collected = 0, spent = 0, ownerPaid = 0;
+    for (const t of filtered) {
+      if (t.kind === "collection") collected += Number(t.amount);
+      else {
+        spent += Number(t.amount);
+        if ((t.type_name || "").toLowerCase() === "owner payout") ownerPaid += Number(t.amount);
+      }
+    }
+    return { collected, spent, balance: collected - spent, ownerPaid };
+  }, [filtered]);
+
   const categories = Array.from(new Set(tx.map(t => t.type_name))).sort();
   const staffs = Array.from(new Set(tx.map(t => t.staff_name).filter(Boolean))) as string[];
 
@@ -990,6 +1003,26 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
           </label>
         </div>
 
+
+        {/* Filter-aware totals — Total In / Total Out / Net / Owner-Paid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="rounded-md border border-border bg-secondary/30 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total In</div>
+            <div className="text-sm font-medium text-success tabular-nums">₹{filteredTotals.collected.toLocaleString("en-IN")}</div>
+          </div>
+          <div className="rounded-md border border-border bg-secondary/30 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Out</div>
+            <div className="text-sm font-medium text-destructive tabular-nums">₹{filteredTotals.spent.toLocaleString("en-IN")}</div>
+          </div>
+          <div className="rounded-md border border-border bg-secondary/30 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Net</div>
+            <div className="text-sm font-medium gold-text-gradient tabular-nums">₹{filteredTotals.balance.toLocaleString("en-IN")}</div>
+          </div>
+          <div className="rounded-md border border-border bg-secondary/30 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Paid to Owner</div>
+            <div className="text-sm font-medium gold-text-gradient tabular-nums">₹{filteredTotals.ownerPaid.toLocaleString("en-IN")}</div>
+          </div>
+        </div>
 
         <div className="rounded-md border border-border overflow-x-auto">
           {type === "all" ? (
