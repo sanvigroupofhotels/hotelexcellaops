@@ -5,10 +5,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, updateBooking } from "@/lib/bookings-api";
 import { listBookingItems, replaceBookingItems, rowToLineItem } from "@/lib/booking-items-api";
-import {
-  lineItemsTotal, lineSubtotal, type LineItem,
-} from "@/components/line-items-editor";
+import { type LineItem } from "@/components/line-items-editor";
 import { getRoomRate } from "@/lib/mock-data";
+import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
 import { NumField } from "@/components/num-field";
 import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
@@ -66,11 +65,12 @@ function EditBooking() {
     setLoaded(true);
   }, [b, existingItems, loaded]);
 
-  const itemsTotal = useMemo(() => {
+  const pricing = useMemo(() => {
     const rate = getRoomRate(stay.room_type, stay.breakfast_included);
-    return lineSubtotal(primaryToLineItem(stay, rate)) + lineItemsTotal(extras);
+    const primary = primaryToLineItem(stay, rate);
+    return computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE);
   }, [stay, extras]);
-  const amount = Math.max(0, itemsTotal - (Number(stay.discount) || 0));
+  const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid));
 
   const save = useMutation({
@@ -81,7 +81,11 @@ function EditBooking() {
         adults: stay.adults, children: stay.children, guests: stay.guests,
         room_details: `${stay.room_type} × ${stay.rooms}`,
         room_id: roomId,
-        amount, advance_paid: advancePaid, discount: stay.discount,
+        amount,
+        subtotal: pricing.subtotal,
+        taxes: pricing.taxes,
+        tax_rate: pricing.taxRate,
+        advance_paid: advancePaid, discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
       });
       const rate = getRoomRate(stay.room_type, stay.breakfast_included);
@@ -144,8 +148,10 @@ function EditBooking() {
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
             <div className="luxe-card rounded-xl p-5">
               <h4 className="font-display text-lg mb-3">Summary</h4>
-              <SummaryRow label="Items Total" value={itemsTotal} />
-              {stay.discount > 0 && <SummaryRow label="Discount" value={-stay.discount} />}
+              <SummaryRow label="Items Total" value={pricing.itemsTotal} />
+              {pricing.discount > 0 && <SummaryRow label="Discount" value={-pricing.discount} />}
+              <SummaryRow label="Taxable Amount" value={pricing.subtotal} />
+              <SummaryRow label={`Taxes (${Math.round(pricing.taxRate * 100)}%)`} value={pricing.taxes} />
               <SummaryRow label="Total Amount" value={amount} />
               <SummaryRow label="Advance Paid" value={-Number(advancePaid)} mute={!advancePaid} />
               <div className="luxe-divider my-3" />
