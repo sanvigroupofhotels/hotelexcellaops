@@ -139,7 +139,7 @@ function GuestPortal() {
       });
       rzp.open();
     } catch (e: any) {
-      toast.error(e?.message || "Could not start payment");
+      toast.error(errMsg(e, "Could not start payment"));
     } finally {
       setBusy(false);
     }
