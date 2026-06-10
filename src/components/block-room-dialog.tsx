@@ -37,7 +37,7 @@ export function BlockRoomDialog({
       }
     },
     onSuccess: () => {
-      toast.success(existing ? "Block updated" : "Room blocked");
+      toast.success(existing?.id ? "Block updated" : "Room blocked");
       qc.invalidateQueries({ queryKey: ["room_maintenance"] });
       qc.invalidateQueries({ queryKey: ["blocks"] });
       onClose();
@@ -62,7 +62,7 @@ export function BlockRoomDialog({
         <div className="flex items-start justify-between">
           <h3 className="font-display text-xl flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
-            {existing ? "Edit Block" : "Block Room"} {roomNumber}
+            {existing?.id ? "Edit Block" : "Block Room"} {roomNumber}
           </h3>
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
         </div>
@@ -89,7 +89,7 @@ export function BlockRoomDialog({
           <input className={inputCls} placeholder="Custom reason" value={customReason} onChange={(e) => setCustomReason(e.target.value)} />
         )}
 
-        {existing && (
+        {existing?.id && (
           <div className="rounded-md border border-border bg-secondary/30 p-3 text-[11px] text-muted-foreground space-y-1">
             <div>Blocked: {new Date(existing.blocked_at).toLocaleString("en-IN")}</div>
             {existing.unblocked_at && <div>Unblocked: {new Date(existing.unblocked_at).toLocaleString("en-IN")}</div>}
@@ -97,7 +97,7 @@ export function BlockRoomDialog({
         )}
 
         <div className="flex gap-2 pt-1">
-          {existing && (
+          {existing?.id && (
             <button onClick={() => unblock.mutate()} disabled={unblock.isPending}
               className="flex-1 rounded-md border border-green-600/40 bg-green-600/10 text-green-700 dark:text-green-400 px-3 py-2 text-xs font-medium hover:bg-green-600/20 disabled:opacity-60">
               {unblock.isPending ? <Loader2 className="h-3 w-3 animate-spin mx-auto" /> : "Unblock Room"}
@@ -105,7 +105,7 @@ export function BlockRoomDialog({
           )}
           <button onClick={() => save.mutate()} disabled={save.isPending || end <= start}
             className="flex-1 gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60">
-            {save.isPending ? "Saving…" : existing ? "Save Changes" : "Block Room"}
+            {save.isPending ? "Saving…" : existing?.id ? "Save Changes" : "Block Room"}
           </button>
         </div>
       </div>
