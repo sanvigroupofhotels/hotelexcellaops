@@ -158,20 +158,7 @@ function EditBooking() {
               </div>
             </motion.section>
 
-            {/* Inline pricing breakdown — visible on every viewport (matches Quote form) */}
-            <div className="lg:hidden">
-              <PricingBreakdownCard
-                roomCharges={roomCharges}
-                extraCharges={extraCharges}
-                pricing={pricing}
-                nights={nights}
-                guests={stay.guests}
-                editable={true}
-                overrideValue={totalOverride}
-                onOverrideChange={setTotalOverride}
-                onTaxesIncludedChange={setTaxesIncluded}
-              />
-            </div>
+            {/* Inline breakdown hidden on mobile — sticky footer renders editable version. */}
           </div>
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
