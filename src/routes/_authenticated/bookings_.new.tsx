@@ -14,6 +14,8 @@ import {
 } from "@/components/line-items-editor";
 import { getRoomRate } from "@/lib/mock-data";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
+import { PricingBreakdownCard } from "@/components/pricing-breakdown";
+import { lineSubtotal } from "@/components/line-items-editor";
 import { NumField } from "@/components/num-field";
 import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
@@ -152,13 +154,20 @@ function NewBooking() {
   }, [fromQuoteId, qItems]);
 
   // Live totals — shared pricing engine (mirrors Quotes 1:1).
-  const pricing = useMemo(() => {
+  const { pricing, roomCharges, extraCharges } = useMemo(() => {
     const rate = getRoomRate(stay.room_type, stay.breakfast_included);
     const primary = primaryToLineItem(stay, rate);
-    return computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE);
+    const all = [primary, ...extras];
+    const p = computePricing(all, Number(stay.discount) || 0, DEFAULT_TAX_RATE);
+    return {
+      pricing: p,
+      roomCharges: lineSubtotal(primary),
+      extraCharges: extras.reduce((s, i) => s + lineSubtotal(i), 0),
+    };
   }, [stay, extras]);
   const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid || 0));
+
 
   // Reset the customer link entirely (P3 — Change button reopens search fresh)
   const unlinkCustomer = () => {
@@ -338,20 +347,21 @@ function NewBooking() {
           </div>
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
-            <div className="luxe-card rounded-xl p-5">
-              <h4 className="font-display text-lg mb-3">Booking Summary</h4>
-              <SummaryRow label="Items Total" value={pricing.itemsTotal} />
-              {pricing.discount > 0 && <SummaryRow label="Discount" value={-pricing.discount} />}
-              <SummaryRow label="Taxable Amount" value={pricing.subtotal} />
-              <SummaryRow label={`Taxes (${Math.round(pricing.taxRate * 100)}%)`} value={pricing.taxes} />
-              <SummaryRow label="Total Amount" value={amount} />
-              <SummaryRow label="Advance Paid" value={-Number(advancePaid)} mute={!advancePaid} />
-              <div className="luxe-divider my-3" />
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-muted-foreground">Balance</span>
-                <span className="font-display text-2xl gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
+            <PricingBreakdownCard
+              roomCharges={roomCharges}
+              extraCharges={extraCharges}
+              pricing={pricing}
+            />
+            {advancePaid > 0 && (
+              <div className="luxe-card rounded-xl p-5">
+                <SummaryRow label="Advance Paid" value={-Number(advancePaid)} />
+                <div className="luxe-divider my-2" />
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-muted-foreground">Balance</span>
+                  <span className="font-display text-2xl gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
+                </div>
               </div>
-            </div>
+            )}
             <button onClick={() => save.mutate()} disabled={save.isPending || !stay.guest_name.trim()}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] disabled:opacity-60">
               {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
