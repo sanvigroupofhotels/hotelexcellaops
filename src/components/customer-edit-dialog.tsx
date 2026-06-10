@@ -4,6 +4,7 @@ import { X, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { updateCustomer, createCustomer, type CustomerRow } from "@/lib/customers-api";
 import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
+import { useMasterData } from "@/hooks/use-master-data";
 import { cn } from "@/lib/utils";
 
 const inputCls =
