@@ -14,6 +14,8 @@ import {
 } from "@/components/line-items-editor";
 import { getRoomRate } from "@/lib/mock-data";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
+import { PricingBreakdownCard } from "@/components/pricing-breakdown";
+import { lineSubtotal } from "@/components/line-items-editor";
 import { NumField } from "@/components/num-field";
 import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
