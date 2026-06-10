@@ -1,13 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { supabase } from "@/integrations/supabase/client";
 import { listBookings } from "@/lib/bookings-api";
 import { useUserRole } from "@/hooks/use-role";
 import { downloadCSV } from "@/lib/csv";
-import { PAYMENT_MODES } from "@/lib/booking-payments-api";
-import { Loader2, Download, Search, IndianRupee, Wallet, CreditCard, Globe, Banknote } from "lucide-react";
+import { PAYMENT_MODES, deleteBookingPayment, type BookingPaymentRow } from "@/lib/booking-payments-api";
+import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Loader2, Download, Search, IndianRupee, Wallet, CreditCard, Globe, Banknote, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -26,6 +31,7 @@ async function listAllBookingPayments() {
 
 function PaymentsReportsPage() {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
+  const qc = useQueryClient();
 
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(); monthStart.setDate(1);
@@ -35,6 +41,8 @@ function PaymentsReportsPage() {
   const [bookingRef, setBookingRef] = useState("");
   const [mode, setMode] = useState("All");
   const [collectedBy, setCollectedBy] = useState("");
+  const [editPayment, setEditPayment] = useState<BookingPaymentRow | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: payments = [], isLoading: lp } = useQuery({
     queryKey: ["all-booking-payments"],
