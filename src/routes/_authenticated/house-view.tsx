@@ -65,7 +65,10 @@ function HouseView() {
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
-  const { data: blocks = [] } = useQuery({ queryKey: ["room_maintenance"], queryFn: listMaintenance });
+  const { data: blocks = [] } = useQuery({
+    queryKey: ["room_maintenance", "active"],
+    queryFn: async () => (await listMaintenance()).filter((m: any) => m.active !== false),
+  });
   // All booking items (for breakfast lookup keyed by booking_id)
   const { data: allItems = [] } = useQuery({
     queryKey: ["booking-items-all"],
