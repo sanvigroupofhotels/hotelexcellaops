@@ -243,7 +243,7 @@ function ExportCustomersDialog({ open, onOpenChange, customers }: {
           <div>
             <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Tags</span>
             <div className="flex flex-wrap gap-1.5">
-              {DEFAULT_TAGS.map((t) => {
+              {tags.map((t) => {
                 const active = tagFilter.includes(t);
                 return (
                   <button key={t} onClick={() => toggleTag(t)}
