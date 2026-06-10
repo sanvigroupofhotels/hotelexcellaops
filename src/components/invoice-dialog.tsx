@@ -212,14 +212,33 @@ export function InvoiceDialog({
                 </tr>
               </thead>
               <tbody>
-                {items.length > 0 ? items.map((it) => (
-                  <tr key={it.id} className="border-b border-border/50">
-                    <td className="py-2">{it.room_type}{it.rooms > 1 ? ` × ${it.rooms}` : ""}{!it.breakfast_included ? "" : " (incl. breakfast)"}</td>
-                    <td className="py-2 text-center tabular-nums">{it.nights}</td>
-                    <td className="py-2 text-right tabular-nums">{inr(it.rate)}</td>
-                    <td className="py-2 text-right tabular-nums">{inr(Number(it.subtotal))}</td>
-                  </tr>
-                )) : (
+                {items.length > 0 ? (
+                  <>
+                    {items.map((it) => (
+                      <tr key={it.id} className="border-b border-border/50">
+                        <td className="py-2">{it.room_type}{it.rooms > 1 ? ` × ${it.rooms}` : ""}{it.breakfast_included ? " (incl. breakfast)" : ""}</td>
+                        <td className="py-2 text-center tabular-nums">{it.nights}</td>
+                        <td className="py-2 text-right tabular-nums">{inr(it.rate)}</td>
+                        <td className="py-2 text-right tabular-nums">{inr(Number(it.rate) * it.nights * (it.rooms || 1))}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-b border-border/50">
+                      <td className="py-2 font-medium" colSpan={3}>Main Stay Charges</td>
+                      <td className="py-2 text-right tabular-nums">{inr(mainStay)}</td>
+                    </tr>
+                    {extraLines.length > 0 && (
+                      <tr className="border-b border-border/50">
+                        <td className="py-2 font-medium pt-3" colSpan={4}>Additional Stay Charges</td>
+                      </tr>
+                    )}
+                    {extraLines.map((ex, i) => (
+                      <tr key={`ex-${i}`} className="border-b border-border/50">
+                        <td className="py-1.5 pl-4 text-muted-foreground" colSpan={3}>– {ex.label}</td>
+                        <td className="py-1.5 text-right tabular-nums">{inr(ex.value)}</td>
+                      </tr>
+                    ))}
+                  </>
+                ) : (
                   <tr className="border-b border-border/50">
                     <td className="py-2">{booking.room_details || "Room Charges"}</td>
                     <td className="py-2 text-center tabular-nums">{booking.nights}</td>
@@ -227,9 +246,8 @@ export function InvoiceDialog({
                     <td className="py-2 text-right tabular-nums">{inr(total)}</td>
                   </tr>
                 )}
-                {/* Breakdown rows: Room Charges + Extras = Subtotal − Discount = Taxable + Taxes = Total */}
                 <tr className="border-b border-border/50">
-                  <td className="py-2" colSpan={3}>Room Charges + Extra Charges (Subtotal)</td>
+                  <td className="py-2 font-medium" colSpan={3}>Subtotal</td>
                   <td className="py-2 text-right tabular-nums">{inr(itemsTotal)}</td>
                 </tr>
                 {discount > 0 && (
