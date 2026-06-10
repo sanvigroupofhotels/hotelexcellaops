@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
+import { lineSubtotal } from "@/components/line-items-editor";
 import { listRooms } from "@/lib/rooms-api";
 import { toast } from "sonner";
 
