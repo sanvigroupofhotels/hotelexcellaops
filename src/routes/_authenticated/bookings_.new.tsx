@@ -154,13 +154,20 @@ function NewBooking() {
   }, [fromQuoteId, qItems]);
 
   // Live totals — shared pricing engine (mirrors Quotes 1:1).
-  const pricing = useMemo(() => {
+  const { pricing, roomCharges, extraCharges } = useMemo(() => {
     const rate = getRoomRate(stay.room_type, stay.breakfast_included);
     const primary = primaryToLineItem(stay, rate);
-    return computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE);
+    const all = [primary, ...extras];
+    const p = computePricing(all, Number(stay.discount) || 0, DEFAULT_TAX_RATE);
+    return {
+      pricing: p,
+      roomCharges: lineSubtotal(primary),
+      extraCharges: extras.reduce((s, i) => s + lineSubtotal(i), 0),
+    };
   }, [stay, extras]);
   const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid || 0));
+
 
   // Reset the customer link entirely (P3 — Change button reopens search fresh)
   const unlinkCustomer = () => {
