@@ -59,19 +59,29 @@ export async function deleteRateOverride(room_type: string, date: string) {
   if (error) throw error;
 }
 
-/** Bulk apply: writes one override per date in [from, to] for each room_type. */
-export async function bulkApplyOverrides(input: { room_types: string[]; from: string; to: string; rate: number; note?: string }) {
+/**
+ * Bulk apply: writes one override per date in [from, to] (inclusive) for a single room_type.
+ *
+ * Uses pure string arithmetic on YYYY-MM-DD so timezone has zero effect on the
+ * date list — a known-good approach that fixes the prior off-by-one where
+ * `new Date("YYYY-MM-DD")` parsed as UTC could shift the produced keys.
+ */
+function addDaysISO(ymd: string, days: number): string {
+  // Parse as UTC to avoid local-tz drift, then reformat.
+  const [y, m, d] = ymd.split("-").map(Number);
+  const t = Date.UTC(y, m - 1, d) + days * 86400000;
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+export async function bulkApplyOverrides(input: { room_type: string; from: string; to: string; rate: number; note?: string }) {
   const { data: { user } } = await supabase.auth.getUser();
+  if (input.to < input.from) throw new Error("Invalid date range");
   const rows: any[] = [];
-  const start = new Date(input.from);
-  const end = new Date(input.to);
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const key = d.toISOString().slice(0, 10);
-    for (const rt of input.room_types) {
-      rows.push({ room_type: rt, date: key, rate: input.rate, note: input.note ?? null, created_by: user?.id });
-    }
+  for (let key = input.from; key <= input.to; key = addDaysISO(key, 1)) {
+    rows.push({ room_type: input.room_type, date: key, rate: input.rate, note: input.note ?? null, created_by: user?.id });
   }
   if (rows.length === 0) return;
   const { error } = await supabase.from("rate_overrides" as any).upsert(rows, { onConflict: "room_type,date" });
   if (error) throw error;
 }
+
