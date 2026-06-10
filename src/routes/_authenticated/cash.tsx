@@ -679,7 +679,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
           <Field label={kind==="collection"?"Collection Type":"Expense Type"} required>
             <select className={inputCls} value={typeName} onChange={e=>setTypeName(e.target.value)}>
               {kind==="collection"
-                ? COLLECTION_TYPES.map(t => <option key={t}>{t}</option>)
+                ? incomeTypes.map(t => <option key={t}>{t}</option>)
                 : etypes.map(t => <option key={t.id}>{t.name}</option>)}
             </select>
           </Field>
