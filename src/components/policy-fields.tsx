@@ -123,8 +123,10 @@ export function PolicyFields({
                   key={p.value}
                   type="button"
                   onClick={() => {
-                    update("pet_size", p.value as PetSize);
-                    update("pet_charges", p.value !== "none");
+                    applyMany({
+                      pet_size: p.value as PetSize,
+                      pet_charges: p.value !== "none",
+                    });
                   }}
                   className={cn(
                     "rounded-md border px-2 py-2 text-xs transition text-left",
