@@ -95,7 +95,7 @@ function GenerateQuote() {
     early_check_in: false, early_check_in_slot: null,
     late_check_out: false, late_check_out_slot: null,
     pet_charges: false, extra_adults: 0, drivers: 0,
-    breakfast_included: true, extra_breakfast_guests: 0,
+    breakfast_included: false, extra_breakfast_guests: 0,
     discount: 0, internal_notes: "",
     payment_status: "None", booking_probability: 50, lost_reason: null,
   });
