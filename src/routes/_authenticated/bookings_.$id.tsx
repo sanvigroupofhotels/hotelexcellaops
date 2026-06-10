@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, setBookingStatus, deleteBooking } from "@/lib/bookings-api";
 import { listBookingPayments, deleteBookingPayment, type BookingPaymentRow } from "@/lib/booking-payments-api";
 import { listBookingPaymentActivities } from "@/lib/booking-payment-activities-api";
+import { listBookingActivities, logBookingActivity } from "@/lib/booking-activities-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { InvoiceDialog } from "@/components/invoice-dialog";
 import { WhatsAppMenu, type WhatsAppTemplate } from "@/components/whatsapp-menu";
@@ -24,10 +25,11 @@ import {
   checkOutThankYouMessage, bookingWhatsAppLink,
 } from "@/lib/booking-messages";
 import { waLink } from "@/lib/quote-messages";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ArrowLeft, Loader2, Trash2, Phone, Mail, User, Copy,
   Wallet, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
-  FileText, History,
+  FileText, History, RotateCcw, AlertTriangle, MoreVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
