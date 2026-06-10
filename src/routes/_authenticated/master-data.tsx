@@ -125,6 +125,9 @@ function Content() {
       {cat && cat.kind === "name" && (
         <NameMasterEditor masterKey={cat.key} title={cat.label} placeholder={cat.placeholder} />
       )}
+      {cat && cat.kind === "settings" && cat.key === "payment_settings" && (
+        <PaymentSettingsEditor />
+      )}
 
       {/* Deep-links to dedicated CRUD pages */}
       {group.deepLinks && group.deepLinks.length > 0 && (
