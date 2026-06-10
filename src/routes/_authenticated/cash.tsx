@@ -13,6 +13,7 @@ import {
 } from "@/lib/cash-api";
 import { listBookings } from "@/lib/bookings-api";
 import { toast } from "sonner";
+import { useMasterData } from "@/hooks/use-master-data";
 import {
   Plus, Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Search, X,
   Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download, Printer,
@@ -597,6 +598,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
   const qc = useQueryClient();
   const { data: staff = [] } = useQuery({ queryKey: ["staff","active"], queryFn: () => listStaff(true) });
   const { data: etypes = [] } = useQuery({ queryKey: ["etypes","active"], queryFn: () => listExpenseTypes(true) });
+  const { values: incomeTypes } = useMasterData("income_category", [...COLLECTION_TYPES]);
   const { data: bookings = [] } = useQuery({
     queryKey: ["bookings-cash-pick"],
     queryFn: listBookings,
@@ -604,7 +606,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
   });
 
   const isEdit = !!edit;
-  const [typeName, setTypeName] = useState<string>(edit?.type_name ?? (kind === "collection" ? COLLECTION_TYPES[0] : (etypes[0]?.name ?? "")));
+  const [typeName, setTypeName] = useState<string>(edit?.type_name ?? (kind === "collection" ? (incomeTypes[0] ?? COLLECTION_TYPES[0]) : (etypes[0]?.name ?? "")));
   const [description, setDescription] = useState(edit?.description ?? "");
   const [guestName, setGuestName] = useState(edit?.guest_name ?? "");
   const [guestMobile, setGuestMobile] = useState(edit?.guest_mobile ?? "");
@@ -677,7 +679,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
           <Field label={kind==="collection"?"Collection Type":"Expense Type"} required>
             <select className={inputCls} value={typeName} onChange={e=>setTypeName(e.target.value)}>
               {kind==="collection"
-                ? COLLECTION_TYPES.map(t => <option key={t}>{t}</option>)
+                ? incomeTypes.map(t => <option key={t}>{t}</option>)
                 : etypes.map(t => <option key={t.id}>{t.name}</option>)}
             </select>
           </Field>

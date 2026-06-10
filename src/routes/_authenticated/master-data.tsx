@@ -63,7 +63,6 @@ const GROUPS: GroupDef[] = [
     label: "Complaints",
     categories: [
       { kind: "name", key: "complaint_categories", label: "Complaint Categories", placeholder: "e.g. Plumbing" },
-      { kind: "lookup", key: "complaint_status", label: "Complaint Statuses", placeholder: "e.g. Pending Vendor" },
     ],
   },
 ];

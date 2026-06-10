@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createBookingPayment, updateBookingPayment, PAYMENT_MODES, type BookingPaymentRow } from "@/lib/booking-payments-api";
 import { listStaff } from "@/lib/cash-api";
+import { useMasterData } from "@/hooks/use-master-data";
 import { toast } from "sonner";
 
 /**
@@ -21,8 +22,9 @@ export function AddBookingPaymentModal({
   const qc = useQueryClient();
   const isEdit = !!payment;
   const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
+  const { values: paymentModes } = useMasterData("payment_method", [...PAYMENT_MODES]);
   const [amount, setAmount] = useState<number>(payment ? Number(payment.amount) : Math.max(0, maxAmount));
-  const [mode, setMode] = useState<string>(payment?.payment_mode ?? PAYMENT_MODES[0]);
+  const [mode, setMode] = useState<string>(payment?.payment_mode ?? paymentModes[0] ?? PAYMENT_MODES[0]);
   const [collectedBy, setCollectedBy] = useState<string>(payment?.collected_by ?? "");
   const [occurredAt, setOccurredAt] = useState<string>(() => {
     const d = payment ? new Date(payment.occurred_at) : new Date();
@@ -72,7 +74,7 @@ export function AddBookingPaymentModal({
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Mode *</span>
             <select value={mode} onChange={(e) => setMode(e.target.value)}
               className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-              {PAYMENT_MODES.map((m) => <option key={m}>{m}</option>)}
+              {paymentModes.map((m) => <option key={m}>{m}</option>)}
             </select>
           </label>
           <label className="col-span-2 block">
