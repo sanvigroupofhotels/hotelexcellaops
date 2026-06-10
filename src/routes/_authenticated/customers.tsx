@@ -237,7 +237,7 @@ function ExportCustomersDialog({ open, onOpenChange, customers }: {
             <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Source</span>
             <select value={source} onChange={(e) => setSource(e.target.value)} className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
               <option value="All">All sources</option>
-              {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+              {leadSources.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
           <div>
