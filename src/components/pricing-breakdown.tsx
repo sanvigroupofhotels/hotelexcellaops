@@ -209,10 +209,18 @@ export function StickyPricingFooter({
   pricing,
   actions,
   className,
+  editable,
+  overrideValue,
+  onOverrideChange,
+  onTaxesIncludedChange,
 }: {
   pricing: PricingBreakdown;
   actions?: React.ReactNode;
   className?: string;
+  editable?: boolean;
+  overrideValue?: number | null;
+  onOverrideChange?: (v: number | null) => void;
+  onTaxesIncludedChange?: (v: boolean) => void;
 }) {
   return (
     <div
@@ -222,7 +230,15 @@ export function StickyPricingFooter({
       )}
     >
       <div className="max-w-[1400px] mx-auto p-3 space-y-2">
-        <PricingBreakdownCard pricing={pricing} defaultOpen={false} className="!p-3" />
+        <PricingBreakdownCard
+          pricing={pricing}
+          defaultOpen={false}
+          className="!p-3"
+          editable={editable}
+          overrideValue={overrideValue}
+          onOverrideChange={onOverrideChange}
+          onTaxesIncludedChange={onTaxesIncludedChange}
+        />
         {actions}
       </div>
     </div>
