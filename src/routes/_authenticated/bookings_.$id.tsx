@@ -8,7 +8,7 @@ import { listBookingPaymentActivities } from "@/lib/booking-payment-activities-a
 import { listBookingActivities, logBookingActivity } from "@/lib/booking-activities-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { InvoiceDialog } from "@/components/invoice-dialog";
-import { WhatsAppMenu, type WhatsAppTemplate } from "@/components/whatsapp-menu";
+import { type WhatsAppTemplate } from "@/components/whatsapp-menu";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
