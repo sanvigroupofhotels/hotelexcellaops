@@ -1,90 +1,66 @@
-## Scope
+# PMS Stabilization Sprint
 
-Two P1 stability fixes, then the remaining approved items from prior sprints. Keep all existing tables/triggers/dropdowns intact — only UI consolidation under Master Data.
+Guest Portal / Razorpay is parked. This sprint focuses purely on PMS items, sequenced so each slice is shippable and testable before the next begins.
 
----
+## Slice 1 — Pricing & Booking/Quote UX (highest impact, blocks daily ops)
 
-## P1 #1 — Booking Detail page React error #310 (intermittent "Something didn't load")
+**Schema (single migration):**
+- `ALTER TABLE bookings ADD COLUMN taxes_included boolean NOT NULL DEFAULT false, ADD COLUMN total_override numeric NULL;`
+- `ALTER TABLE quotes ADD COLUMN taxes_included boolean NOT NULL DEFAULT false, ADD COLUMN total_override numeric NULL;`
 
-**Diagnosis**: Error #310 = "Rendered more hooks than during the previous render" — hook order changes between renders. Most likely cause in `bookings_.$id.tsx`: early `return` on loading/error happens **after** other hooks in some paths, or a conditional hook later in the 881-line component. The `useState`/`useMutation`/`useQuery` block at the top is fine, but the lower JSX has conditional `Route.useLoaderData`/derived logic that may bail before later hooks run on first paint after create/save.
+**Pricing engine (`src/lib/pricing.ts`):**
+- Accept optional `{ totalOverride, taxesIncluded }`.
+- When `totalOverride` set + `taxesIncluded=false` → taxes = round(override × rate / (1+rate)) reverse-calc; total stays at override.
+- When `totalOverride` set + `taxesIncluded=true` → taxes = round((override × rate) / 1), total = override + taxes (treat override as net) — confirm with user; default = override is gross.
+- Add `overrideApplied: boolean` to `PricingBreakdown`.
 
-**Fix**:
-- Audit `src/routes/_authenticated/bookings_.$id.tsx` for any early `return` (e.g. `if (isLoading) return …` or `if (!b) return …`) placed before the last hook call. Move all hook calls to the top of the function so they always execute.
-- Wrap the route in an `errorComponent` + `notFoundComponent` so the user gets graceful retry instead of a blank "Something didn't load".
-- Add `useAuthReady`-style gate: defer `useQuery` `enabled` flags until session is restored, to avoid mid-render auth flip on freshly-created bookings (the Lovable Stack Overflow pattern shown in context).
-- Ensure `invalidateAll()` after create/save invalidates the new booking's queryKey rather than navigating to a not-yet-cached id.
+**UI:**
+- `src/components/pricing-breakdown.tsx`: editable Total field (admin/manager only via `useUserRole`), "Taxes Included" toggle, "Override" badge when active, "Reset to computed" link.
+- Wire into New Booking, Edit Booking, New Quote, Edit Quote save handlers; persist `total_override` + `taxes_included`.
+- Audit `line-items-editor.tsx` extras toggles — confirm each toggle (early CI, late CO, pet, extra adults, drivers) mutates only its own row's state, not shared.
 
----
+## Slice 2 — Master Data hub completion + Rates/House polish
 
-## P1 #2 — Guest Portal "Link expired or invalid"
+**Master Data tabs (`master-data.tsx`):**
+- Add Rooms tab: deep-link to `/rooms` (already exists) + inline list (read-only summary).
+- Rates tab: deep-link to `/rates` + show current `room_rates` rows inline (read-only).
+- Staff tab: pulls from `staff` table — inline CRUD via existing cash API helpers, gated to admin.
+- Expense Types tab: inline CRUD against `expense_types` table.
+- Complaint Categories tab: inline CRUD against `complaint_categories` table.
+- Keep existing lookup categories (lead_source, tag, payment_method, income_category, complaint_status).
 
-**Diagnosis**: `publicOrigin()` now points at `https://hotelexcellaops.lovable.app` which serves the **published** build. If the user hasn't republished since the portal route was added, the published bundle 404s on `/portal/$token` (TanStack returns notFoundComponent → "Link expired"). Token insert/read path is correct.
+**Rates & Inventory (`rates.tsx`):**
+- Verify Bulk Apply 11→14 produces 11,12,13,14 (already fixed string-arithmetic; add inclusive-day count chip "X days will be updated").
+- Single room-type select for Bulk Apply (no multi-room confusion).
+- Mobile: stack controls vertically <640px, sticky Apply button.
 
-**Fix**:
-- Verify `booking_tokens` row is actually created (the `issueBookingToken` server fn looks correct; double-check by reading a row right after share). Add server-side `console.log` of inserted token + lookup result so logs surface the real reason in `server-function-logs`.
-- Differentiate "invalid token" vs "expired" vs "revoked" in `getPortalBooking` error messages so the portal UI shows the actual cause (not always "expired").
-- Prompt user to **republish** so `/portal/$token` exists on `hotelexcellaops.lovable.app`. If they prefer not to republish on every share, fall back `publicOrigin()` to `window.location.origin` for `id-preview` host (preview host is auth-gated, but they can manually test in the same browser session where they're logged in).
+**House View (`house-view.tsx`):**
+- Date column separation (Check-in / Check-out as two columns, not one).
+- Breakfast indicator badge per booking row.
+- House Overview stats card (rooms occupied / available / arrivals / departures today).
+- Room-assignment conflict guard: when picking a room for assignment, hide rooms with overlapping confirmed bookings + show toast if conflict.
 
----
+## Slice 3 — CashBook role split + reports
 
-## Remaining approved items (UI/feature work; no FK or trigger changes)
+**CashBook (`cash.tsx`):**
+- Staff view: gate Owner/Paid-To-Owner columns behind `useUserRole` === admin.
+- Admin reports panel: monthly totals, paid-to-owner totals, CSV export (already have `csv.ts`), PDF export via existing invoice-dialog print pattern.
+- Activities log unchanged.
 
-### Master Data hub — UI consolidation only
-- Add tabs/sections in `master-data.tsx` for: Rooms (deep-link existing /rooms), Rates & Inventory (deep-link /rates), CashBook Staff (deep-link /cash staff tab), Expense Types (inline editor on `expense_types` table), Complaint Categories (inline editor on `complaint_categories` table), Booking Settings → Payment Settings (new).
-- Reuse `CategoryEditor` pattern for `expense_types` and `complaint_categories` via a small `useTableMasterData(tableName)` helper. No schema change.
-
-### Global Payment Settings (new)
-- New `app_settings` table (singleton row) with: `allow_full_payment`, `allow_part_payment`, `default_part_payment_percent`, `allow_pay_at_hotel`. Admin-only write, authenticated read.
-- New `usePaymentSettings()` hook reading the row.
-- Wire into: New Booking form (defaults for part_payment_type/value), Guest Portal payment options (hide disabled methods), Edit Booking (override allowed).
-
-### Bookings/Quotes — Extras + Editable Total + Taxes Included
-- Audit `line-items-editor.tsx` extras toggles (Early Check-In, Late Check-Out, Pet Stay, Extra Adults, Driver Stay) — confirm each updates only its own row.
-- Add `taxes_included boolean` + `total_override numeric` columns to `bookings` and `quotes` (nullable).
-- `pricing.ts`: when `total_override` is set, back-compute subtotal from it (respecting `taxes_included`).
-- Pricing breakdown shows override badge.
-
-### Rates & Inventory
-- Already fixed string-based Bulk Apply. Verify with a UAT test (11→14 produces exactly 11,12,13,14).
-- Single room type select already in place — confirm UI.
-- Mobile UX polish (vertical form, swipeable cards).
-
-### House View
-- Date column separation, breakfast indicators, House Overview stats.
-- Room-assignment conflict rules — `room-assignment-field.tsx` hides Occupied/Blocked rooms; shows future-assigned with warning toast.
-
-### CashBook
-- Staff view restricted via `useUserRole`.
-- Admin reports: Paid To Owner totals, CSV/PDF exports (reuse existing CSV helpers).
-
----
-
-## Database migrations
-
-1. `app_settings` singleton (id text default 'global', columns above, RLS: read for authenticated, write for admin via `has_role`).
-2. ALTER `bookings` + `quotes` ADD COLUMN `taxes_included boolean DEFAULT false`, `total_override numeric NULL`.
-
-No changes to existing triggers, FKs, or dropdown wiring.
-
----
+## Out of scope (parked)
+- Guest Portal / Razorpay (lowest priority per user)
+- Global Payment Settings table (defer until Portal returns)
+- New auth flows, visual redesigns
 
 ## Execution order
+1. Slice 1 migration → engine → UI wiring → smoke test on Bookings + Quotes.
+2. Slice 2 Master Data tabs → Rates polish → House View polish.
+3. Slice 3 CashBook role split + reports.
 
-1. P1 #1 hook fix + errorComponent on booking detail.
-2. P1 #2 — add diagnostic logs + better error messages; instruct republish.
-3. Migrations (app_settings, taxes_included, total_override).
-4. Payment Settings UI + wiring.
-5. Master Data hub tabs (expense_types, complaint_categories, deep-links).
-6. Extras audit + editable Total + Taxes Included checkbox.
-7. House View polish + room-assignment rules.
-8. CashBook role split + exports.
+I'll ship Slice 1 in the next turn, report back with UAT scenarios, then move to Slice 2.
 
----
-
-## Out of scope
-
-- Razorpay live keys / webhook hardening beyond what's shipped.
-- New auth flows.
-- Visual redesigns not listed.
-
-This is a **large** pass. Realistic risk: items 5–8 may need a follow-up turn. P1s + migrations + items 3–4 will land first to keep the system stable.
+## Technical details
+- Migration uses ALTER TABLE only — no FK/trigger changes, dropdowns unchanged.
+- All UI changes preserve existing component signatures; only additive props.
+- `useUserRole` already exists at `src/hooks/use-role.ts` — reused everywhere.
+- Realtime invalidation via existing `useRealtimeInvalidate` for new master tables.

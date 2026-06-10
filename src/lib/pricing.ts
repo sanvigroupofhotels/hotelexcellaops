@@ -8,6 +8,15 @@
  *   Subtotal/Taxable  = Items Total − Discount      (cannot go below 0)
  *   Taxes             = round(Subtotal × tax_rate)  (default 5%)
  *   Total             = Subtotal + Taxes
+ *
+ * Override model:
+ *   When `totalOverride` is provided, the staff-entered figure becomes the
+ *   Final Booking Amount. `taxesIncluded` controls whether the override is
+ *   treated as gross (taxes already in it) or net (tax-exclusive).
+ *     - taxesIncluded=true  → subtotal = override / (1+rate); taxes = override - subtotal; total = override
+ *     - taxesIncluded=false → subtotal = override;            taxes = round(override × rate); total = subtotal + taxes
+ *   Discount, itemsTotal, mainStayCharges, additionalStayCharges remain the
+ *   raw computed values so the UI can show the override badge cleanly.
  */
 import { lineItemsTotal, lineSubtotal, nightsOf, type LineItem } from "@/components/line-items-editor";
 import { EARLY_CHECK_IN_SLOTS, LATE_CHECK_OUT_SLOTS, PET_RATES, EXTRA_ADULT_RATE, DRIVER_RATE } from "@/lib/mock-data";
@@ -29,6 +38,17 @@ export interface PricingBreakdown {
   additionalStayCharges: number;
   /** Itemized breakdown of additional charges (for detailed display). */
   additionalLineItems: { label: string; value: number }[];
+  /** True when staff has manually overridden the Final Amount. */
+  overrideApplied: boolean;
+  /** True when override was entered as tax-inclusive (gross). */
+  taxesIncluded: boolean;
+}
+
+export interface PricingOptions {
+  /** Manual override of the Final Booking Amount. null/undefined = use computed. */
+  totalOverride?: number | null;
+  /** Whether `totalOverride` already includes taxes. Ignored when override is null. */
+  taxesIncluded?: boolean;
 }
 
 /** Per-line room×nights subtotal, excluding all extras. */
@@ -63,6 +83,7 @@ export function computePricing(
   items: LineItem[],
   discount: number = 0,
   taxRate: number = DEFAULT_TAX_RATE,
+  options: PricingOptions = {},
 ): PricingBreakdown {
   const itemsTotal = lineItemsTotal(items);
   let mainStayCharges = 0;
@@ -77,13 +98,40 @@ export function computePricing(
   const additionalStayCharges = additionalLineItems.reduce((s, x) => s + x.value, 0);
 
   const safeDiscount = Math.max(0, Number(discount) || 0);
-  const subtotal = Math.max(0, itemsTotal - safeDiscount);
   const safeTaxRate = Math.max(0, Number(taxRate) || 0);
-  const taxes = Math.round(subtotal * safeTaxRate);
-  const total = subtotal + taxes;
+
+  const overrideRaw = options.totalOverride;
+  const hasOverride =
+    overrideRaw !== null && overrideRaw !== undefined && Number.isFinite(Number(overrideRaw));
+  const taxesIncluded = !!options.taxesIncluded;
+
+  let subtotal: number;
+  let taxes: number;
+  let total: number;
+
+  if (hasOverride) {
+    const ov = Math.max(0, Number(overrideRaw));
+    if (taxesIncluded) {
+      // Reverse calculation — override is gross.
+      subtotal = Math.round(ov / (1 + safeTaxRate));
+      taxes = Math.max(0, ov - subtotal);
+      total = ov;
+    } else {
+      // Override is net — taxes added on top.
+      subtotal = ov;
+      taxes = Math.round(ov * safeTaxRate);
+      total = subtotal + taxes;
+    }
+  } else {
+    subtotal = Math.max(0, itemsTotal - safeDiscount);
+    taxes = Math.round(subtotal * safeTaxRate);
+    total = subtotal + taxes;
+  }
+
   return {
     itemsTotal, discount: safeDiscount, subtotal, taxRate: safeTaxRate, taxes, total,
     mainStayCharges, additionalStayCharges, additionalLineItems,
+    overrideApplied: hasOverride, taxesIncluded,
   };
 }
 // Re-export for callers

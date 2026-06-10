@@ -22,6 +22,7 @@ import {
   type SharedStayValue,
 } from "@/components/shared/stay-form-sections";
 import { RoomAssignmentField } from "@/components/room-assignment-field";
+import { useUserRole } from "@/hooks/use-role";
 import { ArrowLeft, Loader2, BedDouble } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -62,6 +63,9 @@ function NewBooking() {
   const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(customerId ?? null);
   const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
   const [forceNew, setForceNew] = useState(false);
+  const [totalOverride, setTotalOverride] = useState<number | null>(null);
+  const [taxesIncluded, setTaxesIncluded] = useState<boolean>(false);
+  const { canManage } = useUserRole();
 
 
   // Prefill customer (?customerId)
@@ -170,14 +174,14 @@ function NewBooking() {
   const { pricing, roomCharges, extraCharges, nights } = useMemo(() => {
     const primary = primaryToLineItem(stay, resolvedRate);
     const all = [primary, ...extras];
-    const p = computePricing(all, Number(stay.discount) || 0, DEFAULT_TAX_RATE);
+    const p = computePricing(all, Number(stay.discount) || 0, DEFAULT_TAX_RATE, { totalOverride, taxesIncluded });
     return {
       pricing: p,
       roomCharges: lineSubtotal(primary),
       extraCharges: extras.reduce((s, i) => s + lineSubtotal(i), 0),
       nights: nightsOf(primary),
     };
-  }, [stay, extras, resolvedRate]);
+  }, [stay, extras, resolvedRate, totalOverride, taxesIncluded]);
   const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid || 0));
 
@@ -239,6 +243,8 @@ function NewBooking() {
         notes: stay.special_requests, internal_notes: stay.internal_notes,
         payment_status: "None",
         lead_source: stay.lead_source || "Direct",
+        total_override: totalOverride,
+        taxes_included: taxesIncluded,
       };
       const b = await createBooking(input);
       const primary = primaryToLineItem(stay, resolvedRate);
@@ -365,6 +371,10 @@ function NewBooking() {
                 pricing={pricing}
                 nights={nights}
                 guests={stay.guests}
+                editable={canManage}
+                overrideValue={totalOverride}
+                onOverrideChange={setTotalOverride}
+                onTaxesIncludedChange={setTaxesIncluded}
               />
             </div>
           </div>
@@ -376,6 +386,10 @@ function NewBooking() {
               pricing={pricing}
               nights={nights}
               guests={stay.guests}
+              editable={canManage}
+              overrideValue={totalOverride}
+              onOverrideChange={setTotalOverride}
+              onTaxesIncludedChange={setTaxesIncluded}
             />
             {advancePaid > 0 && (
               <div className="luxe-card rounded-xl p-5">

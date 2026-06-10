@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { AdminOnly } from "@/components/admin-only";
 import { listMasterData, createMasterData, updateMasterData, deleteMasterData, type MasterDataRow } from "@/lib/master-data-api";
+import { listStaff, createStaff, updateStaff, listExpenseTypes, createExpenseType, updateExpenseType } from "@/lib/cash-api";
+import { listComplaintCategories, createComplaintCategory, updateComplaintCategory } from "@/lib/complaints-api";
 import { Plus, Trash2, Loader2, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -14,28 +16,35 @@ export const Route = createFileRoute("/_authenticated/master-data")({ component:
  * Master Data hub — single source of truth for dropdowns across the app.
  * Grouped by domain. Each sub-tab edits one category.
  *
+ * Two editor flavours:
+ * - CategoryEditor → generic `master_data` rows (value/label/sort_order/active)
+ * - NameMasterEditor → dedicated tables with `{name, active}` (Staff, Expense Types, Complaint Categories)
+ *
  * The hub also surfaces deep-links to existing dedicated masters that already have
- * full CRUD (Rooms, Staff, Expense Types) so users have a single entry point.
+ * full CRUD (Rooms, Rates) so users have a single entry point.
  */
-type CategoryDef = { key: string; label: string; placeholder?: string };
+type LookupDef = { kind: "lookup"; key: string; label: string; placeholder?: string };
+type NameMasterKey = "staff" | "expense_types" | "complaint_categories";
+type NameDef = { kind: "name"; key: NameMasterKey; label: string; placeholder?: string };
+type CategoryDef = LookupDef | NameDef;
 type GroupDef = { label: string; categories: CategoryDef[]; deepLinks?: { label: string; to: string }[] };
 
 const GROUPS: GroupDef[] = [
   {
     label: "Customers",
     categories: [
-      { key: "lead_source", label: "Lead Sources", placeholder: "e.g. Agoda" },
-      { key: "tag", label: "Customer Tags", placeholder: "e.g. VIP" },
+      { kind: "lookup", key: "lead_source", label: "Lead Sources", placeholder: "e.g. Agoda" },
+      { kind: "lookup", key: "tag", label: "Customer Tags", placeholder: "e.g. VIP" },
     ],
   },
   {
     label: "Bookings / Quotes",
     categories: [
-      { key: "payment_method", label: "Payment Methods", placeholder: "e.g. Wallet" },
+      { kind: "lookup", key: "payment_method", label: "Payment Methods", placeholder: "e.g. Wallet" },
     ],
   },
   {
-    label: "Rooms",
+    label: "Rooms & Rates",
     categories: [],
     deepLinks: [
       { label: "Manage Rooms & Inventory", to: "/rooms" },
@@ -45,17 +54,16 @@ const GROUPS: GroupDef[] = [
   {
     label: "CashBook",
     categories: [
-      { key: "income_category", label: "Income Categories", placeholder: "e.g. Donation" },
-    ],
-    deepLinks: [
-      { label: "Manage Expense Types", to: "/cash" },
-      { label: "Manage Staff", to: "/cash" },
+      { kind: "name", key: "staff", label: "Staff", placeholder: "e.g. Ravi Kumar" },
+      { kind: "name", key: "expense_types", label: "Expense Types", placeholder: "e.g. Laundry" },
+      { kind: "lookup", key: "income_category", label: "Income Categories", placeholder: "e.g. Donation" },
     ],
   },
   {
     label: "Complaints",
     categories: [
-      { key: "complaint_status", label: "Complaint Statuses", placeholder: "e.g. Pending Vendor" },
+      { kind: "name", key: "complaint_categories", label: "Complaint Categories", placeholder: "e.g. Plumbing" },
+      { kind: "lookup", key: "complaint_status", label: "Complaint Statuses", placeholder: "e.g. Pending Vendor" },
     ],
   },
 ];
@@ -75,6 +83,8 @@ function Content() {
   const [activeGroup, setActiveGroup] = useState(GROUPS[0].label);
   const group = GROUPS.find((g) => g.label === activeGroup)!;
   const [activeCat, setActiveCat] = useState<string | null>(group.categories[0]?.key ?? null);
+
+  const cat = group.categories.find((c) => c.key === activeCat);
 
   return (
     <div className="px-4 md:px-6 py-5 md:py-8 max-w-[1100px] space-y-5">
@@ -102,12 +112,11 @@ function Content() {
         </div>
       )}
 
-      {activeCat && (
-        <CategoryEditor
-          category={activeCat}
-          title={group.categories.find((c) => c.key === activeCat)?.label ?? activeCat}
-          placeholder={group.categories.find((c) => c.key === activeCat)?.placeholder}
-        />
+      {cat && cat.kind === "lookup" && (
+        <CategoryEditor category={cat.key} title={cat.label} placeholder={cat.placeholder} />
+      )}
+      {cat && cat.kind === "name" && (
+        <NameMasterEditor masterKey={cat.key} title={cat.label} placeholder={cat.placeholder} />
       )}
 
       {/* Deep-links to dedicated CRUD pages */}
@@ -185,6 +194,93 @@ function CategoryEditor({ category, title, placeholder }: { category: string; ti
                 className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Inline CRUD editor for `{ name, active }`-shaped tables (Staff, Expense Types,
+ * Complaint Categories). Deactivation is non-destructive — existing references
+ * keep working, the entry just disappears from new-dropdown options.
+ */
+function NameMasterEditor({ masterKey, title, placeholder }: { masterKey: NameMasterKey; title: string; placeholder?: string }) {
+  const qc = useQueryClient();
+  const queryKey = ["name-master", masterKey];
+
+  const list = async () => {
+    if (masterKey === "staff") return (await listStaff(false)).map((r) => ({ id: r.id, name: r.name, active: r.active, mobile: (r as any).mobile ?? null }));
+    if (masterKey === "expense_types") return (await listExpenseTypes(false)).map((r) => ({ id: r.id, name: r.name, active: r.active, mobile: null }));
+    return (await listComplaintCategories(false)).map((r) => ({ id: r.id, name: r.name, active: r.active, mobile: null }));
+  };
+  const create = async (name: string, mobile?: string) => {
+    if (masterKey === "staff") return createStaff(name, mobile);
+    if (masterKey === "expense_types") return createExpenseType(name);
+    return createComplaintCategory(name);
+  };
+  const update = async (id: string, patch: { name?: string; active?: boolean; mobile?: string | null }) => {
+    if (masterKey === "staff") return updateStaff(id, patch as any);
+    if (masterKey === "expense_types") return updateExpenseType(id, { name: patch.name, active: patch.active });
+    return updateComplaintCategory(id, { name: patch.name, active: patch.active });
+  };
+
+  const { data: rows = [], isLoading } = useQuery({ queryKey, queryFn: list });
+  const [newName, setNewName] = useState("");
+  const [newMobile, setNewMobile] = useState("");
+
+  const createMut = useMutation({
+    mutationFn: () => create(newName.trim(), masterKey === "staff" && newMobile.trim() ? newMobile.trim() : undefined),
+    onSuccess: () => { setNewName(""); setNewMobile(""); qc.invalidateQueries({ queryKey }); toast.success("Added"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const updateMut = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: { name?: string; active?: boolean; mobile?: string | null } }) => update(id, patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey }),
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <div className="luxe-card rounded-xl p-4 md:p-5 space-y-4">
+      <div className="flex items-baseline justify-between gap-2 flex-wrap">
+        <h3 className="font-display text-lg md:text-xl">{title}</h3>
+        <span className="text-[10px] text-muted-foreground">Deactivation hides from new dropdowns; existing records are preserved.</span>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-2">
+        <input className={inputCls} placeholder={placeholder ?? "New entry"} value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) createMut.mutate(); }} />
+        {masterKey === "staff" && (
+          <input className={cn(inputCls, "sm:w-44")} placeholder="Mobile (optional)" value={newMobile}
+            onChange={(e) => setNewMobile(e.target.value)} />
+        )}
+        <button onClick={() => createMut.mutate()} disabled={!newName.trim() || createMut.isPending}
+          className="shrink-0 inline-flex items-center justify-center gap-1.5 gold-gradient text-charcoal rounded-md px-4 py-2 text-xs font-medium disabled:opacity-60">
+          <Plus className="h-3.5 w-3.5" /> Add
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="p-8 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
+      ) : (
+        <div className="rounded-md border border-border divide-y divide-border">
+          {rows.length === 0 && <div className="p-4 text-xs text-muted-foreground text-center">No entries yet.</div>}
+          {rows.map((r) => (
+            <div key={r.id} className="p-2.5 flex flex-wrap items-center gap-2">
+              <input className="flex-1 min-w-[180px] bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm" defaultValue={r.name}
+                onBlur={(e) => { if (e.target.value !== r.name && e.target.value.trim()) updateMut.mutate({ id: r.id, patch: { name: e.target.value.trim() } }); }} />
+              {masterKey === "staff" && (
+                <input className="w-36 bg-input/60 border border-border rounded-md px-2 py-1.5 text-xs" defaultValue={r.mobile ?? ""} placeholder="Mobile"
+                  onBlur={(e) => { const v = e.target.value.trim(); if ((r.mobile ?? "") !== v) updateMut.mutate({ id: r.id, patch: { mobile: v || null } }); }} />
+              )}
+              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <input type="checkbox" className="h-4 w-4 accent-gold" checked={r.active}
+                  onChange={(e) => updateMut.mutate({ id: r.id, patch: { active: e.target.checked } })} />
+                Active
+              </label>
             </div>
           ))}
         </div>

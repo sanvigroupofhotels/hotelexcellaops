@@ -15,6 +15,7 @@ import {
   type SharedStayValue,
 } from "@/components/shared/stay-form-sections";
 import { RoomAssignmentField } from "@/components/room-assignment-field";
+import { useUserRole } from "@/hooks/use-role";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -40,7 +41,10 @@ function EditBooking() {
   const [extras, setExtras] = useState<LineItem[]>([]);
   const [advancePaid, setAdvancePaid] = useState<number>(0);
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [totalOverride, setTotalOverride] = useState<number | null>(null);
+  const [taxesIncluded, setTaxesIncluded] = useState<boolean>(false);
   const [loaded, setLoaded] = useState(false);
+  const { canManage } = useUserRole();
 
   useEffect(() => {
     if (!b || loaded) return;
@@ -56,6 +60,8 @@ function EditBooking() {
     }));
     setAdvancePaid(Number(b.advance_paid ?? 0));
     setRoomId((b as any).room_id ?? null);
+    setTotalOverride((b as any).total_override == null ? null : Number((b as any).total_override));
+    setTaxesIncluded(!!(b as any).taxes_included);
   }, [b, loaded]);
 
   useEffect(() => {
@@ -69,14 +75,14 @@ function EditBooking() {
   const resolvedRate = useResolvedRate(stay.room_type, stay.check_in, stay.check_out, stay.breakfast_included);
   const { pricing, roomCharges, extraCharges, nights } = useMemo(() => {
     const primary = primaryToLineItem(stay, resolvedRate);
-    const p = computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE);
+    const p = computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE, { totalOverride, taxesIncluded });
     return {
       pricing: p,
       roomCharges: lineSubtotal(primary),
       extraCharges: extras.reduce((s, i) => s + lineSubtotal(i), 0),
       nights: nightsOf(primary),
     };
-  }, [stay, extras, resolvedRate]);
+  }, [stay, extras, resolvedRate, totalOverride, taxesIncluded]);
   const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid));
 
@@ -94,6 +100,8 @@ function EditBooking() {
         tax_rate: pricing.taxRate,
         advance_paid: advancePaid, discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
+        total_override: totalOverride,
+        taxes_included: taxesIncluded,
       });
       const primary = primaryToLineItem(stay, resolvedRate);
       await replaceBookingItems(id, [primary, ...extras]);
@@ -158,6 +166,10 @@ function EditBooking() {
                 pricing={pricing}
                 nights={nights}
                 guests={stay.guests}
+                editable={canManage}
+                overrideValue={totalOverride}
+                onOverrideChange={setTotalOverride}
+                onTaxesIncludedChange={setTaxesIncluded}
               />
             </div>
           </div>
@@ -169,6 +181,10 @@ function EditBooking() {
               pricing={pricing}
               nights={nights}
               guests={stay.guests}
+              editable={canManage}
+              overrideValue={totalOverride}
+              onOverrideChange={setTotalOverride}
+              onTaxesIncludedChange={setTaxesIncluded}
             />
             {advancePaid > 0 && (
               <div className="luxe-card rounded-xl p-5">

@@ -38,6 +38,8 @@ export interface BookingRow {
   allow_pay_at_hotel?: boolean;
   part_payment_type?: "percent" | "fixed" | "none";
   part_payment_value?: number;
+  total_override?: number | null;
+  taxes_included?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +68,8 @@ export interface BookingInput {
   status?: BookingStatus;
   payment_status?: string;
   lead_source?: string | null;
+  total_override?: number | null;
+  taxes_included?: boolean;
 }
 
 export function validateBookingInput(b: BookingInput) {

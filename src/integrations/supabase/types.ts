@@ -340,6 +340,8 @@ export type Database = {
           subtotal: number
           tax_rate: number
           taxes: number
+          taxes_included: boolean
+          total_override: number | null
           updated_at: string
           user_id: string
         }
@@ -380,6 +382,8 @@ export type Database = {
           subtotal?: number
           tax_rate?: number
           taxes?: number
+          taxes_included?: boolean
+          total_override?: number | null
           updated_at?: string
           user_id: string
         }
@@ -420,6 +424,8 @@ export type Database = {
           subtotal?: number
           tax_rate?: number
           taxes?: number
+          taxes_included?: boolean
+          total_override?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -1087,7 +1093,9 @@ export type Database = {
           status: Database["public"]["Enums"]["quote_status"]
           subtotal: number
           taxes: number
+          taxes_included: boolean
           total: number
+          total_override: number | null
           updated_at: string
           user_id: string
         }
@@ -1130,7 +1138,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["quote_status"]
           subtotal?: number
           taxes?: number
+          taxes_included?: boolean
           total?: number
+          total_override?: number | null
           updated_at?: string
           user_id: string
         }
@@ -1173,7 +1183,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["quote_status"]
           subtotal?: number
           taxes?: number
+          taxes_included?: boolean
           total?: number
+          total_override?: number | null
           updated_at?: string
           user_id?: string
         }
