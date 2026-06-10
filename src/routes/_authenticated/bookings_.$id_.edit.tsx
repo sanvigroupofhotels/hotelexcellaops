@@ -60,6 +60,8 @@ function EditBooking() {
     }));
     setAdvancePaid(Number(b.advance_paid ?? 0));
     setRoomId((b as any).room_id ?? null);
+    setTotalOverride((b as any).total_override == null ? null : Number((b as any).total_override));
+    setTaxesIncluded(!!(b as any).taxes_included);
   }, [b, loaded]);
 
   useEffect(() => {
