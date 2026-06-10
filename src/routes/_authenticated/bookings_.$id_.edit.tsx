@@ -5,9 +5,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, updateBooking } from "@/lib/bookings-api";
 import { listBookingItems, replaceBookingItems, rowToLineItem } from "@/lib/booking-items-api";
-import { type LineItem } from "@/components/line-items-editor";
+import { type LineItem, lineSubtotal } from "@/components/line-items-editor";
 import { getRoomRate } from "@/lib/mock-data";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
+import { PricingBreakdownCard } from "@/components/pricing-breakdown";
 import { NumField } from "@/components/num-field";
 import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
