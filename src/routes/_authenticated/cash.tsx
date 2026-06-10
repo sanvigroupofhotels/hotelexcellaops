@@ -115,12 +115,16 @@ function CashPage() {
   });
 
   const totals = useMemo(() => {
-    let collected = 0, spent = 0;
+    let collected = 0, spent = 0, ownerPaid = 0;
     for (const t of tx) {
       if (!t.active) continue;
-      if (t.kind === "collection") collected += Number(t.amount); else spent += Number(t.amount);
+      if (t.kind === "collection") collected += Number(t.amount);
+      else {
+        spent += Number(t.amount);
+        if ((t.type_name || "").toLowerCase() === "owner payout") ownerPaid += Number(t.amount);
+      }
     }
-    return { collected, spent, balance: collected - spent };
+    return { collected, spent, balance: collected - spent, ownerPaid };
   }, [tx]);
 
   // Search by remark/notes/description/guest or amount
@@ -137,40 +141,51 @@ function CashPage() {
 
   return (
     <>
-      <Topbar title="CashBook" subtitle="All-time cash collections, expenses & balance" />
+      <Topbar title="CashBook" subtitle={isAdmin ? "All-time cash collections, expenses & balance" : "Current cash balance"} />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-32 lg:pb-8 space-y-6">
-        {/* Tabs */}
-        <div className="flex items-center gap-2 border-b border-border overflow-x-auto">
-          <TabBtn active={tab==="dashboard"} onClick={() => setTab("dashboard")} icon={HistoryIcon}>Dashboard</TabBtn>
-          {isAdmin && <TabBtn active={tab==="staff"} onClick={() => setTab("staff")} icon={UsersIcon}>Staff Master</TabBtn>}
-          {isAdmin && <TabBtn active={tab==="etypes"} onClick={() => setTab("etypes")} icon={ListChecks}>Expense Types</TabBtn>}
-        </div>
+        {/* Tabs — admins only see master data tabs */}
+        {isAdmin && (
+          <div className="flex items-center gap-2 border-b border-border overflow-x-auto">
+            <TabBtn active={tab==="dashboard"} onClick={() => setTab("dashboard")} icon={HistoryIcon}>Dashboard</TabBtn>
+            <TabBtn active={tab==="staff"} onClick={() => setTab("staff")} icon={UsersIcon}>Staff Master</TabBtn>
+            <TabBtn active={tab==="etypes"} onClick={() => setTab("etypes")} icon={ListChecks}>Expense Types</TabBtn>
+          </div>
+        )}
 
         {tab === "dashboard" && (
           <>
-            {/* Top cards — All-time only */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <StatCard label="Total In (+)" value={totals.collected} icon={ArrowDownCircle} tone="success" />
-              <StatCard label="Total Out (-)" value={totals.spent} icon={ArrowUpCircle} tone="danger" />
-              <StatCard label="Net Balance" value={totals.balance} icon={Wallet} tone="gold" />
-            </div>
+            {/* Top cards — admins see In/Out/Balance/Owner-Paid; staff only see Balance */}
+            {isAdmin ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                <StatCard label="Total In (+)" value={totals.collected} icon={ArrowDownCircle} tone="success" />
+                <StatCard label="Total Out (-)" value={totals.spent} icon={ArrowUpCircle} tone="danger" />
+                <StatCard label="Net Balance" value={totals.balance} icon={Wallet} tone="gold" />
+                <StatCard label="Total Paid to Owner" value={totals.ownerPaid} icon={ArrowUpCircle} tone="gold" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1">
+                <StatCard label="Current Cash Balance" value={totals.balance} icon={Wallet} tone="gold" />
+              </div>
+            )}
 
-            {/* Primary actions */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Primary actions — Add Income / Add Expense side-by-side; View Reports admin-only */}
+            <div className={cn("grid gap-3", isAdmin ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2")}>
               <button onClick={()=>setOpenForm({ kind: "collection" })}
                 className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                 style={{ background: "linear-gradient(135deg, oklch(0.65 0.18 150), oklch(0.55 0.18 150))" }}>
-                <ArrowDownCircle className="h-4 w-4"/> Add Cash Collection
+                <ArrowDownCircle className="h-4 w-4"/> Add Income
               </button>
               <button onClick={()=>setOpenForm({ kind: "expense" })}
                 className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                 style={{ background: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.52 0.22 25))" }}>
-                <ArrowUpCircle className="h-4 w-4"/> Add Cash Expense
+                <ArrowUpCircle className="h-4 w-4"/> Add Expense
               </button>
-              <button onClick={() => setReportsOpen(true)}
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-3 text-sm hover:bg-gold-soft/50">
-                📊 View Reports
-              </button>
+              {isAdmin && (
+                <button onClick={() => setReportsOpen(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-3 text-sm hover:bg-gold-soft/50">
+                  📊 View Reports
+                </button>
+              )}
             </div>
 
             {/* Search */}
