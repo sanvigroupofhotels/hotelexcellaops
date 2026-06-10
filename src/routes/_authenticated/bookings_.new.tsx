@@ -243,6 +243,8 @@ function NewBooking() {
         notes: stay.special_requests, internal_notes: stay.internal_notes,
         payment_status: "None",
         lead_source: stay.lead_source || "Direct",
+        total_override: totalOverride,
+        taxes_included: taxesIncluded,
       };
       const b = await createBooking(input);
       const primary = primaryToLineItem(stay, resolvedRate);
