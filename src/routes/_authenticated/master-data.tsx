@@ -26,7 +26,9 @@ export const Route = createFileRoute("/_authenticated/master-data")({ component:
 type LookupDef = { kind: "lookup"; key: string; label: string; placeholder?: string };
 type NameMasterKey = "staff" | "expense_types" | "complaint_categories";
 type NameDef = { kind: "name"; key: NameMasterKey; label: string; placeholder?: string };
-type CategoryDef = LookupDef | NameDef;
+type SettingsKey = "payment_settings";
+type SettingsDef = { kind: "settings"; key: SettingsKey; label: string };
+type CategoryDef = LookupDef | NameDef | SettingsDef;
 type GroupDef = { label: string; categories: CategoryDef[]; deepLinks?: { label: string; to: string }[] };
 
 const GROUPS: GroupDef[] = [
@@ -41,6 +43,12 @@ const GROUPS: GroupDef[] = [
     label: "Bookings / Quotes",
     categories: [
       { kind: "lookup", key: "payment_method", label: "Payment Methods", placeholder: "e.g. Wallet" },
+    ],
+  },
+  {
+    label: "Booking Settings",
+    categories: [
+      { kind: "settings", key: "payment_settings", label: "Payment Settings" },
     ],
   },
   {
