@@ -191,7 +191,8 @@ function BookingDetail() {
   const sharePaymentLink = async () => {
     try {
       const { token } = await issueToken({ data: { booking_id: b.id } });
-      const url = `${window.location.origin}/portal/${token}`;
+      const { publicOrigin } = await import("@/lib/public-url");
+      const url = `${publicOrigin()}/portal/${token}`;
       const text = `Hi ${b.guest_name}, complete your booking ${b.booking_reference} payment securely here: ${url}`;
       try { await navigator.clipboard.writeText(url); toast.success("Payment link copied to clipboard"); } catch { /* noop */ }
       if (b.phone) window.open(bookingWhatsAppLink(b, text), "_blank");
