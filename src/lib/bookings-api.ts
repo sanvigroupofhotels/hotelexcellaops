@@ -66,6 +66,8 @@ export interface BookingInput {
   status?: BookingStatus;
   payment_status?: string;
   lead_source?: string | null;
+  total_override?: number | null;
+  taxes_included?: boolean;
 }
 
 export function validateBookingInput(b: BookingInput) {
