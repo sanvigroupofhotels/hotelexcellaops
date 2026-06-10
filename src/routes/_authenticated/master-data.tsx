@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { AdminOnly } from "@/components/admin-only";
 import { listMasterData, createMasterData, updateMasterData, deleteMasterData, type MasterDataRow } from "@/lib/master-data-api";
+import { getPaymentSettings, setPaymentSettings, DEFAULT_PAYMENT_SETTINGS, type PaymentSettings } from "@/lib/app-settings-api";
 import { listStaff, createStaff, updateStaff, listExpenseTypes, createExpenseType, updateExpenseType } from "@/lib/cash-api";
 import { listComplaintCategories, createComplaintCategory, updateComplaintCategory } from "@/lib/complaints-api";
 import { Plus, Trash2, Loader2, ChevronRight } from "lucide-react";
@@ -26,7 +27,9 @@ export const Route = createFileRoute("/_authenticated/master-data")({ component:
 type LookupDef = { kind: "lookup"; key: string; label: string; placeholder?: string };
 type NameMasterKey = "staff" | "expense_types" | "complaint_categories";
 type NameDef = { kind: "name"; key: NameMasterKey; label: string; placeholder?: string };
-type CategoryDef = LookupDef | NameDef;
+type SettingsKey = "payment_settings";
+type SettingsDef = { kind: "settings"; key: SettingsKey; label: string };
+type CategoryDef = LookupDef | NameDef | SettingsDef;
 type GroupDef = { label: string; categories: CategoryDef[]; deepLinks?: { label: string; to: string }[] };
 
 const GROUPS: GroupDef[] = [
@@ -41,6 +44,12 @@ const GROUPS: GroupDef[] = [
     label: "Bookings / Quotes",
     categories: [
       { kind: "lookup", key: "payment_method", label: "Payment Methods", placeholder: "e.g. Wallet" },
+    ],
+  },
+  {
+    label: "Booking Settings",
+    categories: [
+      { kind: "settings", key: "payment_settings", label: "Payment Settings" },
     ],
   },
   {
@@ -116,6 +125,9 @@ function Content() {
       )}
       {cat && cat.kind === "name" && (
         <NameMasterEditor masterKey={cat.key} title={cat.label} placeholder={cat.placeholder} />
+      )}
+      {cat && cat.kind === "settings" && cat.key === "payment_settings" && (
+        <PaymentSettingsEditor />
       )}
 
       {/* Deep-links to dedicated CRUD pages */}
@@ -285,5 +297,73 @@ function NameMasterEditor({ masterKey, title, placeholder }: { masterKey: NameMa
         </div>
       )}
     </div>
+  );
+}
+
+function PaymentSettingsEditor() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["app-settings", "payment_settings"],
+    queryFn: getPaymentSettings,
+  });
+  const [draft, setDraft] = useState<PaymentSettings>(DEFAULT_PAYMENT_SETTINGS);
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => { if (data) { setDraft(data); setDirty(false); } }, [data]);
+  const saveMut = useMutation({
+    mutationFn: () => setPaymentSettings(draft),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["app-settings", "payment_settings"] });
+      setDirty(false);
+      toast.success("Payment settings saved");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Save failed"),
+  });
+  const update = (patch: Partial<PaymentSettings>) => { setDraft((d) => ({ ...d, ...patch })); setDirty(true); };
+
+  if (isLoading) return <div className="luxe-card rounded-xl p-6 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
+
+  return (
+    <div className="luxe-card rounded-xl p-5 space-y-4">
+      <div>
+        <h4 className="font-display text-lg">Payment Settings</h4>
+        <p className="text-xs text-muted-foreground">Default payment options applied to every new booking. Can be overridden per booking.</p>
+      </div>
+      <div className="space-y-3">
+        <ToggleRow label="Allow Full Payment" checked={draft.allow_full_payment} onChange={(v) => update({ allow_full_payment: v })} />
+        <ToggleRow label="Allow Part Payment" checked={draft.allow_part_payment} onChange={(v) => update({ allow_part_payment: v })} />
+        <div className="flex items-center justify-between gap-3 py-1">
+          <div>
+            <div className="text-sm">Default Part Payment Percentage</div>
+            <div className="text-[11px] text-muted-foreground">Used when guest opens the payment link.</div>
+          </div>
+          <div className="flex items-center gap-1">
+            <input
+              type="number" min={1} max={100}
+              value={draft.default_part_percent}
+              onChange={(e) => update({ default_part_percent: Math.max(1, Math.min(100, Number(e.target.value) || 0)) })}
+              className="w-20 bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm text-right"
+            />
+            <span className="text-sm text-muted-foreground">%</span>
+          </div>
+        </div>
+        <ToggleRow label="Allow Pay At Hotel" checked={draft.allow_pay_at_hotel} onChange={(v) => update({ allow_pay_at_hotel: v })} />
+      </div>
+      <div className="flex justify-end">
+        <button onClick={() => saveMut.mutate()} disabled={!dirty || saveMut.isPending}
+          className="gold-gradient text-charcoal text-sm font-medium px-4 py-2 rounded-md disabled:opacity-50 inline-flex items-center gap-2">
+          {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          Save Settings
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center justify-between gap-3 py-1 cursor-pointer">
+      <span className="text-sm">{label}</span>
+      <input type="checkbox" className="h-4 w-4 accent-gold" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    </label>
   );
 }

@@ -70,6 +70,11 @@ export interface BookingInput {
   lead_source?: string | null;
   total_override?: number | null;
   taxes_included?: boolean;
+  allow_full_payment?: boolean;
+  allow_part_payment?: boolean;
+  allow_pay_at_hotel?: boolean;
+  part_payment_type?: "percent" | "fixed" | "none";
+  part_payment_value?: number;
 }
 
 export function validateBookingInput(b: BookingInput) {

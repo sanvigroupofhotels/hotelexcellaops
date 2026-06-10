@@ -6,6 +6,7 @@ import { Topbar } from "@/components/topbar";
 import { getCustomer, findCustomerByContact, type CustomerRow } from "@/lib/customers-api";
 import { getQuote } from "@/lib/quotes-api";
 import { createBooking, type BookingInput } from "@/lib/bookings-api";
+import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
 import { addBookingItems, quoteItemsToBookingInputs } from "@/lib/booking-items-api";
 import { listQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
 import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
@@ -66,6 +67,11 @@ function NewBooking() {
   const [totalOverride, setTotalOverride] = useState<number | null>(null);
   const [taxesIncluded, setTaxesIncluded] = useState<boolean>(false);
   const { canManage } = useUserRole();
+  const { data: paymentDefaults = DEFAULT_PAYMENT_SETTINGS } = useQuery({
+    queryKey: ["app-settings", "payment_settings"],
+    queryFn: getPaymentSettings,
+    staleTime: 5 * 60 * 1000,
+  });
 
 
   // Prefill customer (?customerId)
@@ -245,6 +251,11 @@ function NewBooking() {
         lead_source: stay.lead_source || "Direct",
         total_override: totalOverride,
         taxes_included: taxesIncluded,
+        allow_full_payment: paymentDefaults.allow_full_payment,
+        allow_part_payment: paymentDefaults.allow_part_payment,
+        allow_pay_at_hotel: paymentDefaults.allow_pay_at_hotel,
+        part_payment_type: "percent",
+        part_payment_value: paymentDefaults.default_part_percent,
       };
       const b = await createBooking(input);
       const primary = primaryToLineItem(stay, resolvedRate);
