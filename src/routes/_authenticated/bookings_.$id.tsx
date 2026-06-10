@@ -343,15 +343,17 @@ function BookingDetail() {
               })()}
             </div>
 
-            {/* Booking activity log */}
-            {bookingActivities.length > 0 && (
-              <div className="luxe-card rounded-xl p-5">
-                <button onClick={() => setActivityOpen(o => !o)}
-                  className="w-full text-left flex items-center justify-between">
-                  <h4 className="font-display text-lg flex items-center gap-2"><History className="h-4 w-4 text-gold" /> Activity ({bookingActivities.length})</h4>
-                  <span className="text-xs text-muted-foreground">{activityOpen ? "▴" : "▾"}</span>
-                </button>
-                {activityOpen && (
+            {/* Booking activity log — always visible (mirrors Quotes) */}
+            <div className="luxe-card rounded-xl p-5">
+              <button onClick={() => setActivityOpen(o => !o)}
+                className="w-full text-left flex items-center justify-between">
+                <h4 className="font-display text-lg flex items-center gap-2"><History className="h-4 w-4 text-gold" /> Activity ({bookingActivities.length})</h4>
+                <span className="text-xs text-muted-foreground">{activityOpen ? "▴" : "▾"}</span>
+              </button>
+              {activityOpen && (
+                bookingActivities.length === 0 ? (
+                  <div className="mt-3 text-xs text-muted-foreground italic">No activity recorded yet.</div>
+                ) : (
                   <div className="mt-3 space-y-1.5 max-h-72 overflow-auto">
                     {bookingActivities.map((a: any) => (
                       <div key={a.id} className="text-[11px] rounded-md bg-secondary/30 px-2.5 py-1.5">
@@ -375,9 +377,10 @@ function BookingDetail() {
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
-            )}
+                )
+              )}
+            </div>
+
 
             {/* Assigned room */}
             <div className="luxe-card rounded-xl p-5">
