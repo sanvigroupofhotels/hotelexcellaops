@@ -653,21 +653,31 @@ function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balanc
       <div className="relative py-6 border-b border-border">
         <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Pricing Summary</h4>
         {(() => {
-          const roomCharges = items.length > 0 ? lineSubtotal(items[0] as any) : 0;
-          const extraCharges = items.slice(1).reduce((s, i) => s + lineSubtotal(i as any), 0);
-          const itemsTotal = roomCharges + extraCharges;
           const discount = Number(b.discount || 0);
           const taxRate = Number(b.tax_rate ?? 0.05);
-          // Prefer stored fields; fall back to derivation.
-          const subtotal = b.subtotal != null ? Number(b.subtotal) : Math.max(0, itemsTotal - discount);
-          const taxes = b.taxes != null ? Number(b.taxes) : Math.round(subtotal * taxRate);
+          const taxesIncluded = !!(b as any).taxes_included;
+          const overrideTotal = (b as any).total_override ?? null;
+          const pricing = computePricing(items as any, discount, taxRate, {
+            totalOverride: overrideTotal,
+            taxesIncluded,
+          });
+          // Prefer stored totals when present (authoritative)
+          const subtotal = b.subtotal != null ? Number(b.subtotal) : pricing.subtotal;
+          const taxes = b.taxes != null ? Number(b.taxes) : pricing.taxes;
           const total = Number(b.amount);
           return (
             <ul className="text-sm space-y-1">
-              <PriceRow label="Room Charges" value={roomCharges} />
-              {extraCharges > 0 && <PriceRow label="Extra Charges" value={extraCharges} />}
-              <PriceRow label="Subtotal" value={itemsTotal} />
-              {discount > 0 && <PriceRow label="Discount" value={-discount} />}
+              <PriceRow label="Room Charges" value={pricing.mainStayCharges} />
+              {pricing.additionalLineItems.length > 0 && (
+                <>
+                  <li className="pt-2 text-[10px] uppercase tracking-wider text-muted-foreground">Additional Stay Charges</li>
+                  {pricing.additionalLineItems.map((li) => (
+                    <PriceRow key={li.label} label={li.label} value={li.value} />
+                  ))}
+                </>
+              )}
+              <PriceRow label="Subtotal" value={pricing.itemsTotal} />
+              {(pricing.discount > 0 || discount > 0) && <PriceRow label="Discount" value={-Math.max(pricing.discount, discount)} />}
               <PriceRow label="Taxable Amount" value={subtotal} />
               <PriceRow label={`Tax (${Math.round(taxRate * 100)}%)`} value={taxes} />
               <li className="flex items-baseline justify-between pt-2 mt-2 border-t border-border">
