@@ -191,40 +191,48 @@ function BulkDialog({ onClose }: { onClose: () => void }) {
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [rate, setRate] = useState<string>("");
-  const [selected, setSelected] = useState<string[]>([roomTypes[0].name]);
+  // UAT: single room type only — picking Oak OR Maple, not both.
+  const [roomType, setRoomType] = useState<string>(roomTypes[0].name);
   const [note, setNote] = useState("");
   const save = useMutation({
-    mutationFn: () => bulkApplyOverrides({ room_types: selected, from, to, rate: Number(rate) || 0, note }),
+    mutationFn: () => bulkApplyOverrides({ room_type: roomType, from, to, rate: Number(rate) || 0, note }),
     onSuccess: () => { toast.success("Bulk overrides applied"); onClose(); },
     onError: (e: any) => toast.error(e.message),
   });
-  const toggle = (rt: string) => setSelected((s) => s.includes(rt) ? s.filter((x) => x !== rt) : [...s, rt]);
+  // Inclusive day count for preview (string arithmetic to avoid TZ drift).
+  const dayCount = (() => {
+    if (!from || !to || to < from) return 0;
+    const [y1, m1, d1] = from.split("-").map(Number);
+    const [y2, m2, d2] = to.split("-").map(Number);
+    return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000) + 1;
+  })();
   return (
     <Dialog onClose={onClose} title="Bulk Apply Rate">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="From"><input type="date" className={inputCls} value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
         <Field label="To"><input type="date" className={inputCls} value={to} onChange={(e) => setTo(e.target.value)} /></Field>
       </div>
+      {dayCount > 0 && (
+        <div className="text-[11px] text-muted-foreground -mt-1">
+          Will write <span className="text-gold">{dayCount}</span> day{dayCount === 1 ? "" : "s"} for {roomType}.
+        </div>
+      )}
       <Field label="Rate (₹/night)">
         <input type="number" inputMode="numeric" className={inputCls} value={rate} placeholder="e.g. 2500" onChange={(e) => setRate(e.target.value)} />
       </Field>
-      <Field label="Room Types">
-        <div className="flex flex-wrap gap-1.5">
-          {roomTypes.map((r) => (
-            <button key={r.name} type="button" onClick={() => toggle(r.name)}
-              className={cn("text-[11px] rounded-md border px-2 py-1", selected.includes(r.name) ? "bg-gold-soft border-gold/60 text-gold" : "border-border text-muted-foreground hover:border-gold/40")}>
-              {r.name}
-            </button>
-          ))}
-        </div>
+      <Field label="Room Type">
+        <select className={inputCls} value={roomType} onChange={(e) => setRoomType(e.target.value)}>
+          {roomTypes.map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
+        </select>
       </Field>
       <Field label="Note (optional)"><input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
-      <button onClick={() => save.mutate()} disabled={save.isPending || selected.length === 0 || to < from || !rate} className="w-full gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60">
+      <button onClick={() => save.mutate()} disabled={save.isPending || !roomType || to < from || !rate} className="w-full gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60">
         {save.isPending ? "Applying…" : "Apply"}
       </button>
     </Dialog>
   );
 }
+
 
 function CellDialog({ cell, existing, onClose }: { cell: { room_type: string; date: string }; existing: any; onClose: () => void }) {
   const [rate, setRate] = useState<string>(existing?.rate != null ? String(existing.rate) : "");
