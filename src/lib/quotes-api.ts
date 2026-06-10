@@ -251,10 +251,10 @@ export async function createQuote(
   return created as unknown as QuoteRow;
 }
 
-export async function updateQuote(id: string, input: QuoteInput) {
+export async function updateQuote(id: string, input: QuoteInput, rateOverride?: number) {
   validateQuoteInput(input);
   const data = normalize(input);
-  const c = calc(data);
+  const c = calc(data, rateOverride);
   const { data: updated, error } = await supabase
     .from("quotes")
     .update({
