@@ -41,7 +41,10 @@ function EditBooking() {
   const [extras, setExtras] = useState<LineItem[]>([]);
   const [advancePaid, setAdvancePaid] = useState<number>(0);
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [totalOverride, setTotalOverride] = useState<number | null>(null);
+  const [taxesIncluded, setTaxesIncluded] = useState<boolean>(false);
   const [loaded, setLoaded] = useState(false);
+  const { canManage } = useUserRole();
 
   useEffect(() => {
     if (!b || loaded) return;
