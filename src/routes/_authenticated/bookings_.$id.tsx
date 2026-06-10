@@ -171,6 +171,12 @@ function BookingDetail() {
     enabled: !!b,
   });
 
+  // IMPORTANT: every hook must be called BEFORE any early return.
+  // Previously `useServerFn(issueBookingToken)` lived below the early return,
+  // which intermittently triggered React error #310 (hook count mismatch)
+  // when `b` flipped from undefined → defined after create/save.
+  const issueToken = useServerFn(issueBookingToken);
+
   if (isLoading || !b) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
   const balance = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
@@ -187,7 +193,6 @@ function BookingDetail() {
     window.open(bookingWhatsAppLink(b, text), "_blank");
   };
 
-  const issueToken = useServerFn(issueBookingToken);
   const sharePaymentLink = async () => {
     try {
       const { token } = await issueToken({ data: { booking_id: b.id } });
