@@ -223,7 +223,7 @@ export const recordPayAtHotelIntent = createServerFn({ method: "POST" })
       actor_name: "Guest (Portal)",
       actor_role: "guest",
       action: "note",
-      summary: "Guest selected: Pay at Hotel on check-in",
+      notes: "Guest selected: Pay at Hotel on check-in",
     } as any);
     return { ok: true };
   });
