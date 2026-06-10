@@ -63,6 +63,9 @@ function NewBooking() {
   const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(customerId ?? null);
   const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
   const [forceNew, setForceNew] = useState(false);
+  const [totalOverride, setTotalOverride] = useState<number | null>(null);
+  const [taxesIncluded, setTaxesIncluded] = useState<boolean>(false);
+  const { canManage } = useUserRole();
 
 
   // Prefill customer (?customerId)
