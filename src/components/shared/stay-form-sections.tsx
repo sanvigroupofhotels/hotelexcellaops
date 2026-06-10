@@ -89,7 +89,7 @@ export function emptyStayValue(): SharedStayValue {
     adults: 2, children: 0, guests: 2,
     check_in: today, check_out: tomorrow,
     room_type: roomTypes[0].name, rooms: 1, extra_bed: 0,
-    breakfast_included: true, extra_breakfast_guests: 0,
+    breakfast_included: false, extra_breakfast_guests: 0,
     early_check_in: false, early_check_in_slot: null,
     late_check_out: false, late_check_out_slot: null,
     pet_size: "none", pet_charges: false,
