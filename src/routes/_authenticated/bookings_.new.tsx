@@ -363,20 +363,8 @@ function NewBooking() {
               </div>
             </motion.section>
 
-            {/* Inline pricing breakdown — kept for mobile users who scroll past the sticky footer */}
-            <div className="lg:hidden">
-              <PricingBreakdownCard
-                roomCharges={roomCharges}
-                extraCharges={extraCharges}
-                pricing={pricing}
-                nights={nights}
-                guests={stay.guests}
-                editable={true}
-                overrideValue={totalOverride}
-                onOverrideChange={setTotalOverride}
-                onTaxesIncludedChange={setTaxesIncluded}
-              />
-            </div>
+            {/* Inline breakdown is hidden on mobile — the sticky footer below shows the
+                editable breakdown so it's always reachable above the keyboard. */}
           </div>
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
