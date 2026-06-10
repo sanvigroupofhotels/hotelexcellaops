@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      booking_activities: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          booking_id: string
+          created_at: string
+          from_status: string | null
+          id: string
+          metadata: Json | null
+          notes: string | null
+          to_status: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          booking_id: string
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          to_status?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          booking_id?: string
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_activities_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_items: {
         Row: {
           adults: number
@@ -263,6 +313,10 @@ export type Database = {
           booking_reference: string
           check_in: string
           check_out: string
+          checkout_override_at: string | null
+          checkout_override_balance: number | null
+          checkout_override_by: string | null
+          checkout_override_reason: string | null
           children: number
           created_at: string
           customer_id: string
@@ -283,6 +337,9 @@ export type Database = {
           room_id: string | null
           source_quote_id: string | null
           status: Database["public"]["Enums"]["booking_status"]
+          subtotal: number
+          tax_rate: number
+          taxes: number
           updated_at: string
           user_id: string
         }
@@ -296,6 +353,10 @@ export type Database = {
           booking_reference?: string
           check_in: string
           check_out: string
+          checkout_override_at?: string | null
+          checkout_override_balance?: number | null
+          checkout_override_by?: string | null
+          checkout_override_reason?: string | null
           children?: number
           created_at?: string
           customer_id: string
@@ -316,6 +377,9 @@ export type Database = {
           room_id?: string | null
           source_quote_id?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
+          subtotal?: number
+          tax_rate?: number
+          taxes?: number
           updated_at?: string
           user_id: string
         }
@@ -329,6 +393,10 @@ export type Database = {
           booking_reference?: string
           check_in?: string
           check_out?: string
+          checkout_override_at?: string | null
+          checkout_override_balance?: number | null
+          checkout_override_by?: string | null
+          checkout_override_reason?: string | null
           children?: number
           created_at?: string
           customer_id?: string
@@ -349,6 +417,9 @@ export type Database = {
           room_id?: string | null
           source_quote_id?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
+          subtotal?: number
+          tax_rate?: number
+          taxes?: number
           updated_at?: string
           user_id?: string
         }
