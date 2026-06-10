@@ -98,7 +98,7 @@ function GuestPortal() {
       </div>
     );
   }
-  if (q.error) throw q.error instanceof Error ? q.error : new Error(String(q.error));
+  if (q.error) throw q.error instanceof Error ? q.error : new Error(errMsg(q.error, "Booking link not found"));
   if (!q.data) throw new Error("Booking link not found");
   const b = q.data;
 
