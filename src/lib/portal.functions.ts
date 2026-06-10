@@ -87,7 +87,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     const { data: b, error: bErr } = await supabaseAdmin
       .from("bookings")
       .select(
-        "id, booking_reference, guest_name, phone, check_in, check_out, room_type, guests, amount, advance_paid, balance_due, part_payment_type, part_payment_value, status, breakfast_included",
+        "id, booking_reference, guest_name, phone, check_in, check_out, room_details, guests, amount, advance_paid, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel",
       )
       .eq("id", tok.booking_id)
       .maybeSingle();
@@ -96,7 +96,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
 
     const total = Number((b as any).amount) || 0;
     const advance = Number((b as any).advance_paid) || 0;
-    const balance = Math.max(0, Number((b as any).balance_due ?? total - advance) || 0);
+    const balance = Math.max(0, total - advance);
 
     let minPartPayment = 0;
     const ptype = (b as any).part_payment_type as string | null;
@@ -109,14 +109,18 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       guestName: (b as any).guest_name,
       checkIn: (b as any).check_in,
       checkOut: (b as any).check_out,
-      roomType: (b as any).room_type,
+      roomType: (b as any).room_details ?? "",
       guests: (b as any).guests,
-      breakfastIncluded: !!(b as any).breakfast_included,
+      breakfastIncluded: false,
       totalAmount: total,
       advancePaid: advance,
       balanceDue: balance,
       minPartPayment,
       status: (b as any).status,
+      allowFullPayment: (b as any).allow_full_payment !== false,
+      allowPartPayment: (b as any).allow_part_payment !== false,
+      allowPayAtHotel: (b as any).allow_pay_at_hotel !== false,
+      defaultPartPercent: ptype === "percent" ? pval : 0,
     };
   });
 
@@ -151,14 +155,14 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
     }
     const { data: b } = await supabaseAdmin
       .from("bookings")
-      .select("id, amount, advance_paid, balance_due, booking_reference, guest_name, phone")
+      .select("id, amount, advance_paid, booking_reference, guest_name, phone")
       .eq("id", tok.booking_id)
       .maybeSingle();
     if (!b) throw new Error("Booking not found");
 
     const balance = Math.max(
       0,
-      Number((b as any).balance_due ?? Number((b as any).amount) - Number((b as any).advance_paid)) || 0,
+      Number((b as any).amount) - Number((b as any).advance_paid) || 0,
     );
     if (balance <= 0) throw new Error("No balance due on this booking");
     const amount = Math.min(balance, Math.round(data.amount));

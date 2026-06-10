@@ -24,6 +24,11 @@ export interface PaymentOptionsProps {
   advancePaid: number;
   /** Minimum part-payment amount (from booking.part_payment_value when type === 'fixed', else 0). */
   minPartPayment?: number;
+  allowFull?: boolean;
+  allowPart?: boolean;
+  allowPayAtHotel?: boolean;
+  /** Default part payment percent (e.g. 25 → prefill 25% of balance). */
+  defaultPartPercent?: number;
   /** Disable while parent is initiating a Razorpay order. */
   busy?: boolean;
   onChoose: (choice: PortalPaymentChoice) => void | Promise<void>;
@@ -32,11 +37,16 @@ export interface PaymentOptionsProps {
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 
 export function PortalPaymentOptions({
-  totalAmount, advancePaid, minPartPayment = 0, busy, onChoose,
+  totalAmount, advancePaid, minPartPayment = 0,
+  allowFull = true, allowPart = true, allowPayAtHotel = true, defaultPartPercent = 0,
+  busy, onChoose,
 }: PaymentOptionsProps) {
   const balance = Math.max(0, totalAmount - advancePaid);
-  const [mode, setMode] = useState<"full" | "part" | "pay_at_hotel">("full");
-  const [partAmt, setPartAmt] = useState<number>(Math.max(minPartPayment, Math.round(balance / 2)));
+  const initialMode: "full" | "part" | "pay_at_hotel" =
+    allowFull ? "full" : allowPart ? "part" : "pay_at_hotel";
+  const [mode, setMode] = useState<"full" | "part" | "pay_at_hotel">(initialMode);
+  const prefillPart = defaultPartPercent > 0 ? Math.round((balance * defaultPartPercent) / 100) : Math.round(balance / 2);
+  const [partAmt, setPartAmt] = useState<number>(Math.max(minPartPayment, prefillPart));
 
   const submit = () => {
     if (mode === "full") onChoose({ kind: "full" });
@@ -52,9 +62,9 @@ export function PortalPaymentOptions({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <OptionTile active={mode === "full"} onClick={() => setMode("full")} icon={CreditCard} label="Pay Full" sub={inr(balance)} />
-        <OptionTile active={mode === "part"} onClick={() => setMode("part")} icon={IndianRupee} label="Part Payment" sub="Pay Advance" />
-        <OptionTile active={mode === "pay_at_hotel"} onClick={() => setMode("pay_at_hotel")} icon={Hotel} label="Pay at Hotel" sub="On Check-In" />
+        {allowFull && <OptionTile active={mode === "full"} onClick={() => setMode("full")} icon={CreditCard} label="Pay Full" sub={inr(balance)} />}
+        {allowPart && <OptionTile active={mode === "part"} onClick={() => setMode("part")} icon={IndianRupee} label="Part Payment" sub={defaultPartPercent > 0 ? `${defaultPartPercent}% Advance` : "Pay Advance"} />}
+        {allowPayAtHotel && <OptionTile active={mode === "pay_at_hotel"} onClick={() => setMode("pay_at_hotel")} icon={Hotel} label="Pay at Hotel" sub="On Check-In" />}
       </div>
 
       {mode === "part" && (

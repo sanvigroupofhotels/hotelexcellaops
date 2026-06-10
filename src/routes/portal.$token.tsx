@@ -178,6 +178,10 @@ function GuestPortal() {
             totalAmount={b.totalAmount}
             advancePaid={b.advancePaid}
             minPartPayment={b.minPartPayment}
+            allowFull={b.allowFullPayment}
+            allowPart={b.allowPartPayment}
+            allowPayAtHotel={b.allowPayAtHotel}
+            defaultPartPercent={b.defaultPartPercent}
             busy={busy}
             onChoose={onChoose}
           />
