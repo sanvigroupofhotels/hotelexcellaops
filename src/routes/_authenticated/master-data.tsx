@@ -115,7 +115,7 @@ function Content() {
         <div className="luxe-card rounded-xl p-4 space-y-2">
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Linked Masters</div>
           {group.deepLinks.map((l) => (
-            <Link key={l.to + l.label} to={l.to} className="flex items-center justify-between rounded-md bg-secondary/30 hover:bg-secondary/60 transition px-3 py-2 text-sm">
+            <Link key={l.to + l.label} to={l.to as any} className="flex items-center justify-between rounded-md bg-secondary/30 hover:bg-secondary/60 transition px-3 py-2 text-sm">
               <span>{l.label}</span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </Link>
