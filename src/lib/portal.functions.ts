@@ -155,14 +155,14 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
     }
     const { data: b } = await supabaseAdmin
       .from("bookings")
-      .select("id, amount, advance_paid, balance_due, booking_reference, guest_name, phone")
+      .select("id, amount, advance_paid, booking_reference, guest_name, phone")
       .eq("id", tok.booking_id)
       .maybeSingle();
     if (!b) throw new Error("Booking not found");
 
     const balance = Math.max(
       0,
-      Number((b as any).balance_due ?? Number((b as any).amount) - Number((b as any).advance_paid)) || 0,
+      Number((b as any).amount) - Number((b as any).advance_paid) || 0,
     );
     if (balance <= 0) throw new Error("No balance due on this booking");
     const amount = Math.min(balance, Math.round(data.amount));
