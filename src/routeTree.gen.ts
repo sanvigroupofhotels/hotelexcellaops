@@ -31,6 +31,7 @@ import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticated/bookings'
 import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
 import { Route as AuthenticatedComplaintsIdRouteImport } from './routes/_authenticated/complaints_.$id'
@@ -149,6 +150,12 @@ const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const ApiPublicRazorpayWebhookRoute =
+  ApiPublicRazorpayWebhookRouteImport.update({
+    id: '/api/public/razorpay-webhook',
+    path: '/api/public/razorpay-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedQuoteIdRoute = AuthenticatedQuoteIdRouteImport.update({
   id: '/quote/$id',
   path: '/quote/$id',
@@ -217,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
 }
@@ -247,6 +255,7 @@ export interface FileRoutesByTo {
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
 }
@@ -279,6 +288,7 @@ export interface FileRoutesById {
   '/_authenticated/complaints_/$id': typeof AuthenticatedComplaintsIdRoute
   '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
 }
@@ -311,6 +321,7 @@ export interface FileRouteTypes {
     | '/complaints/$id'
     | '/customers/$id'
     | '/quote/$id'
+    | '/api/public/razorpay-webhook'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
   fileRoutesByTo: FileRoutesByTo
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/complaints/$id'
     | '/customers/$id'
     | '/quote/$id'
+    | '/api/public/razorpay-webhook'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
   id:
@@ -372,6 +384,7 @@ export interface FileRouteTypes {
     | '/_authenticated/complaints_/$id'
     | '/_authenticated/customers_/$id'
     | '/_authenticated/quote/$id'
+    | '/api/public/razorpay-webhook'
     | '/_authenticated/bookings_/$id_/edit'
     | '/_authenticated/quote/$id_/edit'
   fileRoutesById: FileRoutesById
@@ -380,6 +393,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   PortalTokenRoute: typeof PortalTokenRoute
+  ApiPublicRazorpayWebhookRoute: typeof ApiPublicRazorpayWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -538,6 +552,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/razorpay-webhook': {
+      id: '/api/public/razorpay-webhook'
+      path: '/api/public/razorpay-webhook'
+      fullPath: '/api/public/razorpay-webhook'
+      preLoaderRoute: typeof ApiPublicRazorpayWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/quote/$id': {
       id: '/_authenticated/quote/$id'
       path: '/quote/$id'
@@ -656,6 +677,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   PortalTokenRoute: PortalTokenRoute,
+  ApiPublicRazorpayWebhookRoute: ApiPublicRazorpayWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
