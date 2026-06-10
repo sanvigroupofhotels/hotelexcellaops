@@ -241,7 +241,7 @@ function CustomerDetail() {
             <div className="luxe-card rounded-xl p-5">
               <h3 className="font-display text-lg mb-3">Tag</h3>
               <div className="flex flex-wrap gap-2">
-                {DEFAULT_TAGS.map((t) => (
+                {tags.map((t) => (
                   <button key={t} onClick={() => toggleTag(t)}
                     className={cn("px-3 py-1 rounded-full text-xs border transition",
                       c.tags.includes(t) ? "border-gold/50 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30")}>
