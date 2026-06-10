@@ -344,7 +344,7 @@ function NewBooking() {
                   label="Total Amount (₹)"
                   value={amount}
                   min={0}
-                  onChange={(v) => setTotalOverride(Number(v) === pricing.computedTotal ? null : Number(v))}
+                  onChange={(v) => setTotalOverride(Number(v))}
                   prefix="₹"
                 />
                 <NumField label="Advance Paid (₹)" value={advancePaid} min={0} onChange={setAdvancePaid} prefix="₹" />
