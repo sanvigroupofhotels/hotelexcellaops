@@ -246,6 +246,11 @@ function NewBooking() {
         lead_source: stay.lead_source || "Direct",
         total_override: totalOverride,
         taxes_included: taxesIncluded,
+        allow_full_payment: paymentDefaults.allow_full_payment,
+        allow_part_payment: paymentDefaults.allow_part_payment,
+        allow_pay_at_hotel: paymentDefaults.allow_pay_at_hotel,
+        part_payment_type: "percent",
+        part_payment_value: paymentDefaults.default_part_percent,
       };
       const b = await createBooking(input);
       const primary = primaryToLineItem(stay, resolvedRate);
