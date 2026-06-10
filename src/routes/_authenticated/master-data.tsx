@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { AdminOnly } from "@/components/admin-only";
 import { listMasterData, createMasterData, updateMasterData, deleteMasterData, type MasterDataRow } from "@/lib/master-data-api";
+import { getPaymentSettings, setPaymentSettings, DEFAULT_PAYMENT_SETTINGS, type PaymentSettings } from "@/lib/app-settings-api";
 import { listStaff, createStaff, updateStaff, listExpenseTypes, createExpenseType, updateExpenseType } from "@/lib/cash-api";
 import { listComplaintCategories, createComplaintCategory, updateComplaintCategory } from "@/lib/complaints-api";
 import { Plus, Trash2, Loader2, ChevronRight } from "lucide-react";
