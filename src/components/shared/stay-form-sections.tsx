@@ -33,6 +33,7 @@ import {
   lineSubtotal,
   type LineItem,
 } from "@/components/line-items-editor";
+import { useMasterData } from "@/hooks/use-master-data";
 import { cn } from "@/lib/utils";
 
 const inputCls =
@@ -165,6 +166,11 @@ export function StayFormSections({
   const update = <K extends keyof SharedStayValue>(k: K, v: SharedStayValue[K]) =>
     onChange({ ...value, [k]: v });
 
+  // Single source of truth: Master Data → lead_source. Hardcoded LEAD_SOURCES used only as fallback.
+  const { values: leadSources, labels: leadLabels } = useMasterData("lead_source", [...LEAD_SOURCES]);
+  // Ensure the currently-selected value is always visible even if it has been deactivated.
+  const leadOptions = leadSources.includes(value.lead_source) ? leadSources : [value.lead_source, ...leadSources].filter(Boolean);
+
   return (
     <div className="space-y-6">
       {/* 1. Guest Details */}
@@ -186,7 +192,7 @@ export function StayFormSections({
           </Field>
           <Field label="Lead Source">
             <select className={inputCls} value={value.lead_source} onChange={(e) => update("lead_source", e.target.value)}>
-              {LEAD_SOURCES.map((o) => <option key={o}>{o}</option>)}
+              {leadOptions.map((o) => <option key={o} value={o}>{leadLabels[o] ?? o}</option>)}
             </select>
           </Field>
           <Field label="Special Requests (visible to guest)">

@@ -8,22 +8,29 @@ import type { PricingBreakdown } from "@/lib/pricing";
  * Booking Preview, Confirmations, and Invoices.
  *
  * Collapsed: shows only the Final Amount.
- * Expanded: shows Room / Extra / Subtotal / Discount / Taxable / Tax / Final.
+ * Expanded: Main Stay Charges → Additional Stay Charges (itemised) → Subtotal
+ *           → Discount → Taxable → Tax → Final.
  */
 export function PricingBreakdownCard({
-  roomCharges,
-  extraCharges,
+  roomCharges: _roomCharges,
+  extraCharges: _extraCharges,
   pricing,
   defaultOpen = true,
   title = "Pricing Summary",
   className,
+  nights,
+  guests,
 }: {
-  roomCharges: number;
-  extraCharges: number;
+  /** Legacy prop — kept for backwards compatibility but no longer rendered separately. */
+  roomCharges?: number;
+  /** Legacy prop — kept for backwards compatibility but no longer rendered separately. */
+  extraCharges?: number;
   pricing: PricingBreakdown;
   defaultOpen?: boolean;
   title?: string;
   className?: string;
+  nights?: number;
+  guests?: number;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -32,6 +39,7 @@ export function PricingBreakdownCard({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between mb-2"
+        aria-expanded={open}
       >
         <h4 className="font-display text-lg">{title}</h4>
         <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
@@ -39,16 +47,34 @@ export function PricingBreakdownCard({
           {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </span>
       </button>
+
       {open && (
-        <div className="space-y-0.5 mb-3">
-          <Row label="Room Charges" value={roomCharges} />
-          {extraCharges > 0 && <Row label="Extra Charges" value={extraCharges} />}
-          <Row label="Subtotal" value={pricing.itemsTotal} />
-          {pricing.discount > 0 && <Row label="Discount" value={-pricing.discount} />}
-          <Row label="Taxable Amount" value={pricing.subtotal} />
-          <Row label={`Tax (${Math.round(pricing.taxRate * 100)}%)`} value={pricing.taxes} />
+        <div className="space-y-3 mb-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+              Main Stay Charges{nights ? ` · ${nights}N` : ""}{guests ? ` · ${guests} Guests` : ""}
+            </div>
+            <Row label="Room Charges" value={pricing.mainStayCharges} />
+          </div>
+
+          {pricing.additionalStayCharges > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Additional Stay Charges</div>
+              {pricing.additionalLineItems.map((li) => (
+                <Row key={li.label} label={li.label} value={li.value} />
+              ))}
+            </div>
+          )}
+
+          <div className="pt-1 border-t border-border/60 space-y-0.5">
+            <Row label="Subtotal" value={pricing.itemsTotal} />
+            {pricing.discount > 0 && <Row label="Discount" value={-pricing.discount} />}
+            <Row label="Taxable Amount" value={pricing.subtotal} />
+            <Row label={`Tax (${Math.round(pricing.taxRate * 100)}%)`} value={pricing.taxes} />
+          </div>
         </div>
       )}
+
       <div className="luxe-divider my-2" />
       <div className="flex items-baseline justify-between">
         <span className="text-sm font-medium">Final Booking Amount</span>
@@ -94,6 +120,34 @@ function Row({ label, value, mute }: { label: string; value: number; mute?: bool
       <span className={cn("tabular-nums", value < 0 && "text-success")}>
         {value === 0 ? "—" : `${value < 0 ? "-" : ""}₹${Math.abs(value).toLocaleString("en-IN")}`}
       </span>
+    </div>
+  );
+}
+
+/**
+ * Sticky pricing footer for mobile (Booking new/edit). Always renders the
+ * collapsible PricingBreakdownCard above the primary action button(s).
+ */
+export function StickyPricingFooter({
+  pricing,
+  actions,
+  className,
+}: {
+  pricing: PricingBreakdown;
+  actions?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur shadow-lg lg:hidden",
+        className,
+      )}
+    >
+      <div className="max-w-[1400px] mx-auto p-3 space-y-2">
+        <PricingBreakdownCard pricing={pricing} defaultOpen={false} className="!p-3" />
+        {actions}
+      </div>
     </div>
   );
 }
