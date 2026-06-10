@@ -12,10 +12,10 @@ import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/custo
 import {
   type LineItem,
 } from "@/components/line-items-editor";
-import { getRoomRate } from "@/lib/mock-data";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
-import { PricingBreakdownCard } from "@/components/pricing-breakdown";
-import { lineSubtotal } from "@/components/line-items-editor";
+import { PricingBreakdownCard, StickyPricingFooter } from "@/components/pricing-breakdown";
+import { lineSubtotal, nightsOf } from "@/components/line-items-editor";
+import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { NumField } from "@/components/num-field";
 import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
@@ -165,17 +165,19 @@ function NewBooking() {
   }, [fromQuoteId, qItems]);
 
   // Live totals — shared pricing engine (mirrors Quotes 1:1).
-  const { pricing, roomCharges, extraCharges } = useMemo(() => {
-    const rate = getRoomRate(stay.room_type, stay.breakfast_included);
-    const primary = primaryToLineItem(stay, rate);
+  // Rate is now resolved from Rates & Inventory (override → weekend/weekday → default).
+  const resolvedRate = useResolvedRate(stay.room_type, stay.check_in, stay.check_out, stay.breakfast_included);
+  const { pricing, roomCharges, extraCharges, nights } = useMemo(() => {
+    const primary = primaryToLineItem(stay, resolvedRate);
     const all = [primary, ...extras];
     const p = computePricing(all, Number(stay.discount) || 0, DEFAULT_TAX_RATE);
     return {
       pricing: p,
       roomCharges: lineSubtotal(primary),
       extraCharges: extras.reduce((s, i) => s + lineSubtotal(i), 0),
+      nights: nightsOf(primary),
     };
-  }, [stay, extras]);
+  }, [stay, extras, resolvedRate]);
   const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid || 0));
 
@@ -239,8 +241,7 @@ function NewBooking() {
         lead_source: stay.lead_source || "Direct",
       };
       const b = await createBooking(input);
-      const rate = getRoomRate(stay.room_type, stay.breakfast_included);
-      const primary = primaryToLineItem(stay, rate);
+      const primary = primaryToLineItem(stay, resolvedRate);
       await addBookingItems(b.id, [primary, ...extras]);
 
       // If an initial advance was entered, record it as a real booking payment.
