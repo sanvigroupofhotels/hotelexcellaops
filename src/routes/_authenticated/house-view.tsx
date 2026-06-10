@@ -343,8 +343,20 @@ function HouseView() {
       })()}
       {vacantAction && (
         <VacantActionMenu room={vacantAction.room} date={vacantAction.date}
-          onCreateBooking={() => setVacantAction(null)}
-          onBlock={() => { setEditBlock({ room_id: vacantAction.room.id, start_date: vacantAction.date, end_date: vacantAction.date }); setVacantAction(null); }}
+          onBlock={() => {
+            // Open BlockRoomDialog with a one-day default starting from the clicked cell
+            const next = new Date(vacantAction.date); next.setDate(next.getDate() + 1);
+            setEditBlock({
+              room_id: vacantAction.room.id,
+              start_date: vacantAction.date,
+              end_date: next.toISOString().slice(0, 10),
+              reason: "Maintenance",
+              active: true,
+              blocked_at: new Date().toISOString(),
+              id: "", // sentinel — BlockRoomDialog treats falsy id as "new"
+            } as any);
+            setVacantAction(null);
+          }}
           onClose={() => setVacantAction(null)} />
       )}
 
