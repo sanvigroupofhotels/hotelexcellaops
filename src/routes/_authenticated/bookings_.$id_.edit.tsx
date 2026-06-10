@@ -66,10 +66,15 @@ function EditBooking() {
     setLoaded(true);
   }, [b, existingItems, loaded]);
 
-  const pricing = useMemo(() => {
+  const { pricing, roomCharges, extraCharges } = useMemo(() => {
     const rate = getRoomRate(stay.room_type, stay.breakfast_included);
     const primary = primaryToLineItem(stay, rate);
-    return computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE);
+    const p = computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE);
+    return {
+      pricing: p,
+      roomCharges: lineSubtotal(primary),
+      extraCharges: extras.reduce((s, i) => s + lineSubtotal(i), 0),
+    };
   }, [stay, extras]);
   const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid));
