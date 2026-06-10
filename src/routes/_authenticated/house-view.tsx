@@ -6,10 +6,12 @@ import { listRooms, listMaintenance } from "@/lib/rooms-api";
 import { listBookings } from "@/lib/bookings-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
+import { InvoiceDialog } from "@/components/invoice-dialog";
+import { listBookingPayments } from "@/lib/booking-payments-api";
 
 export const Route = createFileRoute("/_authenticated/house-view")({
   component: HouseView,
@@ -371,6 +373,22 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
   const today = dateKey(new Date());
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const isCheckedOut = status === "Checked-Out" || status === "Stay Completed";
+
+  const { data: itemsForInvoice = [] } = useQuery({
+    queryKey: ["booking-items", b.id],
+    queryFn: async () => {
+      const { listBookingItems } = await import("@/lib/booking-items-api");
+      return listBookingItems(b.id);
+    },
+    enabled: invoiceOpen,
+  });
+  const { data: paymentsForInvoice = [] } = useQuery({
+    queryKey: ["booking-payments", b.id],
+    queryFn: () => listBookingPayments(b.id),
+    enabled: invoiceOpen,
+  });
 
   const checkInMut = useMutation({
     mutationFn: async () => {
@@ -443,8 +461,14 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
           <div className="flex justify-between"><span className="text-muted-foreground">Advance Paid</span><span className="tabular-nums">₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</span></div>
           <div className="flex justify-between border-t border-border/50 pt-1"><span className="font-medium">Balance Due</span><span className="font-display text-base gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
         </div>
-        <div className="flex gap-2 pt-1">
+        <div className="flex flex-wrap gap-2 pt-1">
           <Link to="/bookings/$id" params={{ id: b.id }} className="flex-1 text-center rounded-md border border-border bg-card px-3 py-2 text-xs hover:border-gold/40">View Booking</Link>
+          {isCheckedOut && (
+            <button onClick={() => setInvoiceOpen(true)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-gold/40 bg-gold-soft text-gold px-3 py-2 text-xs font-medium hover:bg-gold/20">
+              <FileText className="h-3 w-3" /> Invoice
+            </button>
+          )}
           {primary && (
             <button onClick={primary.onClick}
               disabled={checkInMut.isPending || checkOutMut.isPending}
@@ -461,6 +485,10 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
         onClose={() => setPayOpen(false)}
         onSaved={() => onClose()}
       />
+    )}
+    {invoiceOpen && (
+      <InvoiceDialog booking={b} items={itemsForInvoice as any} payments={paymentsForInvoice}
+        onClose={() => setInvoiceOpen(false)} />
     )}
     </>
   );

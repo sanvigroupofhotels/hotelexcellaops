@@ -10,9 +10,10 @@ import { addBookingItems, quoteItemsToBookingInputs } from "@/lib/booking-items-
 import { listQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
 import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
 import {
-  lineItemsTotal, lineSubtotal, type LineItem,
+  type LineItem,
 } from "@/components/line-items-editor";
 import { getRoomRate } from "@/lib/mock-data";
+import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
 import { NumField } from "@/components/num-field";
 import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
@@ -150,13 +151,23 @@ function NewBooking() {
     }
   }, [fromQuoteId, qItems]);
 
-  // Live totals
-  const itemsTotal = useMemo(() => {
+  // Live totals — shared pricing engine (mirrors Quotes 1:1).
+  const pricing = useMemo(() => {
     const rate = getRoomRate(stay.room_type, stay.breakfast_included);
-    return lineSubtotal(primaryToLineItem(stay, rate)) + lineItemsTotal(extras);
+    const primary = primaryToLineItem(stay, rate);
+    return computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE);
   }, [stay, extras]);
-  const amount = Math.max(0, itemsTotal - (Number(stay.discount) || 0));
+  const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid || 0));
+
+  // Reset the customer link entirely (P3 — Change button reopens search fresh)
+  const unlinkCustomer = () => {
+    setLinkedCustomerId(null);
+    setMatchedCustomer(null);
+    setForceNew(false);
+    setStay((s) => ({ ...s, guest_name: "", phone: "", email: "" }));
+    toast.info("Customer unlinked. Search or create a new customer.");
+  };
 
   const useExistingCustomer = () => {
     if (!matchedCustomer) return;
@@ -197,6 +208,9 @@ function NewBooking() {
         room_details: `${stay.room_type} × ${stay.rooms}`,
         room_id: roomId,
         amount,
+        subtotal: pricing.subtotal,
+        taxes: pricing.taxes,
+        tax_rate: pricing.taxRate,
         // Don't write advance_paid directly — booking_payments trigger recomputes it.
         advance_paid: advancePaid > 0 ? 0 : 0,
         discount: stay.discount,
@@ -256,7 +270,7 @@ function NewBooking() {
       {linkedCustomerId && cust && (
         <div className="mt-3 rounded-md border border-gold/30 bg-gold-soft/30 px-3 py-2 text-xs flex items-center justify-between">
           <span>Linked to <Link to="/customers/$id" params={{ id: cust.id }} className="text-gold font-medium hover:underline">{cust.guest_name}</Link> <span className="font-mono text-muted-foreground">{cust.customer_reference}</span></span>
-          <button onClick={() => { setLinkedCustomerId(null); setMatchedCustomer(null); }} className="text-[10px] uppercase text-muted-foreground hover:text-foreground">Change</button>
+          <button onClick={unlinkCustomer} className="text-[10px] uppercase text-muted-foreground hover:text-foreground">Change</button>
         </div>
       )}
       {!linkedCustomerId && !matchedCustomer && (stay.guest_name.trim().length >= 2 || stay.phone.trim().length >= 2) && (
@@ -326,8 +340,10 @@ function NewBooking() {
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
             <div className="luxe-card rounded-xl p-5">
               <h4 className="font-display text-lg mb-3">Booking Summary</h4>
-              <SummaryRow label="Items Total" value={itemsTotal} />
-              {stay.discount > 0 && <SummaryRow label="Discount" value={-stay.discount} />}
+              <SummaryRow label="Items Total" value={pricing.itemsTotal} />
+              {pricing.discount > 0 && <SummaryRow label="Discount" value={-pricing.discount} />}
+              <SummaryRow label="Taxable Amount" value={pricing.subtotal} />
+              <SummaryRow label={`Taxes (${Math.round(pricing.taxRate * 100)}%)`} value={pricing.taxes} />
               <SummaryRow label="Total Amount" value={amount} />
               <SummaryRow label="Advance Paid" value={-Number(advancePaid)} mute={!advancePaid} />
               <div className="luxe-divider my-3" />

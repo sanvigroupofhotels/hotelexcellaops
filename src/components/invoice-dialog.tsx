@@ -43,6 +43,12 @@ export function InvoiceDialog({
   const total = Number(booking.amount || 0);
   const balance = Math.max(0, total - advance);
   const discount = Number(booking.discount || 0);
+  const subtotalRaw = Number((booking as any).subtotal || 0);
+  const taxes = Number((booking as any).taxes || 0);
+  const taxRate = Number((booking as any).tax_rate || 0);
+  // Items Total = Taxable + Discount  (because Subtotal stored = Items Total − Discount)
+  const itemsTotal = subtotalRaw > 0 ? subtotalRaw + discount : total + discount - taxes;
+  const taxable = subtotalRaw > 0 ? subtotalRaw : Math.max(0, total - taxes);
   const sumPayments = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
 
   useEffect(() => {
@@ -201,14 +207,27 @@ export function InvoiceDialog({
                     <td className="py-2 text-right tabular-nums">{inr(total)}</td>
                   </tr>
                 )}
+                {/* Breakdown rows: Room Charges + Extras = Subtotal − Discount = Taxable + Taxes = Total */}
+                <tr className="border-b border-border/50">
+                  <td className="py-2" colSpan={3}>Room Charges + Extra Charges (Subtotal)</td>
+                  <td className="py-2 text-right tabular-nums">{inr(itemsTotal)}</td>
+                </tr>
                 {discount > 0 && (
                   <tr className="border-b border-border/50">
                     <td className="py-2" colSpan={3}>Discount</td>
                     <td className="py-2 text-right tabular-nums">-{inr(discount)}</td>
                   </tr>
                 )}
+                <tr className="border-b border-border/50">
+                  <td className="py-2" colSpan={3}>Taxable Amount</td>
+                  <td className="py-2 text-right tabular-nums">{inr(taxable)}</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2" colSpan={3}>Taxes{taxRate > 0 ? ` (${Math.round(taxRate * 100)}%)` : ""}</td>
+                  <td className="py-2 text-right tabular-nums">{inr(taxes)}</td>
+                </tr>
                 <tr>
-                  <td className="pt-3 font-medium" colSpan={3}>Total Amount</td>
+                  <td className="pt-3 font-medium" colSpan={3}>Final Booking Amount</td>
                   <td className="pt-3 text-right font-display text-lg gold-text-gradient tabular-nums">{inr(total)}</td>
                 </tr>
               </tbody>
@@ -250,10 +269,10 @@ export function InvoiceDialog({
             )}
           </div>
 
-          {/* Totals */}
+          {/* Totals — Total Booking Amount / Amount Paid / Balance Due */}
           <div className="py-5">
             <div className="flex flex-col gap-1.5 text-sm max-w-xs ml-auto">
-              <div className="flex justify-between"><span className="text-muted-foreground">Total Amount</span><span className="tabular-nums">{inr(total)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Total Booking Amount</span><span className="tabular-nums">{inr(total)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Amount Paid</span><span className="tabular-nums">{inr(advance)}</span></div>
               <div className="flex justify-between border-t border-border pt-2">
                 <span className="font-medium">{isFinal ? "Outstanding Balance" : "Balance Due"}</span>

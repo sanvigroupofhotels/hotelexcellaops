@@ -35,6 +35,32 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
     stayLines.push(``);
   }
 
+  // Pricing breakdown — same model as Quotes / Invoices / Guest Portal.
+  // For legacy bookings (no taxes column), gracefully degrade.
+  const itemsTotal = Number((b as any).subtotal || 0) + Number(b.discount || 0);
+  const discount = Number(b.discount || 0);
+  const subtotal = Number((b as any).subtotal || 0);
+  const taxes = Number((b as any).taxes || 0);
+  const taxRate = Number((b as any).tax_rate || 0);
+  const total = Number(b.amount || 0);
+  const paid = Number(b.advance_paid || 0);
+  const balance = Math.max(0, total - paid);
+
+  const showBreakdown = subtotal > 0 || taxes > 0;
+  const pricingLines = showBreakdown
+    ? [
+        `💰 Pricing Breakdown`,
+        `• Room & Extra Charges: ${inr(itemsTotal)}`,
+        ...(discount > 0 ? [`• Discount: -${inr(discount)}`] : []),
+        `• Taxable Amount: ${inr(subtotal)}`,
+        `• Taxes${taxRate > 0 ? ` (${Math.round(taxRate * 100)}%)` : ""}: ${inr(taxes)}`,
+        `• Final Booking Amount: ${inr(total)}`,
+      ]
+    : [
+        `💰 Booking Amount`,
+        `• Total Amount: ${inr(total)}`,
+      ];
+
   return [
     `Greetings from Hotel Excella ✨`,
     ``,
@@ -45,14 +71,12 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
     `📌 Booking Ref: ${b.booking_reference}`,
     ``,
     ...stayLines,
-    `💰 Booking Amount`,
-    `• Total Amount: ${inr(Number(b.amount))}`,
-    ...(Number(b.advance_paid || 0) > 0
-      ? [
-          `• Advance Paid: ${inr(Number(b.advance_paid))}`,
-          `• Balance Payable: ${inr(Math.max(0, Number(b.amount) - Number(b.advance_paid || 0)))}`,
-        ]
-      : []),
+    ...pricingLines,
+    ``,
+    `📊 Payment Summary`,
+    `• Total Booking Amount: ${inr(total)}`,
+    `• Amount Paid: ${inr(paid)}`,
+    `• Balance Due: ${inr(balance)}`,
     ``,
     `📍 Property Information`,
     `Property Guide:`,
