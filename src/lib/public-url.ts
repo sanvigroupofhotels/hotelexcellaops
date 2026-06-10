@@ -1,20 +1,21 @@
 /**
  * Returns the public (guest-facing) origin for share links.
  *
- * On Lovable preview URLs (`id-preview--<id>.lovable.app` or
- * `id-preview-<sha>--<id>.lovable.app`), `window.location.origin` is
- * auth-gated and redirects guests to the Lovable auth bridge. For
- * guest-facing links (Guest Portal, payment links) we always want the
- * stable, public published URL instead.
+ * Both the Lovable preview host (`id-preview--<id>.lovable.app`) and the
+ * stable project host (`project--<id>.lovable.app`) are auth-gated and
+ * return 403 to unauthenticated visitors. The only public host that serves
+ * the published build to guests is the configured published URL
+ * (`hotelexcellaops.lovable.app`), so guest-portal share links must always
+ * be built against that origin.
  */
-const PROJECT_ID = "bf9d317a-170f-4eb0-82c9-ac90cf77e6ab";
-const STABLE_PUBLIC_ORIGIN = `https://project--${PROJECT_ID}.lovable.app`;
+const PUBLISHED_ORIGIN = "https://hotelexcellaops.lovable.app";
 
 export function publicOrigin(): string {
-  if (typeof window === "undefined") return STABLE_PUBLIC_ORIGIN;
+  if (typeof window === "undefined") return PUBLISHED_ORIGIN;
   const host = window.location.hostname;
-  // Custom domain or stable published URL → use as-is
+  // Custom domains other than *.lovable.app → trust as-is
   if (!host.endsWith(".lovable.app")) return window.location.origin;
-  if (host.startsWith("id-preview")) return STABLE_PUBLIC_ORIGIN;
+  // Auth-gated Lovable hosts → always swap to the published origin
+  if (host.startsWith("id-preview") || host.startsWith("project--")) return PUBLISHED_ORIGIN;
   return window.location.origin;
 }
