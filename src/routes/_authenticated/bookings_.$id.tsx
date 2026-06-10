@@ -29,7 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   ArrowLeft, Loader2, Trash2, Phone, Mail, User, Copy,
   Wallet, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
-  FileText, History, RotateCcw, AlertTriangle, MoreVertical,
+  FileText, History, RotateCcw, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
