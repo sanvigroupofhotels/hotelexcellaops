@@ -48,6 +48,17 @@ export const Route = createFileRoute("/portal/$token")({
 
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 
+/** Extract a readable message from any thrown value (Error, serverFn envelope, plain object). */
+function errMsg(e: any, fallback = "Something went wrong"): string {
+  if (!e) return fallback;
+  if (typeof e === "string") return e;
+  if (e instanceof Error && e.message) return e.message;
+  const m = e?.message ?? e?.error?.message ?? e?.body?.message ?? e?.data?.message ?? e?.json?.message;
+  if (typeof m === "string" && m) return m;
+  try { const s = JSON.stringify(e); if (s && s !== "{}") return s; } catch {}
+  return fallback;
+}
+
 declare global {
   interface Window {
     Razorpay?: any;
@@ -87,7 +98,7 @@ function GuestPortal() {
       </div>
     );
   }
-  if (q.error) throw q.error instanceof Error ? q.error : new Error(String(q.error));
+  if (q.error) throw q.error instanceof Error ? q.error : new Error(errMsg(q.error, "Booking link not found"));
   if (!q.data) throw new Error("Booking link not found");
   const b = q.data;
 
@@ -128,7 +139,7 @@ function GuestPortal() {
       });
       rzp.open();
     } catch (e: any) {
-      toast.error(e?.message || "Could not start payment");
+      toast.error(errMsg(e, "Could not start payment"));
     } finally {
       setBusy(false);
     }

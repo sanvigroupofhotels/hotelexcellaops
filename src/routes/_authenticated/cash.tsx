@@ -121,7 +121,7 @@ function CashPage() {
       if (t.kind === "collection") collected += Number(t.amount);
       else {
         spent += Number(t.amount);
-        if ((t.type_name || "").toLowerCase() === "owner payout") ownerPaid += Number(t.amount);
+        if ((t.type_name || "").toLowerCase() === "handed over to owner") ownerPaid += Number(t.amount);
       }
     }
     return { collected, spent, balance: collected - spent, ownerPaid };
@@ -895,7 +895,7 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
       if (t.kind === "collection") collected += Number(t.amount);
       else {
         spent += Number(t.amount);
-        if ((t.type_name || "").toLowerCase() === "owner payout") ownerPaid += Number(t.amount);
+        if ((t.type_name || "").toLowerCase() === "handed over to owner") ownerPaid += Number(t.amount);
       }
     }
     return { collected, spent, balance: collected - spent, ownerPaid };
