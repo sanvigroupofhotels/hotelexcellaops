@@ -10,9 +10,10 @@ import { addBookingItems, quoteItemsToBookingInputs } from "@/lib/booking-items-
 import { listQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
 import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
 import {
-  lineItemsTotal, lineSubtotal, type LineItem,
+  type LineItem,
 } from "@/components/line-items-editor";
 import { getRoomRate } from "@/lib/mock-data";
+import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
 import { NumField } from "@/components/num-field";
 import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
@@ -150,13 +151,23 @@ function NewBooking() {
     }
   }, [fromQuoteId, qItems]);
 
-  // Live totals
-  const itemsTotal = useMemo(() => {
+  // Live totals — shared pricing engine (mirrors Quotes 1:1).
+  const pricing = useMemo(() => {
     const rate = getRoomRate(stay.room_type, stay.breakfast_included);
-    return lineSubtotal(primaryToLineItem(stay, rate)) + lineItemsTotal(extras);
+    const primary = primaryToLineItem(stay, rate);
+    return computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE);
   }, [stay, extras]);
-  const amount = Math.max(0, itemsTotal - (Number(stay.discount) || 0));
+  const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid || 0));
+
+  // Reset the customer link entirely (P3 — Change button reopens search fresh)
+  const unlinkCustomer = () => {
+    setLinkedCustomerId(null);
+    setMatchedCustomer(null);
+    setForceNew(false);
+    setStay((s) => ({ ...s, guest_name: "", phone: "", email: "" }));
+    toast.info("Customer unlinked. Search or create a new customer.");
+  };
 
   const useExistingCustomer = () => {
     if (!matchedCustomer) return;
