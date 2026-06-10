@@ -57,10 +57,79 @@ function BookingDetail() {
   });
   const { data: rooms = [] } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
 
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ["booking", id] });
+    qc.invalidateQueries({ queryKey: ["bookings"] });
+    qc.invalidateQueries({ queryKey: ["booking-activities", id] });
+  };
+
   const status = useMutation({
-    mutationFn: (s: BookingStatus) => setBookingStatus(id, s),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["booking", id] }); qc.invalidateQueries({ queryKey: ["bookings"] }); toast.success("Status updated"); },
+    mutationFn: async (s: BookingStatus) => {
+      const from = b?.status as string | undefined;
+      await setBookingStatus(id, s);
+      await logBookingActivity({
+        booking_id: id,
+        action: s === "Checked-In" ? "check_in" : s === "Checked-Out" ? "check_out" : s === "Cancelled" ? "cancelled" : "reactivated",
+        from_status: from ?? null,
+        to_status: s,
+      });
+    },
+    onSuccess: () => { invalidateAll(); toast.success("Status updated"); },
+    onError: (e: any) => toast.error(e.message),
   });
+
+  const overrideCheckout = useMutation({
+    mutationFn: async ({ reason, balance }: { reason: string | null; balance: number }) => {
+      const from = b?.status as string | undefined;
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from("bookings" as any).update({
+        status: "Checked-Out" as any,
+        checkout_override_at: new Date().toISOString(),
+        checkout_override_by: user?.id ?? null,
+        checkout_override_balance: balance,
+        checkout_override_reason: reason,
+      } as any).eq("id", id);
+      await logBookingActivity({
+        booking_id: id,
+        action: "checkout_override",
+        from_status: from ?? null,
+        to_status: "Checked-Out",
+        notes: reason,
+        metadata: { outstanding_balance: balance },
+      });
+    },
+    onSuccess: () => { invalidateAll(); toast.warning("Checked-out with outstanding balance (override recorded)"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const revertCheckIn = useMutation({
+    mutationFn: async () => {
+      // If any payment exists → Advance Paid; else Pending. Triggers re-derive on save.
+      const { data: pays } = await supabase.from("booking_payments" as any).select("id").eq("booking_id", id).limit(1);
+      const newStatus: BookingStatus = (pays && pays.length > 0) ? "Advance Paid" : "Pending";
+      await setBookingStatus(id, newStatus);
+      await logBookingActivity({
+        booking_id: id, action: "revert_check_in",
+        from_status: "Checked-In", to_status: newStatus,
+      });
+    },
+    onSuccess: () => { invalidateAll(); toast.success("Check-in reverted. Room is available again."); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const revertCheckOut = useMutation({
+    mutationFn: async (reason: string | null) => {
+      await setBookingStatus(id, "Checked-In" as any);
+      await logBookingActivity({
+        booking_id: id, action: "revert_check_out",
+        from_status: "Checked-Out", to_status: "Checked-In",
+        notes: reason,
+      });
+    },
+    onSuccess: () => { invalidateAll(); toast.success("Check-out reverted to Checked-In"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const del = useMutation({
     mutationFn: () => deleteBooking(id),
     onSuccess: () => { toast.success("Deleted"); navigate({ to: "/bookings" }); },
@@ -69,9 +138,21 @@ function BookingDetail() {
   const cardRef = useRef<HTMLDivElement>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [revertInOpen, setRevertInOpen] = useState(false);
+  const [revertOutOpen, setRevertOutOpen] = useState(false);
+  const [revertOutReason, setRevertOutReason] = useState("");
+  const [addPaymentForCheckoutOpen, setAddPaymentForCheckoutOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
+
   const { data: payments = [] } = useQuery({
     queryKey: ["booking-payments", id],
     queryFn: () => listBookingPayments(id),
+    enabled: !!b,
+  });
+  const { data: bookingActivities = [] } = useQuery({
+    queryKey: ["booking-activities", id],
+    queryFn: () => listBookingActivities(id),
     enabled: !!b,
   });
 
