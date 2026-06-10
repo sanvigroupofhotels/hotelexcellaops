@@ -598,6 +598,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
   const qc = useQueryClient();
   const { data: staff = [] } = useQuery({ queryKey: ["staff","active"], queryFn: () => listStaff(true) });
   const { data: etypes = [] } = useQuery({ queryKey: ["etypes","active"], queryFn: () => listExpenseTypes(true) });
+  const { values: incomeTypes } = useMasterData("income_category", [...COLLECTION_TYPES]);
   const { data: bookings = [] } = useQuery({
     queryKey: ["bookings-cash-pick"],
     queryFn: listBookings,
@@ -605,7 +606,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
   });
 
   const isEdit = !!edit;
-  const [typeName, setTypeName] = useState<string>(edit?.type_name ?? (kind === "collection" ? COLLECTION_TYPES[0] : (etypes[0]?.name ?? "")));
+  const [typeName, setTypeName] = useState<string>(edit?.type_name ?? (kind === "collection" ? (incomeTypes[0] ?? COLLECTION_TYPES[0]) : (etypes[0]?.name ?? "")));
   const [description, setDescription] = useState(edit?.description ?? "");
   const [guestName, setGuestName] = useState(edit?.guest_name ?? "");
   const [guestMobile, setGuestMobile] = useState(edit?.guest_mobile ?? "");
