@@ -144,7 +144,7 @@ function RatesContent() {
 }
 
 function DefaultsDialog({ room_type, existing, onClose }: { room_type: string; existing: any; onClose: () => void }) {
-  const fallback = roomTypes.find((r) => r.name === room_type)?.weekday ?? 0;
+  const fallback = roomTypes.find((r) => r.name === room_type)?.rate ?? 0;
   const [def, setDef] = useState<number>(existing?.default_rate ?? fallback);
   const [wk, setWk] = useState<string>(existing?.weekday_rate?.toString() ?? "");
   const [we, setWe] = useState<string>(existing?.weekend_rate?.toString() ?? "");
