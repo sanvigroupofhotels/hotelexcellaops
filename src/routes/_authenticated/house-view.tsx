@@ -206,14 +206,16 @@ function HouseView() {
                     className="sticky left-0 z-20 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-left"
                     style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                   >Room</th>
-                  {days.map((d) => {
+                  {days.map((d, i) => {
                     const isToday = dateKey(d) === todayKey;
+                    const isLast = i === days.length - 1;
                     return (
                       <th key={d.toISOString()}
-                        className={cn("border-b-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
-                          isToday ? "text-gold bg-gold-soft/40" : "text-muted-foreground")}
+                        className={cn("border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
+                          isToday ? "text-gold bg-gold-soft/40" : "text-muted-foreground",
+                          isLast && "border-r-0")}
                         style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
-                        <div>{d.toLocaleDateString("en-IN", { weekday: "short" })}</div>
+                        <div className="font-medium">{d.toLocaleDateString("en-IN", { weekday: "short" })}</div>
                         <div className="text-foreground text-xs">{fmtShort(d)}</div>
                       </th>
                     );
@@ -248,8 +250,12 @@ function HouseView() {
                         });
                         return (
                           <td key={i}
-                            className={cn("relative border-b border-border align-top h-14 p-0 group/cell",
-                              isToday && "bg-gold-soft/10")}
+                            className={cn(
+                              "relative border-b border-r border-border align-top h-14 p-0 group/cell",
+                              isToday && "bg-gold-soft/10",
+                              i % 2 === 0 && !isToday && "bg-secondary/10",
+                              i === days.length - 1 && "border-r-0",
+                            )}
                             style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
                             <div className="relative h-full" style={{ minHeight: 56 }}>
                               {/* Vacant action button — visible when no booking/block starts here AND no booking covers this day */}
