@@ -30,7 +30,7 @@ export function BlockRoomDialog({
   const save = useMutation({
     mutationFn: async () => {
       const finalReason = reason === "Other" ? customReason.trim() || "Other" : reason;
-      if (existing) {
+      if (existing?.id) {
         await updateBlock(existing.id, { start_date: start, end_date: end, reason: finalReason });
       } else {
         await blockRoom({ room_id: roomId, start_date: start, end_date: end, reason: finalReason });
@@ -46,7 +46,7 @@ export function BlockRoomDialog({
   });
 
   const unblock = useMutation({
-    mutationFn: async () => { if (existing) await unblockRoom(existing.id); },
+    mutationFn: async () => { if (existing?.id) await unblockRoom(existing.id); },
     onSuccess: () => {
       toast.success("Room unblocked");
       qc.invalidateQueries({ queryKey: ["room_maintenance"] });
