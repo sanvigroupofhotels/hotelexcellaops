@@ -1,11 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Printer, Share2, X } from "lucide-react";
 import { toast } from "sonner";
 import type { BookingRow } from "@/lib/bookings-api";
 import type { BookingItemRow } from "@/lib/booking-items-api";
+import { rowToLineItem } from "@/lib/booking-items-api";
 import type { BookingPaymentRow } from "@/lib/booking-payments-api";
 import { nodeToBlob } from "@/lib/share-quote";
+import { computePricing } from "@/lib/pricing";
 
 const fmtDate = (s: string) =>
   new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -43,12 +45,30 @@ export function InvoiceDialog({
   const total = Number(booking.amount || 0);
   const balance = Math.max(0, total - advance);
   const discount = Number(booking.discount || 0);
-  const subtotalRaw = Number((booking as any).subtotal || 0);
-  const taxes = Number((booking as any).taxes || 0);
   const taxRate = Number((booking as any).tax_rate || 0);
-  // Items Total = Taxable + Discount  (because Subtotal stored = Items Total − Discount)
-  const itemsTotal = subtotalRaw > 0 ? subtotalRaw + discount : total + discount - taxes;
-  const taxable = subtotalRaw > 0 ? subtotalRaw : Math.max(0, total - taxes);
+
+  // Compute itemized pricing from booking_items (room + extras) so the invoice
+  // matches Booking Preview / WhatsApp / Portal exactly.
+  const pricing = useMemo(() => {
+    if (!items.length) return null;
+    try {
+      return computePricing(
+        items.map(rowToLineItem),
+        discount,
+        taxRate,
+        {
+          totalOverride: (booking as any).total_override ?? null,
+          taxesIncluded: !!(booking as any).taxes_included,
+        },
+      );
+    } catch { return null; }
+  }, [items, discount, taxRate, booking]);
+
+  const itemsTotal = pricing?.itemsTotal ?? Math.max(0, total + discount - Number((booking as any).taxes || 0));
+  const taxable = pricing?.subtotal ?? Math.max(0, total - Number((booking as any).taxes || 0));
+  const taxes = pricing?.taxes ?? Number((booking as any).taxes || 0);
+  const mainStay = pricing?.mainStayCharges ?? itemsTotal;
+  const extraLines = pricing?.additionalLineItems ?? [];
   const sumPayments = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
 
   useEffect(() => {
@@ -192,14 +212,33 @@ export function InvoiceDialog({
                 </tr>
               </thead>
               <tbody>
-                {items.length > 0 ? items.map((it) => (
-                  <tr key={it.id} className="border-b border-border/50">
-                    <td className="py-2">{it.room_type}{it.rooms > 1 ? ` × ${it.rooms}` : ""}{!it.breakfast_included ? "" : " (incl. breakfast)"}</td>
-                    <td className="py-2 text-center tabular-nums">{it.nights}</td>
-                    <td className="py-2 text-right tabular-nums">{inr(it.rate)}</td>
-                    <td className="py-2 text-right tabular-nums">{inr(Number(it.subtotal))}</td>
-                  </tr>
-                )) : (
+                {items.length > 0 ? (
+                  <>
+                    {items.map((it) => (
+                      <tr key={it.id} className="border-b border-border/50">
+                        <td className="py-2">{it.room_type}{it.rooms > 1 ? ` × ${it.rooms}` : ""}{it.breakfast_included ? " (incl. breakfast)" : ""}</td>
+                        <td className="py-2 text-center tabular-nums">{it.nights}</td>
+                        <td className="py-2 text-right tabular-nums">{inr(it.rate)}</td>
+                        <td className="py-2 text-right tabular-nums">{inr(Number(it.rate) * it.nights * (it.rooms || 1))}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-b border-border/50">
+                      <td className="py-2 font-medium" colSpan={3}>Main Stay Charges</td>
+                      <td className="py-2 text-right tabular-nums">{inr(mainStay)}</td>
+                    </tr>
+                    {extraLines.length > 0 && (
+                      <tr className="border-b border-border/50">
+                        <td className="py-2 font-medium pt-3" colSpan={4}>Additional Stay Charges</td>
+                      </tr>
+                    )}
+                    {extraLines.map((ex, i) => (
+                      <tr key={`ex-${i}`} className="border-b border-border/50">
+                        <td className="py-1.5 pl-4 text-muted-foreground" colSpan={3}>– {ex.label}</td>
+                        <td className="py-1.5 text-right tabular-nums">{inr(ex.value)}</td>
+                      </tr>
+                    ))}
+                  </>
+                ) : (
                   <tr className="border-b border-border/50">
                     <td className="py-2">{booking.room_details || "Room Charges"}</td>
                     <td className="py-2 text-center tabular-nums">{booking.nights}</td>
@@ -207,9 +246,8 @@ export function InvoiceDialog({
                     <td className="py-2 text-right tabular-nums">{inr(total)}</td>
                   </tr>
                 )}
-                {/* Breakdown rows: Room Charges + Extras = Subtotal − Discount = Taxable + Taxes = Total */}
                 <tr className="border-b border-border/50">
-                  <td className="py-2" colSpan={3}>Room Charges + Extra Charges (Subtotal)</td>
+                  <td className="py-2 font-medium" colSpan={3}>Subtotal</td>
                   <td className="py-2 text-right tabular-nums">{inr(itemsTotal)}</td>
                 </tr>
                 {discount > 0 && (
