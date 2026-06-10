@@ -344,6 +344,15 @@ function NewBooking() {
                 <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
               </div>
             </motion.section>
+
+            {/* Inline pricing breakdown — visible on every viewport (matches Quote form) */}
+            <div className="lg:hidden">
+              <PricingBreakdownCard
+                roomCharges={roomCharges}
+                extraCharges={extraCharges}
+                pricing={pricing}
+              />
+            </div>
           </div>
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
