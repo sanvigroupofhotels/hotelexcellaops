@@ -203,69 +203,42 @@ export function InvoiceDialog({
               {isFinal ? "Final Charges" : "Charges"}
             </h4>
             <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
-                  <th className="text-left py-2">Description</th>
-                  <th className="text-center py-2">Nights</th>
-                  <th className="text-right py-2">Rate</th>
-                  <th className="text-right py-2">Amount</th>
-                </tr>
-              </thead>
               <tbody>
-                {items.length > 0 ? (
-                  <>
-                    {items.map((it) => (
-                      <tr key={it.id} className="border-b border-border/50">
-                        <td className="py-2">{it.room_type}{it.rooms > 1 ? ` × ${it.rooms}` : ""}{it.breakfast_included ? " (incl. breakfast)" : ""}</td>
-                        <td className="py-2 text-center tabular-nums">{it.nights}</td>
-                        <td className="py-2 text-right tabular-nums">{inr(it.rate)}</td>
-                        <td className="py-2 text-right tabular-nums">{inr(Number(it.rate) * it.nights * (it.rooms || 1))}</td>
-                      </tr>
-                    ))}
-                    <tr className="border-b border-border/50">
-                      <td className="py-2 font-medium" colSpan={3}>Main Stay Charges</td>
-                      <td className="py-2 text-right tabular-nums">{inr(mainStay)}</td>
-                    </tr>
-                    {extraLines.length > 0 && (
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 font-medium pt-3" colSpan={4}>Additional Stay Charges</td>
-                      </tr>
-                    )}
-                    {extraLines.map((ex, i) => (
-                      <tr key={`ex-${i}`} className="border-b border-border/50">
-                        <td className="py-1.5 pl-4 text-muted-foreground" colSpan={3}>– {ex.label}</td>
-                        <td className="py-1.5 text-right tabular-nums">{inr(ex.value)}</td>
-                      </tr>
-                    ))}
-                  </>
-                ) : (
-                  <tr className="border-b border-border/50">
-                    <td className="py-2">{booking.room_details || "Room Charges"}</td>
-                    <td className="py-2 text-center tabular-nums">{booking.nights}</td>
-                    <td className="py-2 text-right tabular-nums">—</td>
-                    <td className="py-2 text-right tabular-nums">{inr(total)}</td>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 font-medium">Main Stay Charges</td>
+                  <td className="py-2 text-right tabular-nums">{inr(mainStay)}</td>
+                </tr>
+                {extraLines.length > 0 && (
+                  <tr>
+                    <td className="pt-3 pb-1 font-medium" colSpan={2}>Additional Stay Charges</td>
                   </tr>
                 )}
+                {extraLines.map((ex, i) => (
+                  <tr key={`ex-${i}`} className="border-b border-border/50">
+                    <td className="py-1.5 pl-4 text-muted-foreground">– {ex.label}</td>
+                    <td className="py-1.5 text-right tabular-nums">{inr(ex.value)}</td>
+                  </tr>
+                ))}
                 <tr className="border-b border-border/50">
-                  <td className="py-2 font-medium" colSpan={3}>Subtotal</td>
+                  <td className="py-2 font-medium">Subtotal</td>
                   <td className="py-2 text-right tabular-nums">{inr(itemsTotal)}</td>
                 </tr>
                 {discount > 0 && (
                   <tr className="border-b border-border/50">
-                    <td className="py-2" colSpan={3}>Discount</td>
+                    <td className="py-2">Discount</td>
                     <td className="py-2 text-right tabular-nums">-{inr(discount)}</td>
                   </tr>
                 )}
                 <tr className="border-b border-border/50">
-                  <td className="py-2" colSpan={3}>Taxable Amount</td>
+                  <td className="py-2">Taxable Amount</td>
                   <td className="py-2 text-right tabular-nums">{inr(taxable)}</td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2" colSpan={3}>Taxes{taxRate > 0 ? ` (${Math.round(taxRate * 100)}%)` : ""}</td>
+                  <td className="py-2">Tax{taxRate > 0 ? ` (${Math.round(taxRate * 100)}%)` : ""}</td>
                   <td className="py-2 text-right tabular-nums">{inr(taxes)}</td>
                 </tr>
                 <tr>
-                  <td className="pt-3 font-medium" colSpan={3}>Final Booking Amount</td>
+                  <td className="pt-3 font-medium">Final Booking Amount</td>
                   <td className="pt-3 text-right font-display text-lg gold-text-gradient tabular-nums">{inr(total)}</td>
                 </tr>
               </tbody>
