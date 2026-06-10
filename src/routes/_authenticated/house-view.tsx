@@ -332,7 +332,21 @@ function HouseView() {
 
       {selected && <BookingPopover b={selected} onClose={() => setSelected(null)} rooms={rooms}
         hasBreakfast={!!breakfastByBooking.get(selected.id)} />}
-      {selectedBlock && <BlockPopover m={selectedBlock} onClose={() => setSelectedBlock(null)} rooms={rooms} />}
+      {selectedBlock && <BlockPopover m={selectedBlock} onClose={() => setSelectedBlock(null)} rooms={rooms}
+        onEdit={() => { setEditBlock(selectedBlock); setSelectedBlock(null); }} />}
+      {editBlock && (() => {
+        const room = rooms.find((r: any) => r.id === editBlock.room_id);
+        return (
+          <BlockRoomDialog roomId={editBlock.room_id} roomNumber={room?.room_number ?? ""}
+            existing={editBlock} onClose={() => setEditBlock(null)} />
+        );
+      })()}
+      {vacantAction && (
+        <VacantActionMenu room={vacantAction.room} date={vacantAction.date}
+          onCreateBooking={() => setVacantAction(null)}
+          onBlock={() => { setEditBlock({ room_id: vacantAction.room.id, start_date: vacantAction.date, end_date: vacantAction.date }); setVacantAction(null); }}
+          onClose={() => setVacantAction(null)} />
+      )}
 
       {statsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setStatsOpen(false)}>
