@@ -1,4 +1,5 @@
 import type { BookingRow } from "@/lib/bookings-api";
+import { computePricing } from "@/lib/pricing";
 
 const fmtDate = (s: string) =>
   new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
