@@ -120,7 +120,15 @@ function BookingDetail() {
 
   const revertCheckOut = useMutation({
     mutationFn: async (reason: string | null) => {
-      await setBookingStatus(id, "Checked-In" as any);
+      // Clear the override warning fields so the "Outstanding Balance" banner
+      // disappears immediately — the warning is derived from current state.
+      await supabase.from("bookings" as any).update({
+        status: "Checked-In" as any,
+        checkout_override_at: null,
+        checkout_override_by: null,
+        checkout_override_balance: null,
+        checkout_override_reason: null,
+      } as any).eq("id", id);
       await logBookingActivity({
         booking_id: id, action: "revert_check_out",
         from_status: "Checked-Out", to_status: "Checked-In",
