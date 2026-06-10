@@ -194,14 +194,15 @@ function PaymentsReportsPage() {
                   <th className="text-left px-4 py-2.5">Collected By</th>
                   <th className="text-left px-4 py-2.5">Notes</th>
                   <th className="text-right px-4 py-2.5">Balance</th>
+                  <th className="text-right px-4 py-2.5">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
-                  <tr><td colSpan={8} className="p-12 text-center"><Loader2 className="h-5 w-5 animate-spin text-gold mx-auto" /></td></tr>
+                  <tr><td colSpan={9} className="p-12 text-center"><Loader2 className="h-5 w-5 animate-spin text-gold mx-auto" /></td></tr>
                 )}
                 {!isLoading && filtered.length === 0 && (
-                  <tr><td colSpan={8} className="p-12 text-center text-muted-foreground">No payments match these filters.</td></tr>
+                  <tr><td colSpan={9} className="p-12 text-center text-muted-foreground">No payments match these filters.</td></tr>
                 )}
                 {filtered.map((p) => (
                   <tr key={p.id} className="border-t border-border/60 hover:bg-secondary/30">
@@ -219,6 +220,18 @@ function PaymentsReportsPage() {
                     <td className="px-4 py-2.5 text-right tabular-nums text-xs">
                       {p._balance > 0 ? <span className="text-warning">₹{p._balance.toLocaleString("en-IN")}</span> : <span className="text-success">Paid</span>}
                     </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <div className="inline-flex items-center gap-0.5">
+                        <button onClick={() => setEditPayment(p as any)}
+                          className="p-1 text-muted-foreground hover:text-gold" title="Edit payment">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => setDeleteId(p.id)}
+                          className="p-1 text-muted-foreground hover:text-destructive" title="Delete payment">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -226,6 +239,58 @@ function PaymentsReportsPage() {
           </div>
         </div>
       </div>
+
+      {editPayment && (
+        <AddBookingPaymentModal
+          bookingId={editPayment.booking_id}
+          customerId={(editPayment as any).customer_id ?? ""}
+          maxAmount={
+            // Allow editing up to current booking total
+            (() => {
+              const bk = bookingById[editPayment.booking_id];
+              const tot = Number(bk?.amount || 0);
+              const paid = Number(bk?.advance_paid || 0);
+              return Math.max(0, tot - paid) + Number(editPayment.amount);
+            })()
+          }
+          payment={editPayment}
+          onClose={() => setEditPayment(null)}
+          onSaved={() => {
+            setEditPayment(null);
+            qc.invalidateQueries({ queryKey: ["all-booking-payments"] });
+            qc.invalidateQueries({ queryKey: ["bookings"] });
+          }}
+        />
+      )}
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will recalculate <span className="text-foreground">Advance Paid</span> and <span className="text-foreground">Balance Due</span> on the booking, update the CashBook (if applicable), and adjust Payment Reports. The change is recorded in the Payment Audit History. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!deleteId) return;
+                try {
+                  await deleteBookingPayment(deleteId);
+                  toast.success("Payment removed");
+                  qc.invalidateQueries({ queryKey: ["all-booking-payments"] });
+                  qc.invalidateQueries({ queryKey: ["bookings"] });
+                  qc.invalidateQueries({ queryKey: ["cash"] });
+                  setDeleteId(null);
+                } catch (e: any) { toast.error(e.message ?? "Delete failed"); }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Payment
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
