@@ -77,7 +77,13 @@ export async function createCustomer(input: CustomerInput) {
     .from("customers" as any)
     .insert({ ...input, user_id: user.id } as any)
     .select().single();
-  if (error) throw error;
+  if (error) {
+    // Duplicate-phone is enforced by partial unique index `customers_phone_unique_when_set`
+    if ((error as any).code === "23505" || /customers_phone_unique_when_set|duplicate key/i.test(error.message)) {
+      throw new Error(`A customer with phone "${input.phone}" already exists. Please search and use the existing record.`);
+    }
+    throw error;
+  }
   return data as unknown as CustomerRow;
 }
 
