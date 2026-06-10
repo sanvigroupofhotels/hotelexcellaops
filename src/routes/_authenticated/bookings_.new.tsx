@@ -398,9 +398,13 @@ function NewBooking() {
           </div>
         </div>
 
-        {/* Sticky footer: collapsible pricing breakdown + Create Booking — mobile only */}
+        {/* Sticky footer: editable pricing breakdown + Create Booking — mobile only */}
         <StickyPricingFooter
           pricing={pricing}
+          editable={true}
+          overrideValue={totalOverride}
+          onOverrideChange={setTotalOverride}
+          onTaxesIncludedChange={setTaxesIncluded}
           actions={
             <button onClick={() => save.mutate()} disabled={save.isPending || !stay.guest_name.trim()}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60">
