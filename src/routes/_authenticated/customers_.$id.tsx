@@ -44,6 +44,8 @@ function CustomerDetail() {
 
   const [notes, setNotes] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const { values: leadSources } = useMasterData("lead_source", [...LEAD_SOURCES]);
+  const { values: tags } = useMasterData("tag", [...DEFAULT_TAGS]);
   useEffect(() => { if (c) setNotes(c.internal_notes ?? ""); }, [c]);
 
   const save = useMutation({
