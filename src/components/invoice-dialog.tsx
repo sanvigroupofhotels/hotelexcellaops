@@ -256,7 +256,6 @@ export function InvoiceDialog({
                   <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
                     <th className="text-left py-2">Date</th>
                     <th className="text-left py-2">Mode</th>
-                    <th className="text-left py-2">Collected By</th>
                     <th className="text-right py-2">Amount</th>
                   </tr>
                 </thead>
@@ -265,12 +264,11 @@ export function InvoiceDialog({
                     <tr key={p.id} className="border-b border-border/50">
                       <td className="py-2 tabular-nums">{fmtDateTime(p.occurred_at)}</td>
                       <td className="py-2">{p.payment_mode}</td>
-                      <td className="py-2">{p.collected_by}</td>
                       <td className="py-2 text-right tabular-nums">{inr(Number(p.amount))}</td>
                     </tr>
                   ))}
                   <tr>
-                    <td className="pt-3 font-medium" colSpan={3}>Total Paid</td>
+                    <td className="pt-3 font-medium" colSpan={2}>Total Paid</td>
                     <td className="pt-3 text-right tabular-nums">{inr(sumPayments)}</td>
                   </tr>
                 </tbody>
