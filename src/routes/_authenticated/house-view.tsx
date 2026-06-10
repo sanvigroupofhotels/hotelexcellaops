@@ -6,10 +6,12 @@ import { listRooms, listMaintenance } from "@/lib/rooms-api";
 import { listBookings } from "@/lib/bookings-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
+import { InvoiceDialog } from "@/components/invoice-dialog";
+import { listBookingPayments } from "@/lib/booking-payments-api";
 
 export const Route = createFileRoute("/_authenticated/house-view")({
   component: HouseView,
@@ -371,6 +373,22 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
   const today = dateKey(new Date());
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const isCheckedOut = status === "Checked-Out" || status === "Stay Completed";
+
+  const { data: itemsForInvoice = [] } = useQuery({
+    queryKey: ["booking-items", b.id],
+    queryFn: async () => {
+      const { listBookingItems } = await import("@/lib/booking-items-api");
+      return listBookingItems(b.id);
+    },
+    enabled: invoiceOpen,
+  });
+  const { data: paymentsForInvoice = [] } = useQuery({
+    queryKey: ["booking-payments", b.id],
+    queryFn: () => listBookingPayments(b.id),
+    enabled: invoiceOpen,
+  });
 
   const checkInMut = useMutation({
     mutationFn: async () => {
