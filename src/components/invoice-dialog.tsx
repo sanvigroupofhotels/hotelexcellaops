@@ -45,12 +45,30 @@ export function InvoiceDialog({
   const total = Number(booking.amount || 0);
   const balance = Math.max(0, total - advance);
   const discount = Number(booking.discount || 0);
-  const subtotalRaw = Number((booking as any).subtotal || 0);
-  const taxes = Number((booking as any).taxes || 0);
   const taxRate = Number((booking as any).tax_rate || 0);
-  // Items Total = Taxable + Discount  (because Subtotal stored = Items Total − Discount)
-  const itemsTotal = subtotalRaw > 0 ? subtotalRaw + discount : total + discount - taxes;
-  const taxable = subtotalRaw > 0 ? subtotalRaw : Math.max(0, total - taxes);
+
+  // Compute itemized pricing from booking_items (room + extras) so the invoice
+  // matches Booking Preview / WhatsApp / Portal exactly.
+  const pricing = useMemo(() => {
+    if (!items.length) return null;
+    try {
+      return computePricing(
+        items.map(rowToLineItem),
+        discount,
+        taxRate,
+        {
+          totalOverride: (booking as any).total_override ?? null,
+          taxesIncluded: !!(booking as any).taxes_included,
+        },
+      );
+    } catch { return null; }
+  }, [items, discount, taxRate, booking]);
+
+  const itemsTotal = pricing?.itemsTotal ?? Math.max(0, total + discount - Number((booking as any).taxes || 0));
+  const taxable = pricing?.subtotal ?? Math.max(0, total - Number((booking as any).taxes || 0));
+  const taxes = pricing?.taxes ?? Number((booking as any).taxes || 0);
+  const mainStay = pricing?.mainStayCharges ?? itemsTotal;
+  const extraLines = pricing?.additionalLineItems ?? [];
   const sumPayments = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
 
   useEffect(() => {
