@@ -633,6 +633,19 @@ function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balanc
   );
 }
 
+function PriceRow({ label, value }: { label: string; value: number }) {
+  return (
+    <li className="flex items-baseline justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn("tabular-nums", value < 0 && "text-success")}>
+        {value === 0 ? "—" : `${value < 0 ? "−" : ""}₹${Math.abs(value).toLocaleString("en-IN")}`}
+      </span>
+    </li>
+  );
+}
+
+
+
 
 
 function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId }: {
