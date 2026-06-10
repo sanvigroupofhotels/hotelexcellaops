@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listRooms, findRoomConflicts, type RoomConflict } from "@/lib/rooms-api";
+import { listRooms, findRoomConflicts, listOccupiedRoomIds, type RoomConflict } from "@/lib/rooms-api";
 import { listActiveBlocks, isRoomBlockedInRange } from "@/lib/blocks-api";
 import { AlertTriangle, BedDouble } from "lucide-react";
 
@@ -18,20 +18,32 @@ interface Props {
 }
 
 /**
- * Room picker with overlap warning.
- * Rooms with an active block covering the stay dates are hidden.
+ * Room picker. UAT rules:
+ *  - Rooms with an active block covering the stay dates are HIDDEN.
+ *  - Rooms occupied by another (non-cancelled) booking in the stay dates are HIDDEN.
+ *  - Applies equally to Staff AND Admin.
+ * Conflict warnings still surface if a stale selection now overlaps.
  */
 export function RoomAssignmentField({ value, onChange, check_in, check_out, excludeBookingId, roomType }: Props) {
   const { data: allRooms = [] } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
   const { data: blocks = [] } = useQuery({ queryKey: ["blocks", "active"], queryFn: listActiveBlocks });
+  const { data: occupied = new Set<string>() } = useQuery({
+    queryKey: ["rooms-occupied", check_in, check_out, excludeBookingId ?? ""],
+    queryFn: () => listOccupiedRoomIds(check_in, check_out, excludeBookingId),
+    enabled: !!(check_in && check_out && check_out > check_in),
+  });
   const [conflicts, setConflicts] = useState<RoomConflict[]>([]);
 
-  // Filter by room type, then drop any room blocked for the stay dates.
+  // Filter by type, then drop blocked, then drop occupied (but keep the currently-selected one
+  // so the displayed value is never lost without explicit user action).
   const filteredByType = roomType
     ? allRooms.filter((r) => r.room_type.toLowerCase().includes(roomType.split(" ")[0].toLowerCase()))
     : allRooms;
   const rooms = check_in && check_out
-    ? filteredByType.filter((r) => !isRoomBlockedInRange(blocks, r.id, check_in, check_out))
+    ? filteredByType.filter((r) =>
+        r.id === value
+          || (!isRoomBlockedInRange(blocks, r.id, check_in, check_out) && !occupied.has(r.id))
+      )
     : filteredByType;
 
   useEffect(() => {
@@ -44,6 +56,8 @@ export function RoomAssignmentField({ value, onChange, check_in, check_out, excl
   }, [value, check_in, check_out, excludeBookingId]);
 
   const blockedHit = value ? isRoomBlockedInRange(blocks, value, check_in, check_out) : null;
+  const hiddenCount =
+    filteredByType.length - rooms.length + (value && !filteredByType.find((r) => r.id === value) ? 0 : 0);
 
   return (
     <div className="space-y-2">
@@ -58,6 +72,11 @@ export function RoomAssignmentField({ value, onChange, check_in, check_out, excl
             <option key={r.id} value={r.id}>{r.room_number}</option>
           ))}
         </select>
+        {hiddenCount > 0 && (
+          <span className="block text-[10px] text-muted-foreground mt-1">
+            {hiddenCount} room{hiddenCount === 1 ? "" : "s"} hidden (occupied or blocked for these dates)
+          </span>
+        )}
       </label>
 
       {blockedHit && (
@@ -70,17 +89,16 @@ export function RoomAssignmentField({ value, onChange, check_in, check_out, excl
       {conflicts.length > 0 && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs space-y-1.5">
           <div className="flex items-center gap-1.5 font-medium text-destructive">
-            <AlertTriangle className="h-3.5 w-3.5" /> Room Conflict Detected
+            <AlertTriangle className="h-3.5 w-3.5" /> Room already assigned to another booking
           </div>
           {conflicts.map((c) => (
             <div key={c.booking_id} className="text-foreground/80">
               {c.guest_name} · {new Date(c.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → {new Date(c.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} <span className="text-muted-foreground">({c.status})</span>
             </div>
           ))}
-          <div className="text-muted-foreground pt-1">Staff cannot save overlapping bookings. Choose a different room or ask an admin to override.</div>
+          <div className="text-muted-foreground pt-1">Please choose another room — overlapping bookings are not allowed.</div>
         </div>
       )}
     </div>
   );
 }
-
