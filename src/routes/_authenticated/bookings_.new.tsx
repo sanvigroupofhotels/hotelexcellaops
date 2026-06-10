@@ -357,12 +357,14 @@ function NewBooking() {
               </div>
             </motion.section>
 
-            {/* Inline pricing breakdown — visible on every viewport (matches Quote form) */}
+            {/* Inline pricing breakdown — kept for mobile users who scroll past the sticky footer */}
             <div className="lg:hidden">
               <PricingBreakdownCard
                 roomCharges={roomCharges}
                 extraCharges={extraCharges}
                 pricing={pricing}
+                nights={nights}
+                guests={stay.guests}
               />
             </div>
           </div>
@@ -372,6 +374,8 @@ function NewBooking() {
               roomCharges={roomCharges}
               extraCharges={extraCharges}
               pricing={pricing}
+              nights={nights}
+              guests={stay.guests}
             />
             {advancePaid > 0 && (
               <div className="luxe-card rounded-xl p-5">
@@ -392,17 +396,17 @@ function NewBooking() {
           </div>
         </div>
 
-        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur p-3">
-          <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance</span>
-            <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
-          </div>
-          <button onClick={() => save.mutate()} disabled={save.isPending || !stay.guest_name.trim()}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60">
-            {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Create Booking
-          </button>
-        </div>
+        {/* Sticky footer: collapsible pricing breakdown + Create Booking — mobile only */}
+        <StickyPricingFooter
+          pricing={pricing}
+          actions={
+            <button onClick={() => save.mutate()} disabled={save.isPending || !stay.guest_name.trim()}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60">
+              {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Create Booking
+            </button>
+          }
+        />
       </div>
     </>
   );

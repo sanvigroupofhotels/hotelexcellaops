@@ -5,10 +5,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, updateBooking } from "@/lib/bookings-api";
 import { listBookingItems, replaceBookingItems, rowToLineItem } from "@/lib/booking-items-api";
-import { type LineItem, lineSubtotal } from "@/components/line-items-editor";
-import { getRoomRate } from "@/lib/mock-data";
+import { type LineItem, lineSubtotal, nightsOf } from "@/components/line-items-editor";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
-import { PricingBreakdownCard } from "@/components/pricing-breakdown";
+import { PricingBreakdownCard, StickyPricingFooter } from "@/components/pricing-breakdown";
+import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { NumField } from "@/components/num-field";
 import {
   StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
@@ -66,16 +66,17 @@ function EditBooking() {
     setLoaded(true);
   }, [b, existingItems, loaded]);
 
-  const { pricing, roomCharges, extraCharges } = useMemo(() => {
-    const rate = getRoomRate(stay.room_type, stay.breakfast_included);
-    const primary = primaryToLineItem(stay, rate);
+  const resolvedRate = useResolvedRate(stay.room_type, stay.check_in, stay.check_out, stay.breakfast_included);
+  const { pricing, roomCharges, extraCharges, nights } = useMemo(() => {
+    const primary = primaryToLineItem(stay, resolvedRate);
     const p = computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE);
     return {
       pricing: p,
       roomCharges: lineSubtotal(primary),
       extraCharges: extras.reduce((s, i) => s + lineSubtotal(i), 0),
+      nights: nightsOf(primary),
     };
-  }, [stay, extras]);
+  }, [stay, extras, resolvedRate]);
   const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid));
 
@@ -94,8 +95,7 @@ function EditBooking() {
         advance_paid: advancePaid, discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
       });
-      const rate = getRoomRate(stay.room_type, stay.breakfast_included);
-      const primary = primaryToLineItem(stay, rate);
+      const primary = primaryToLineItem(stay, resolvedRate);
       await replaceBookingItems(id, [primary, ...extras]);
     },
     onSuccess: () => {
@@ -156,6 +156,8 @@ function EditBooking() {
                 roomCharges={roomCharges}
                 extraCharges={extraCharges}
                 pricing={pricing}
+                nights={nights}
+                guests={stay.guests}
               />
             </div>
           </div>
@@ -165,6 +167,8 @@ function EditBooking() {
               roomCharges={roomCharges}
               extraCharges={extraCharges}
               pricing={pricing}
+              nights={nights}
+              guests={stay.guests}
             />
             {advancePaid > 0 && (
               <div className="luxe-card rounded-xl p-5">
@@ -183,12 +187,16 @@ function EditBooking() {
           </div>
         </div>
 
-        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur p-3">
-          <button onClick={() => save.mutate()} disabled={save.isPending}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60">
-            {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save Changes
-          </button>
-        </div>
+        {/* Sticky footer: collapsible pricing breakdown + Save Changes — mobile only */}
+        <StickyPricingFooter
+          pricing={pricing}
+          actions={
+            <button onClick={() => save.mutate()} disabled={save.isPending}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60">
+              {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save Changes
+            </button>
+          }
+        />
       </div>
     </>
   );
