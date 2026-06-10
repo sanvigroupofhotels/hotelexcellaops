@@ -188,10 +188,11 @@ export async function createQuote(
   input: QuoteInput,
   initialStatus: QuoteStatus = "Pending",
   extraLineItems: import("./quote-items-api").QuoteItemInput[] = [],
+  rateOverride?: number,
 ) {
   validateQuoteInput(input);
   const data = normalize(input);
-  const c = calc(data);
+  const c = calc(data, rateOverride);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
 
