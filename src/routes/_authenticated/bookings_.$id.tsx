@@ -397,6 +397,118 @@ function BookingDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Checkout override (admin only) — confirm checkout despite outstanding balance */}
+      <AlertDialog open={overrideOpen} onOpenChange={setOverrideOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" /> Outstanding Balance Detected</AlertDialogTitle>
+            <AlertDialogDescription>
+              This booking has an outstanding balance of <span className="text-foreground font-medium">₹{balance.toLocaleString("en-IN")}</span>.
+              You can collect payment now, or proceed with check-out as an admin override. The override will be recorded in the audit log.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <CheckoutOverrideForm
+            balance={balance}
+            onCancel={() => setOverrideOpen(false)}
+            onAddPayment={() => { setOverrideOpen(false); setAddPaymentForCheckoutOpen(true); }}
+            onProceed={(reason) => { setOverrideOpen(false); overrideCheckout.mutate({ reason, balance }); }}
+          />
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Revert Check-In */}
+      <AlertDialog open={revertInOpen} onOpenChange={setRevertInOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revert Check-In?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The booking will be moved back to {(payments.length > 0) ? "Advance Paid" : "Pending"} and the room will be available again. This action is recorded in the audit log.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setRevertInOpen(false); revertCheckIn.mutate(); }}>
+              Revert Check-In
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Revert Check-Out (Admin only) */}
+      <AlertDialog open={revertOutOpen} onOpenChange={setRevertOutOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revert Check-Out (Admin)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The booking will be restored to <span className="font-medium text-foreground">Checked-In</span>. This action is recorded in the audit log.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="px-1">
+            <label className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Reason (optional)</label>
+            <textarea value={revertOutReason} onChange={(e) => setRevertOutReason(e.target.value)} rows={2}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" placeholder="e.g. Guest extending stay" />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRevertOutReason("")}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { const r = revertOutReason.trim() || null; setRevertOutOpen(false); setRevertOutReason(""); revertCheckOut.mutate(r); }}>
+              Revert Check-Out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {addPaymentForCheckoutOpen && (
+        <AddBookingPaymentModal
+          bookingId={id} customerId={b.customer_id} maxAmount={balance}
+          onClose={() => setAddPaymentForCheckoutOpen(false)}
+          onSaved={() => { setAddPaymentForCheckoutOpen(false); toast.success("Payment recorded. You can now check-out."); }}
+        />
+      )}
+    </>
+  );
+}
+
+function formatActivity(a: any): string {
+  switch (a.action) {
+    case "check_in": return "Checked-In";
+    case "check_out": return "Checked-Out";
+    case "revert_check_in": return `Check-In reverted → ${a.to_status}`;
+    case "revert_check_out": return "Check-Out reverted → Checked-In";
+    case "checkout_override":
+      return `Check-Out Override · Outstanding ₹${Number(a.metadata?.outstanding_balance || 0).toLocaleString("en-IN")}`;
+    case "cancelled": return "Cancelled";
+    case "reactivated": return `Status → ${a.to_status}`;
+    default: return a.action;
+  }
+}
+
+function CheckoutOverrideForm({ balance, onCancel, onAddPayment, onProceed }: {
+  balance: number;
+  onCancel: () => void;
+  onAddPayment: () => void;
+  onProceed: (reason: string | null) => void;
+}) {
+  const [reason, setReason] = useState("");
+  return (
+    <>
+      <div className="px-1">
+        <label className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Override Reason (optional)</label>
+        <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2}
+          className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" placeholder="e.g. Guest will settle via bank transfer tomorrow" />
+        <p className="text-[10px] text-muted-foreground mt-1">Outstanding: ₹{balance.toLocaleString("en-IN")}</p>
+      </div>
+      <AlertDialogFooter className="flex-wrap gap-2">
+        <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
+        <button onClick={onAddPayment}
+          className="inline-flex items-center justify-center rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
+          Add Payment
+        </button>
+        <AlertDialogAction onClick={() => onProceed(reason.trim() || null)}
+          className="bg-warning text-warning-foreground hover:bg-warning/90">
+          Proceed with Override
+        </AlertDialogAction>
+      </AlertDialogFooter>
     </>
   );
 }
