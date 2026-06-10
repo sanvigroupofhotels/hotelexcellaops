@@ -8,6 +8,7 @@ import { listQuotes } from "@/lib/quotes-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
 import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
+import { useMasterData } from "@/hooks/use-master-data";
 import {
   Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, Mail, Plus, X,
   FilePlus, BedDouble,
