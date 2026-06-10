@@ -101,7 +101,7 @@ function BookingsPage() {
                       {balance > 0 ? (
                         <span className="text-warning font-medium text-xs whitespace-nowrap">Due ₹{balance.toLocaleString("en-IN")}</span>
                       ) : excess > 0 ? (
-                        <span className="text-info font-medium text-xs whitespace-nowrap" style={{ color: "hsl(var(--gold))" }}>Excess Paid ₹{excess.toLocaleString("en-IN")}</span>
+                        <span className="text-gold font-medium text-xs whitespace-nowrap">Excess Paid ₹{excess.toLocaleString("en-IN")}</span>
                       ) : (
                         <span className="text-success font-medium text-xs">Paid</span>
                       )}
