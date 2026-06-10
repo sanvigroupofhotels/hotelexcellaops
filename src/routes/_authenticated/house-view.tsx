@@ -6,12 +6,13 @@ import { listRooms, listMaintenance } from "@/lib/rooms-api";
 import { listBookings } from "@/lib/bookings-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { InvoiceDialog } from "@/components/invoice-dialog";
 import { listBookingPayments } from "@/lib/booking-payments-api";
+import { BlockRoomDialog } from "@/components/block-room-dialog";
 
 export const Route = createFileRoute("/_authenticated/house-view")({
   component: HouseView,
@@ -58,11 +59,16 @@ function HouseView() {
   const [anchor, setAnchor] = useState(() => { const t = new Date(); t.setHours(0,0,0,0); return t; });
   const [selected, setSelected] = useState<any | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<any | null>(null);
+  const [editBlock, setEditBlock] = useState<any | null>(null);
+  const [vacantAction, setVacantAction] = useState<{ room: any; date: string } | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
-  const { data: blocks = [] } = useQuery({ queryKey: ["room_maintenance"], queryFn: listMaintenance });
+  const { data: blocks = [] } = useQuery({
+    queryKey: ["room_maintenance", "active"],
+    queryFn: async () => (await listMaintenance()).filter((m: any) => m.active !== false),
+  });
   // All booking items (for breakfast lookup keyed by booking_id)
   const { data: allItems = [] } = useQuery({
     queryKey: ["booking-items-all"],
@@ -242,10 +248,26 @@ function HouseView() {
                         });
                         return (
                           <td key={i}
-                            className={cn("relative border-b border-border align-top h-14 p-0",
+                            className={cn("relative border-b border-border align-top h-14 p-0 group/cell",
                               isToday && "bg-gold-soft/10")}
                             style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
                             <div className="relative h-full" style={{ minHeight: 56 }}>
+                              {/* Vacant action button — visible when no booking/block starts here AND no booking covers this day */}
+                              {(() => {
+                                const coveredByBooking = bs.some((b) => b.check_in <= dk && b.check_out > dk);
+                                const coveredByBlock = ms.some((m: any) => m.start_date <= dk && m.end_date > dk);
+                                if (coveredByBooking || coveredByBlock) return null;
+                                return (
+                                  <button
+                                    onClick={() => setVacantAction({ room: r, date: dk })}
+                                    className="absolute inset-1 rounded-md border border-dashed border-border opacity-0 group-hover/cell:opacity-100 hover:border-gold/50 hover:bg-gold-soft/20 text-muted-foreground hover:text-gold flex items-center justify-center transition"
+                                    title="Vacant — click for actions"
+                                    aria-label="Vacant room actions"
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                  </button>
+                                );
+                              })()}
                               {startingBookings.map((b) => {
                                 const startCol = b.check_in < rangeStart ? 0 : dayKeys.indexOf(b.check_in);
                                 const outIdx = dayKeys.indexOf(b.check_out);
@@ -313,7 +335,33 @@ function HouseView() {
 
       {selected && <BookingPopover b={selected} onClose={() => setSelected(null)} rooms={rooms}
         hasBreakfast={!!breakfastByBooking.get(selected.id)} />}
-      {selectedBlock && <BlockPopover m={selectedBlock} onClose={() => setSelectedBlock(null)} rooms={rooms} />}
+      {selectedBlock && <BlockPopover m={selectedBlock} onClose={() => setSelectedBlock(null)} rooms={rooms}
+        onEdit={() => { setEditBlock(selectedBlock); setSelectedBlock(null); }} />}
+      {editBlock && (() => {
+        const room = rooms.find((r: any) => r.id === editBlock.room_id);
+        return (
+          <BlockRoomDialog roomId={editBlock.room_id} roomNumber={room?.room_number ?? ""}
+            existing={editBlock} onClose={() => setEditBlock(null)} />
+        );
+      })()}
+      {vacantAction && (
+        <VacantActionMenu room={vacantAction.room} date={vacantAction.date}
+          onBlock={() => {
+            // Open BlockRoomDialog with a one-day default starting from the clicked cell
+            const next = new Date(vacantAction.date); next.setDate(next.getDate() + 1);
+            setEditBlock({
+              room_id: vacantAction.room.id,
+              start_date: vacantAction.date,
+              end_date: next.toISOString().slice(0, 10),
+              reason: "Maintenance",
+              active: true,
+              blocked_at: new Date().toISOString(),
+              id: "", // sentinel — BlockRoomDialog treats falsy id as "new"
+            } as any);
+            setVacantAction(null);
+          }}
+          onClose={() => setVacantAction(null)} />
+      )}
 
       {statsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setStatsOpen(false)}>
@@ -494,7 +542,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
   );
 }
 
-function BlockPopover({ m, onClose, rooms }: { m: any; onClose: () => void; rooms: any[] }) {
+function BlockPopover({ m, onClose, rooms, onEdit }: { m: any; onClose: () => void; rooms: any[]; onEdit: () => void }) {
   const room = rooms.find((r: any) => r.id === m.room_id);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -512,6 +560,47 @@ function BlockPopover({ m, onClose, rooms }: { m: any; onClose: () => void; room
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Reason</div>
           <div>{m.reason || "Maintenance"}</div>
         </div>
+        {(m.blocked_at || m.unblocked_at) && (
+          <div className="rounded-md border border-border bg-secondary/30 p-2 text-[11px] text-muted-foreground space-y-0.5">
+            {m.blocked_at && <div>Blocked: {new Date(m.blocked_at).toLocaleString("en-IN")}</div>}
+            {m.unblocked_at && <div>Unblocked: {new Date(m.unblocked_at).toLocaleString("en-IN")}</div>}
+          </div>
+        )}
+        <button onClick={onEdit} className="w-full gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium">
+          Edit / Unblock
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function VacantActionMenu({ room, date, onBlock, onClose }: { room: any; date: string; onBlock: () => void; onClose: () => void }) {
+  const next = new Date(date); next.setDate(next.getDate() + 1);
+  const nextKey = next.toISOString().slice(0, 10);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="luxe-card rounded-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="font-display text-xl">Vacant · Room {room.room_number}</h3>
+            <div className="text-xs text-muted-foreground">{room.room_type} · {fmtFull(date)}</div>
+          </div>
+          <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+        </div>
+        <Link
+          to="/bookings/new"
+          search={{ roomId: room.id, roomType: room.room_type, checkIn: date, checkOut: nextKey }}
+          onClick={onClose}
+          className="w-full inline-flex items-center justify-center gap-2 gold-gradient text-charcoal rounded-md px-3 py-2.5 text-sm font-medium"
+        >
+          <Plus className="h-4 w-4" /> Create Booking
+        </Link>
+        <button
+          onClick={onBlock}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-amber-600/40 bg-amber-600/10 text-amber-800 dark:text-amber-300 px-3 py-2.5 text-sm font-medium hover:bg-amber-600/20"
+        >
+          <Ban className="h-4 w-4" /> Block Room
+        </button>
       </div>
     </div>
   );

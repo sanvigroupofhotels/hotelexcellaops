@@ -16,7 +16,9 @@ import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedRoomsRouteImport } from './routes/_authenticated/rooms'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedRatesRouteImport } from './routes/_authenticated/rates'
 import { Route as AuthenticatedPaymentsReportsRouteImport } from './routes/_authenticated/payments-reports'
+import { Route as AuthenticatedMasterDataRouteImport } from './routes/_authenticated/master-data'
 import { Route as AuthenticatedHouseViewRouteImport } from './routes/_authenticated/house-view'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedGenerateRouteImport } from './routes/_authenticated/generate'
@@ -70,12 +72,22 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedRatesRoute = AuthenticatedRatesRouteImport.update({
+  id: '/rates',
+  path: '/rates',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedPaymentsReportsRoute =
   AuthenticatedPaymentsReportsRouteImport.update({
     id: '/payments-reports',
     path: '/payments-reports',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedMasterDataRoute = AuthenticatedMasterDataRouteImport.update({
+  id: '/master-data',
+  path: '/master-data',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedHouseViewRoute = AuthenticatedHouseViewRouteImport.update({
   id: '/house-view',
   path: '/house-view',
@@ -186,7 +198,9 @@ export interface FileRoutesByFullPath {
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
+  '/master-data': typeof AuthenticatedMasterDataRoute
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
+  '/rates': typeof AuthenticatedRatesRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/tasks': typeof AuthenticatedTasksRoute
@@ -212,7 +226,9 @@ export interface FileRoutesByTo {
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
+  '/master-data': typeof AuthenticatedMasterDataRoute
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
+  '/rates': typeof AuthenticatedRatesRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/tasks': typeof AuthenticatedTasksRoute
@@ -241,7 +257,9 @@ export interface FileRoutesById {
   '/_authenticated/generate': typeof AuthenticatedGenerateRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/house-view': typeof AuthenticatedHouseViewRoute
+  '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
   '/_authenticated/payments-reports': typeof AuthenticatedPaymentsReportsRoute
+  '/_authenticated/rates': typeof AuthenticatedRatesRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rooms': typeof AuthenticatedRoomsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
@@ -271,7 +289,9 @@ export interface FileRouteTypes {
     | '/generate'
     | '/history'
     | '/house-view'
+    | '/master-data'
     | '/payments-reports'
+    | '/rates'
     | '/reports'
     | '/rooms'
     | '/tasks'
@@ -297,7 +317,9 @@ export interface FileRouteTypes {
     | '/generate'
     | '/history'
     | '/house-view'
+    | '/master-data'
     | '/payments-reports'
+    | '/rates'
     | '/reports'
     | '/rooms'
     | '/tasks'
@@ -325,7 +347,9 @@ export interface FileRouteTypes {
     | '/_authenticated/generate'
     | '/_authenticated/history'
     | '/_authenticated/house-view'
+    | '/_authenticated/master-data'
     | '/_authenticated/payments-reports'
+    | '/_authenticated/rates'
     | '/_authenticated/reports'
     | '/_authenticated/rooms'
     | '/_authenticated/tasks'
@@ -396,11 +420,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/rates': {
+      id: '/_authenticated/rates'
+      path: '/rates'
+      fullPath: '/rates'
+      preLoaderRoute: typeof AuthenticatedRatesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/payments-reports': {
       id: '/_authenticated/payments-reports'
       path: '/payments-reports'
       fullPath: '/payments-reports'
       preLoaderRoute: typeof AuthenticatedPaymentsReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/master-data': {
+      id: '/_authenticated/master-data'
+      path: '/master-data'
+      fullPath: '/master-data'
+      preLoaderRoute: typeof AuthenticatedMasterDataRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/house-view': {
@@ -544,7 +582,9 @@ interface AuthenticatedRouteChildren {
   AuthenticatedGenerateRoute: typeof AuthenticatedGenerateRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedHouseViewRoute: typeof AuthenticatedHouseViewRoute
+  AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
   AuthenticatedPaymentsReportsRoute: typeof AuthenticatedPaymentsReportsRoute
+  AuthenticatedRatesRoute: typeof AuthenticatedRatesRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRoomsRoute: typeof AuthenticatedRoomsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
@@ -571,7 +611,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedGenerateRoute: AuthenticatedGenerateRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedHouseViewRoute: AuthenticatedHouseViewRoute,
+  AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
   AuthenticatedPaymentsReportsRoute: AuthenticatedPaymentsReportsRoute,
+  AuthenticatedRatesRoute: AuthenticatedRatesRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRoomsRoute: AuthenticatedRoomsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,

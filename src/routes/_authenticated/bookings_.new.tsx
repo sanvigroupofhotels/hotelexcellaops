@@ -30,6 +30,10 @@ export const Route = createFileRoute("/_authenticated/bookings_/new")({
   validateSearch: (s: Record<string, unknown>) => ({
     customerId: typeof s.customerId === "string" ? s.customerId : undefined,
     fromQuoteId: typeof s.fromQuoteId === "string" ? s.fromQuoteId : undefined,
+    roomId: typeof s.roomId === "string" ? s.roomId : undefined,
+    roomType: typeof s.roomType === "string" ? s.roomType : undefined,
+    checkIn: typeof s.checkIn === "string" ? s.checkIn : undefined,
+    checkOut: typeof s.checkOut === "string" ? s.checkOut : undefined,
   }),
   component: NewBooking,
 });
@@ -39,19 +43,26 @@ const inputCls =
 
 function NewBooking() {
   const navigate = useNavigate();
-  const { customerId, fromQuoteId } = Route.useSearch();
+  const { customerId, fromQuoteId, roomId: prefillRoomId, roomType: prefillRoomType, checkIn: prefillIn, checkOut: prefillOut } = Route.useSearch();
 
   // Shared stay sections shape (same as Quote forms).
-  const [stay, setStay] = useState<SharedStayValue>(() => emptyStayValue());
+  const [stay, setStay] = useState<SharedStayValue>(() => {
+    const base = emptyStayValue();
+    if (prefillRoomType) base.room_type = prefillRoomType;
+    if (prefillIn) base.check_in = prefillIn;
+    if (prefillOut) base.check_out = prefillOut;
+    return base;
+  });
   const [extras, setExtras] = useState<LineItem[]>([]);
 
   // Booking-only fields. Payment status (Pending/Advance Paid/Full Paid) is auto-derived server-side.
   const [advancePaid, setAdvancePaid] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
-  const [roomId, setRoomId] = useState<string | null>(null);
+  const [roomId, setRoomId] = useState<string | null>(prefillRoomId ?? null);
   const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(customerId ?? null);
   const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
   const [forceNew, setForceNew] = useState(false);
+
 
   // Prefill customer (?customerId)
   const { data: cust } = useQuery({
