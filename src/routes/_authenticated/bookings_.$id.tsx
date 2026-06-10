@@ -572,23 +572,45 @@ function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balanc
         </div>
       )}
 
-      <div className="relative py-6 border-b border-border space-y-2">
-        <div className="flex items-baseline justify-between">
-          <span className="font-display text-2xl">Total Amount</span>
-          <span className="font-display text-3xl gold-text-gradient">₹{Number(b.amount).toLocaleString("en-IN")}</span>
-        </div>
-        {Number(b.advance_paid || 0) > 0 && (
-          <>
-            <div className="flex items-baseline justify-between text-sm">
-              <span className="text-muted-foreground">Advance Paid</span>
-              <span className="tabular-nums">−₹{Number(b.advance_paid).toLocaleString("en-IN")}</span>
-            </div>
-            <div className="flex items-baseline justify-between pt-1">
-              <span className="text-sm font-medium">Balance Payable</span>
-              <span className="font-display text-xl text-gold">₹{balance.toLocaleString("en-IN")}</span>
-            </div>
-          </>
-        )}
+      <div className="relative py-6 border-b border-border">
+        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Pricing Summary</h4>
+        {(() => {
+          const roomCharges = items.length > 0 ? lineSubtotal(items[0] as any) : 0;
+          const extraCharges = items.slice(1).reduce((s, i) => s + lineSubtotal(i as any), 0);
+          const itemsTotal = roomCharges + extraCharges;
+          const discount = Number(b.discount || 0);
+          const taxRate = Number(b.tax_rate ?? 0.05);
+          // Prefer stored fields; fall back to derivation.
+          const subtotal = b.subtotal != null ? Number(b.subtotal) : Math.max(0, itemsTotal - discount);
+          const taxes = b.taxes != null ? Number(b.taxes) : Math.round(subtotal * taxRate);
+          const total = Number(b.amount);
+          return (
+            <ul className="text-sm space-y-1">
+              <PriceRow label="Room Charges" value={roomCharges} />
+              {extraCharges > 0 && <PriceRow label="Extra Charges" value={extraCharges} />}
+              <PriceRow label="Subtotal" value={itemsTotal} />
+              {discount > 0 && <PriceRow label="Discount" value={-discount} />}
+              <PriceRow label="Taxable Amount" value={subtotal} />
+              <PriceRow label={`Tax (${Math.round(taxRate * 100)}%)`} value={taxes} />
+              <li className="flex items-baseline justify-between pt-2 mt-2 border-t border-border">
+                <span className="font-display text-xl">Final Booking Amount</span>
+                <span className="font-display text-2xl gold-text-gradient">₹{total.toLocaleString("en-IN")}</span>
+              </li>
+            </ul>
+          );
+        })()}
+      </div>
+
+      <div className="relative py-6 border-b border-border">
+        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Payment Summary</h4>
+        <ul className="text-sm space-y-1">
+          <PriceRow label="Total Booking Amount" value={Number(b.amount)} />
+          <PriceRow label="Amount Paid" value={-Number(b.advance_paid || 0)} />
+          <li className="flex items-baseline justify-between pt-2 mt-2 border-t border-border">
+            <span className="text-sm font-medium">Balance Due</span>
+            <span className="font-display text-xl text-gold">₹{balance.toLocaleString("en-IN")}</span>
+          </li>
+        </ul>
       </div>
 
       {b.notes && <div className="relative py-4 border-b border-border text-sm"><span className="text-muted-foreground">Notes: </span>{b.notes}</div>}
