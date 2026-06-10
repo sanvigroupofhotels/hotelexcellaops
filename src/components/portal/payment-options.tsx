@@ -62,9 +62,9 @@ export function PortalPaymentOptions({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <OptionTile active={mode === "full"} onClick={() => setMode("full")} icon={CreditCard} label="Pay Full" sub={inr(balance)} />
-        <OptionTile active={mode === "part"} onClick={() => setMode("part")} icon={IndianRupee} label="Part Payment" sub="Pay Advance" />
-        <OptionTile active={mode === "pay_at_hotel"} onClick={() => setMode("pay_at_hotel")} icon={Hotel} label="Pay at Hotel" sub="On Check-In" />
+        {allowFull && <OptionTile active={mode === "full"} onClick={() => setMode("full")} icon={CreditCard} label="Pay Full" sub={inr(balance)} />}
+        {allowPart && <OptionTile active={mode === "part"} onClick={() => setMode("part")} icon={IndianRupee} label="Part Payment" sub={defaultPartPercent > 0 ? `${defaultPartPercent}% Advance` : "Pay Advance"} />}
+        {allowPayAtHotel && <OptionTile active={mode === "pay_at_hotel"} onClick={() => setMode("pay_at_hotel")} icon={Hotel} label="Pay at Hotel" sub="On Check-In" />}
       </div>
 
       {mode === "part" && (
