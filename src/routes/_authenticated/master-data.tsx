@@ -299,3 +299,76 @@ function NameMasterEditor({ masterKey, title, placeholder }: { masterKey: NameMa
     </div>
   );
 }
+
+function PaymentSettingsEditor() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["app-settings", "payment_settings"],
+    queryFn: getPaymentSettings,
+  });
+  const [draft, setDraft] = useState<PaymentSettings>(DEFAULT_PAYMENT_SETTINGS);
+  const [dirty, setDirty] = useState(false);
+  // Sync local draft when query resolves
+  useState(() => { /* noop init */ });
+  if (data && !dirty && draft !== data) {
+    // hydrate once
+    setTimeout(() => setDraft(data), 0);
+  }
+  const saveMut = useMutation({
+    mutationFn: () => setPaymentSettings(draft),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["app-settings", "payment_settings"] });
+      setDirty(false);
+      toast.success("Payment settings saved");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Save failed"),
+  });
+  const update = (patch: Partial<PaymentSettings>) => { setDraft((d) => ({ ...d, ...patch })); setDirty(true); };
+
+  if (isLoading) return <div className="luxe-card rounded-xl p-6 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
+
+  return (
+    <div className="luxe-card rounded-xl p-5 space-y-4">
+      <div>
+        <h4 className="font-display text-lg">Payment Settings</h4>
+        <p className="text-xs text-muted-foreground">Default payment options applied to every new booking. Can be overridden per booking.</p>
+      </div>
+      <div className="space-y-3">
+        <ToggleRow label="Allow Full Payment" checked={draft.allow_full_payment} onChange={(v) => update({ allow_full_payment: v })} />
+        <ToggleRow label="Allow Part Payment" checked={draft.allow_part_payment} onChange={(v) => update({ allow_part_payment: v })} />
+        <div className="flex items-center justify-between gap-3 py-1">
+          <div>
+            <div className="text-sm">Default Part Payment Percentage</div>
+            <div className="text-[11px] text-muted-foreground">Used when guest opens the payment link.</div>
+          </div>
+          <div className="flex items-center gap-1">
+            <input
+              type="number" min={1} max={100}
+              value={draft.default_part_percent}
+              onChange={(e) => update({ default_part_percent: Math.max(1, Math.min(100, Number(e.target.value) || 0)) })}
+              className="w-20 bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm text-right"
+            />
+            <span className="text-sm text-muted-foreground">%</span>
+          </div>
+        </div>
+        <ToggleRow label="Allow Pay At Hotel" checked={draft.allow_pay_at_hotel} onChange={(v) => update({ allow_pay_at_hotel: v })} />
+      </div>
+      <div className="flex justify-end">
+        <button onClick={() => saveMut.mutate()} disabled={!dirty || saveMut.isPending}
+          className="gold-gradient text-charcoal text-sm font-medium px-4 py-2 rounded-md disabled:opacity-50 inline-flex items-center gap-2">
+          {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          Save Settings
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center justify-between gap-3 py-1 cursor-pointer">
+      <span className="text-sm">{label}</span>
+      <input type="checkbox" className="h-4 w-4 accent-gold" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    </label>
+  );
+}
