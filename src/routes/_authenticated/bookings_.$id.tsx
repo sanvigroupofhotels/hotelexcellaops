@@ -216,11 +216,54 @@ function BookingDetail() {
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
               <Pencil className="h-4 w-4 text-gold" /> Edit
             </Link>
-            <WhatsAppMenu disabled={!b.phone} onSelect={sendWa} />
-            <button onClick={() => setInvoiceOpen(true)}
-              className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-soft text-gold px-4 py-2.5 text-sm font-medium hover:bg-gold/20">
-              <FileText className="h-4 w-4" /> {isCheckedOut ? "Generate Invoice" : "Generate Proforma Invoice"}
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="inline-flex items-center justify-center rounded-md border border-border bg-card px-3 py-2.5 text-sm hover:border-gold/40"
+                  aria-label="More actions"
+                >
+                  <MoreVertical className="h-4 w-4 text-gold" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[240px]">
+                <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">WhatsApp</DropdownMenuLabel>
+                <DropdownMenuItem disabled={!b.phone} onClick={() => sendWa("confirmation")} className="cursor-pointer">
+                  <MessageCircle className="h-3.5 w-3.5 mr-2" /> Booking Confirmation
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!b.phone} onClick={() => sendWa("payment")} className="cursor-pointer">
+                  <MessageCircle className="h-3.5 w-3.5 mr-2" /> Payment Reminder
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!b.phone} onClick={() => sendWa("checkin")} className="cursor-pointer">
+                  <MessageCircle className="h-3.5 w-3.5 mr-2" /> Check-In Welcome
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!b.phone} onClick={() => sendWa("checkout")} className="cursor-pointer">
+                  <MessageCircle className="h-3.5 w-3.5 mr-2" /> Check-Out Thank You
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!b.phone} onClick={() => sendWa("empty")} className="cursor-pointer">
+                  <MessageCircle className="h-3.5 w-3.5 mr-2" /> Empty Message
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setInvoiceOpen(true)} className="cursor-pointer">
+                  <FileText className="h-3.5 w-3.5 mr-2" /> {isCheckedOut ? "Generate Invoice" : "Generate Proforma Invoice"}
+                </DropdownMenuItem>
+                {b.status === "Checked-In" && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setRevertInOpen(true)} className="cursor-pointer">
+                      <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert Check-In
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {b.status === "Checked-Out" && isAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setRevertOutOpen(true)} className="cursor-pointer">
+                      <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert Check-Out (Admin)
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
