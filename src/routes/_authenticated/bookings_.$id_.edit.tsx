@@ -100,6 +100,8 @@ function EditBooking() {
         tax_rate: pricing.taxRate,
         advance_paid: advancePaid, discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
+        total_override: totalOverride,
+        taxes_included: taxesIncluded,
       });
       const primary = primaryToLineItem(stay, resolvedRate);
       await replaceBookingItems(id, [primary, ...extras]);
