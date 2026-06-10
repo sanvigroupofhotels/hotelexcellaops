@@ -178,9 +178,8 @@ function LineItemRow({
   onDuplicate: () => void;
   onRemove: () => void;
 }) {
-  const [extrasOpen, setExtrasOpen] = useState(
-    item.early_check_in || item.late_check_out || item.pet_size !== "none" || item.extra_adults > 0 || item.drivers > 0,
-  );
+  // UAT: default OPEN so extras (Early / Late / Pet / Extra Adults / Drivers) are immediately selectable.
+  const [extrasOpen, setExtrasOpen] = useState(true);
   const n = nightsOf(item);
   return (
     <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">

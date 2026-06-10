@@ -80,11 +80,15 @@ function RatesContent() {
           <table className="border-separate border-spacing-0 min-w-fit">
             <thead>
               <tr>
-                <th className="sticky left-0 z-20 bg-card border-b-2 border-r-2 border-border px-3 py-2 text-[10px] uppercase tracking-wider text-left text-muted-foreground" style={{ minWidth: 180 }}>Room Type</th>
-                {days.map((d) => {
+              <th className="sticky left-0 z-20 bg-card border-b-2 border-r-2 border-border px-3 py-2 text-[10px] uppercase tracking-wider text-left text-muted-foreground" style={{ minWidth: 160 }}>Room Type</th>
+                {days.map((d, i) => {
                   const wk = isWeekend(dateKey(d));
                   return (
-                    <th key={d.toISOString()} className={cn("border-b-2 border-border px-1.5 py-2 text-[10px] uppercase tracking-wider text-center min-w-[68px]", wk ? "text-gold bg-gold-soft/20" : "text-muted-foreground")}>
+                    <th key={d.toISOString()} className={cn(
+                      "border-b-2 border-r border-border px-1.5 py-2 text-[10px] uppercase tracking-wider text-center min-w-[64px]",
+                      wk ? "text-gold bg-muted/50" : "text-muted-foreground",
+                      i === days.length - 1 && "border-r-0",
+                    )}>
                       <div>{d.toLocaleDateString("en-IN", { weekday: "short" })}</div>
                       <div className="text-foreground text-xs">{d.getDate()}</div>
                     </th>
@@ -97,7 +101,7 @@ function RatesContent() {
                 const cfg = rateByRoom[rt.name];
                 return (
                   <tr key={rt.name}>
-                    <td className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-3 py-2 text-xs align-top" style={{ minWidth: 180 }}>
+                    <td className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-3 py-2 text-xs align-top" style={{ minWidth: 160 }}>
                       <div className="font-medium">{rt.name}</div>
                       <div className="text-[10px] text-muted-foreground">
                         Def ₹{cfg?.default_rate ?? rt.rate}
@@ -108,15 +112,20 @@ function RatesContent() {
                         <Settings2 className="h-3 w-3" /> Set Defaults
                       </button>
                     </td>
-                    {days.map((d) => {
+                    {days.map((d, i) => {
                       const dk = dateKey(d);
                       const ovr = overrides.find((o) => o.room_type === rt.name && o.date === dk);
                       const effective = resolveRate(rt.name, dk, rates, overrides) ?? rt.rate;
+                      const wk = isWeekend(dk);
                       return (
-                        <td key={dk} className="border-b border-border p-0.5 text-center">
+                        <td key={dk} className={cn(
+                          "border-b border-r border-border p-0.5 text-center",
+                          wk && "bg-muted/40",
+                          i === days.length - 1 && "border-r-0",
+                        )}>
                           <button onClick={() => setEditCell({ room_type: rt.name, date: dk })}
                             className={cn("w-full px-1 py-1.5 text-[11px] rounded hover:ring-1 hover:ring-gold/40 tabular-nums",
-                              ovr ? "bg-gold-soft text-gold font-medium" : isWeekend(dk) ? "bg-card/40" : "")}
+                              ovr ? "bg-gold-soft text-gold font-medium" : "")}
                           >
                             ₹{effective.toLocaleString("en-IN")}
                           </button>
@@ -133,7 +142,7 @@ function RatesContent() {
 
       <div className="flex flex-wrap gap-4 text-[11px] text-muted-foreground">
         <div className="flex items-center gap-1.5"><span className="inline-block w-4 h-4 rounded bg-gold-soft" /> Date Override</div>
-        <div className="flex items-center gap-1.5"><span className="inline-block w-4 h-4 rounded bg-card/40 border border-border" /> Weekend</div>
+        <div className="flex items-center gap-1.5"><span className="inline-block w-4 h-4 rounded bg-muted/50 border border-border" /> Weekend (Fri / Sat)</div>
       </div>
 
       {defaultsFor && <DefaultsDialog room_type={defaultsFor} existing={rateByRoom[defaultsFor]} onClose={() => { setDefaultsFor(null); qc.invalidateQueries({ queryKey: ["room-rates"] }); }} />}
@@ -145,23 +154,31 @@ function RatesContent() {
 
 function DefaultsDialog({ room_type, existing, onClose }: { room_type: string; existing: any; onClose: () => void }) {
   const fallback = roomTypes.find((r) => r.name === room_type)?.rate ?? 0;
-  const [def, setDef] = useState<number>(existing?.default_rate ?? fallback);
-  const [wk, setWk] = useState<string>(existing?.weekday_rate?.toString() ?? "");
-  const [we, setWe] = useState<string>(existing?.weekend_rate?.toString() ?? "");
+  // String state — lets users fully clear / backspace / type freely without fighting onChange parsing.
+  const [def, setDef] = useState<string>(String(existing?.default_rate ?? fallback));
+  const [wk, setWk] = useState<string>(existing?.weekday_rate != null ? String(existing.weekday_rate) : "");
+  const [we, setWe] = useState<string>(existing?.weekend_rate != null ? String(existing.weekend_rate) : "");
   const save = useMutation({
     mutationFn: () => upsertRoomRate({
-      room_type, default_rate: Number(def) || 0,
-      weekday_rate: wk === "" ? null : Number(wk),
-      weekend_rate: we === "" ? null : Number(we),
+      room_type,
+      default_rate: Number(def) || 0,
+      weekday_rate: wk.trim() === "" ? null : Number(wk),
+      weekend_rate: we.trim() === "" ? null : Number(we),
     }),
     onSuccess: () => { toast.success("Defaults saved"); onClose(); },
     onError: (e: any) => toast.error(e.message),
   });
   return (
     <Dialog onClose={onClose} title={`Defaults · ${room_type}`}>
-      <Field label="Default Rate (₹/night)"><input className={inputCls} type="number" value={def} onChange={(e) => setDef(Number(e.target.value))} /></Field>
-      <Field label="Weekday Rate (optional)"><input className={inputCls} type="number" value={wk} placeholder="Falls back to default" onChange={(e) => setWk(e.target.value)} /></Field>
-      <Field label="Weekend Rate (Sat/Sun, optional)"><input className={inputCls} type="number" value={we} placeholder="Falls back to default" onChange={(e) => setWe(e.target.value)} /></Field>
+      <Field label="Default Rate (₹/night)">
+        <input className={inputCls} type="number" inputMode="numeric" value={def} onChange={(e) => setDef(e.target.value)} />
+      </Field>
+      <Field label="Weekday Rate (Sun-Thu, optional)">
+        <input className={inputCls} type="number" inputMode="numeric" value={wk} placeholder="Falls back to default" onChange={(e) => setWk(e.target.value)} />
+      </Field>
+      <Field label="Weekend Rate (Fri/Sat, optional)">
+        <input className={inputCls} type="number" inputMode="numeric" value={we} placeholder="Falls back to default" onChange={(e) => setWe(e.target.value)} />
+      </Field>
       <button onClick={() => save.mutate()} disabled={save.isPending} className="w-full gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60">
         {save.isPending ? "Saving…" : "Save Defaults"}
       </button>
@@ -173,11 +190,11 @@ function BulkDialog({ onClose }: { onClose: () => void }) {
   const today = new Date().toISOString().slice(0, 10);
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
-  const [rate, setRate] = useState<number>(0);
+  const [rate, setRate] = useState<string>("");
   const [selected, setSelected] = useState<string[]>([roomTypes[0].name]);
   const [note, setNote] = useState("");
   const save = useMutation({
-    mutationFn: () => bulkApplyOverrides({ room_types: selected, from, to, rate, note }),
+    mutationFn: () => bulkApplyOverrides({ room_types: selected, from, to, rate: Number(rate) || 0, note }),
     onSuccess: () => { toast.success("Bulk overrides applied"); onClose(); },
     onError: (e: any) => toast.error(e.message),
   });
@@ -188,7 +205,9 @@ function BulkDialog({ onClose }: { onClose: () => void }) {
         <Field label="From"><input type="date" className={inputCls} value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
         <Field label="To"><input type="date" className={inputCls} value={to} onChange={(e) => setTo(e.target.value)} /></Field>
       </div>
-      <Field label="Rate (₹/night)"><input type="number" className={inputCls} value={rate} onChange={(e) => setRate(Number(e.target.value))} /></Field>
+      <Field label="Rate (₹/night)">
+        <input type="number" inputMode="numeric" className={inputCls} value={rate} placeholder="e.g. 2500" onChange={(e) => setRate(e.target.value)} />
+      </Field>
       <Field label="Room Types">
         <div className="flex flex-wrap gap-1.5">
           {roomTypes.map((r) => (
@@ -200,7 +219,7 @@ function BulkDialog({ onClose }: { onClose: () => void }) {
         </div>
       </Field>
       <Field label="Note (optional)"><input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
-      <button onClick={() => save.mutate()} disabled={save.isPending || selected.length === 0 || to < from} className="w-full gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60">
+      <button onClick={() => save.mutate()} disabled={save.isPending || selected.length === 0 || to < from || !rate} className="w-full gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60">
         {save.isPending ? "Applying…" : "Apply"}
       </button>
     </Dialog>
@@ -208,10 +227,10 @@ function BulkDialog({ onClose }: { onClose: () => void }) {
 }
 
 function CellDialog({ cell, existing, onClose }: { cell: { room_type: string; date: string }; existing: any; onClose: () => void }) {
-  const [rate, setRate] = useState<number>(existing?.rate ?? 0);
+  const [rate, setRate] = useState<string>(existing?.rate != null ? String(existing.rate) : "");
   const [note, setNote] = useState(existing?.note ?? "");
   const save = useMutation({
-    mutationFn: () => upsertRateOverride({ room_type: cell.room_type, date: cell.date, rate, note }),
+    mutationFn: () => upsertRateOverride({ room_type: cell.room_type, date: cell.date, rate: Number(rate) || 0, note }),
     onSuccess: () => { toast.success("Override saved"); onClose(); },
     onError: (e: any) => toast.error(e.message),
   });
@@ -222,7 +241,9 @@ function CellDialog({ cell, existing, onClose }: { cell: { room_type: string; da
   });
   return (
     <Dialog onClose={onClose} title={`Override · ${cell.room_type} · ${cell.date}`}>
-      <Field label="Rate (₹/night)"><input type="number" className={inputCls} value={rate} onChange={(e) => setRate(Number(e.target.value))} /></Field>
+      <Field label="Rate (₹/night)">
+        <input type="number" inputMode="numeric" autoFocus className={inputCls} value={rate} placeholder="Leave blank to inherit" onChange={(e) => setRate(e.target.value)} />
+      </Field>
       <Field label="Note (optional)"><input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
       <div className="flex gap-2">
         {existing && (
@@ -230,7 +251,7 @@ function CellDialog({ cell, existing, onClose }: { cell: { room_type: string; da
             <Trash2 className="h-3 w-3" /> Remove
           </button>
         )}
-        <button onClick={() => save.mutate()} disabled={save.isPending} className="flex-1 gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60">
+        <button onClick={() => save.mutate()} disabled={save.isPending || !rate} className="flex-1 gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60">
           {save.isPending ? "Saving…" : "Save"}
         </button>
       </div>

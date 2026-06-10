@@ -32,7 +32,9 @@ export function PolicyFields({
     (form.pet_size && form.pet_size !== "none") ||
     (form.extra_adults ?? 0) > 0 ||
     (form.drivers ?? 0) > 0;
-  const [extrasOpen, setExtrasOpen] = useState<boolean>(!!anyExtra);
+  // UAT: Extras (Early Check-In / Late Check-Out / Pet / Extra Adults / Drivers)
+  // were not obviously selectable because this section started collapsed. Default OPEN.
+  const [extrasOpen, setExtrasOpen] = useState<boolean>(true);
 
   return (
     <div className="space-y-4">

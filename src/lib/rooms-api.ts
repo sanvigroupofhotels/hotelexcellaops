@@ -105,3 +105,28 @@ export async function findRoomConflicts(
       guest_name: b.guest_name, check_in: b.check_in, check_out: b.check_out, status: b.status,
     }));
 }
+
+/**
+ * Returns the set of room_ids that have ANY non-cancelled booking overlapping
+ * [check_in, check_out). Used by the booking form to fully HIDE occupied rooms
+ * from the dropdown (UAT — for both staff and admins).
+ */
+export async function listOccupiedRoomIds(
+  check_in: string,
+  check_out: string,
+  excludeBookingId?: string,
+): Promise<Set<string>> {
+  if (!check_in || !check_out || check_out <= check_in) return new Set();
+  const { data, error } = await supabase
+    .from("bookings" as any)
+    .select("id,room_id,check_in,check_out,status")
+    .not("status", "in", "(Cancelled,Stay Completed,Checked-Out)")
+    .not("room_id", "is", null);
+  if (error) throw error;
+  const out = new Set<string>();
+  for (const b of (data ?? []) as any[]) {
+    if (excludeBookingId && b.id === excludeBookingId) continue;
+    if (datesOverlap(check_in, check_out, b.check_in, b.check_out)) out.add(b.room_id);
+  }
+  return out;
+}

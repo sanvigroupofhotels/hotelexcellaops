@@ -8,10 +8,14 @@
  */
 import type { RoomRateRow, RateOverrideRow } from "./rates-api";
 
+/**
+ * Hotel-business weekend = Friday & Saturday (the high-tariff nights).
+ * (Sunday-Thursday are weekdays.)
+ */
 export function isWeekend(dateISO: string): boolean {
   const d = new Date(dateISO + "T00:00:00");
-  const day = d.getDay();
-  return day === 0 || day === 6;
+  const day = d.getDay(); // Sun=0 ... Fri=5, Sat=6
+  return day === 5 || day === 6;
 }
 
 export function resolveRate(
