@@ -15,7 +15,7 @@
  *   - This route is public (no auth gate) and SSR-safe; Razorpay Checkout is
  *     only loaded after the user clicks Pay.
  */
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -41,14 +41,6 @@ export const Route = createFileRoute("/portal/$token")({
       <div className="luxe-card rounded-xl p-6 max-w-md text-center space-y-2">
         <h1 className="font-display text-xl">Link unavailable</h1>
         <p className="text-sm text-muted-foreground">{error?.message ?? "This booking link could not be loaded."}</p>
-      </div>
-    </div>
-  ),
-  notFoundComponent: () => (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="luxe-card rounded-xl p-6 max-w-md text-center">
-        <h1 className="font-display text-xl mb-2">Link expired</h1>
-        <p className="text-sm text-muted-foreground">This booking link has expired or is invalid.</p>
       </div>
     </div>
   ),
