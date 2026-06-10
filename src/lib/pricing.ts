@@ -105,35 +105,54 @@ export function computePricing(
     overrideRaw !== null && overrideRaw !== undefined && Number.isFinite(Number(overrideRaw));
   const taxesIncluded = !!options.taxesIncluded;
 
+  let effectiveItemsTotal = itemsTotal;
+  let effectiveDiscount = safeDiscount;
+  let effectiveMainStay = mainStayCharges;
+
+  if (hasOverride) {
+    const ov = Math.max(0, Number(overrideRaw));
+    // The override is interpreted as the new "Room Charges" target:
+    //   ov > computed itemsTotal → bump main stay so the new charge equals override
+    //   ov < computed itemsTotal → derive an implicit discount; main stay stays as-is
+    if (ov > itemsTotal) {
+      effectiveItemsTotal = ov;
+      effectiveMainStay = Math.max(0, ov - additionalStayCharges);
+    } else if (ov < itemsTotal) {
+      effectiveDiscount = Math.max(0, itemsTotal - ov);
+    }
+  }
+
+  const baseAfterDiscount = Math.max(0, effectiveItemsTotal - effectiveDiscount);
   let subtotal: number;
   let taxes: number;
   let total: number;
 
-  if (hasOverride) {
-    const ov = Math.max(0, Number(overrideRaw));
-    if (taxesIncluded) {
-      // Reverse calculation — override is gross.
-      subtotal = Math.round(ov / (1 + safeTaxRate));
-      taxes = Math.max(0, ov - subtotal);
-      total = ov;
-    } else {
-      // Override is net — taxes added on top.
-      subtotal = ov;
-      taxes = Math.round(ov * safeTaxRate);
-      total = subtotal + taxes;
-    }
+  if (taxesIncluded) {
+    // base is gross — back out the tax component
+    subtotal = Math.round(baseAfterDiscount / (1 + safeTaxRate));
+    taxes = Math.max(0, baseAfterDiscount - subtotal);
+    total = baseAfterDiscount;
   } else {
-    subtotal = Math.max(0, itemsTotal - safeDiscount);
-    taxes = Math.round(subtotal * safeTaxRate);
-    total = subtotal + taxes;
+    subtotal = baseAfterDiscount;
+    taxes = Math.round(baseAfterDiscount * safeTaxRate);
+    total = baseAfterDiscount + taxes;
   }
 
   return {
-    itemsTotal, discount: safeDiscount, subtotal, taxRate: safeTaxRate, taxes, total,
-    mainStayCharges, additionalStayCharges, additionalLineItems,
-    overrideApplied: hasOverride, taxesIncluded,
+    itemsTotal: effectiveItemsTotal,
+    discount: effectiveDiscount,
+    subtotal,
+    taxRate: safeTaxRate,
+    taxes,
+    total,
+    mainStayCharges: effectiveMainStay,
+    additionalStayCharges,
+    additionalLineItems,
+    overrideApplied: hasOverride,
+    taxesIncluded,
   };
 }
+
 // Re-export for callers
 export { lineSubtotal };
 
