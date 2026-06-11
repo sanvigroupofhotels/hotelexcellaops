@@ -99,6 +99,11 @@ function BookingsPage() {
                       <div className="mt-1">
                         <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]", bookingStatusStyles[b.status])}>{b.status}</span>
                       </div>
+                      {(b as any).special_requests && (
+                        <div className="mt-1.5 text-[10px] text-gold/90 leading-snug line-clamp-2" title={(b as any).special_requests}>
+                          ✦ {(b as any).special_requests}
+                        </div>
+                      )}
                     </div>
 
                     {/* Col 2: Dates + Guests + Room Type */}
