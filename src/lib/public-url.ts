@@ -3,12 +3,12 @@
  *
  * Both the Lovable preview host (`id-preview--<id>.lovable.app`) and the
  * stable project host (`project--<id>.lovable.app`) are auth-gated and
- * return 403 to unauthenticated visitors. The only public host that serves
- * the published build to guests is the configured published URL
- * (`hotelexcellaops.lovable.app`), so guest-portal share links must always
- * be built against that origin.
+ * return 403 to unauthenticated visitors. The production custom domain
+ * (`ops.hotelexcella.in`) is the public host that serves the published
+ * build to guests, so guest-portal share links must always be built
+ * against that origin.
  */
-const PUBLISHED_ORIGIN = "https://hotelexcellaops.lovable.app";
+const PUBLISHED_ORIGIN = "https://ops.hotelexcella.in";
 
 export function publicOrigin(): string {
   if (typeof window === "undefined") return PUBLISHED_ORIGIN;
@@ -19,3 +19,4 @@ export function publicOrigin(): string {
   if (host.startsWith("id-preview") || host.startsWith("project--")) return PUBLISHED_ORIGIN;
   return window.location.origin;
 }
+
