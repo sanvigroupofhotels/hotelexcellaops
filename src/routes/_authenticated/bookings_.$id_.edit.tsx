@@ -187,6 +187,12 @@ function EditBooking() {
               </div>
             </motion.section>
 
+            <PaymentSettingsSection
+              value={paymentFlags}
+              onChange={setPaymentFlags}
+              hint="Override Global Payment Settings for this booking. The Guest Portal will respect these values."
+            />
+
             {/* Inline breakdown hidden on mobile — sticky footer renders editable version. */}
           </div>
 
