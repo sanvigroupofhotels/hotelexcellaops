@@ -220,7 +220,7 @@ function ExportCustomersDialog({ open, onOpenChange, customers }: {
           Status: c.status, Tags: (c.tags ?? []).join("|"), "Lead Source": c.lead_source ?? "",
           Quotes: c.total_quotes, Bookings: c.total_bookings,
           "Created By": names[c.user_id] ?? "",
-          "Created": c.created_at ? new Date(c.created_at).toISOString().slice(0,10) : "",
+          "Created": c.created_at ? toLocalYMD(new Date(c.created_at)) : "",
           "Last Stay": c.last_stay_date ?? "",
         })));
       toast.success(`Exported ${filtered.length} customer${filtered.length === 1 ? "" : "s"}`);

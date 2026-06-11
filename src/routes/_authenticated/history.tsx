@@ -153,7 +153,7 @@ function ExportQuotesDialog({ open, onOpenChange, quotes }: {
           Total: Number(q.total), Status: q.status,
           "Lead Source": q.lead_source ?? "",
           "Created By": names[q.user_id] ?? "",
-          "Created": new Date(q.created_at).toISOString().slice(0,10),
+          "Created": toLocalYMD(new Date(q.created_at)),
         })));
       toast.success(`Exported ${filtered.length} quote${filtered.length === 1 ? "" : "s"}`);
       onOpenChange(false);

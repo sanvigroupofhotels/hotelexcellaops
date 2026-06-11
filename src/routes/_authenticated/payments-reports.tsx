@@ -35,7 +35,7 @@ function PaymentsReportsPage() {
 
   const today = toLocalYMD();
   const monthStart = new Date(); monthStart.setDate(1);
-  const [from, setFrom] = useState(monthStart.toISOString().slice(0, 10));
+  const [from, setFrom] = useState(toLocalYMD(monthStart));
   const [to, setTo] = useState(today);
   const [guest, setGuest] = useState("");
   const [bookingRef, setBookingRef] = useState("");

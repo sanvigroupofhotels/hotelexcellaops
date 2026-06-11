@@ -358,7 +358,7 @@ function HouseView() {
             setEditBlock({
               room_id: vacantAction.room.id,
               start_date: vacantAction.date,
-              end_date: next.toISOString().slice(0, 10),
+              end_date: toLocalYMD(next),
               reason: "Maintenance",
               active: true,
               blocked_at: new Date().toISOString(),
@@ -582,7 +582,7 @@ function BlockPopover({ m, onClose, rooms, onEdit }: { m: any; onClose: () => vo
 
 function VacantActionMenu({ room, date, onBlock, onClose }: { room: any; date: string; onBlock: () => void; onClose: () => void }) {
   const next = new Date(date); next.setDate(next.getDate() + 1);
-  const nextKey = next.toISOString().slice(0, 10);
+  const nextKey = toLocalYMD(next);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="luxe-card rounded-xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>

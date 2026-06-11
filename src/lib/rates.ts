@@ -50,7 +50,7 @@ export function resolveAverageRate(
   let sum = 0;
   let anyFound = false;
   for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-    const key = d.toISOString().slice(0, 10);
+    const key = toLocalYMD(d);
     const r = resolveRate(room_type, key, rates, overrides);
     if (r != null) { sum += r; anyFound = true; }
     nights++;

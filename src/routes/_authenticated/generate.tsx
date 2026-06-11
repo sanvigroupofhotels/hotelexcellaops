@@ -39,7 +39,7 @@ const QUOTE_PRESETS: QuotePreset[] = [
     patch: (f) => {
       const inDate = new Date(f.check_in);
       const out = new Date(inDate.getTime() + 7 * 86400000);
-      return { check_out: out.toISOString().slice(0, 10) };
+      return { check_out: toLocalYMD(out) };
     } },
 ];
 
