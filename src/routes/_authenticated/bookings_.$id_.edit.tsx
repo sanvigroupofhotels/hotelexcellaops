@@ -66,6 +66,12 @@ function EditBooking() {
     setRoomId((b as any).room_id ?? null);
     setTotalOverride((b as any).total_override == null ? null : Number((b as any).total_override));
     setTaxesIncluded(!!(b as any).taxes_included);
+    setPaymentFlags({
+      allow_full_payment: (b as any).allow_full_payment !== false,
+      allow_part_payment: (b as any).allow_part_payment !== false,
+      allow_pay_at_hotel: (b as any).allow_pay_at_hotel !== false,
+      part_payment_value: Number((b as any).part_payment_value) || 25,
+    });
   }, [b, loaded]);
 
   useEffect(() => {
