@@ -9,6 +9,7 @@ import {
 } from "@/lib/quotes-api";
 import { listQuoteItems, replaceQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
 import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
+import { OverrideCard } from "@/components/override-card";
 import { lineItemsTotal, type LineItem } from "@/components/line-items-editor";
 import { StayFormSections, type SharedStayValue } from "@/components/shared/stay-form-sections";
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
