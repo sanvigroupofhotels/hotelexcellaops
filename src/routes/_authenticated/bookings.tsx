@@ -21,9 +21,10 @@ export const Route = createFileRoute("/_authenticated/bookings")({
 });
 
 function BookingsPage() {
-  useRealtimeInvalidate(["bookings", "customers"], ["bookings", "customers"], "bookings-list");
+  useRealtimeInvalidate(["bookings", "customers", "booking_charges"], ["bookings", "customers", "all-charge-totals"], "bookings-list");
   const { data: bookings = [], isLoading } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
+  const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const customerById = useMemo(() => Object.fromEntries(customers.map((c) => [c.id, c])), [customers]);
 
   const [q, setQ] = useState("");
