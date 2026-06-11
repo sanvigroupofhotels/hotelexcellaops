@@ -465,6 +465,7 @@ function BookingDetail() {
           booking={b}
           items={items as any}
           payments={payments}
+          charges={charges}
           onClose={() => setInvoiceOpen(false)}
         />
       )}
