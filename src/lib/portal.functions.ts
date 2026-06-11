@@ -87,12 +87,28 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     const { data: b, error: bErr } = await supabaseAdmin
       .from("bookings")
       .select(
-        "id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel, expected_arrival_at, emergency_contact_name, emergency_contact_phone, special_requests",
+        "id, customer_id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel, expected_arrival_at, emergency_contact_name, emergency_contact_phone, special_requests",
       )
       .eq("id", tok.booking_id)
       .maybeSingle();
     if (bErr) throw bErr;
     if (!b) throw new Error("Booking not found");
+
+    // Emergency contact lives on the customer record (single source of truth).
+    // Fallback to legacy booking-level value if customer not yet linked / not set.
+    let ecName = "";
+    let ecPhone = "";
+    if ((b as any).customer_id) {
+      const { data: cust } = await supabaseAdmin
+        .from("customers")
+        .select("emergency_contact_name, emergency_contact_phone")
+        .eq("id", (b as any).customer_id)
+        .maybeSingle();
+      ecName = (cust as any)?.emergency_contact_name ?? "";
+      ecPhone = (cust as any)?.emergency_contact_phone ?? "";
+    }
+    if (!ecName) ecName = (b as any).emergency_contact_name ?? "";
+    if (!ecPhone) ecPhone = (b as any).emergency_contact_phone ?? "";
 
     // Pull in-house charges total to surface in the portal balance
     const { data: charges } = await supabaseAdmin
@@ -135,8 +151,8 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       allowPayAtHotel: (b as any).allow_pay_at_hotel !== false,
       defaultPartPercent: ptype === "percent" ? pval : 0,
       expectedArrivalAt: (b as any).expected_arrival_at ?? null,
-      emergencyContactName: (b as any).emergency_contact_name ?? "",
-      emergencyContactPhone: (b as any).emergency_contact_phone ?? "",
+      emergencyContactName: ecName,
+      emergencyContactPhone: ecPhone,
       specialRequests: (b as any).special_requests ?? "",
     };
   });
