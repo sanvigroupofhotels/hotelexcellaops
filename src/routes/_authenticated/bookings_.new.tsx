@@ -401,6 +401,14 @@ function NewBooking() {
               </div>
             </motion.section>
 
+            {paymentFlags && (
+              <PaymentSettingsSection
+                value={paymentFlags}
+                onChange={setPaymentFlags}
+                hint="Prefilled from Global Payment Settings. Override here for this booking only — the Guest Portal will respect these values."
+              />
+            )}
+
             {/* Inline breakdown is hidden on mobile — the sticky footer below shows the
                 editable breakdown so it's always reachable above the keyboard. */}
           </div>
