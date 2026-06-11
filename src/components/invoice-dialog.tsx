@@ -6,6 +6,8 @@ import type { BookingRow } from "@/lib/bookings-api";
 import type { BookingItemRow } from "@/lib/booking-items-api";
 import { rowToLineItem } from "@/lib/booking-items-api";
 import type { BookingPaymentRow } from "@/lib/booking-payments-api";
+import type { BookingChargeRow } from "@/lib/booking-charges-api";
+import { chargesTotal as sumCharges } from "@/lib/booking-charges-api";
 import { nodeToBlob } from "@/lib/share-quote";
 import { computePricing } from "@/lib/pricing";
 
@@ -30,19 +32,22 @@ const HOTEL = {
  * Supports PDF download (window.print with invoice-only CSS) and image share.
  */
 export function InvoiceDialog({
-  booking, items = [], payments = [], onClose,
+  booking, items = [], payments = [], charges = [], onClose,
 }: {
   booking: BookingRow;
   items?: BookingItemRow[];
   payments?: BookingPaymentRow[];
+  charges?: BookingChargeRow[];
   onClose: () => void;
 }) {
   const isFinal = booking.status === "Checked-Out" as any;
   const kind = isFinal ? "INVOICE" : "PROFORMA INVOICE";
   const docRef = useRef<HTMLDivElement>(null);
 
+  const chargesTotal = sumCharges(charges);
   const advance = Number(booking.advance_paid || 0);
-  const total = Number(booking.amount || 0);
+  const bookingAmount = Number(booking.amount || 0);
+  const total = bookingAmount + chargesTotal;
   const balance = Math.max(0, total - advance);
   const discount = Number(booking.discount || 0);
   const taxRate = Number((booking as any).tax_rate || 0);
@@ -64,8 +69,8 @@ export function InvoiceDialog({
     } catch { return null; }
   }, [items, discount, taxRate, booking]);
 
-  const itemsTotal = pricing?.itemsTotal ?? Math.max(0, total + discount - Number((booking as any).taxes || 0));
-  const taxable = pricing?.subtotal ?? Math.max(0, total - Number((booking as any).taxes || 0));
+  const itemsTotal = pricing?.itemsTotal ?? Math.max(0, bookingAmount + discount - Number((booking as any).taxes || 0));
+  const taxable = pricing?.subtotal ?? Math.max(0, bookingAmount - Number((booking as any).taxes || 0));
   const taxes = pricing?.taxes ?? Number((booking as any).taxes || 0);
   const mainStay = pricing?.mainStayCharges ?? itemsTotal;
   const extraLines = pricing?.additionalLineItems ?? [];
@@ -219,9 +224,24 @@ export function InvoiceDialog({
                     <td className="py-1.5 text-right tabular-nums">{inr(ex.value)}</td>
                   </tr>
                 ))}
+                {chargesTotal > 0 && (
+                  <tr>
+                    <td className="pt-3 pb-1 font-medium" colSpan={2}>
+                      In-House Charges <span className="text-[10px] font-normal text-muted-foreground">(tax incl.)</span>
+                    </td>
+                  </tr>
+                )}
+                {charges.map((c, i) => (
+                  <tr key={`ch-${i}`} className="border-b border-border/50">
+                    <td className="py-1.5 pl-4 text-muted-foreground">
+                      – {c.category}{c.category === "Other" && c.other_description ? ` · ${c.other_description}` : ""}{Number(c.quantity) !== 1 ? ` × ${Number(c.quantity)}` : ""}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums">{inr(Number(c.amount))}</td>
+                  </tr>
+                ))}
                 <tr className="border-b border-border/50">
                   <td className="py-2 font-medium">Subtotal</td>
-                  <td className="py-2 text-right tabular-nums">{inr(itemsTotal)}</td>
+                  <td className="py-2 text-right tabular-nums">{inr(itemsTotal + chargesTotal)}</td>
                 </tr>
                 {discount > 0 && (
                   <tr className="border-b border-border/50">

@@ -43,6 +43,7 @@ import { StayItemsList } from "@/components/shared/stay-items-list";
 import { lineSubtotal } from "@/components/line-items-editor";
 import { computePricing } from "@/lib/pricing";
 import { listRooms } from "@/lib/rooms-api";
+import { listBookingCharges, chargesTotal as sumCharges } from "@/lib/booking-charges-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
@@ -172,6 +173,11 @@ function BookingDetail() {
     queryFn: () => listBookingActivities(id),
     enabled: !!b,
   });
+  const { data: charges = [] } = useQuery({
+    queryKey: ["booking-charges", id],
+    queryFn: () => listBookingCharges(id),
+    enabled: !!b,
+  });
 
   // IMPORTANT: every hook must be called BEFORE any early return.
   // Previously `useServerFn(issueBookingToken)` lived below the early return,
@@ -181,7 +187,9 @@ function BookingDetail() {
 
   if (isLoading || !b) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
-  const balance = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+  const chargesTotal = sumCharges(charges);
+  const payable = Number(b.amount) + chargesTotal;
+  const balance = Math.max(0, payable - Number(b.advance_paid || 0));
   const isCheckedOut = b.status === "Checked-Out";
 
   const sendWa = (template: WhatsAppTemplate) => {
@@ -297,7 +305,7 @@ function BookingDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:block">
           <div ref={cardRef}>
-            <BookingCard b={b} items={items} balance={balance} />
+            <BookingCard b={b} items={items} balance={balance} chargesTotal={chargesTotal} charges={charges} />
           </div>
 
 
@@ -391,7 +399,7 @@ function BookingDetail() {
 
             <InHouseChargesSection bookingId={id} />
 
-            <PaymentsLedger bookingId={id} bookingAmount={Number(b.amount)} advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id} />
+            <PaymentsLedger bookingId={id} bookingAmount={Number(b.amount)} chargesTotal={chargesTotal} advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id} />
 
 
             {b.source_quote_id && (
@@ -457,6 +465,7 @@ function BookingDetail() {
           booking={b}
           items={items as any}
           payments={payments}
+          charges={charges}
           onClose={() => setInvoiceOpen(false)}
         />
       )}
@@ -595,7 +604,7 @@ function CheckoutOverrideForm({ balance, onCancel, onAddPayment, onProceed }: {
 }
 
 
-function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balance: number }) {
+function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }: { b: any; items?: any[]; balance: number; chargesTotal?: number; charges?: any[] }) {
   const multi = items.length > 1;
   const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   return (
@@ -668,6 +677,7 @@ function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balanc
           const subtotal = b.subtotal != null ? Number(b.subtotal) : pricing.subtotal;
           const taxes = b.taxes != null ? Number(b.taxes) : pricing.taxes;
           const total = Number(b.amount);
+          const finalPayable = total + chargesTotal;
           return (
             <ul className="text-sm space-y-1">
               <PriceRow label="Room Charges" value={pricing.mainStayCharges} />
@@ -679,13 +689,25 @@ function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balanc
                   ))}
                 </>
               )}
-              <PriceRow label="Subtotal" value={pricing.itemsTotal} />
+              {chargesTotal > 0 && (
+                <>
+                  <li className="pt-2 text-[10px] uppercase tracking-wider text-muted-foreground">In-House Charges <span className="normal-case text-muted-foreground/70">(tax incl.)</span></li>
+                  {charges.map((c: any) => (
+                    <PriceRow
+                      key={c.id}
+                      label={`${c.category}${c.category === "Other" && c.other_description ? ` · ${c.other_description}` : ""}${Number(c.quantity) !== 1 ? ` × ${Number(c.quantity)}` : ""}`}
+                      value={Number(c.amount)}
+                    />
+                  ))}
+                </>
+              )}
+              <PriceRow label="Subtotal" value={pricing.itemsTotal + chargesTotal} />
               {(pricing.discount > 0 || discount > 0) && <PriceRow label="Discount" value={-Math.max(pricing.discount, discount)} />}
               <PriceRow label="Taxable Amount" value={subtotal} />
               <PriceRow label={`Tax (${Math.round(taxRate * 100)}%)`} value={taxes} />
               <li className="flex items-baseline justify-between pt-2 mt-2 border-t border-border">
                 <span className="font-display text-xl">Final Booking Amount</span>
-                <span className="font-display text-2xl gold-text-gradient">₹{total.toLocaleString("en-IN")}</span>
+                <span className="font-display text-2xl gold-text-gradient">₹{finalPayable.toLocaleString("en-IN")}</span>
               </li>
             </ul>
           );
@@ -695,7 +717,9 @@ function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balanc
       <div className="relative py-6 border-b border-border">
         <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Payment Summary</h4>
         <ul className="text-sm space-y-1">
-          <PriceRow label="Total Booking Amount" value={Number(b.amount)} />
+          <PriceRow label="Room & Stay Total" value={Number(b.amount)} />
+          {chargesTotal > 0 && <PriceRow label="In-House Charges" value={chargesTotal} />}
+          <PriceRow label="Total Payable" value={Number(b.amount) + chargesTotal} />
           <PriceRow label="Amount Paid" value={-Number(b.advance_paid || 0)} />
           <li className="flex items-baseline justify-between pt-2 mt-2 border-t border-border">
             <span className="text-sm font-medium">Balance Due</span>
@@ -703,6 +727,7 @@ function BookingCard({ b, items = [], balance }: { b: any; items?: any[]; balanc
           </li>
         </ul>
       </div>
+
 
       {b.notes && <div className="relative py-4 border-b border-border text-sm"><span className="text-muted-foreground">Notes: </span>{b.notes}</div>}
       {b.internal_notes && (
@@ -738,8 +763,8 @@ function PriceRow({ label, value }: { label: string; value: number }) {
 
 
 
-function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId }: {
-  bookingId: string; bookingAmount: number; advance: number; balance: number; customerId: string;
+function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, balance, customerId }: {
+  bookingId: string; bookingAmount: number; chargesTotal?: number; advance: number; balance: number; customerId: string;
 }) {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
@@ -784,7 +809,11 @@ function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId
         </button>
       </div>
       <div className="space-y-1 text-sm">
-        <div className="flex justify-between"><span className="text-muted-foreground">Total Booking Amount</span><span className="tabular-nums">₹{bookingAmount.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Room &amp; Stay Total</span><span className="tabular-nums">₹{bookingAmount.toLocaleString("en-IN")}</span></div>
+        {chargesTotal > 0 && (
+          <div className="flex justify-between"><span className="text-muted-foreground">In-House Charges</span><span className="tabular-nums">₹{chargesTotal.toLocaleString("en-IN")}</span></div>
+        )}
+        <div className="flex justify-between"><span className="text-muted-foreground">Total Payable</span><span className="tabular-nums">₹{(bookingAmount + chargesTotal).toLocaleString("en-IN")}</span></div>
         <div className="flex justify-between"><span className="text-muted-foreground">Total Advance Paid</span><span className="tabular-nums">₹{advance.toLocaleString("en-IN")}</span></div>
         <div className="flex justify-between border-t border-border pt-2"><span className="font-medium">Balance Due</span><span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
       </div>
