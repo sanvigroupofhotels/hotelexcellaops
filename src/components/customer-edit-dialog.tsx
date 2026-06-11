@@ -60,6 +60,8 @@ export function CustomerEditDialog({
         lead_source: customer.lead_source ?? "Direct",
         tags: customer.tags ?? [],
         internal_notes: customer.internal_notes ?? "",
+        emergency_contact_name: (customer as any).emergency_contact_name ?? "",
+        emergency_contact_phone: (customer as any).emergency_contact_phone ?? "",
       });
     } else {
       setForm(empty);
