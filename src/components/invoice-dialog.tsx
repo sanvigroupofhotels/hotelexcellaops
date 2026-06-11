@@ -224,9 +224,24 @@ export function InvoiceDialog({
                     <td className="py-1.5 text-right tabular-nums">{inr(ex.value)}</td>
                   </tr>
                 ))}
+                {chargesTotal > 0 && (
+                  <tr>
+                    <td className="pt-3 pb-1 font-medium" colSpan={2}>
+                      In-House Charges <span className="text-[10px] font-normal text-muted-foreground">(tax incl.)</span>
+                    </td>
+                  </tr>
+                )}
+                {charges.map((c, i) => (
+                  <tr key={`ch-${i}`} className="border-b border-border/50">
+                    <td className="py-1.5 pl-4 text-muted-foreground">
+                      – {c.category}{c.category === "Other" && c.other_description ? ` · ${c.other_description}` : ""}{Number(c.quantity) !== 1 ? ` × ${Number(c.quantity)}` : ""}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums">{inr(Number(c.amount))}</td>
+                  </tr>
+                ))}
                 <tr className="border-b border-border/50">
                   <td className="py-2 font-medium">Subtotal</td>
-                  <td className="py-2 text-right tabular-nums">{inr(itemsTotal)}</td>
+                  <td className="py-2 text-right tabular-nums">{inr(itemsTotal + chargesTotal)}</td>
                 </tr>
                 {discount > 0 && (
                   <tr className="border-b border-border/50">
