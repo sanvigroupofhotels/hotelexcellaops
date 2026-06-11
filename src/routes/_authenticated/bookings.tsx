@@ -28,15 +28,27 @@ function BookingsPage() {
   const [q, setQ] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
 
-  const filtered = useMemo(() => bookings.filter((b) => {
-    if (!q) return true;
+  const filtered = useMemo(() => {
     const ql = q.toLowerCase();
-    return (
-      b.guest_name.toLowerCase().includes(ql) ||
-      b.booking_reference.toLowerCase().includes(ql) ||
-      (b.phone ?? "").includes(q)
-    );
-  }), [bookings, q]);
+    const matched = bookings.filter((b) => {
+      if (!q) return true;
+      return (
+        b.guest_name.toLowerCase().includes(ql) ||
+        b.booking_reference.toLowerCase().includes(ql) ||
+        (b.phone ?? "").includes(q)
+      );
+    });
+    // Reception ordering: Today's check-ins → Future (asc) → Past (desc)
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().slice(0, 10);
+    const bucket = (ci: string) => (ci === todayStr ? 0 : ci > todayStr ? 1 : 2);
+    return [...matched].sort((a, b) => {
+      const ba = bucket(a.check_in); const bb = bucket(b.check_in);
+      if (ba !== bb) return ba - bb;
+      if (ba === 2) return a.check_in < b.check_in ? 1 : -1; // past: desc
+      return a.check_in < b.check_in ? -1 : 1; // today/future: asc
+    });
+  }, [bookings, q]);
 
   return (
     <>

@@ -82,6 +82,62 @@ export type Database = {
           },
         ]
       }
+      booking_charges: {
+        Row: {
+          added_by: string | null
+          amount: number
+          booking_id: string
+          category: string
+          created_at: string
+          id: string
+          notes: string | null
+          occurred_at: string
+          other_description: string | null
+          quantity: number
+          unit_price: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          amount?: number
+          booking_id: string
+          category: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          other_description?: string | null
+          quantity?: number
+          unit_price?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string | null
+          amount?: number
+          booking_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          other_description?: string | null
+          quantity?: number
+          unit_price?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_charges_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_items: {
         Row: {
           adults: number
@@ -340,6 +396,9 @@ export type Database = {
           customer_id: string
           discount: number
           email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          expected_arrival_at: string | null
           guest_name: string
           guests: number
           id: string
@@ -354,6 +413,7 @@ export type Database = {
           room_details: string | null
           room_id: string | null
           source_quote_id: string | null
+          special_requests: string | null
           status: Database["public"]["Enums"]["booking_status"]
           subtotal: number
           tax_rate: number
@@ -382,6 +442,9 @@ export type Database = {
           customer_id: string
           discount?: number
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          expected_arrival_at?: string | null
           guest_name: string
           guests?: number
           id?: string
@@ -396,6 +459,7 @@ export type Database = {
           room_details?: string | null
           room_id?: string | null
           source_quote_id?: string | null
+          special_requests?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           subtotal?: number
           tax_rate?: number
@@ -424,6 +488,9 @@ export type Database = {
           customer_id?: string
           discount?: number
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          expected_arrival_at?: string | null
           guest_name?: string
           guests?: number
           id?: string
@@ -438,6 +505,7 @@ export type Database = {
           room_details?: string | null
           room_id?: string | null
           source_quote_id?: string | null
+          special_requests?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           subtotal?: number
           tax_rate?: number
