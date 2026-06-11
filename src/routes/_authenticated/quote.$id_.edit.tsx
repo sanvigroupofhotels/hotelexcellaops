@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { roomTypes } from "@/lib/mock-data";
 import {
-  getQuote, updateQuote, calc, TAX_RATE, type QuoteInput,
+  getQuote, updateQuote, calc, finalizeTotals, type QuoteInput,
 } from "@/lib/quotes-api";
 import { listQuoteItems, replaceQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
 import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
