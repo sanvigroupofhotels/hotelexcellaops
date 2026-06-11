@@ -100,15 +100,43 @@ export function validateQuoteInput(input: QuoteInput) {
     throw new Error("Booking probability must be 0–100");
 }
 
-export function calc(input: QuoteInput, rateOverride?: number) {
+export interface CalcOptions {
+  totalOverride?: number | null;
+  taxesIncluded?: boolean;
+}
+
+/**
+ * Apply override + taxes-included semantics to a computed subtotal.
+ * Mirrors the booking pricing engine in `src/lib/pricing.ts`.
+ *   - taxesIncluded=true  → base treated as gross; back out tax
+ *   - taxesIncluded=false → tax added on top of base
+ *   - totalOverride       → replaces the base (still subject to taxesIncluded)
+ */
+export function finalizeTotals(rawSubtotal: number, options: CalcOptions = {}) {
+  const ov = options.totalOverride;
+  const hasOverride = ov !== null && ov !== undefined && Number.isFinite(Number(ov));
+  const taxesIncluded = !!options.taxesIncluded;
+  const base = hasOverride ? Math.max(0, Number(ov)) : Math.max(0, rawSubtotal);
+  let subtotal: number; let taxes: number; let total: number;
+  if (taxesIncluded) {
+    subtotal = Math.round(base / (1 + TAX_RATE));
+    taxes = Math.max(0, base - subtotal);
+    total = base;
+  } else {
+    subtotal = base;
+    taxes = Math.round(base * TAX_RATE);
+    total = base + taxes;
+  }
+  return { subtotal, taxes, total, overrideApplied: hasOverride, taxesIncluded };
+}
+
+export function calc(input: QuoteInput, rateOverride?: number, options: CalcOptions = {}) {
   const nights = Math.max(
     1,
     Math.round(
       (new Date(input.check_out).getTime() - new Date(input.check_in).getTime()) / 86400000,
     ),
   );
-  // Rate resolution: explicit override (from Rates & Inventory resolver) wins,
-  // otherwise fall back to legacy hardcoded tariff. Mirrors Bookings.
   const room_rate = rateOverride && rateOverride > 0
     ? rateOverride
     : getRoomRate(input.room_type, input.breakfast_included);
@@ -133,16 +161,23 @@ export function calc(input: QuoteInput, rateOverride?: number) {
       ? input.extra_breakfast_guests * EXTRA_BREAKFAST_RATE * nights
       : 0;
 
-  const subtotal =
+  const rawSubtotal =
     roomTariff + earlyCheck + lateCheck + pet + extraAdults + driversCharge + extraBreakfast
     - (input.discount || 0);
-  const taxes = Math.round(subtotal * TAX_RATE);
-  const total = subtotal + taxes;
+
+  // Pull options off the input when caller hasn't provided them explicitly.
+  const opt: CalcOptions = {
+    totalOverride: options.totalOverride !== undefined ? options.totalOverride : (input.total_override ?? null),
+    taxesIncluded: options.taxesIncluded !== undefined ? options.taxesIncluded : !!input.taxes_included,
+  };
+  const { subtotal, taxes, total, overrideApplied, taxesIncluded } = finalizeTotals(rawSubtotal, opt);
+
   return {
     nights, room_rate, roomTariff,
-    extraBed: 0, // deprecated bucket
+    extraBed: 0,
     earlyCheck, lateCheck, pet, extraAdults, driversCharge, extraBreakfast,
     subtotal, taxes, total,
+    overrideApplied, taxesIncluded,
   };
 }
 
