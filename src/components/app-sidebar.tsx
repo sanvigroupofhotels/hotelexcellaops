@@ -29,7 +29,7 @@ const nav: NavItem[] = [
   { to: "/master-data", label: "Master Data", icon: Database, adminOnly: true },
   { to: "/audit", label: "Audit", icon: ClipboardCheck, adminOnly: true },
   { to: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: true },
-  { to: "/users", label: "Users", icon: ShieldCheck, adminOnly: true },
+  { to: "/users", label: "User Management", icon: ShieldCheck, adminOnly: true },
 ];
 
 function Logo() {

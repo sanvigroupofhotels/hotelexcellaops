@@ -79,6 +79,9 @@ export interface BookingInput {
 
 export function validateBookingInput(b: BookingInput) {
   if (!b.guest_name?.trim()) throw new Error("Guest name is required");
+  if (!b.phone?.trim()) throw new Error("Mobile number is required");
+  if (!/^[+0-9 ()-]{7,}$/.test((b.phone ?? "").trim()))
+    throw new Error("Please enter a valid mobile number");
   if (!b.check_in || !b.check_out) throw new Error("Stay dates are required");
   if (new Date(b.check_out) <= new Date(b.check_in))
     throw new Error("Check-out must be after check-in");

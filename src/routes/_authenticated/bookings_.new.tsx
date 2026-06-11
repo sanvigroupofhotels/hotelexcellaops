@@ -66,7 +66,7 @@ function NewBooking() {
   const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
   const [forceNew, setForceNew] = useState(false);
   const [totalOverride, setTotalOverride] = useState<number | null>(null);
-  const [taxesIncluded, setTaxesIncluded] = useState<boolean>(false);
+  const [taxesIncluded, setTaxesIncluded] = useState<boolean>(true);
   const { canManage } = useUserRole();
   const { data: paymentDefaults = DEFAULT_PAYMENT_SETTINGS } = useQuery({
     queryKey: ["app-settings", "payment_settings"],

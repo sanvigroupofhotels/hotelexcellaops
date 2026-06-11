@@ -23,7 +23,7 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
       stayLines.push(`• Check-in: ${fmtDate(it.check_in)} | 1:00 PM`);
       stayLines.push(`• Check-out: ${fmtDate(it.check_out)} | 11:00 AM`);
       stayLines.push(`• Nights: ${it.nights}`);
-      stayLines.push(`• Breakfast: ${it.breakfast_included ? "Included" : "Not Included"}`);
+      if (it.breakfast_included) stayLines.push(`• Breakfast: Included`);
       stayLines.push(`• Subtotal: ${inr(Number(it.subtotal))}`);
       stayLines.push(``);
     });
