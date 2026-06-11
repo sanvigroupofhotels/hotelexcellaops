@@ -32,6 +32,7 @@ const empty: QuoteInput = {
   breakfast_included: true, extra_breakfast_guests: 0,
   discount: 0, internal_notes: "",
   payment_status: "None", booking_probability: 50, lost_reason: null,
+  total_override: null, taxes_included: false,
 };
 
 function quoteToShared(q: QuoteInput): SharedStayValue {
