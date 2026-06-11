@@ -87,32 +87,45 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     const { data: b, error: bErr } = await supabaseAdmin
       .from("bookings")
       .select(
-        "id, booking_reference, guest_name, phone, check_in, check_out, room_details, guests, amount, advance_paid, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel",
+        "id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel, expected_arrival_at, emergency_contact_name, emergency_contact_phone, special_requests",
       )
       .eq("id", tok.booking_id)
       .maybeSingle();
     if (bErr) throw bErr;
     if (!b) throw new Error("Booking not found");
 
+    // Pull in-house charges total to surface in the portal balance
+    const { data: charges } = await supabaseAdmin
+      .from("booking_charges")
+      .select("amount")
+      .eq("booking_id", (b as any).id);
+    const chargesTotal = (charges ?? []).reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+
     const total = Number((b as any).amount) || 0;
     const advance = Number((b as any).advance_paid) || 0;
-    const balance = Math.max(0, total - advance);
+    const payable = total + chargesTotal;
+    const balance = Math.max(0, payable - advance);
 
     let minPartPayment = 0;
     const ptype = (b as any).part_payment_type as string | null;
     const pval = Number((b as any).part_payment_value) || 0;
     if (ptype === "fixed") minPartPayment = pval;
-    else if (ptype === "percent") minPartPayment = Math.round((total * pval) / 100);
+    else if (ptype === "percent") minPartPayment = Math.round((payable * pval) / 100);
 
     return {
+      bookingId: (b as any).id,
       reference: (b as any).booking_reference,
       guestName: (b as any).guest_name,
+      phone: (b as any).phone ?? "",
+      email: (b as any).email ?? "",
       checkIn: (b as any).check_in,
       checkOut: (b as any).check_out,
       roomType: (b as any).room_details ?? "",
       guests: (b as any).guests,
       breakfastIncluded: false,
       totalAmount: total,
+      chargesTotal,
+      payable,
       advancePaid: advance,
       balanceDue: balance,
       minPartPayment,
@@ -121,7 +134,77 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       allowPartPayment: (b as any).allow_part_payment !== false,
       allowPayAtHotel: (b as any).allow_pay_at_hotel !== false,
       defaultPartPercent: ptype === "percent" ? pval : 0,
+      expectedArrivalAt: (b as any).expected_arrival_at ?? null,
+      emergencyContactName: (b as any).emergency_contact_name ?? "",
+      emergencyContactPhone: (b as any).emergency_contact_phone ?? "",
+      specialRequests: (b as any).special_requests ?? "",
     };
+  });
+
+// ---------------------------------------------------------------------------
+// updateGuestPortalDetails (public) — guest updates their own fields via token
+// ---------------------------------------------------------------------------
+export const updateGuestPortalDetails = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z.object({
+      token: z.string().min(8).max(128),
+      guest_name: z.string().trim().min(1).max(120).optional(),
+      phone: z.string().trim().min(7).max(20).regex(/^[+0-9 ()-]+$/).optional(),
+      email: z.string().trim().email().max(255).optional().or(z.literal("")),
+      expected_arrival_at: z.string().datetime().optional().or(z.literal("")),
+      emergency_contact_name: z.string().trim().max(120).optional().or(z.literal("")),
+      emergency_contact_phone: z.string().trim().max(20).regex(/^[+0-9 ()-]*$/).optional().or(z.literal("")),
+      special_requests: z.string().trim().max(2000).optional().or(z.literal("")),
+    }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: tok } = await supabaseAdmin
+      .from("booking_tokens")
+      .select("booking_id, revoked_at, expires_at")
+      .eq("token", data.token)
+      .maybeSingle();
+    if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
+      throw new Error("Link is invalid or expired");
+    }
+    const patch: Record<string, any> = {};
+    const changes: string[] = [];
+    if (data.guest_name !== undefined) { patch.guest_name = data.guest_name; changes.push("Name"); }
+    if (data.phone !== undefined) { patch.phone = data.phone; changes.push("Mobile"); }
+    if (data.email !== undefined) { patch.email = data.email || null; changes.push("Email"); }
+    if (data.expected_arrival_at !== undefined) {
+      patch.expected_arrival_at = data.expected_arrival_at || null;
+      changes.push("Expected Arrival");
+    }
+    if (data.emergency_contact_name !== undefined) {
+      patch.emergency_contact_name = data.emergency_contact_name || null;
+      changes.push("Emergency Contact Name");
+    }
+    if (data.emergency_contact_phone !== undefined) {
+      patch.emergency_contact_phone = data.emergency_contact_phone || null;
+      changes.push("Emergency Contact Mobile");
+    }
+    if (data.special_requests !== undefined) {
+      patch.special_requests = data.special_requests || null;
+      changes.push("Special Requests");
+    }
+    if (Object.keys(patch).length === 0) return { ok: true };
+
+    const { error: upErr } = await supabaseAdmin
+      .from("bookings")
+      .update(patch as any)
+      .eq("id", tok.booking_id);
+    if (upErr) throw upErr;
+
+    await supabaseAdmin.from("booking_activities" as any).insert({
+      booking_id: tok.booking_id,
+      actor_name: "Guest (Portal)",
+      actor_role: "guest",
+      action: "note",
+      notes: `Guest updated: ${changes.join(", ")}`,
+      metadata: patch,
+    } as any);
+    return { ok: true };
   });
 
 // ---------------------------------------------------------------------------
