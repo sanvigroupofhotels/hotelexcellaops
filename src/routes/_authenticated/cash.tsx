@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
+import { NumField } from "@/components/num-field";
 
 export const Route = createFileRoute("/_authenticated/cash")({
   component: CashPage,
