@@ -237,9 +237,16 @@ export async function createQuote(
   // Add extra line item subtotals into the quote total (line 0 is the primary form).
   const { computeItemSubtotal } = await import("./quote-items-api");
   const extraSubtotal = extraLineItems.reduce((s, it) => s + computeItemSubtotal(it), 0);
-  const subtotal = c.subtotal + extraSubtotal;
-  const taxes = Math.round(subtotal * TAX_RATE);
-  const total = subtotal + taxes;
+  // Raw subtotal = stay subtotal (from primary) + extras, BEFORE applying override/taxes-included.
+  // c.subtotal already had override/taxes-included logic applied; re-derive raw from the inputs.
+  // To keep the math correct with extras + override, we recompute final totals here using
+  // the raw stay subtotal (room + extras) — i.e. invert the override applied to c if needed.
+  const rawStaySubtotal = (c.roomTariff + c.earlyCheck + c.lateCheck + c.pet + c.extraAdults + c.driversCharge + c.extraBreakfast) - (data.discount || 0);
+  const rawTotalBase = rawStaySubtotal + extraSubtotal;
+  const { subtotal, taxes, total } = finalizeTotals(rawTotalBase, {
+    totalOverride: data.total_override ?? null,
+    taxesIncluded: !!data.taxes_included,
+  });
 
   const row = {
     ...data,
@@ -254,6 +261,8 @@ export async function createQuote(
     subtotal,
     taxes,
     total,
+    total_override: data.total_override ?? null,
+    taxes_included: !!data.taxes_included,
     status: initialStatus,
   };
   const { data: created, error } = await supabase
