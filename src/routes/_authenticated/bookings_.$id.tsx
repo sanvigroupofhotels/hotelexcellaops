@@ -305,7 +305,7 @@ function BookingDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:block">
           <div ref={cardRef}>
-            <BookingCard b={b} items={items} balance={balance} />
+            <BookingCard b={b} items={items} balance={balance} chargesTotal={chargesTotal} charges={charges} />
           </div>
 
 
