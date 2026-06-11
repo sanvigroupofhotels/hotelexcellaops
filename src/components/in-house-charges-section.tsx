@@ -10,6 +10,7 @@ import { useMasterData } from "@/hooks/use-master-data";
 import { useUserRole } from "@/hooks/use-role";
 import { listStaff } from "@/lib/cash-api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { NumField } from "@/components/num-field";
 
 const DEFAULT_CATEGORIES = [
   "Food Order", "Water Bottles", "Laundry", "Dental Kit", "Shaving Kit",
