@@ -183,20 +183,32 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
     if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
       throw new Error("Link is invalid or expired");
     }
+    // Resolve linked customer for emergency-contact write-through
+    const { data: bRow } = await supabaseAdmin
+      .from("bookings")
+      .select("customer_id")
+      .eq("id", tok.booking_id)
+      .maybeSingle();
+    const customerId = (bRow as any)?.customer_id ?? null;
+
     const patch: Record<string, any> = {};
+    const customerPatch: Record<string, any> = {};
     const changes: string[] = [];
-    if (data.guest_name !== undefined) { patch.guest_name = data.guest_name; changes.push("Name"); }
-    if (data.phone !== undefined) { patch.phone = data.phone; changes.push("Mobile"); }
-    if (data.email !== undefined) { patch.email = data.email || null; changes.push("Email"); }
+    if (data.guest_name !== undefined) { patch.guest_name = data.guest_name; customerPatch.guest_name = data.guest_name; changes.push("Name"); }
+    if (data.phone !== undefined) { patch.phone = data.phone; customerPatch.phone = data.phone; changes.push("Mobile"); }
+    if (data.email !== undefined) { patch.email = data.email || null; customerPatch.email = data.email || null; changes.push("Email"); }
     if (data.expected_arrival_at !== undefined) {
       patch.expected_arrival_at = data.expected_arrival_at || null;
       changes.push("Expected Arrival");
     }
     if (data.emergency_contact_name !== undefined) {
+      // Source of truth is customers; keep booking column in sync for backward compatibility.
+      customerPatch.emergency_contact_name = data.emergency_contact_name || null;
       patch.emergency_contact_name = data.emergency_contact_name || null;
       changes.push("Emergency Contact Name");
     }
     if (data.emergency_contact_phone !== undefined) {
+      customerPatch.emergency_contact_phone = data.emergency_contact_phone || null;
       patch.emergency_contact_phone = data.emergency_contact_phone || null;
       changes.push("Emergency Contact Mobile");
     }
@@ -204,13 +216,23 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
       patch.special_requests = data.special_requests || null;
       changes.push("Special Requests");
     }
-    if (Object.keys(patch).length === 0) return { ok: true };
+    if (Object.keys(patch).length === 0 && Object.keys(customerPatch).length === 0) return { ok: true };
 
-    const { error: upErr } = await supabaseAdmin
-      .from("bookings")
-      .update(patch as any)
-      .eq("id", tok.booking_id);
-    if (upErr) throw upErr;
+    if (Object.keys(patch).length > 0) {
+      const { error: upErr } = await supabaseAdmin
+        .from("bookings")
+        .update(patch as any)
+        .eq("id", tok.booking_id);
+      if (upErr) throw upErr;
+    }
+
+    if (customerId && Object.keys(customerPatch).length > 0) {
+      // Don't overwrite customer name/phone/email if they're empty strings (already covered) — patch only sent fields.
+      await supabaseAdmin
+        .from("customers")
+        .update(customerPatch as any)
+        .eq("id", customerId);
+    }
 
     await supabaseAdmin.from("booking_activities" as any).insert({
       booking_id: tok.booking_id,
