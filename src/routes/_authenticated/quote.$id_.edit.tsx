@@ -123,9 +123,12 @@ function EditQuote() {
   const c = useMemo(() => {
     const base = calc(form, resolvedRate);
     const extra = lineItemsTotal(extraItems);
-    const subtotal = base.subtotal + extra;
-    const taxes = Math.round(subtotal * TAX_RATE);
-    return { ...base, subtotal, taxes, total: subtotal + taxes };
+    const rawBase = (base.roomTariff + base.earlyCheck + base.lateCheck + base.pet + base.extraAdults + base.driversCharge + base.extraBreakfast) - (form.discount || 0);
+    const { subtotal, taxes, total } = finalizeTotals(rawBase + extra, {
+      totalOverride: form.total_override ?? null,
+      taxesIncluded: !!form.taxes_included,
+    });
+    return { ...base, subtotal, taxes, total };
   }, [form, extraItems, resolvedRate]);
 
   const save = useMutation({
