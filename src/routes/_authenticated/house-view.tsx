@@ -513,6 +513,12 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
           )}
           {b.phone && <Field label="Mobile" value={b.phone} icon={<Phone className="h-3 w-3" />} />}
         </div>
+        {(b as any).special_requests && (
+          <div className="rounded-md border border-gold/40 bg-gold-soft/40 px-3 py-2 text-xs">
+            <div className="text-[10px] uppercase tracking-wider text-gold mb-1">Special Requests</div>
+            <div className="text-foreground whitespace-pre-wrap">{(b as any).special_requests}</div>
+          </div>
+        )}
         <div className="rounded-md bg-secondary/40 border border-border px-3 py-2 text-xs space-y-1">
           <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="tabular-nums">₹{Number(b.amount).toLocaleString("en-IN")}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Advance Paid</span><span className="tabular-nums">₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</span></div>
