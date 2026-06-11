@@ -134,11 +134,17 @@ function UsersPage() {
                     className="inline-flex items-center gap-1 text-xs rounded-md border border-border bg-card px-2.5 py-1.5 text-muted-foreground hover:text-foreground">
                     <KeyRound className="h-3 w-3" /> Password
                   </button>
-                  <button
-                    disabled={roleMut.isPending}
-                    onClick={() => roleMut.mutate({ id: u.id, role: u.role === "admin" ? "staff" : "admin" })}
-                    className="text-xs rounded-md border border-gold/40 bg-gold-soft px-2.5 py-1.5 text-gold disabled:opacity-40"
-                  >{u.role === "admin" ? "Demote" : "Promote"}</button>
+                  <select
+                    disabled={self || roleMut.isPending}
+                    value={u.role}
+                    onChange={(e) => roleMut.mutate({ id: u.id, role: e.target.value as AppRole })}
+                    title={self ? "Can't change own role" : "Change role"}
+                    className="text-xs rounded-md border border-gold/40 bg-gold-soft px-2 py-1.5 text-gold disabled:opacity-40"
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="owner">Owner</option>
+                    <option value="staff">Staff</option>
+                  </select>
                   <button
                     disabled={self || activeMut.isPending}
                     onClick={() => activeMut.mutate({ id: u.id, active: !u.active })}
