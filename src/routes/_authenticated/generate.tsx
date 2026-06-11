@@ -256,6 +256,12 @@ function GenerateQuote() {
           />
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
+            <OverrideCard
+              totalOverride={form.total_override ?? null}
+              taxesIncluded={!!form.taxes_included}
+              computedTotal={c.total}
+              onChange={(o, t) => setForm((f) => ({ ...f, total_override: o, taxes_included: t }))}
+            />
             <LiveSummaryCard c={c} form={form} />
             <button onClick={() => save.mutate()} disabled={save.isPending}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60">
