@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, History, Bell, Calendar, BarChart3,
   Users, ListChecks, Menu, X, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
-  MessageSquareWarning, Building2, DoorOpen, IndianRupee, Tag, Database,
+  MessageSquareWarning, Building2, DoorOpen, IndianRupee, Tag, Database, KeyRound,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,7 @@ const nav: NavItem[] = [
   { to: "/audit", label: "Audit", icon: ClipboardCheck, adminOnly: true },
   { to: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: true },
   { to: "/users", label: "User Management", icon: ShieldCheck, adminOnly: true },
+  { to: "/access-settings", label: "Access Settings", icon: KeyRound, adminOnly: true },
 ];
 
 function Logo() {
