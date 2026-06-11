@@ -173,6 +173,11 @@ function BookingDetail() {
     queryFn: () => listBookingActivities(id),
     enabled: !!b,
   });
+  const { data: charges = [] } = useQuery({
+    queryKey: ["booking-charges", id],
+    queryFn: () => listBookingCharges(id),
+    enabled: !!b,
+  });
 
   // IMPORTANT: every hook must be called BEFORE any early return.
   // Previously `useServerFn(issueBookingToken)` lived below the early return,
@@ -182,9 +187,9 @@ function BookingDetail() {
 
   if (isLoading || !b) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
-  // In-house charges roll into the payable amount everywhere (portal, ledger, invoice).
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const chargesTotal = 0; // placeholder; real value injected below via subcomponent fetch
+  const chargesTotal = sumCharges(charges);
+  const payable = Number(b.amount) + chargesTotal;
+  const balance = Math.max(0, payable - Number(b.advance_paid || 0));
   const isCheckedOut = b.status === "Checked-Out";
 
   const sendWa = (template: WhatsAppTemplate) => {
