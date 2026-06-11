@@ -140,6 +140,17 @@ export function CustomerEditDialog({
             </div>
           </Section>
 
+          <Section title="Emergency Contact">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Contact Name">
+                <input className={inputCls} value={form.emergency_contact_name} onChange={(e) => set("emergency_contact_name", e.target.value)} />
+              </Field>
+              <Field label="Contact Mobile">
+                <input className={inputCls} value={form.emergency_contact_phone} onChange={(e) => set("emergency_contact_phone", e.target.value)} />
+              </Field>
+            </div>
+          </Section>
+
           <Section title="Operations">
             <Field label="Internal Notes (never shared)" full>
               <textarea rows={3} className={cn(inputCls, "resize-none")} value={form.internal_notes} onChange={(e) => set("internal_notes", e.target.value)} />
