@@ -622,29 +622,28 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
   const multi = items.length > 1;
   const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   return (
-    <div className="luxe-card rounded-2xl p-6 md:p-10 relative overflow-hidden print:border-0 print:shadow-none print:bg-white print:text-black">
+    <div className="luxe-card rounded-2xl p-4 md:p-8 relative overflow-hidden print:border-0 print:shadow-none print:bg-white print:text-black">
       <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-gold/5 blur-3xl pointer-events-none print:hidden" />
 
-      <div className="relative flex flex-col md:flex-row md:items-start md:justify-between gap-4 pb-6 border-b border-border">
-        <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-md gold-gradient flex items-center justify-center">
-            <span className="font-display text-2xl font-semibold text-charcoal">H</span>
+      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-2 pb-3 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-md gold-gradient flex items-center justify-center">
+            <span className="font-display text-xl font-semibold text-charcoal">H</span>
           </div>
           <div>
-            <div className="font-display text-xl">HOTEL EXCELLA</div>
-            <div className="text-[10px] tracking-[0.3em] text-gold/80 uppercase">Boutique · Luxury · Stay</div>
+            <div className="font-display text-lg leading-tight">HOTEL EXCELLA</div>
+            <div className="text-[9px] tracking-[0.3em] text-gold/80 uppercase">Boutique · Luxury · Stay</div>
           </div>
         </div>
-        <div className="text-right">
-          <h2 className="font-display text-4xl gold-text-gradient">BOOKING</h2>
-          <div className="text-xs text-muted-foreground mt-1">{b.booking_reference}</div>
-          <div className="text-[10px] text-muted-foreground mt-0.5">Created: {new Date(b.created_at).toLocaleDateString("en-IN")}</div>
+        <div className="text-left md:text-right text-sm leading-tight">
+          <div><span className="text-muted-foreground">Booking ID:</span> <span className="font-medium">{b.booking_reference}</span></div>
+          <div className="text-xs text-muted-foreground">Created: {new Date(b.created_at).toLocaleDateString("en-IN")}</div>
         </div>
       </div>
 
-      <div className="relative py-6 border-b border-border">
-        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Guest Details</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+      <div className="relative py-3 border-b border-border">
+        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-1.5">Guest Details</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-3 text-sm">
           <div className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" />{b.guest_name}</div>
           {b.phone && <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" />{b.phone}</div>}
           {b.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" />{b.email}</div>}
@@ -652,13 +651,13 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
       </div>
 
       {multi ? (
-        <div className="relative py-6 border-b border-border space-y-5">
+        <div className="relative py-3 border-b border-border space-y-3">
           <StayItemsList items={items} />
         </div>
       ) : items.length === 1 ? (
-        <div className="relative py-6 border-b border-border">
-          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Stay Details</h4>
-          <ul className="text-sm space-y-1">
+        <div className="relative py-3 border-b border-border">
+          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-1.5">Stay Details</h4>
+          <ul className="text-sm space-y-0.5">
             <li>• <span className="text-muted-foreground">Room Type:</span> {items[0].room_type}{items[0].rooms > 1 ? ` × ${items[0].rooms}` : ""}</li>
             <li>• <span className="text-muted-foreground">Dates:</span> {fmtDate(items[0].check_in)} – {fmtDate(items[0].check_out)} ({items[0].nights}N)</li>
             <li>• <span className="text-muted-foreground">Guests:</span> {b.adults} Adult{b.adults === 1 ? "" : "s"}{b.children > 0 ? ` + ${b.children} Child${b.children === 1 ? "" : "ren"}` : ""}</li>
@@ -666,18 +665,18 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
           </ul>
         </div>
       ) : (
-        <div className="relative py-6 border-b border-border">
-          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Stay Details</h4>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)}</div><div className="text-[10px] text-muted-foreground mt-0.5">Check-in · 1:00 PM</div></div>
-            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_out)}</div><div className="text-[10px] text-muted-foreground mt-0.5">Check-out · 11:00 AM</div></div>
+        <div className="relative py-3 border-b border-border">
+          <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-1.5">Stay Details</h4>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)}</div><div className="text-[10px] text-muted-foreground">Check-in · 1:00 PM</div></div>
+            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_out)}</div><div className="text-[10px] text-muted-foreground">Check-out · 11:00 AM</div></div>
             <div className="col-span-2 text-xs text-muted-foreground">{b.guests} Guest{b.guests === 1 ? "" : "s"} · {b.nights} Night{b.nights === 1 ? "" : "s"}{b.room_details ? ` · ${b.room_details}` : ""}</div>
           </div>
         </div>
       )}
 
-      <div className="relative py-6 border-b border-border">
-        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Pricing Summary</h4>
+      <div className="relative py-3 border-b border-border">
+        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-1.5">Pricing Summary</h4>
         {(() => {
           const discount = Number(b.discount || 0);
           const taxRate = Number(b.tax_rate ?? 0.05);
@@ -687,17 +686,16 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
             totalOverride: overrideTotal,
             taxesIncluded,
           });
-          // Prefer stored totals when present (authoritative)
           const subtotal = b.subtotal != null ? Number(b.subtotal) : pricing.subtotal;
           const taxes = b.taxes != null ? Number(b.taxes) : pricing.taxes;
           const total = Number(b.amount);
           const finalPayable = total + chargesTotal;
           return (
-            <ul className="text-sm space-y-1">
+            <ul className="text-sm space-y-0.5">
               <PriceRow label="Room Charges" value={pricing.mainStayCharges} />
               {pricing.additionalLineItems.length > 0 && (
                 <>
-                  <li className="pt-2 text-[10px] uppercase tracking-wider text-muted-foreground">Additional Stay Charges</li>
+                  <li className="pt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Additional Stay Charges</li>
                   {pricing.additionalLineItems.map((li) => (
                     <PriceRow key={li.label} label={li.label} value={li.value} />
                   ))}
@@ -705,7 +703,7 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
               )}
               {chargesTotal > 0 && (
                 <>
-                  <li className="pt-2 text-[10px] uppercase tracking-wider text-muted-foreground">In-House Charges <span className="normal-case text-muted-foreground/70">(tax incl.)</span></li>
+                  <li className="pt-1 text-[10px] uppercase tracking-wider text-muted-foreground">In-House Charges <span className="normal-case text-muted-foreground/70">(tax incl.)</span></li>
                   {charges.map((c: any) => (
                     <PriceRow
                       key={c.id}
@@ -719,43 +717,43 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
               {(pricing.discount > 0 || discount > 0) && <PriceRow label="Discount" value={-Math.max(pricing.discount, discount)} />}
               <PriceRow label="Taxable Amount" value={subtotal} />
               <PriceRow label={`Tax (${Math.round(taxRate * 100)}%)`} value={taxes} />
-              <li className="flex items-baseline justify-between pt-2 mt-2 border-t border-border">
-                <span className="font-display text-xl">Final Booking Amount</span>
-                <span className="font-display text-2xl gold-text-gradient">₹{finalPayable.toLocaleString("en-IN")}</span>
+              <li className="flex items-baseline justify-between pt-1.5 mt-1 border-t border-border">
+                <span className="font-display text-lg">Final Booking Amount</span>
+                <span className="font-display text-xl gold-text-gradient">₹{finalPayable.toLocaleString("en-IN")}</span>
               </li>
             </ul>
           );
         })()}
       </div>
 
-      <div className="relative py-6 border-b border-border">
-        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Payment Summary</h4>
-        <ul className="text-sm space-y-1">
+      <div className="relative py-3 border-b border-border">
+        <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-1.5">Payment Summary</h4>
+        <ul className="text-sm space-y-0.5">
           <PriceRow label="Room & Stay Total" value={Number(b.amount)} />
           {chargesTotal > 0 && <PriceRow label="In-House Charges" value={chargesTotal} />}
           <PriceRow label="Total Payable" value={Number(b.amount) + chargesTotal} />
           <PriceRow label="Amount Paid" value={-Number(b.advance_paid || 0)} />
-          <li className="flex items-baseline justify-between pt-2 mt-2 border-t border-border">
+          <li className="flex items-baseline justify-between pt-1.5 mt-1 border-t border-border">
             <span className="text-sm font-medium">Balance Due</span>
-            <span className="font-display text-xl text-gold">₹{balance.toLocaleString("en-IN")}</span>
+            <span className="font-display text-lg text-gold">₹{balance.toLocaleString("en-IN")}</span>
           </li>
         </ul>
       </div>
 
 
-      {b.notes && <div className="relative py-4 border-b border-border text-sm"><span className="text-muted-foreground">Notes: </span>{b.notes}</div>}
+      {b.notes && <div className="relative py-2 border-b border-border text-sm"><span className="text-muted-foreground">Notes: </span>{b.notes}</div>}
       {b.internal_notes && (
-        <div className="relative py-4 border-b border-border print:hidden">
-          <div className="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs">
+        <div className="relative py-2 border-b border-border print:hidden">
+          <div className="rounded-md border border-warning/30 bg-warning/5 p-2 text-xs">
             <span className="text-warning font-medium">Internal: </span>{b.internal_notes}
           </div>
         </div>
       )}
 
-      <div className="relative pt-6 text-center">
-        <p className="font-display italic text-lg text-gold/90">Thank you for booking with Hotel Excella</p>
-        <div className="flex justify-center gap-1 mt-3">
-          {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-4 w-4 fill-gold text-gold" />)}
+      <div className="relative pt-3 text-center">
+        <p className="font-display italic text-base text-gold/90">Thank you for booking with Hotel Excella</p>
+        <div className="flex justify-center gap-1 mt-1">
+          {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-3.5 w-3.5 fill-gold text-gold" />)}
         </div>
       </div>
     </div>
