@@ -388,6 +388,8 @@ function BookingDetail() {
               <Link to="/bookings/$id/edit" params={{ id }} className="text-[11px] text-gold hover:underline mt-2 inline-block">Assign / Change →</Link>
             </div>
 
+            <InHouseChargesSection bookingId={id} />
+
             <PaymentsLedger bookingId={id} bookingAmount={Number(b.amount)} advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id} />
 
 
