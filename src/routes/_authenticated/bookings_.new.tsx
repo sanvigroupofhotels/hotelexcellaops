@@ -27,6 +27,7 @@ import { useUserRole } from "@/hooks/use-role";
 import { ArrowLeft, Loader2, BedDouble } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/payment-settings-section";
 
 export const Route = createFileRoute("/_authenticated/bookings_/new")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -72,6 +73,18 @@ function NewBooking() {
     queryFn: getPaymentSettings,
     staleTime: 5 * 60 * 1000,
   });
+  const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags | null>(null);
+  // Prefill per-booking flags from Global Payment Settings once loaded.
+  useEffect(() => {
+    if (paymentFlags) return;
+    setPaymentFlags({
+      allow_full_payment: paymentDefaults.allow_full_payment,
+      allow_part_payment: paymentDefaults.allow_part_payment,
+      allow_pay_at_hotel: paymentDefaults.allow_pay_at_hotel,
+      part_payment_value: paymentDefaults.default_part_percent,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentDefaults]);
 
 
   // Prefill customer (?customerId)
@@ -251,11 +264,11 @@ function NewBooking() {
         lead_source: stay.lead_source || "Direct",
         total_override: totalOverride,
         taxes_included: taxesIncluded,
-        allow_full_payment: paymentDefaults.allow_full_payment,
-        allow_part_payment: paymentDefaults.allow_part_payment,
-        allow_pay_at_hotel: paymentDefaults.allow_pay_at_hotel,
+        allow_full_payment: paymentFlags?.allow_full_payment ?? paymentDefaults.allow_full_payment,
+        allow_part_payment: paymentFlags?.allow_part_payment ?? paymentDefaults.allow_part_payment,
+        allow_pay_at_hotel: paymentFlags?.allow_pay_at_hotel ?? paymentDefaults.allow_pay_at_hotel,
         part_payment_type: "percent",
-        part_payment_value: paymentDefaults.default_part_percent,
+        part_payment_value: paymentFlags?.part_payment_value ?? paymentDefaults.default_part_percent,
       };
       const b = await createBooking(input);
       const primary = primaryToLineItem(stay, resolvedRate);
@@ -387,6 +400,14 @@ function NewBooking() {
                 <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
               </div>
             </motion.section>
+
+            {paymentFlags && (
+              <PaymentSettingsSection
+                value={paymentFlags}
+                onChange={setPaymentFlags}
+                hint="Prefilled from Global Payment Settings. Override here for this booking only — the Guest Portal will respect these values."
+              />
+            )}
 
             {/* Inline breakdown is hidden on mobile — the sticky footer below shows the
                 editable breakdown so it's always reachable above the keyboard. */}

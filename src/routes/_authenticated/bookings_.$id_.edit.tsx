@@ -19,6 +19,7 @@ import { useUserRole } from "@/hooks/use-role";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/payment-settings-section";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id_/edit")({
   component: EditBooking,
@@ -43,6 +44,9 @@ function EditBooking() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [totalOverride, setTotalOverride] = useState<number | null>(null);
   const [taxesIncluded, setTaxesIncluded] = useState<boolean>(false);
+  const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags>({
+    allow_full_payment: true, allow_part_payment: true, allow_pay_at_hotel: true, part_payment_value: 25,
+  });
   const [loaded, setLoaded] = useState(false);
   const { canManage } = useUserRole();
 
@@ -62,6 +66,12 @@ function EditBooking() {
     setRoomId((b as any).room_id ?? null);
     setTotalOverride((b as any).total_override == null ? null : Number((b as any).total_override));
     setTaxesIncluded(!!(b as any).taxes_included);
+    setPaymentFlags({
+      allow_full_payment: (b as any).allow_full_payment !== false,
+      allow_part_payment: (b as any).allow_part_payment !== false,
+      allow_pay_at_hotel: (b as any).allow_pay_at_hotel !== false,
+      part_payment_value: Number((b as any).part_payment_value) || 25,
+    });
   }, [b, loaded]);
 
   useEffect(() => {
@@ -102,6 +112,11 @@ function EditBooking() {
         notes: stay.special_requests, internal_notes: stay.internal_notes,
         total_override: totalOverride,
         taxes_included: taxesIncluded,
+        allow_full_payment: paymentFlags.allow_full_payment,
+        allow_part_payment: paymentFlags.allow_part_payment,
+        allow_pay_at_hotel: paymentFlags.allow_pay_at_hotel,
+        part_payment_type: "percent",
+        part_payment_value: paymentFlags.part_payment_value,
       });
       const primary = primaryToLineItem(stay, resolvedRate);
       await replaceBookingItems(id, [primary, ...extras]);
@@ -171,6 +186,12 @@ function EditBooking() {
                 <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
               </div>
             </motion.section>
+
+            <PaymentSettingsSection
+              value={paymentFlags}
+              onChange={setPaymentFlags}
+              hint="Override Global Payment Settings for this booking. The Guest Portal will respect these values."
+            />
 
             {/* Inline breakdown hidden on mobile — sticky footer renders editable version. */}
           </div>
