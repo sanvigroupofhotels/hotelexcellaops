@@ -66,11 +66,7 @@ export function AddBookingPaymentModal({
       <div className="luxe-card rounded-xl w-full max-w-md p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-display text-xl">{isEdit ? "Edit Payment" : "Add Payment"}</h3>
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <label className="block">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Amount *</span>
-            <input type="number" min={0.01} step="0.01" value={amount} onChange={(e) => setAmount(Number(e.target.value))}
-              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
-          </label>
+          <NumField label="Amount *" value={amount} min={0} decimal onChange={setAmount} prefix="₹" />
           <label className="block">
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Mode *</span>
             <select value={mode} onChange={(e) => setMode(e.target.value)}
