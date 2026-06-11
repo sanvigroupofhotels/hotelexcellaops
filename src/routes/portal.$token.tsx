@@ -277,11 +277,13 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
       </div>
 
       <div className="border-t border-border/40 pt-4 space-y-2">
-        <h4 className="text-xs font-medium flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-gold" /> Expected Arrival</h4>
+        <h4 className="text-xs font-medium flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-gold" /> Expected Arrival *</h4>
         <input
           type="datetime-local" value={arrival} onChange={(e) => setArrival(e.target.value)}
+          required
           className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
         />
+        <p className="text-[10px] text-muted-foreground">Please provide your expected arrival date and time.</p>
       </div>
 
       <div className="border-t border-border/40 pt-4 space-y-2">
