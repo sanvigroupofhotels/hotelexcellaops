@@ -179,16 +179,8 @@ function ChargeFormDialog({
             </Field>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Quantity *">
-              <input type="number" min="0" step="any" value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value) || 0)}
-                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
-            </Field>
-            <Field label="Unit Price * (tax incl.)">
-              <input type="number" min="0" step="any" value={unitPrice}
-                onChange={(e) => setUnitPrice(Number(e.target.value) || 0)}
-                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
-            </Field>
+            <NumField label="Quantity *" value={quantity} min={0} decimal onChange={setQuantity} />
+            <NumField label="Unit Price * (tax incl.)" value={unitPrice} min={0} decimal onChange={setUnitPrice} prefix="₹" />
           </div>
           <div className="text-sm">Amount: <span className="font-medium text-gold">{inr(amount)}</span></div>
           <div className="grid grid-cols-2 gap-2">
