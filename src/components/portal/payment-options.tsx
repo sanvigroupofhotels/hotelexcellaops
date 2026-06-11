@@ -93,7 +93,9 @@ export function PortalPaymentOptions({
       </button>
 
       <p className="text-[10px] text-muted-foreground text-center">
-        Online payments are processed via Razorpay. Pay-at-Hotel reserves your room — full amount due at check-in.
+        {allowPayAtHotel
+          ? "Online payments are processed via Razorpay. Pay-at-Hotel reserves your room — full amount due at check-in."
+          : "Online payments are processed securely via Razorpay."}
       </p>
     </div>
   );
