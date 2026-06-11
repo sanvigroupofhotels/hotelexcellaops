@@ -44,6 +44,7 @@ const GROUPS: GroupDef[] = [
     label: "Bookings / Quotes",
     categories: [
       { kind: "lookup", key: "payment_method", label: "Payment Methods", placeholder: "e.g. Wallet" },
+      { kind: "lookup", key: "in_house_charge", label: "In-House Charge Categories", placeholder: "e.g. Spa" },
     ],
   },
   {
