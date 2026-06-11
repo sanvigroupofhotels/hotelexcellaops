@@ -67,6 +67,8 @@ export function CustomerEditDialog({
   const save = useMutation({
     mutationFn: async () => {
       if (!form.guest_name.trim()) throw new Error("Name is required");
+      if (!form.phone.trim()) throw new Error("Mobile number is required");
+      if (!/^[+0-9 ()-]{7,}$/.test(form.phone.trim())) throw new Error("Please enter a valid mobile number");
       if (customer) return updateCustomer(customer.id, form as any);
       return createCustomer(form as any);
     },
@@ -102,7 +104,7 @@ export function CustomerEditDialog({
               <Field label="Name" required>
                 <input className={inputCls} value={form.guest_name} onChange={(e) => set("guest_name", e.target.value)} />
               </Field>
-              <Field label="Phone">
+              <Field label="Phone" required>
                 <input className={inputCls} value={form.phone} onChange={(e) => set("phone", e.target.value)} />
               </Field>
               <Field label="Email">
