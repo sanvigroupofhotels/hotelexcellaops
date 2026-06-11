@@ -100,6 +100,7 @@ function GenerateQuote() {
     breakfast_included: false, extra_breakfast_guests: 0,
     discount: 0, internal_notes: "",
     payment_status: "None", booking_probability: 50, lost_reason: null,
+    total_override: null, taxes_included: false,
   });
   const [extraItems, setExtraItems] = useState<LineItem[]>([]);
   const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
