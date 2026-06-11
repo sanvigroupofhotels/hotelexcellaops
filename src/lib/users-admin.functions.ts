@@ -125,7 +125,7 @@ export const listUsersFn = createServerFn({ method: "GET" })
       ]);
     if (pErr) throw new Error(pErr.message);
     if (rErr) throw new Error(rErr.message);
-    const byRole = new Map<string, "admin" | "staff">();
+    const byRole = new Map<string, "admin" | "owner" | "staff">();
     for (const r of roles ?? []) byRole.set((r as any).user_id, (r as any).role);
     const byActive = new Map<string, boolean>();
     for (const u of adminUsers.data?.users ?? []) {
@@ -136,7 +136,7 @@ export const listUsersFn = createServerFn({ method: "GET" })
       id: p.id,
       email: p.email,
       display_name: p.display_name,
-      role: byRole.get(p.id) ?? ("staff" as "admin" | "staff"),
+      role: byRole.get(p.id) ?? ("staff" as "admin" | "owner" | "staff"),
       active: byActive.get(p.id) ?? true,
       created_at: p.created_at,
     }));
