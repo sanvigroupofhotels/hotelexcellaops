@@ -52,6 +52,9 @@ export interface QuoteInput {
   payment_status: PaymentStatus;
   booking_probability: number;
   lost_reason?: string | null;
+  // Override parity with Bookings
+  total_override?: number | null;
+  taxes_included?: boolean;
 }
 
 export interface QuoteRow extends QuoteInput {
