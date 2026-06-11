@@ -73,6 +73,18 @@ function NewBooking() {
     queryFn: getPaymentSettings,
     staleTime: 5 * 60 * 1000,
   });
+  const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags | null>(null);
+  // Prefill per-booking flags from Global Payment Settings once loaded.
+  useEffect(() => {
+    if (paymentFlags) return;
+    setPaymentFlags({
+      allow_full_payment: paymentDefaults.allow_full_payment,
+      allow_part_payment: paymentDefaults.allow_part_payment,
+      allow_pay_at_hotel: paymentDefaults.allow_pay_at_hotel,
+      part_payment_value: paymentDefaults.default_part_percent,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentDefaults]);
 
 
   // Prefill customer (?customerId)
