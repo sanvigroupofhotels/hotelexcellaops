@@ -115,6 +115,12 @@ function CustomerDetail() {
                     {c.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" />{c.email}</div>}
                     {(c.city || c.country) && <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" />{[c.city, c.state, c.country].filter(Boolean).join(", ")}</div>}
                     {c.company_name && <div className="flex items-center gap-2"><Briefcase className="h-3.5 w-3.5" />{c.company_name}{c.gst_number ? ` · GST ${c.gst_number}` : ""}</div>}
+                    {(c.emergency_contact_name || c.emergency_contact_phone) && (
+                      <div className="flex items-center gap-2 text-warning">
+                        <span className="text-[10px] uppercase tracking-wider">Emergency</span>
+                        <span className="text-foreground">{c.emergency_contact_name || "—"}{c.emergency_contact_phone ? ` · ${c.emergency_contact_phone}` : ""}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-[11px]">
                       <Calendar className="h-3.5 w-3.5" />
                       Lead: <span className="text-foreground">{c.lead_source ?? "Direct"}</span>
