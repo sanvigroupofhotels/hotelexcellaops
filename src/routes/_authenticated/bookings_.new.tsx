@@ -27,6 +27,7 @@ import { useUserRole } from "@/hooks/use-role";
 import { ArrowLeft, Loader2, BedDouble } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/payment-settings-section";
 
 export const Route = createFileRoute("/_authenticated/bookings_/new")({
   validateSearch: (s: Record<string, unknown>) => ({
