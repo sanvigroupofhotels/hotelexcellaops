@@ -399,7 +399,7 @@ function BookingDetail() {
 
             <InHouseChargesSection bookingId={id} />
 
-            <PaymentsLedger bookingId={id} bookingAmount={Number(b.amount)} advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id} />
+            <PaymentsLedger bookingId={id} bookingAmount={Number(b.amount)} chargesTotal={chargesTotal} advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id} />
 
 
             {b.source_quote_id && (
