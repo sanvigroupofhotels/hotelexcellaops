@@ -23,6 +23,8 @@ const empty = {
   lead_source: "Direct",
   tags: [] as string[],
   internal_notes: "",
+  emergency_contact_name: "",
+  emergency_contact_phone: "",
 };
 
 export function CustomerEditDialog({
