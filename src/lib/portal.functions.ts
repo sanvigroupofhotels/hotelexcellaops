@@ -243,10 +243,12 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!b) throw new Error("Booking not found");
 
-    const balance = Math.max(
-      0,
-      Number((b as any).amount) - Number((b as any).advance_paid) || 0,
-    );
+    const { data: chargeRows } = await supabaseAdmin
+      .from("booking_charges").select("amount").eq("booking_id", (b as any).id);
+    const chargesTotal = (chargeRows ?? []).reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+
+    const payable = Number((b as any).amount) + chargesTotal;
+    const balance = Math.max(0, payable - Number((b as any).advance_paid || 0));
     if (balance <= 0) throw new Error("No balance due on this booking");
     const amount = Math.min(balance, Math.round(data.amount));
     if (amount <= 0) throw new Error("Amount must be greater than zero");
