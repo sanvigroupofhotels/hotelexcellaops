@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
 import { listBookings } from "@/lib/bookings-api";
+import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listCustomers } from "@/lib/customers-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { BOOKING_STATUSES, bookingStatusStyles } from "@/lib/mock-data";
