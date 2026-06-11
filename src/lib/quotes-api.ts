@@ -298,10 +298,22 @@ export async function createQuote(
   return created as unknown as QuoteRow;
 }
 
-export async function updateQuote(id: string, input: QuoteInput, rateOverride?: number) {
+export async function updateQuote(
+  id: string,
+  input: QuoteInput,
+  rateOverride?: number,
+  extraLineItems: import("./quote-items-api").QuoteItemInput[] = [],
+) {
   validateQuoteInput(input);
   const data = normalize(input);
   const c = calc(data, rateOverride);
+  const { computeItemSubtotal } = await import("./quote-items-api");
+  const extraSubtotal = extraLineItems.reduce((s, it) => s + computeItemSubtotal(it), 0);
+  const rawStaySubtotal = (c.roomTariff + c.earlyCheck + c.lateCheck + c.pet + c.extraAdults + c.driversCharge + c.extraBreakfast) - (data.discount || 0);
+  const { subtotal, taxes, total } = finalizeTotals(rawStaySubtotal + extraSubtotal, {
+    totalOverride: data.total_override ?? null,
+    taxesIncluded: !!data.taxes_included,
+  });
   const { data: updated, error } = await supabase
     .from("quotes")
     .update({
@@ -312,9 +324,11 @@ export async function updateQuote(id: string, input: QuoteInput, rateOverride?: 
       lost_reason: data.lost_reason || null,
       nights: c.nights,
       room_rate: c.room_rate,
-      subtotal: c.subtotal,
-      taxes: c.taxes,
-      total: c.total,
+      subtotal,
+      taxes,
+      total,
+      total_override: data.total_override ?? null,
+      taxes_included: !!data.taxes_included,
     } as any)
     .eq("id", id)
     .select()
