@@ -182,7 +182,9 @@ function BookingDetail() {
 
   if (isLoading || !b) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
-  const balance = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+  // In-house charges roll into the payable amount everywhere (portal, ledger, invoice).
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const chargesTotal = 0; // placeholder; real value injected below via subcomponent fetch
   const isCheckedOut = b.status === "Checked-Out";
 
   const sendWa = (template: WhatsAppTemplate) => {
