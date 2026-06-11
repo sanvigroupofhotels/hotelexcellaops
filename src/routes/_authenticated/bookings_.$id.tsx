@@ -677,6 +677,7 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
           const subtotal = b.subtotal != null ? Number(b.subtotal) : pricing.subtotal;
           const taxes = b.taxes != null ? Number(b.taxes) : pricing.taxes;
           const total = Number(b.amount);
+          const finalPayable = total + chargesTotal;
           return (
             <ul className="text-sm space-y-1">
               <PriceRow label="Room Charges" value={pricing.mainStayCharges} />
@@ -688,13 +689,25 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
                   ))}
                 </>
               )}
-              <PriceRow label="Subtotal" value={pricing.itemsTotal} />
+              {chargesTotal > 0 && (
+                <>
+                  <li className="pt-2 text-[10px] uppercase tracking-wider text-muted-foreground">In-House Charges <span className="normal-case text-muted-foreground/70">(tax incl.)</span></li>
+                  {charges.map((c: any) => (
+                    <PriceRow
+                      key={c.id}
+                      label={`${c.category}${c.category === "Other" && c.other_description ? ` · ${c.other_description}` : ""}${Number(c.quantity) !== 1 ? ` × ${Number(c.quantity)}` : ""}`}
+                      value={Number(c.amount)}
+                    />
+                  ))}
+                </>
+              )}
+              <PriceRow label="Subtotal" value={pricing.itemsTotal + chargesTotal} />
               {(pricing.discount > 0 || discount > 0) && <PriceRow label="Discount" value={-Math.max(pricing.discount, discount)} />}
               <PriceRow label="Taxable Amount" value={subtotal} />
               <PriceRow label={`Tax (${Math.round(taxRate * 100)}%)`} value={taxes} />
               <li className="flex items-baseline justify-between pt-2 mt-2 border-t border-border">
                 <span className="font-display text-xl">Final Booking Amount</span>
-                <span className="font-display text-2xl gold-text-gradient">₹{total.toLocaleString("en-IN")}</span>
+                <span className="font-display text-2xl gold-text-gradient">₹{finalPayable.toLocaleString("en-IN")}</span>
               </li>
             </ul>
           );
@@ -704,7 +717,9 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
       <div className="relative py-6 border-b border-border">
         <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">Payment Summary</h4>
         <ul className="text-sm space-y-1">
-          <PriceRow label="Total Booking Amount" value={Number(b.amount)} />
+          <PriceRow label="Room & Stay Total" value={Number(b.amount)} />
+          {chargesTotal > 0 && <PriceRow label="In-House Charges" value={chargesTotal} />}
+          <PriceRow label="Total Payable" value={Number(b.amount) + chargesTotal} />
           <PriceRow label="Amount Paid" value={-Number(b.advance_paid || 0)} />
           <li className="flex items-baseline justify-between pt-2 mt-2 border-t border-border">
             <span className="text-sm font-medium">Balance Due</span>
@@ -712,6 +727,7 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
           </li>
         </ul>
       </div>
+
 
       {b.notes && <div className="relative py-4 border-b border-border text-sm"><span className="text-muted-foreground">Notes: </span>{b.notes}</div>}
       {b.internal_notes && (
