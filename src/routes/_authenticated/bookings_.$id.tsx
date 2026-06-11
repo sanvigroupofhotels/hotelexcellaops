@@ -43,6 +43,7 @@ import { StayItemsList } from "@/components/shared/stay-items-list";
 import { lineSubtotal } from "@/components/line-items-editor";
 import { computePricing } from "@/lib/pricing";
 import { listRooms } from "@/lib/rooms-api";
+import { listBookingCharges, chargesTotal as sumCharges } from "@/lib/booking-charges-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
