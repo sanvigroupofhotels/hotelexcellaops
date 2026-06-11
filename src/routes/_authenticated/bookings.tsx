@@ -178,7 +178,7 @@ function ExportBookingsDialog({ open, onOpenChange, bookings, customers }: {
           "Advance Paid": Number(b.advance_paid || 0),
           Balance: Math.max(0, Number(b.amount) - Number(b.advance_paid || 0)),
           Status: b.status,
-          Created: new Date(b.created_at).toISOString().slice(0,10),
+          Created: toLocalYMD(new Date(b.created_at)),
         })));
       toast.success(`Exported ${filtered.length} booking${filtered.length === 1 ? "" : "s"}`);
       onOpenChange(false);
