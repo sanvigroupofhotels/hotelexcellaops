@@ -29,6 +29,8 @@ interface Row {
   created_at: string;
 }
 
+const ROLE_LABEL: Record<AppRole, string> = { admin: "Admin", owner: "Owner", staff: "Staff" };
+
 function UsersPage() {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const { user: me } = useAuth();
@@ -108,10 +110,12 @@ function UsersPage() {
                 <div className="md:col-span-2 flex items-center">
                   <span className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs border",
-                    u.role === "admin" ? "border-gold/40 bg-gold-soft text-gold" : "border-border bg-muted/40 text-muted-foreground",
+                    u.role === "admin" ? "border-gold/40 bg-gold-soft text-gold" :
+                    u.role === "owner" ? "border-blue-500/40 bg-blue-500/10 text-blue-400" :
+                    "border-border bg-muted/40 text-muted-foreground",
                   )}>
                     {u.role === "admin" ? <ShieldCheck className="h-3 w-3" /> : <UserIcon className="h-3 w-3" />}
-                    {u.role === "admin" ? "Admin" : "Staff"}
+                    {ROLE_LABEL[u.role]}
                   </span>
                 </div>
                 <div className="md:col-span-2 flex items-center">
