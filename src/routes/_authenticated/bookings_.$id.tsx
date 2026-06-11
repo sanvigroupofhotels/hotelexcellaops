@@ -662,7 +662,7 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
             <li>• <span className="text-muted-foreground">Room Type:</span> {items[0].room_type}{items[0].rooms > 1 ? ` × ${items[0].rooms}` : ""}</li>
             <li>• <span className="text-muted-foreground">Dates:</span> {fmtDate(items[0].check_in)} – {fmtDate(items[0].check_out)} ({items[0].nights}N)</li>
             <li>• <span className="text-muted-foreground">Guests:</span> {b.adults} Adult{b.adults === 1 ? "" : "s"}{b.children > 0 ? ` + ${b.children} Child${b.children === 1 ? "" : "ren"}` : ""}</li>
-            <li>• <span className="text-muted-foreground">Breakfast:</span> {items[0].breakfast_included ? "Included" : "Not Included"}</li>
+            {items[0].breakfast_included && <li>• <span className="text-muted-foreground">Breakfast:</span> Included</li>}
           </ul>
         </div>
       ) : (
