@@ -112,6 +112,11 @@ function EditBooking() {
         notes: stay.special_requests, internal_notes: stay.internal_notes,
         total_override: totalOverride,
         taxes_included: taxesIncluded,
+        allow_full_payment: paymentFlags.allow_full_payment,
+        allow_part_payment: paymentFlags.allow_part_payment,
+        allow_pay_at_hotel: paymentFlags.allow_pay_at_hotel,
+        part_payment_type: "percent",
+        part_payment_value: paymentFlags.part_payment_value,
       });
       const primary = primaryToLineItem(stay, resolvedRate);
       await replaceBookingItems(id, [primary, ...extras]);
