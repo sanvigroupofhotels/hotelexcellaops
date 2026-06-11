@@ -4,6 +4,7 @@ import { createBookingPayment, updateBookingPayment, PAYMENT_MODES, type Booking
 import { listStaff } from "@/lib/cash-api";
 import { useMasterData } from "@/hooks/use-master-data";
 import { toast } from "sonner";
+import { NumField } from "@/components/num-field";
 
 /**
  * Shared "Add / Edit Payment" modal used by the booking detail page and the
