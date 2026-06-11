@@ -1,5 +1,4 @@
 /**
-import { toLocalYMD } from "@/lib/utils";
  * Rate resolver. Priority:
  *   1. Date override
  *   2. Weekend / Weekday rate
@@ -8,6 +7,7 @@ import { toLocalYMD } from "@/lib/utils";
  * Returns null if no configuration exists (caller may fall back to legacy getRoomRate).
  */
 import type { RoomRateRow, RateOverrideRow } from "./rates-api";
+import { toLocalYMD } from "@/lib/utils";
 
 /**
  * Hotel-business weekend = Friday & Saturday (the high-tariff nights).
