@@ -40,7 +40,7 @@ export function StayItemsList({
               {it.extra_bed ? ` + ${it.extra_bed} Extra Bed` : ""}</li>
             <li>• <span className="text-muted-foreground">Dates:</span> {fmtDate(it.check_in)} – {fmtDate(it.check_out)}</li>
             <li>• <span className="text-muted-foreground">Nights:</span> {it.nights}</li>
-            <li>• <span className="text-muted-foreground">Breakfast:</span> {it.breakfast_included ? "Included" : "Not Included"}</li>
+            {it.breakfast_included && <li>• <span className="text-muted-foreground">Breakfast:</span> Included</li>}
             {(it.extra_adults ?? 0) > 0 && <li>• <span className="text-muted-foreground">Extra Adults:</span> {it.extra_adults}</li>}
             {(it.drivers ?? 0) > 0 && <li>• <span className="text-muted-foreground">Drivers:</span> {it.drivers}</li>}
             {it.early_check_in && it.early_check_in_slot &&

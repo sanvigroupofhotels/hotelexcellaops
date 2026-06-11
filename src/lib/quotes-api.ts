@@ -469,7 +469,7 @@ export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
       roomBlock.push(`• Check-in: ${fmtDate(it.check_in)} | 1:00 PM`);
       roomBlock.push(`• Check-out: ${fmtDate(it.check_out)} | 11:00 AM`);
       roomBlock.push(`• Nights: ${it.nights}`);
-      roomBlock.push(`• Breakfast: ${it.breakfast_included ? "Included" : "Not Included"}`);
+      if (it.breakfast_included) roomBlock.push(`• Breakfast: Included`);
       roomBlock.push(`• Subtotal: ${inr(Number(it.subtotal))}`);
       roomBlock.push(``);
     });
@@ -482,7 +482,7 @@ export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
     `• Check-out: ${fmtDate(q.check_out)} | 11:00 AM`,
     `• Duration: ${q.nights} Night${q.nights > 1 ? "s" : ""}`,
     `• Guests: ${guestLine}`,
-    `• Breakfast: ${q.breakfast_included ? "Included" : "Not Included"}`,
+    ...(q.breakfast_included ? [`• Breakfast: Included`] : []),
     ``,
   ];
 
