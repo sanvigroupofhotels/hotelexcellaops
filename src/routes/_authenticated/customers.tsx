@@ -13,7 +13,7 @@ import {
   Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, Mail, Plus, X,
   FilePlus, BedDouble,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/use-role";
 import { CustomerEditDialog } from "@/components/customer-edit-dialog";
@@ -213,14 +213,14 @@ function ExportCustomersDialog({ open, onOpenChange, customers }: {
     try {
       const { getUserNamesByIds } = await import("@/lib/quotes-api");
       const names = await getUserNamesByIds(filtered.map((c: any) => c.user_id));
-      downloadCSV(`customers-${new Date().toISOString().slice(0,10)}.csv`,
+      downloadCSV(`customers-${toLocalYMD()}.csv`,
         filtered.map((c: any) => ({
           Reference: c.customer_reference, Name: c.guest_name,
           Phone: c.phone ?? "", Email: c.email ?? "", City: c.city ?? "",
           Status: c.status, Tags: (c.tags ?? []).join("|"), "Lead Source": c.lead_source ?? "",
           Quotes: c.total_quotes, Bookings: c.total_bookings,
           "Created By": names[c.user_id] ?? "",
-          "Created": c.created_at ? new Date(c.created_at).toISOString().slice(0,10) : "",
+          "Created": c.created_at ? toLocalYMD(new Date(c.created_at)) : "",
           "Last Stay": c.last_stay_date ?? "",
         })));
       toast.success(`Exported ${filtered.length} customer${filtered.length === 1 ? "" : "s"}`);

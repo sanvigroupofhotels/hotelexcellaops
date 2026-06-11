@@ -34,7 +34,7 @@ import {
   type LineItem,
 } from "@/components/line-items-editor";
 import { useMasterData } from "@/hooks/use-master-data";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
 
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
@@ -81,8 +81,8 @@ export interface SharedStayValue {
 }
 
 export function emptyStayValue(): SharedStayValue {
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const today = toLocalYMD();
+  const tomorrow = localYMDOffset(1);
   return {
     guest_name: "", phone: "", email: "",
     lead_source: "Direct", special_requests: "",

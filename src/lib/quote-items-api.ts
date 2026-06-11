@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalYMD, localYMDOffset } from "@/lib/utils";
 import { getRoomRate, type EarlyCheckInSlot, type LateCheckOutSlot, type PetSize } from "@/lib/mock-data";
 import {
   lineSubtotal,
@@ -36,8 +37,8 @@ export interface QuoteItemRow {
 export type QuoteItemInput = LineItem;
 
 export function emptyLineItem(): QuoteItemInput {
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const today = toLocalYMD();
+  const tomorrow = localYMDOffset(1);
   return {
     room_type: "Oak Room",
     rooms: 1,

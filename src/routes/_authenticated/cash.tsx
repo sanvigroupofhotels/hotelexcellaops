@@ -19,7 +19,7 @@ import {
   Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download, Printer,
   Pencil, PowerOff, Power, Clock, User as UserIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
 
 export const Route = createFileRoute("/_authenticated/cash")({
@@ -97,7 +97,7 @@ function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
     Notes: t.notes ?? "",
     Active: t.active ? "Yes" : "No",
   }));
-  downloadCSV(`cash-${range}-${new Date().toISOString().slice(0,10)}.csv`, rows);
+  downloadCSV(`cash-${range}-${toLocalYMD()}.csv`, rows);
   toast.success("Exported");
 }
 
@@ -925,7 +925,7 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
   const onExportExcel = () => {
     if (type === "all") {
       if (filtered.length === 0) { toast.error("No transactions"); return; }
-      downloadCSV(`cash-report-all-${new Date().toISOString().slice(0,10)}.csv`,
+      downloadCSV(`cash-report-all-${toLocalYMD()}.csv`,
         filtered.map(t => ({
           Date: new Date(t.occurred_at).toLocaleString("en-IN"),
           Kind: t.kind === "collection" ? "In" : "Out",
@@ -937,7 +937,7 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
     } else if (grouped) {
       if (grouped.length === 0) { toast.error("No data"); return; }
       const label = type === "day" ? "Date" : type === "category" ? "Category" : "Entered By";
-      downloadCSV(`cash-report-${type}-${new Date().toISOString().slice(0,10)}.csv`,
+      downloadCSV(`cash-report-${type}-${toLocalYMD()}.csv`,
         grouped.map(g => ({ [label]: g.key, Collected: g.collected, Spent: g.spent, Net: g.net, Count: g.count })));
     }
     toast.success("Exported");

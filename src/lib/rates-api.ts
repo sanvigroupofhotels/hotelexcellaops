@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalYMD } from "@/lib/utils";
 
 export interface RoomRateRow {
   room_type: string;
@@ -70,7 +71,7 @@ function addDaysISO(ymd: string, days: number): string {
   // Parse as UTC to avoid local-tz drift, then reformat.
   const [y, m, d] = ymd.split("-").map(Number);
   const t = Date.UTC(y, m - 1, d) + days * 86400000;
-  return new Date(t).toISOString().slice(0, 10);
+  return toLocalYMD(new Date(t));
 }
 
 export async function bulkApplyOverrides(input: { room_type: string; from: string; to: string; rate: number; note?: string }) {

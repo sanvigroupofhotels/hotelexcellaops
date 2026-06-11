@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { toLocalYMD } from "@/lib/utils";
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -143,7 +144,7 @@ function ExportQuotesDialog({ open, onOpenChange, quotes }: {
   const onExport = async () => {
     try {
       const names = await getUserNamesByIds(filtered.map((q: any) => q.user_id));
-      downloadCSV(`quotes-${new Date().toISOString().slice(0,10)}.csv`,
+      downloadCSV(`quotes-${toLocalYMD()}.csv`,
         filtered.map((q: any) => ({
           "Quote ID": q.reference_code,
           Guest: q.guest_name, Phone: q.phone, Email: q.email ?? "",
@@ -153,7 +154,7 @@ function ExportQuotesDialog({ open, onOpenChange, quotes }: {
           Total: Number(q.total), Status: q.status,
           "Lead Source": q.lead_source ?? "",
           "Created By": names[q.user_id] ?? "",
-          "Created": new Date(q.created_at).toISOString().slice(0,10),
+          "Created": toLocalYMD(new Date(q.created_at)),
         })));
       toast.success(`Exported ${filtered.length} quote${filtered.length === 1 ? "" : "s"}`);
       onOpenChange(false);

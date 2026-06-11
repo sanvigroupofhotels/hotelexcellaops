@@ -7,7 +7,7 @@ import { listTasks, createTask, completeTask, deleteTask } from "@/lib/tasks-api
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { TASK_TYPES, TASK_PRIORITIES, taskPriorityStyles } from "@/lib/mock-data";
 import { CheckCircle2, Loader2, Plus, Trash2, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/tasks")({
@@ -19,7 +19,7 @@ function TasksPage() {
   useRealtimeInvalidate(["tasks"], ["tasks"], "tasks");
   const { data: tasks = [], isLoading } = useQuery({ queryKey: ["tasks"], queryFn: listTasks });
   const [tab, setTab] = useState<"today" | "upcoming" | "overdue" | "done">("today");
-  const [form, setForm] = useState({ title: "", type: "Follow-up", priority: "Medium", due_date: new Date().toISOString().slice(0, 10), notes: "" });
+  const [form, setForm] = useState({ title: "", type: "Follow-up", priority: "Medium", due_date: toLocalYMD(), notes: "" });
 
   const create = useMutation({
     mutationFn: () => createTask(form),
@@ -35,7 +35,7 @@ function TasksPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success("Deleted"); },
   });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalYMD();
   const filtered = tasks.filter((t) => {
     if (tab === "done") return t.status === "Done";
     if (t.status === "Done") return false;

@@ -13,7 +13,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loader2, Download, Search, IndianRupee, Wallet, CreditCard, Globe, Banknote, Pencil, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/payments-reports")({
@@ -33,9 +33,9 @@ function PaymentsReportsPage() {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const qc = useQueryClient();
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalYMD();
   const monthStart = new Date(); monthStart.setDate(1);
-  const [from, setFrom] = useState(monthStart.toISOString().slice(0, 10));
+  const [from, setFrom] = useState(toLocalYMD(monthStart));
   const [to, setTo] = useState(today);
   const [guest, setGuest] = useState("");
   const [bookingRef, setBookingRef] = useState("");

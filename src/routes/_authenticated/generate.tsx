@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { toLocalYMD, localYMDOffset } from "@/lib/utils";
 import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
@@ -39,7 +40,7 @@ const QUOTE_PRESETS: QuotePreset[] = [
     patch: (f) => {
       const inDate = new Date(f.check_in);
       const out = new Date(inDate.getTime() + 7 * 86400000);
-      return { check_out: out.toISOString().slice(0, 10) };
+      return { check_out: toLocalYMD(out) };
     } },
 ];
 
@@ -83,8 +84,8 @@ function mergeShared(prev: QuoteInput, s: SharedStayValue): QuoteInput {
 function GenerateQuote() {
   const navigate = useNavigate();
   const { customerId } = Route.useSearch();
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const today = toLocalYMD();
+  const tomorrow = localYMDOffset(1);
 
   const [form, setForm] = useState<QuoteInput>({
     guest_name: "", phone: "", email: "",

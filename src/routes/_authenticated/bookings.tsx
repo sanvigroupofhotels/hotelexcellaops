@@ -9,7 +9,7 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { BOOKING_STATUSES, bookingStatusStyles } from "@/lib/mock-data";
 import { downloadCSV } from "@/lib/csv";
 import { Search, Loader2, Plus, ChevronRight, BedDouble, Phone, MessageCircle, Download } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -39,8 +39,7 @@ function BookingsPage() {
       );
     });
     // Reception ordering: Today's check-ins → Future (asc) → Past (desc)
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().slice(0, 10);
+    const todayStr = toLocalYMD();
     const bucket = (ci: string) => (ci === todayStr ? 0 : ci > todayStr ? 1 : 2);
     return [...matched].sort((a, b) => {
       const ba = bucket(a.check_in); const bb = bucket(b.check_in);
@@ -161,7 +160,7 @@ function ExportBookingsDialog({ open, onOpenChange, bookings, customers }: {
 
   const onExport = () => {
     try {
-      downloadCSV(`bookings-${new Date().toISOString().slice(0,10)}.csv`,
+      downloadCSV(`bookings-${toLocalYMD()}.csv`,
         filtered.map((b: any) => ({
           Reference: b.booking_reference,
           Guest: b.guest_name,
@@ -179,7 +178,7 @@ function ExportBookingsDialog({ open, onOpenChange, bookings, customers }: {
           "Advance Paid": Number(b.advance_paid || 0),
           Balance: Math.max(0, Number(b.amount) - Number(b.advance_paid || 0)),
           Status: b.status,
-          Created: new Date(b.created_at).toISOString().slice(0,10),
+          Created: toLocalYMD(new Date(b.created_at)),
         })));
       toast.success(`Exported ${filtered.length} booking${filtered.length === 1 ? "" : "s"}`);
       onOpenChange(false);

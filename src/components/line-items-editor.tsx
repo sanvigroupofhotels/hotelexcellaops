@@ -14,7 +14,7 @@ import {
   type PetSize,
 } from "@/lib/mock-data";
 import { NumField } from "@/components/num-field";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
 
 export interface LineItem {
   room_type: string;
@@ -37,8 +37,8 @@ export interface LineItem {
 }
 
 export function emptyLine(): LineItem {
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const today = toLocalYMD();
+  const tomorrow = localYMDOffset(1);
   return {
     room_type: roomTypes[0].name,
     rooms: 1,

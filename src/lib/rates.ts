@@ -7,6 +7,7 @@
  * Returns null if no configuration exists (caller may fall back to legacy getRoomRate).
  */
 import type { RoomRateRow, RateOverrideRow } from "./rates-api";
+import { toLocalYMD } from "@/lib/utils";
 
 /**
  * Hotel-business weekend = Friday & Saturday (the high-tariff nights).
@@ -50,7 +51,7 @@ export function resolveAverageRate(
   let sum = 0;
   let anyFound = false;
   for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-    const key = d.toISOString().slice(0, 10);
+    const key = toLocalYMD(d);
     const r = resolveRate(room_type, key, rates, overrides);
     if (r != null) { sum += r; anyFound = true; }
     nights++;

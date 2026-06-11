@@ -7,7 +7,7 @@ import { listRoomRates, upsertRoomRate, listRateOverrides, upsertRateOverride, d
 import { roomTypes } from "@/lib/mock-data";
 import { resolveRate, isWeekend } from "@/lib/rates";
 import { ChevronLeft, ChevronRight, Loader2, Settings2, Calendar as CalendarIcon, X, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/rates")({ component: RatesPage });
@@ -192,7 +192,7 @@ function DefaultsDialog({ room_type, existing, onClose }: { room_type: string; e
 }
 
 function BulkDialog({ onClose }: { onClose: () => void }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalYMD();
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [rate, setRate] = useState<string>("");

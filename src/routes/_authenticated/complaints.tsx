@@ -16,7 +16,7 @@ import {
   Plus, Search, Settings2, Loader2, BarChart3, Download,
 } from "lucide-react";
 import { downloadCSV } from "@/lib/csv";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
@@ -193,7 +193,7 @@ function ComplaintsReportsDialog({
 
   const onExport = () => {
     try {
-      downloadCSV(`complaints-${new Date().toISOString().slice(0,10)}.csv`,
+      downloadCSV(`complaints-${toLocalYMD()}.csv`,
         filtered.map((c: any) => ({
           Number: c.complaint_number,
           Type: c.complaint_type,
