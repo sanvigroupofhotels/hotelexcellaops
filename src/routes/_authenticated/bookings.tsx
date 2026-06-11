@@ -160,7 +160,7 @@ function ExportBookingsDialog({ open, onOpenChange, bookings, customers }: {
 
   const onExport = () => {
     try {
-      downloadCSV(`bookings-${new Date().toISOString().slice(0,10)}.csv`,
+      downloadCSV(`bookings-${toLocalYMD()}.csv`,
         filtered.map((b: any) => ({
           Reference: b.booking_reference,
           Guest: b.guest_name,
