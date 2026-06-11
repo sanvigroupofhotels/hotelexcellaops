@@ -6,6 +6,8 @@ import type { BookingRow } from "@/lib/bookings-api";
 import type { BookingItemRow } from "@/lib/booking-items-api";
 import { rowToLineItem } from "@/lib/booking-items-api";
 import type { BookingPaymentRow } from "@/lib/booking-payments-api";
+import type { BookingChargeRow } from "@/lib/booking-charges-api";
+import { chargesTotal as sumCharges } from "@/lib/booking-charges-api";
 import { nodeToBlob } from "@/lib/share-quote";
 import { computePricing } from "@/lib/pricing";
 
