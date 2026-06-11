@@ -809,7 +809,11 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
         </button>
       </div>
       <div className="space-y-1 text-sm">
-        <div className="flex justify-between"><span className="text-muted-foreground">Total Booking Amount</span><span className="tabular-nums">₹{bookingAmount.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Room &amp; Stay Total</span><span className="tabular-nums">₹{bookingAmount.toLocaleString("en-IN")}</span></div>
+        {chargesTotal > 0 && (
+          <div className="flex justify-between"><span className="text-muted-foreground">In-House Charges</span><span className="tabular-nums">₹{chargesTotal.toLocaleString("en-IN")}</span></div>
+        )}
+        <div className="flex justify-between"><span className="text-muted-foreground">Total Payable</span><span className="tabular-nums">₹{(bookingAmount + chargesTotal).toLocaleString("en-IN")}</span></div>
         <div className="flex justify-between"><span className="text-muted-foreground">Total Advance Paid</span><span className="tabular-nums">₹{advance.toLocaleString("en-IN")}</span></div>
         <div className="flex justify-between border-t border-border pt-2"><span className="font-medium">Balance Due</span><span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
       </div>
