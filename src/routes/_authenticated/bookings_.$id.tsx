@@ -763,8 +763,8 @@ function PriceRow({ label, value }: { label: string; value: number }) {
 
 
 
-function PaymentsLedger({ bookingId, bookingAmount, advance, balance, customerId }: {
-  bookingId: string; bookingAmount: number; advance: number; balance: number; customerId: string;
+function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, balance, customerId }: {
+  bookingId: string; bookingAmount: number; chargesTotal?: number; advance: number; balance: number; customerId: string;
 }) {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
