@@ -244,6 +244,7 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
   const save = async () => {
     if (!name.trim()) return toast.error("Name is required");
     if (!phone.trim() || !/^[+0-9 ()-]{7,}$/.test(phone.trim())) return toast.error("Valid mobile number is required");
+    if (!arrival) return toast.error("Please provide your expected arrival date and time.");
     setSaving(true);
     try {
       await update({
