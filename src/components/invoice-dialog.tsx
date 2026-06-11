@@ -69,8 +69,8 @@ export function InvoiceDialog({
     } catch { return null; }
   }, [items, discount, taxRate, booking]);
 
-  const itemsTotal = pricing?.itemsTotal ?? Math.max(0, total + discount - Number((booking as any).taxes || 0));
-  const taxable = pricing?.subtotal ?? Math.max(0, total - Number((booking as any).taxes || 0));
+  const itemsTotal = pricing?.itemsTotal ?? Math.max(0, bookingAmount + discount - Number((booking as any).taxes || 0));
+  const taxable = pricing?.subtotal ?? Math.max(0, bookingAmount - Number((booking as any).taxes || 0));
   const taxes = pricing?.taxes ?? Number((booking as any).taxes || 0);
   const mainStay = pricing?.mainStayCharges ?? itemsTotal;
   const extraLines = pricing?.additionalLineItems ?? [];
