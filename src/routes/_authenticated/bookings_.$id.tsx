@@ -208,7 +208,21 @@ function BookingDetail() {
       const { token } = await issueToken({ data: { booking_id: b.id } });
       const { publicOrigin } = await import("@/lib/public-url");
       const url = `${publicOrigin()}/portal/${token}`;
-      const text = `Hi ${b.guest_name}, complete your booking ${b.booking_reference} payment securely here: ${url}`;
+      const guestName = (b.guest_name || "").trim() || "Guest";
+      const text = [
+        `Hello ${guestName},`,
+        ``,
+        `Thank you for choosing Hotel Excella.`,
+        ``,
+        `To complete your booking, please proceed with the payment here -`,
+        ``,
+        url,
+        ``,
+        `Booking Ref: ${b.booking_reference}`,
+        ``,
+        `Regards`,
+        `Hotel Excella`,
+      ].join("\n");
       try { await navigator.clipboard.writeText(url); toast.success("Payment link copied to clipboard"); } catch { /* noop */ }
       if (b.phone) window.open(bookingWhatsAppLink(b, text), "_blank");
     } catch (e: any) {

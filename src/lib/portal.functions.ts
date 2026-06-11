@@ -87,12 +87,28 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     const { data: b, error: bErr } = await supabaseAdmin
       .from("bookings")
       .select(
-        "id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel, expected_arrival_at, emergency_contact_name, emergency_contact_phone, special_requests",
+        "id, customer_id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel, expected_arrival_at, emergency_contact_name, emergency_contact_phone, special_requests",
       )
       .eq("id", tok.booking_id)
       .maybeSingle();
     if (bErr) throw bErr;
     if (!b) throw new Error("Booking not found");
+
+    // Emergency contact lives on the customer record (single source of truth).
+    // Fallback to legacy booking-level value if customer not yet linked / not set.
+    let ecName = "";
+    let ecPhone = "";
+    if ((b as any).customer_id) {
+      const { data: cust } = await supabaseAdmin
+        .from("customers")
+        .select("emergency_contact_name, emergency_contact_phone")
+        .eq("id", (b as any).customer_id)
+        .maybeSingle();
+      ecName = (cust as any)?.emergency_contact_name ?? "";
+      ecPhone = (cust as any)?.emergency_contact_phone ?? "";
+    }
+    if (!ecName) ecName = (b as any).emergency_contact_name ?? "";
+    if (!ecPhone) ecPhone = (b as any).emergency_contact_phone ?? "";
 
     // Pull in-house charges total to surface in the portal balance
     const { data: charges } = await supabaseAdmin
@@ -135,8 +151,8 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       allowPayAtHotel: (b as any).allow_pay_at_hotel !== false,
       defaultPartPercent: ptype === "percent" ? pval : 0,
       expectedArrivalAt: (b as any).expected_arrival_at ?? null,
-      emergencyContactName: (b as any).emergency_contact_name ?? "",
-      emergencyContactPhone: (b as any).emergency_contact_phone ?? "",
+      emergencyContactName: ecName,
+      emergencyContactPhone: ecPhone,
       specialRequests: (b as any).special_requests ?? "",
     };
   });
@@ -167,20 +183,32 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
     if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
       throw new Error("Link is invalid or expired");
     }
+    // Resolve linked customer for emergency-contact write-through
+    const { data: bRow } = await supabaseAdmin
+      .from("bookings")
+      .select("customer_id")
+      .eq("id", tok.booking_id)
+      .maybeSingle();
+    const customerId = (bRow as any)?.customer_id ?? null;
+
     const patch: Record<string, any> = {};
+    const customerPatch: Record<string, any> = {};
     const changes: string[] = [];
-    if (data.guest_name !== undefined) { patch.guest_name = data.guest_name; changes.push("Name"); }
-    if (data.phone !== undefined) { patch.phone = data.phone; changes.push("Mobile"); }
-    if (data.email !== undefined) { patch.email = data.email || null; changes.push("Email"); }
+    if (data.guest_name !== undefined) { patch.guest_name = data.guest_name; customerPatch.guest_name = data.guest_name; changes.push("Name"); }
+    if (data.phone !== undefined) { patch.phone = data.phone; customerPatch.phone = data.phone; changes.push("Mobile"); }
+    if (data.email !== undefined) { patch.email = data.email || null; customerPatch.email = data.email || null; changes.push("Email"); }
     if (data.expected_arrival_at !== undefined) {
       patch.expected_arrival_at = data.expected_arrival_at || null;
       changes.push("Expected Arrival");
     }
     if (data.emergency_contact_name !== undefined) {
+      // Source of truth is customers; keep booking column in sync for backward compatibility.
+      customerPatch.emergency_contact_name = data.emergency_contact_name || null;
       patch.emergency_contact_name = data.emergency_contact_name || null;
       changes.push("Emergency Contact Name");
     }
     if (data.emergency_contact_phone !== undefined) {
+      customerPatch.emergency_contact_phone = data.emergency_contact_phone || null;
       patch.emergency_contact_phone = data.emergency_contact_phone || null;
       changes.push("Emergency Contact Mobile");
     }
@@ -188,13 +216,23 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
       patch.special_requests = data.special_requests || null;
       changes.push("Special Requests");
     }
-    if (Object.keys(patch).length === 0) return { ok: true };
+    if (Object.keys(patch).length === 0 && Object.keys(customerPatch).length === 0) return { ok: true };
 
-    const { error: upErr } = await supabaseAdmin
-      .from("bookings")
-      .update(patch as any)
-      .eq("id", tok.booking_id);
-    if (upErr) throw upErr;
+    if (Object.keys(patch).length > 0) {
+      const { error: upErr } = await supabaseAdmin
+        .from("bookings")
+        .update(patch as any)
+        .eq("id", tok.booking_id);
+      if (upErr) throw upErr;
+    }
+
+    if (customerId && Object.keys(customerPatch).length > 0) {
+      // Don't overwrite customer name/phone/email if they're empty strings (already covered) — patch only sent fields.
+      await supabaseAdmin
+        .from("customers")
+        .update(customerPatch as any)
+        .eq("id", customerId);
+    }
 
     await supabaseAdmin.from("booking_activities" as any).insert({
       booking_id: tok.booking_id,

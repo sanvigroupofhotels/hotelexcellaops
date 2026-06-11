@@ -23,6 +23,8 @@ const empty = {
   lead_source: "Direct",
   tags: [] as string[],
   internal_notes: "",
+  emergency_contact_name: "",
+  emergency_contact_phone: "",
 };
 
 export function CustomerEditDialog({
@@ -58,6 +60,8 @@ export function CustomerEditDialog({
         lead_source: customer.lead_source ?? "Direct",
         tags: customer.tags ?? [],
         internal_notes: customer.internal_notes ?? "",
+        emergency_contact_name: (customer as any).emergency_contact_name ?? "",
+        emergency_contact_phone: (customer as any).emergency_contact_phone ?? "",
       });
     } else {
       setForm(empty);
@@ -132,6 +136,17 @@ export function CustomerEditDialog({
               </Field>
               <Field label="Company Address" full>
                 <textarea rows={2} className={cn(inputCls, "resize-none")} value={form.company_address} onChange={(e) => set("company_address", e.target.value)} />
+              </Field>
+            </div>
+          </Section>
+
+          <Section title="Emergency Contact">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Contact Name">
+                <input className={inputCls} value={form.emergency_contact_name} onChange={(e) => set("emergency_contact_name", e.target.value)} />
+              </Field>
+              <Field label="Contact Mobile">
+                <input className={inputCls} value={form.emergency_contact_phone} onChange={(e) => set("emergency_contact_phone", e.target.value)} />
               </Field>
             </div>
           </Section>

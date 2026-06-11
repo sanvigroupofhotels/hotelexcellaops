@@ -33,6 +33,8 @@ export interface CustomerRow {
   payment_status: string | null;
   lost_reason: string | null;
   internal_notes: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
   created_at: string;
   updated_at: string;
 }

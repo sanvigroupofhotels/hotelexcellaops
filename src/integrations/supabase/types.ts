@@ -794,6 +794,8 @@ export type Database = {
           created_at: string
           customer_reference: string
           email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           first_contact_date: string
           gst_number: string | null
           guest_name: string
@@ -830,6 +832,8 @@ export type Database = {
           created_at?: string
           customer_reference?: string
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           first_contact_date?: string
           gst_number?: string | null
           guest_name: string
@@ -866,6 +870,8 @@ export type Database = {
           created_at?: string
           customer_reference?: string
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           first_contact_date?: string
           gst_number?: string | null
           guest_name?: string
