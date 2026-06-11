@@ -31,6 +31,7 @@ import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticated/bookings'
 import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as AuthenticatedAccessSettingsRouteImport } from './routes/_authenticated/access-settings'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
@@ -150,6 +151,12 @@ const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAccessSettingsRoute =
+  AuthenticatedAccessSettingsRouteImport.update({
+    id: '/access-settings',
+    path: '/access-settings',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicRazorpayWebhookRoute =
   ApiPublicRazorpayWebhookRouteImport.update({
     id: '/api/public/razorpay-webhook',
@@ -200,6 +207,7 @@ const AuthenticatedBookingsIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
+  '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/bookings': typeof AuthenticatedBookingsRoute
@@ -230,6 +238,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/bookings': typeof AuthenticatedBookingsRoute
@@ -263,6 +272,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
   '/_authenticated/bookings': typeof AuthenticatedBookingsRoute
@@ -297,6 +307,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/access-settings'
     | '/analytics'
     | '/audit'
     | '/bookings'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/access-settings'
     | '/analytics'
     | '/audit'
     | '/bookings'
@@ -359,6 +371,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authenticated'
     | '/login'
+    | '/_authenticated/access-settings'
     | '/_authenticated/analytics'
     | '/_authenticated/audit'
     | '/_authenticated/bookings'
@@ -552,6 +565,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/access-settings': {
+      id: '/_authenticated/access-settings'
+      path: '/access-settings'
+      fullPath: '/access-settings'
+      preLoaderRoute: typeof AuthenticatedAccessSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/public/razorpay-webhook': {
       id: '/api/public/razorpay-webhook'
       path: '/api/public/razorpay-webhook'
@@ -612,6 +632,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAccessSettingsRoute: typeof AuthenticatedAccessSettingsRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedAuditRoute: typeof AuthenticatedAuditRoute
   AuthenticatedBookingsRoute: typeof AuthenticatedBookingsRoute
@@ -641,6 +662,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAccessSettingsRoute: AuthenticatedAccessSettingsRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedAuditRoute: AuthenticatedAuditRoute,
   AuthenticatedBookingsRoute: AuthenticatedBookingsRoute,
