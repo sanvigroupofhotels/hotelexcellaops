@@ -193,7 +193,7 @@ function ComplaintsReportsDialog({
 
   const onExport = () => {
     try {
-      downloadCSV(`complaints-${new Date().toISOString().slice(0,10)}.csv`,
+      downloadCSV(`complaints-${toLocalYMD()}.csv`,
         filtered.map((c: any) => ({
           Number: c.complaint_number,
           Type: c.complaint_type,

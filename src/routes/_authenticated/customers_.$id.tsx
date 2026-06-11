@@ -69,7 +69,7 @@ function CustomerDetail() {
   const lifetimeQuoted = quotes.reduce((s: number, q: any) => s + Number(q.total ?? 0), 0);
   const latestQuote = quotes[0] as any | undefined;
   // Last stay = most recent past/completed booking check_out (never future)
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalYMD();
   const lastStay = bookings
     .filter((b: any) => b.status !== "Cancelled" && (b.status === "Stay Completed" || b.check_out < today))
     .map((b: any) => b.check_out)

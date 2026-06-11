@@ -33,8 +33,8 @@ export interface BookingItemRow {
 export type BookingItemInput = LineItem;
 
 export function emptyBookingItem(): BookingItemInput {
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const today = toLocalYMD();
+  const tomorrow = localYMDOffset(1);
   return {
     room_type: "Oak Room",
     rooms: 1,

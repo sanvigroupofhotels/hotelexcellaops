@@ -83,8 +83,8 @@ function mergeShared(prev: QuoteInput, s: SharedStayValue): QuoteInput {
 function GenerateQuote() {
   const navigate = useNavigate();
   const { customerId } = Route.useSearch();
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const today = toLocalYMD();
+  const tomorrow = localYMDOffset(1);
 
   const [form, setForm] = useState<QuoteInput>({
     guest_name: "", phone: "", email: "",

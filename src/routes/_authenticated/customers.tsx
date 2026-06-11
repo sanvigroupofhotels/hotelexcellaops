@@ -213,7 +213,7 @@ function ExportCustomersDialog({ open, onOpenChange, customers }: {
     try {
       const { getUserNamesByIds } = await import("@/lib/quotes-api");
       const names = await getUserNamesByIds(filtered.map((c: any) => c.user_id));
-      downloadCSV(`customers-${new Date().toISOString().slice(0,10)}.csv`,
+      downloadCSV(`customers-${toLocalYMD()}.csv`,
         filtered.map((c: any) => ({
           Reference: c.customer_reference, Name: c.guest_name,
           Phone: c.phone ?? "", Email: c.email ?? "", City: c.city ?? "",

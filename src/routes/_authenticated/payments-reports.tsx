@@ -33,7 +33,7 @@ function PaymentsReportsPage() {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const qc = useQueryClient();
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalYMD();
   const monthStart = new Date(); monthStart.setDate(1);
   const [from, setFrom] = useState(monthStart.toISOString().slice(0, 10));
   const [to, setTo] = useState(today);

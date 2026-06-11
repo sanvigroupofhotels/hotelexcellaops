@@ -143,7 +143,7 @@ function ExportQuotesDialog({ open, onOpenChange, quotes }: {
   const onExport = async () => {
     try {
       const names = await getUserNamesByIds(filtered.map((q: any) => q.user_id));
-      downloadCSV(`quotes-${new Date().toISOString().slice(0,10)}.csv`,
+      downloadCSV(`quotes-${toLocalYMD()}.csv`,
         filtered.map((q: any) => ({
           "Quote ID": q.reference_code,
           Guest: q.guest_name, Phone: q.phone, Email: q.email ?? "",

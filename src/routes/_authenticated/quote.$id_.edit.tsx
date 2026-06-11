@@ -21,8 +21,8 @@ export const Route = createFileRoute("/_authenticated/quote/$id_/edit")({
 const empty: QuoteInput = {
   guest_name: "", phone: "", email: "", lead_source: "Direct",
   group_size: "2 Adults", special_requests: "",
-  check_in: new Date().toISOString().slice(0, 10),
-  check_out: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+  check_in: toLocalYMD(),
+  check_out: localYMDOffset(1),
   room_type: roomTypes[0].name, rooms: 1, extra_bed: 0,
   adults: 2, guests: 2, children: 0, pet_size: "none",
   early_check_in: false, early_check_in_slot: null,

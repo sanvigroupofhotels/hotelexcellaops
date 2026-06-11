@@ -170,7 +170,7 @@ export async function listComplaintActivities(complaintId: string) {
  */
 export async function findActiveBookingForRoom(roomNumber: string) {
   if (!roomNumber?.trim()) return null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalYMD();
   const { data, error } = await supabase.from("bookings" as any)
     .select("id,booking_reference,guest_name,phone,customer_id,room_details,check_in,check_out,status")
     .lte("check_in", today).gte("check_out", today)

@@ -20,8 +20,8 @@ export function BlockRoomDialog({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const today = new Date().toISOString().slice(0, 10);
-  const tom = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const today = toLocalYMD();
+  const tom = localYMDOffset(1);
   const [start, setStart] = useState(existing?.start_date ?? defaultStart ?? today);
   const [end, setEnd] = useState(existing?.end_date ?? defaultEnd ?? tom);
   const [reason, setReason] = useState(existing?.reason ?? REASONS[0]);

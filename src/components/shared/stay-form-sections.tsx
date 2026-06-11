@@ -81,8 +81,8 @@ export interface SharedStayValue {
 }
 
 export function emptyStayValue(): SharedStayValue {
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const today = toLocalYMD();
+  const tomorrow = localYMDOffset(1);
   return {
     guest_name: "", phone: "", email: "",
     lead_source: "Direct", special_requests: "",

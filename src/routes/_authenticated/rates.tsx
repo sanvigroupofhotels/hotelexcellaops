@@ -192,7 +192,7 @@ function DefaultsDialog({ room_type, existing, onClose }: { room_type: string; e
 }
 
 function BulkDialog({ onClose }: { onClose: () => void }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalYMD();
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [rate, setRate] = useState<string>("");
