@@ -435,7 +435,7 @@ function NewBooking() {
                 </div>
               </div>
             )}
-            <button onClick={() => save.mutate()} disabled={save.isPending || !stay.guest_name.trim()}
+            <button onClick={() => save.mutate()} disabled={save.isPending || !stay.guest_name.trim() || !stay.phone.trim()}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] disabled:opacity-60">
               {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               <BedDouble className="h-4 w-4" /> Create Booking
@@ -452,7 +452,7 @@ function NewBooking() {
           onOverrideChange={setTotalOverride}
           onTaxesIncludedChange={setTaxesIncluded}
           actions={
-            <button onClick={() => save.mutate()} disabled={save.isPending || !stay.guest_name.trim()}
+            <button onClick={() => save.mutate()} disabled={save.isPending || !stay.guest_name.trim() || !stay.phone.trim()}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60">
               {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Create Booking
