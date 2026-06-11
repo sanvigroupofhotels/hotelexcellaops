@@ -131,19 +131,6 @@ function ChargeFormDialog({
   );
   const [notes, setNotes] = useState(editing?.notes ?? "");
 
-  // reset on editing change
-  useState(() => {});
-  if (open && editing && category !== editing.category && quantity === 1 && unitPrice === 0) {
-    // reset state for editing
-    setCategory(editing.category);
-    setOtherDesc(editing.other_description ?? "");
-    setQuantity(editing.quantity);
-    setUnitPrice(editing.unit_price);
-    setAddedBy(editing.added_by ?? "");
-    setOccurredAt(new Date(editing.occurred_at).toISOString().slice(0, 16));
-    setNotes(editing.notes ?? "");
-  }
-
   const amount = Number((quantity * unitPrice).toFixed(2));
 
   const mut = useMutation({
