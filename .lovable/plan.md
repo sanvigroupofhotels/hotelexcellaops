@@ -1,66 +1,48 @@
-# PMS Stabilization Sprint
 
-Guest Portal / Razorpay is parked. This sprint focuses purely on PMS items, sequenced so each slice is shippable and testable before the next begins.
+## Root cause
 
-## Slice 1 — Pricing & Booking/Quote UX (highest impact, blocks daily ops)
+The codebase computes "today" using `new Date().toISOString().slice(0, 10)`. `toISOString()` always converts to **UTC**, so for users in IST (UTC+5:30) every day from **00:00 to 05:30 IST**, the resulting string is **yesterday's** date. Date columns in the DB (`check_in`, `check_out`, etc.) are stored as **local** `YYYY-MM-DD` strings, so comparisons against this UTC-derived "today" silently shift by one day.
 
-**Schema (single migration):**
-- `ALTER TABLE bookings ADD COLUMN taxes_included boolean NOT NULL DEFAULT false, ADD COLUMN total_override numeric NULL;`
-- `ALTER TABLE quotes ADD COLUMN taxes_included boolean NOT NULL DEFAULT false, ADD COLUMN total_override numeric NULL;`
+This is why the Bookings list shows yesterday's check-ins as "today" — the bucket at line 43 of `src/routes/_authenticated/bookings.tsx` uses `today.toISOString().slice(0, 10)`.
 
-**Pricing engine (`src/lib/pricing.ts`):**
-- Accept optional `{ totalOverride, taxesIncluded }`.
-- When `totalOverride` set + `taxesIncluded=false` → taxes = round(override × rate / (1+rate)) reverse-calc; total stays at override.
-- When `totalOverride` set + `taxesIncluded=true` → taxes = round((override × rate) / 1), total = override + taxes (treat override as net) — confirm with user; default = override is gross.
-- Add `overrideApplied: boolean` to `PricingBreakdown`.
+## Fix
 
-**UI:**
-- `src/components/pricing-breakdown.tsx`: editable Total field (admin/manager only via `useUserRole`), "Taxes Included" toggle, "Override" badge when active, "Reset to computed" link.
-- Wire into New Booking, Edit Booking, New Quote, Edit Quote save handlers; persist `total_override` + `taxes_included`.
-- Audit `line-items-editor.tsx` extras toggles — confirm each toggle (early CI, late CO, pet, extra adults, drivers) mutates only its own row's state, not shared.
+1. Add a `toLocalYMD(date = new Date())` helper in `src/lib/utils.ts` that returns the **local** `YYYY-MM-DD` (using `getFullYear` / `getMonth` / `getDate`, zero-padded).
+2. Replace every `…toISOString().slice(0, 10)` that represents a **calendar date** (today, tomorrow, default check-in/out, comparison against a local date column, CSV filename stamps, key generation against local dates) with `toLocalYMD(...)`.
 
-## Slice 2 — Master Data hub completion + Rates/House polish
+## Files updated
 
-**Master Data tabs (`master-data.tsx`):**
-- Add Rooms tab: deep-link to `/rooms` (already exists) + inline list (read-only summary).
-- Rates tab: deep-link to `/rates` + show current `room_rates` rows inline (read-only).
-- Staff tab: pulls from `staff` table — inline CRUD via existing cash API helpers, gated to admin.
-- Expense Types tab: inline CRUD against `expense_types` table.
-- Complaint Categories tab: inline CRUD against `complaint_categories` table.
-- Keep existing lookup categories (lead_source, tag, payment_method, income_category, complaint_status).
+- `src/lib/utils.ts` — add `toLocalYMD` helper
+- Bookings ordering (primary bug):
+  - `src/routes/_authenticated/bookings.tsx`
+  - `src/routes/_authenticated/bookings_.$id.tsx`
+- Default check-in/out and "today" defaults:
+  - `src/components/shared/stay-form-sections.tsx`
+  - `src/components/block-room-dialog.tsx`
+  - `src/components/line-items-editor.tsx`
+  - `src/lib/booking-items-api.ts`
+  - `src/lib/quote-items-api.ts`
+  - `src/routes/_authenticated/quote.$id_.edit.tsx`
+  - `src/routes/_authenticated/generate.tsx`
+- Today comparisons / range filters:
+  - `src/routes/_authenticated/tasks.tsx`
+  - `src/routes/_authenticated/payments-reports.tsx`
+  - `src/routes/_authenticated/rates.tsx`
+  - `src/lib/rates.ts`, `src/lib/rates-api.ts`
+  - `src/routes/_authenticated/customers_.$id.tsx`
+  - `src/lib/complaints-api.ts`
+  - `src/routes/_authenticated/house-view.tsx` (calendar key generation)
+- CSV filename / created-on stamps (cosmetic, but should also reflect local day):
+  - `src/routes/_authenticated/customers.tsx`
+  - `src/routes/_authenticated/complaints.tsx`
+  - `src/routes/_authenticated/cash.tsx`
+  - `src/routes/_authenticated/history.tsx`
+  - `src/routes/_authenticated/bookings.tsx` (export filename + Created col)
 
-**Rates & Inventory (`rates.tsx`):**
-- Verify Bulk Apply 11→14 produces 11,12,13,14 (already fixed string-arithmetic; add inclusive-day count chip "X days will be updated").
-- Single room-type select for Bulk Apply (no multi-room confusion).
-- Mobile: stack controls vertically <640px, sticky Apply button.
+Untouched: any `toISOString()` that represents a **timestamp** (created_at, full ISO with time) — those are correct as UTC.
 
-**House View (`house-view.tsx`):**
-- Date column separation (Check-in / Check-out as two columns, not one).
-- Breakfast indicator badge per booking row.
-- House Overview stats card (rooms occupied / available / arrivals / departures today).
-- Room-assignment conflict guard: when picking a room for assignment, hide rooms with overlapping confirmed bookings + show toast if conflict.
+## Verification
 
-## Slice 3 — CashBook role split + reports
-
-**CashBook (`cash.tsx`):**
-- Staff view: gate Owner/Paid-To-Owner columns behind `useUserRole` === admin.
-- Admin reports panel: monthly totals, paid-to-owner totals, CSV export (already have `csv.ts`), PDF export via existing invoice-dialog print pattern.
-- Activities log unchanged.
-
-## Out of scope (parked)
-- Guest Portal / Razorpay (lowest priority per user)
-- Global Payment Settings table (defer until Portal returns)
-- New auth flows, visual redesigns
-
-## Execution order
-1. Slice 1 migration → engine → UI wiring → smoke test on Bookings + Quotes.
-2. Slice 2 Master Data tabs → Rates polish → House View polish.
-3. Slice 3 CashBook role split + reports.
-
-I'll ship Slice 1 in the next turn, report back with UAT scenarios, then move to Slice 2.
-
-## Technical details
-- Migration uses ALTER TABLE only — no FK/trigger changes, dropdowns unchanged.
-- All UI changes preserve existing component signatures; only additive props.
-- `useUserRole` already exists at `src/hooks/use-role.ts` — reused everywhere.
-- Realtime invalidation via existing `useRealtimeInvalidate` for new master tables.
+- Open Bookings list in early IST morning (or temporarily mock clock) → today's check-ins appear first, then tomorrow → future (asc), then past (desc).
+- New Booking and New Quote default check-in = local today, check-out = local tomorrow.
+- "Today" filter in Tasks shows tasks dated to the local calendar day.
