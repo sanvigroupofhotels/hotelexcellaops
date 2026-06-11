@@ -103,6 +103,7 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
       )}
 
       <ChargeFormDialog
+        key={editing?.id ?? "new"}
         open={openForm}
         onOpenChange={(v) => { setOpenForm(v); if (!v) setEditing(null); }}
         bookingId={bookingId}
