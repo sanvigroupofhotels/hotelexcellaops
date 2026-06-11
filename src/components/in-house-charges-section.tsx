@@ -8,6 +8,7 @@ import {
 } from "@/lib/booking-charges-api";
 import { useMasterData } from "@/hooks/use-master-data";
 import { useUserRole } from "@/hooks/use-role";
+import { listStaff } from "@/lib/cash-api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const DEFAULT_CATEGORIES = [
@@ -121,6 +122,7 @@ function ChargeFormDialog({
   bookingId: string; categories: string[]; editing: BookingChargeRow | null;
 }) {
   const qc = useQueryClient();
+  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
   const [category, setCategory] = useState(editing?.category ?? categories[0] ?? "Food Order");
   const [otherDesc, setOtherDesc] = useState(editing?.other_description ?? "");
   const [quantity, setQuantity] = useState<number>(editing?.quantity ?? 1);
@@ -190,9 +192,21 @@ function ChargeFormDialog({
           <div className="text-sm">Amount: <span className="font-medium text-gold">{inr(amount)}</span></div>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Added By *">
-              <input value={addedBy} onChange={(e) => setAddedBy(e.target.value)}
-                placeholder="Staff name"
-                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+              {staff.length > 0 ? (
+                <select value={addedBy} onChange={(e) => setAddedBy(e.target.value)}
+                  className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
+                  <option value="">Select…</option>
+                  {/* Preserve historical staff name even if deactivated */}
+                  {addedBy && !staff.some((s: any) => s.name === addedBy) && (
+                    <option value={addedBy}>{addedBy} (inactive)</option>
+                  )}
+                  {staff.map((s: any) => <option key={s.id} value={s.name}>{s.name}</option>)}
+                </select>
+              ) : (
+                <input value={addedBy} onChange={(e) => setAddedBy(e.target.value)}
+                  placeholder="Staff name"
+                  className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+              )}
             </Field>
             <Field label="Date & Time">
               <input type="datetime-local" value={occurredAt}
