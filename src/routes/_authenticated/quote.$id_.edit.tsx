@@ -107,6 +107,8 @@ function EditQuote() {
       payment_status: ((q as any).payment_status ?? "None") as any,
       booking_probability: (q as any).booking_probability ?? 50,
       lost_reason: (q as any).lost_reason ?? null,
+      total_override: (q as any).total_override == null ? null : Number((q as any).total_override),
+      taxes_included: !!(q as any).taxes_included,
     });
   }, [q]);
 
