@@ -32,19 +32,22 @@ const HOTEL = {
  * Supports PDF download (window.print with invoice-only CSS) and image share.
  */
 export function InvoiceDialog({
-  booking, items = [], payments = [], onClose,
+  booking, items = [], payments = [], charges = [], onClose,
 }: {
   booking: BookingRow;
   items?: BookingItemRow[];
   payments?: BookingPaymentRow[];
+  charges?: BookingChargeRow[];
   onClose: () => void;
 }) {
   const isFinal = booking.status === "Checked-Out" as any;
   const kind = isFinal ? "INVOICE" : "PROFORMA INVOICE";
   const docRef = useRef<HTMLDivElement>(null);
 
+  const chargesTotal = sumCharges(charges);
   const advance = Number(booking.advance_paid || 0);
-  const total = Number(booking.amount || 0);
+  const bookingAmount = Number(booking.amount || 0);
+  const total = bookingAmount + chargesTotal;
   const balance = Math.max(0, total - advance);
   const discount = Number(booking.discount || 0);
   const taxRate = Number((booking as any).tax_rate || 0);
