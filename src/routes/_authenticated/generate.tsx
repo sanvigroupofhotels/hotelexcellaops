@@ -4,9 +4,10 @@ import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { roomTypes } from "@/lib/mock-data";
-import { createQuote, calc, type QuoteInput } from "@/lib/quotes-api";
+import { createQuote, calc, finalizeTotals, type QuoteInput } from "@/lib/quotes-api";
 import { getCustomer, findCustomerByContact, type CustomerRow } from "@/lib/customers-api";
 import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
+import { OverrideCard } from "@/components/override-card";
 import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
 import { lineItemsTotal, type LineItem } from "@/components/line-items-editor";
 import { StayFormSections, type SharedStayValue } from "@/components/shared/stay-form-sections";
@@ -99,6 +100,7 @@ function GenerateQuote() {
     breakfast_included: false, extra_breakfast_guests: 0,
     discount: 0, internal_notes: "",
     payment_status: "None", booking_probability: 50, lost_reason: null,
+    total_override: null, taxes_included: false,
   });
   const [extraItems, setExtraItems] = useState<LineItem[]>([]);
   const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
@@ -153,9 +155,12 @@ function GenerateQuote() {
   const c = useMemo(() => {
     const base = calc(form, resolvedRate);
     const extra = lineItemsTotal(extraItems);
-    const subtotal = base.subtotal + extra;
-    const taxes = Math.round(subtotal * 0.05);
-    return { ...base, subtotal, taxes, total: subtotal + taxes };
+    const rawBase = (base.roomTariff + base.earlyCheck + base.lateCheck + base.pet + base.extraAdults + base.driversCharge + base.extraBreakfast) - (form.discount || 0);
+    const { subtotal, taxes, total } = finalizeTotals(rawBase + extra, {
+      totalOverride: form.total_override ?? null,
+      taxesIncluded: !!form.taxes_included,
+    });
+    return { ...base, subtotal, taxes, total };
   }, [form, extraItems, resolvedRate]);
 
   const save = useMutation({
@@ -251,6 +256,12 @@ function GenerateQuote() {
           />
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
+            <OverrideCard
+              totalOverride={form.total_override ?? null}
+              taxesIncluded={!!form.taxes_included}
+              computedTotal={c.total}
+              onChange={(o, t) => setForm((f) => ({ ...f, total_override: o, taxes_included: t }))}
+            />
             <LiveSummaryCard c={c} form={form} />
             <button onClick={() => save.mutate()} disabled={save.isPending}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60">

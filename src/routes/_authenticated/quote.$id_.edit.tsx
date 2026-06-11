@@ -5,10 +5,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { roomTypes } from "@/lib/mock-data";
 import {
-  getQuote, updateQuote, calc, TAX_RATE, type QuoteInput,
+  getQuote, updateQuote, calc, finalizeTotals, type QuoteInput,
 } from "@/lib/quotes-api";
 import { listQuoteItems, replaceQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
 import { LiveSummaryCard, MobileStickySummary } from "@/components/quote-summary";
+import { OverrideCard } from "@/components/override-card";
 import { lineItemsTotal, type LineItem } from "@/components/line-items-editor";
 import { StayFormSections, type SharedStayValue } from "@/components/shared/stay-form-sections";
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
@@ -32,6 +33,7 @@ const empty: QuoteInput = {
   breakfast_included: true, extra_breakfast_guests: 0,
   discount: 0, internal_notes: "",
   payment_status: "None", booking_probability: 50, lost_reason: null,
+  total_override: null, taxes_included: false,
 };
 
 function quoteToShared(q: QuoteInput): SharedStayValue {
@@ -106,6 +108,8 @@ function EditQuote() {
       payment_status: ((q as any).payment_status ?? "None") as any,
       booking_probability: (q as any).booking_probability ?? 50,
       lost_reason: (q as any).lost_reason ?? null,
+      total_override: (q as any).total_override == null ? null : Number((q as any).total_override),
+      taxes_included: !!(q as any).taxes_included,
     });
   }, [q]);
 
@@ -120,9 +124,12 @@ function EditQuote() {
   const c = useMemo(() => {
     const base = calc(form, resolvedRate);
     const extra = lineItemsTotal(extraItems);
-    const subtotal = base.subtotal + extra;
-    const taxes = Math.round(subtotal * TAX_RATE);
-    return { ...base, subtotal, taxes, total: subtotal + taxes };
+    const rawBase = (base.roomTariff + base.earlyCheck + base.lateCheck + base.pet + base.extraAdults + base.driversCharge + base.extraBreakfast) - (form.discount || 0);
+    const { subtotal, taxes, total } = finalizeTotals(rawBase + extra, {
+      totalOverride: form.total_override ?? null,
+      taxesIncluded: !!form.taxes_included,
+    });
+    return { ...base, subtotal, taxes, total };
   }, [form, extraItems, resolvedRate]);
 
   const save = useMutation({
@@ -132,18 +139,17 @@ function EditQuote() {
       if (new Date(form.check_out) <= new Date(form.check_in))
         throw new Error("Check-out must be after check-in");
       if (form.discount < 0) throw new Error("Discount cannot be negative");
-      const updated = await updateQuote(id, form, resolvedRate);
-      const baseCalc = calc(form, resolvedRate);
       const primary: LineItem = {
         room_type: form.room_type, rooms: form.rooms,
         adults: form.adults, children: form.children,
         check_in: form.check_in, check_out: form.check_out,
         breakfast_included: form.breakfast_included, extra_bed: form.extra_bed,
-        rate: baseCalc.room_rate,
+        rate: resolvedRate ?? 0,
         early_check_in: form.early_check_in, early_check_in_slot: form.early_check_in_slot ?? null,
         late_check_out: form.late_check_out, late_check_out_slot: form.late_check_out_slot ?? null,
         pet_size: form.pet_size, extra_adults: form.extra_adults, drivers: form.drivers,
       };
+      const updated = await updateQuote(id, form, resolvedRate, extraItems as any);
       await replaceQuoteItems(id, [primary, ...extraItems]);
       return updated;
     },
@@ -183,6 +189,12 @@ function EditQuote() {
           />
 
           <div className="hidden lg:block lg:sticky lg:top-24 self-start space-y-4">
+            <OverrideCard
+              totalOverride={form.total_override ?? null}
+              taxesIncluded={!!form.taxes_included}
+              computedTotal={c.total}
+              onChange={(o, t) => setForm((f) => ({ ...f, total_override: o, taxes_included: t }))}
+            />
             <LiveSummaryCard c={c} form={form} />
             <button onClick={() => save.mutate()} disabled={save.isPending}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60">

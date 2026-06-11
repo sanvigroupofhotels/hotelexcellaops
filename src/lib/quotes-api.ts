@@ -52,6 +52,9 @@ export interface QuoteInput {
   payment_status: PaymentStatus;
   booking_probability: number;
   lost_reason?: string | null;
+  // Override parity with Bookings
+  total_override?: number | null;
+  taxes_included?: boolean;
 }
 
 export interface QuoteRow extends QuoteInput {
@@ -97,15 +100,43 @@ export function validateQuoteInput(input: QuoteInput) {
     throw new Error("Booking probability must be 0–100");
 }
 
-export function calc(input: QuoteInput, rateOverride?: number) {
+export interface CalcOptions {
+  totalOverride?: number | null;
+  taxesIncluded?: boolean;
+}
+
+/**
+ * Apply override + taxes-included semantics to a computed subtotal.
+ * Mirrors the booking pricing engine in `src/lib/pricing.ts`.
+ *   - taxesIncluded=true  → base treated as gross; back out tax
+ *   - taxesIncluded=false → tax added on top of base
+ *   - totalOverride       → replaces the base (still subject to taxesIncluded)
+ */
+export function finalizeTotals(rawSubtotal: number, options: CalcOptions = {}) {
+  const ov = options.totalOverride;
+  const hasOverride = ov !== null && ov !== undefined && Number.isFinite(Number(ov));
+  const taxesIncluded = !!options.taxesIncluded;
+  const base = hasOverride ? Math.max(0, Number(ov)) : Math.max(0, rawSubtotal);
+  let subtotal: number; let taxes: number; let total: number;
+  if (taxesIncluded) {
+    subtotal = Math.round(base / (1 + TAX_RATE));
+    taxes = Math.max(0, base - subtotal);
+    total = base;
+  } else {
+    subtotal = base;
+    taxes = Math.round(base * TAX_RATE);
+    total = base + taxes;
+  }
+  return { subtotal, taxes, total, overrideApplied: hasOverride, taxesIncluded };
+}
+
+export function calc(input: QuoteInput, rateOverride?: number, options: CalcOptions = {}) {
   const nights = Math.max(
     1,
     Math.round(
       (new Date(input.check_out).getTime() - new Date(input.check_in).getTime()) / 86400000,
     ),
   );
-  // Rate resolution: explicit override (from Rates & Inventory resolver) wins,
-  // otherwise fall back to legacy hardcoded tariff. Mirrors Bookings.
   const room_rate = rateOverride && rateOverride > 0
     ? rateOverride
     : getRoomRate(input.room_type, input.breakfast_included);
@@ -130,16 +161,23 @@ export function calc(input: QuoteInput, rateOverride?: number) {
       ? input.extra_breakfast_guests * EXTRA_BREAKFAST_RATE * nights
       : 0;
 
-  const subtotal =
+  const rawSubtotal =
     roomTariff + earlyCheck + lateCheck + pet + extraAdults + driversCharge + extraBreakfast
     - (input.discount || 0);
-  const taxes = Math.round(subtotal * TAX_RATE);
-  const total = subtotal + taxes;
+
+  // Pull options off the input when caller hasn't provided them explicitly.
+  const opt: CalcOptions = {
+    totalOverride: options.totalOverride !== undefined ? options.totalOverride : (input.total_override ?? null),
+    taxesIncluded: options.taxesIncluded !== undefined ? options.taxesIncluded : !!input.taxes_included,
+  };
+  const { subtotal, taxes, total, overrideApplied, taxesIncluded } = finalizeTotals(rawSubtotal, opt);
+
   return {
     nights, room_rate, roomTariff,
-    extraBed: 0, // deprecated bucket
+    extraBed: 0,
     earlyCheck, lateCheck, pet, extraAdults, driversCharge, extraBreakfast,
     subtotal, taxes, total,
+    overrideApplied, taxesIncluded,
   };
 }
 
@@ -199,9 +237,16 @@ export async function createQuote(
   // Add extra line item subtotals into the quote total (line 0 is the primary form).
   const { computeItemSubtotal } = await import("./quote-items-api");
   const extraSubtotal = extraLineItems.reduce((s, it) => s + computeItemSubtotal(it), 0);
-  const subtotal = c.subtotal + extraSubtotal;
-  const taxes = Math.round(subtotal * TAX_RATE);
-  const total = subtotal + taxes;
+  // Raw subtotal = stay subtotal (from primary) + extras, BEFORE applying override/taxes-included.
+  // c.subtotal already had override/taxes-included logic applied; re-derive raw from the inputs.
+  // To keep the math correct with extras + override, we recompute final totals here using
+  // the raw stay subtotal (room + extras) — i.e. invert the override applied to c if needed.
+  const rawStaySubtotal = (c.roomTariff + c.earlyCheck + c.lateCheck + c.pet + c.extraAdults + c.driversCharge + c.extraBreakfast) - (data.discount || 0);
+  const rawTotalBase = rawStaySubtotal + extraSubtotal;
+  const { subtotal, taxes, total } = finalizeTotals(rawTotalBase, {
+    totalOverride: data.total_override ?? null,
+    taxesIncluded: !!data.taxes_included,
+  });
 
   const row = {
     ...data,
@@ -216,6 +261,8 @@ export async function createQuote(
     subtotal,
     taxes,
     total,
+    total_override: data.total_override ?? null,
+    taxes_included: !!data.taxes_included,
     status: initialStatus,
   };
   const { data: created, error } = await supabase
@@ -251,10 +298,22 @@ export async function createQuote(
   return created as unknown as QuoteRow;
 }
 
-export async function updateQuote(id: string, input: QuoteInput, rateOverride?: number) {
+export async function updateQuote(
+  id: string,
+  input: QuoteInput,
+  rateOverride?: number,
+  extraLineItems: import("./quote-items-api").QuoteItemInput[] = [],
+) {
   validateQuoteInput(input);
   const data = normalize(input);
   const c = calc(data, rateOverride);
+  const { computeItemSubtotal } = await import("./quote-items-api");
+  const extraSubtotal = extraLineItems.reduce((s, it) => s + computeItemSubtotal(it), 0);
+  const rawStaySubtotal = (c.roomTariff + c.earlyCheck + c.lateCheck + c.pet + c.extraAdults + c.driversCharge + c.extraBreakfast) - (data.discount || 0);
+  const { subtotal, taxes, total } = finalizeTotals(rawStaySubtotal + extraSubtotal, {
+    totalOverride: data.total_override ?? null,
+    taxesIncluded: !!data.taxes_included,
+  });
   const { data: updated, error } = await supabase
     .from("quotes")
     .update({
@@ -265,9 +324,11 @@ export async function updateQuote(id: string, input: QuoteInput, rateOverride?: 
       lost_reason: data.lost_reason || null,
       nights: c.nights,
       room_rate: c.room_rate,
-      subtotal: c.subtotal,
-      taxes: c.taxes,
-      total: c.total,
+      subtotal,
+      taxes,
+      total,
+      total_override: data.total_override ?? null,
+      taxes_included: !!data.taxes_included,
     } as any)
     .eq("id", id)
     .select()
