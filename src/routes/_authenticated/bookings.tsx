@@ -39,8 +39,7 @@ function BookingsPage() {
       );
     });
     // Reception ordering: Today's check-ins → Future (asc) → Past (desc)
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().slice(0, 10);
+    const todayStr = toLocalYMD();
     const bucket = (ci: string) => (ci === todayStr ? 0 : ci > todayStr ? 1 : 2);
     return [...matched].sort((a, b) => {
       const ba = bucket(a.check_in); const bb = bucket(b.check_in);
