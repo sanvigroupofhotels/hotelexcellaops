@@ -138,18 +138,17 @@ function EditQuote() {
       if (new Date(form.check_out) <= new Date(form.check_in))
         throw new Error("Check-out must be after check-in");
       if (form.discount < 0) throw new Error("Discount cannot be negative");
-      const updated = await updateQuote(id, form, resolvedRate);
-      const baseCalc = calc(form, resolvedRate);
       const primary: LineItem = {
         room_type: form.room_type, rooms: form.rooms,
         adults: form.adults, children: form.children,
         check_in: form.check_in, check_out: form.check_out,
         breakfast_included: form.breakfast_included, extra_bed: form.extra_bed,
-        rate: baseCalc.room_rate,
+        rate: resolvedRate ?? 0,
         early_check_in: form.early_check_in, early_check_in_slot: form.early_check_in_slot ?? null,
         late_check_out: form.late_check_out, late_check_out_slot: form.late_check_out_slot ?? null,
         pet_size: form.pet_size, extra_adults: form.extra_adults, drivers: form.drivers,
       };
+      const updated = await updateQuote(id, form, resolvedRate, extraItems as any);
       await replaceQuoteItems(id, [primary, ...extraItems]);
       return updated;
     },
