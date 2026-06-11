@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
+import { NumField } from "@/components/num-field";
 
 export const Route = createFileRoute("/_authenticated/cash")({
   component: CashPage,
@@ -743,8 +744,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
               {staff.length===0 && <p className="text-[10px] text-muted-foreground mt-1">No active staff. Ask an admin to add staff.</p>}
             </Field>
             <Field label="Amount (₹)" required>
-              <input className={inputCls} type="number" min={0} step={1} value={amount || ""}
-                onChange={e=>setAmount(Number(e.target.value))} />
+              <NumField value={amount || 0} min={0} decimal prefix="₹" onChange={(v)=>setAmount(v)} />
             </Field>
           </div>
 

@@ -29,6 +29,8 @@ interface Row {
   created_at: string;
 }
 
+const ROLE_LABEL: Record<AppRole, string> = { admin: "Admin", owner: "Owner", staff: "Staff" };
+
 function UsersPage() {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const { user: me } = useAuth();
@@ -108,10 +110,12 @@ function UsersPage() {
                 <div className="md:col-span-2 flex items-center">
                   <span className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs border",
-                    u.role === "admin" ? "border-gold/40 bg-gold-soft text-gold" : "border-border bg-muted/40 text-muted-foreground",
+                    u.role === "admin" ? "border-gold/40 bg-gold-soft text-gold" :
+                    u.role === "owner" ? "border-blue-500/40 bg-blue-500/10 text-blue-400" :
+                    "border-border bg-muted/40 text-muted-foreground",
                   )}>
                     {u.role === "admin" ? <ShieldCheck className="h-3 w-3" /> : <UserIcon className="h-3 w-3" />}
-                    {u.role === "admin" ? "Admin" : "Staff"}
+                    {ROLE_LABEL[u.role]}
                   </span>
                 </div>
                 <div className="md:col-span-2 flex items-center">
@@ -130,11 +134,17 @@ function UsersPage() {
                     className="inline-flex items-center gap-1 text-xs rounded-md border border-border bg-card px-2.5 py-1.5 text-muted-foreground hover:text-foreground">
                     <KeyRound className="h-3 w-3" /> Password
                   </button>
-                  <button
-                    disabled={roleMut.isPending}
-                    onClick={() => roleMut.mutate({ id: u.id, role: u.role === "admin" ? "staff" : "admin" })}
-                    className="text-xs rounded-md border border-gold/40 bg-gold-soft px-2.5 py-1.5 text-gold disabled:opacity-40"
-                  >{u.role === "admin" ? "Demote" : "Promote"}</button>
+                  <select
+                    disabled={self || roleMut.isPending}
+                    value={u.role}
+                    onChange={(e) => roleMut.mutate({ id: u.id, role: e.target.value as AppRole })}
+                    title={self ? "Can't change own role" : "Change role"}
+                    className="text-xs rounded-md border border-gold/40 bg-gold-soft px-2 py-1.5 text-gold disabled:opacity-40"
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="owner">Owner</option>
+                    <option value="staff">Staff</option>
+                  </select>
                   <button
                     disabled={self || activeMut.isPending}
                     onClick={() => activeMut.mutate({ id: u.id, active: !u.active })}
@@ -215,6 +225,7 @@ function CreateUserModal({ onClose, onSubmit }: any) {
         <select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as AppRole })}
           className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
           <option value="staff">Staff</option>
+          <option value="owner">Owner</option>
           <option value="admin">Admin</option>
         </select>
       </label>

@@ -103,11 +103,12 @@ export function PricingBreakdownCard({
           <div className="flex items-center gap-1.5">
             <span className="text-sm">₹</span>
             <input
-              type="number"
-              inputMode="numeric"
+              type="text"
+              inputMode="decimal"
+              pattern="[0-9]*[.]?[0-9]*"
               autoFocus
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => setDraft(e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1"))}
               onBlur={() => {
                 const n = Number(draft);
                 if (draft.trim() === "" || !Number.isFinite(n)) {

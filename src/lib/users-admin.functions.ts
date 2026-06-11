@@ -23,7 +23,7 @@ export const createUserFn = createServerFn({ method: "POST" })
         email: z.string().email().max(255),
         password: z.string().min(8).max(128),
         display_name: z.string().min(1).max(120),
-        role: z.enum(["admin", "staff"]),
+        role: z.enum(["admin", "owner", "staff"]),
       })
       .parse(d),
   )
@@ -37,12 +37,11 @@ export const createUserFn = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
     const uid = created.user!.id;
-    // profile is created by trigger; ensure display_name is set
     await supabaseAdmin.from("profiles").update({ display_name: data.display_name }).eq("id", uid);
-    // role: trigger inserts 'staff'; replace if admin requested
-    if (data.role === "admin") {
+    // trigger inserts 'staff'; replace if a different role requested
+    if (data.role !== "staff") {
       await supabaseAdmin.from("user_roles").delete().eq("user_id", uid);
-      await supabaseAdmin.from("user_roles").insert({ user_id: uid, role: "admin" } as any);
+      await supabaseAdmin.from("user_roles").insert({ user_id: uid, role: data.role } as any);
     }
     return { id: uid };
   });
@@ -126,7 +125,7 @@ export const listUsersFn = createServerFn({ method: "GET" })
       ]);
     if (pErr) throw new Error(pErr.message);
     if (rErr) throw new Error(rErr.message);
-    const byRole = new Map<string, "admin" | "staff">();
+    const byRole = new Map<string, "admin" | "owner" | "staff">();
     for (const r of roles ?? []) byRole.set((r as any).user_id, (r as any).role);
     const byActive = new Map<string, boolean>();
     for (const u of adminUsers.data?.users ?? []) {
@@ -137,7 +136,7 @@ export const listUsersFn = createServerFn({ method: "GET" })
       id: p.id,
       email: p.email,
       display_name: p.display_name,
-      role: byRole.get(p.id) ?? ("staff" as "admin" | "staff"),
+      role: byRole.get(p.id) ?? ("staff" as "admin" | "owner" | "staff"),
       active: byActive.get(p.id) ?? true,
       created_at: p.created_at,
     }));

@@ -134,7 +134,9 @@ function RoomForm({ initial, onCancel, onSave, onDelete, pending }: {
           <input className={inputCls} value={number} onChange={(e) => setNumber(e.target.value)} placeholder="e.g. 101" />
         </label>
         <label className="block"><span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Floor</span>
-          <input type="number" min={1} className={inputCls} value={floor} onChange={(e) => setFloor(Number(e.target.value))} />
+          <input type="text" inputMode="numeric" pattern="[0-9]*" className={inputCls} value={floor === 0 ? "" : String(floor)}
+            onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setFloor(raw === "" ? 0 : Number(raw)); }}
+            onBlur={() => { if (!floor) setFloor(1); }} />
         </label>
         <label className="block"><span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Type</span>
           <select className={inputCls} value={type} onChange={(e) => setType(e.target.value)}>

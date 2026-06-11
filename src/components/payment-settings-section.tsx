@@ -1,4 +1,6 @@
 import { motion } from "framer-motion";
+import { NumField } from "@/components/num-field";
+
 
 export interface BookingPaymentFlags {
   allow_full_payment: boolean;
@@ -47,25 +49,16 @@ export function PaymentSettingsSection({
         onChange={(v) => update({ allow_part_payment: v })}
       />
       {value.allow_part_payment && (
-        <label className="block pl-1">
-          <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
-            Part Payment Percentage
-          </span>
-          <div className="relative max-w-[160px]">
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={value.part_payment_value || 0}
-              onChange={(e) => update({ part_payment_value: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
-              className="w-full bg-input/60 border border-border rounded-md pl-3 pr-8 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
-          </div>
-          <span className="block text-[10px] text-muted-foreground/70 mt-1">
-            Pre-fills the part-payment amount in the Guest Portal.
-          </span>
-        </label>
+        <div className="pl-1 max-w-[200px]">
+          <NumField
+            label="Part Payment Percentage"
+            value={value.part_payment_value || 0}
+            min={0}
+            decimal
+            onChange={(v) => update({ part_payment_value: Math.min(100, v) })}
+            hint="Pre-fills the part-payment amount in the Guest Portal."
+          />
+        </div>
       )}
       <ToggleRow
         label="Allow Pay At Hotel"

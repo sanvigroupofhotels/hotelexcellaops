@@ -107,8 +107,13 @@ function BookingsPage() {
                       {roomType && <div className="text-gold/80 font-medium mt-0.5 truncate">{roomType}</div>}
                     </div>
 
-                    {/* Col 3: Due Amount + Actions */}
+                    {/* Col 3: Expected Arrival + Due Amount + Actions */}
                     <div className="flex flex-col items-end gap-1.5">
+                      {(b as any).expected_arrival_at && b.status !== "Checked-In" && b.status !== "Checked-Out" && b.status !== "Stay Completed" && (
+                        <span className="text-[10px] text-gold/80 font-medium whitespace-nowrap">
+                          Arr: {new Date((b as any).expected_arrival_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
+                        </span>
+                      )}
                       {balance > 0 ? (
                         <span className="text-warning font-medium text-xs whitespace-nowrap">Due ₹{balance.toLocaleString("en-IN")}</span>
                       ) : excess > 0 ? (
