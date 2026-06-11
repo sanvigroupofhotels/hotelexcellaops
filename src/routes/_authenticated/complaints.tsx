@@ -16,7 +16,7 @@ import {
   Plus, Search, Settings2, Loader2, BarChart3, Download,
 } from "lucide-react";
 import { downloadCSV } from "@/lib/csv";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,

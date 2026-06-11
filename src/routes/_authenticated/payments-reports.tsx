@@ -13,7 +13,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loader2, Download, Search, IndianRupee, Wallet, CreditCard, Globe, Banknote, Pencil, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/payments-reports")({

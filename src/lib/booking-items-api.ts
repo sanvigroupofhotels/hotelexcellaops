@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalYMD, localYMDOffset } from "@/lib/utils";
 import { getRoomRate, type EarlyCheckInSlot, type LateCheckOutSlot, type PetSize } from "@/lib/mock-data";
 import { lineSubtotal, nightsOf, type LineItem } from "@/components/line-items-editor";
 import type { QuoteItemRow } from "@/lib/quote-items-api";

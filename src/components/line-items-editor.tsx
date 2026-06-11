@@ -14,7 +14,7 @@ import {
   type PetSize,
 } from "@/lib/mock-data";
 import { NumField } from "@/components/num-field";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
 
 export interface LineItem {
   room_type: string;

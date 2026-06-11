@@ -13,7 +13,7 @@ import {
   Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, Mail, Plus, X,
   FilePlus, BedDouble,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/use-role";
 import { CustomerEditDialog } from "@/components/customer-edit-dialog";

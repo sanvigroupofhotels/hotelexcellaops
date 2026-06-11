@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalYMD } from "@/lib/utils";
 
 export const COMPLAINT_TYPES = ["Room", "General"] as const;
 export const COMPLAINT_PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;

@@ -13,7 +13,7 @@ import {
   ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Calendar, Star,
   FilePlus, MessageCircle, Pencil, BedDouble,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/customers_/$id")({

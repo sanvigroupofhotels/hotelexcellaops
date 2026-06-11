@@ -19,7 +19,7 @@ import {
   Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download, Printer,
   Pencil, PowerOff, Power, Clock, User as UserIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
 
 export const Route = createFileRoute("/_authenticated/cash")({

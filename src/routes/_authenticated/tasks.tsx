@@ -7,7 +7,7 @@ import { listTasks, createTask, completeTask, deleteTask } from "@/lib/tasks-api
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { TASK_TYPES, TASK_PRIORITIES, taskPriorityStyles } from "@/lib/mock-data";
 import { CheckCircle2, Loader2, Plus, Trash2, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/tasks")({

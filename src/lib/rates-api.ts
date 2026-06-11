@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalYMD } from "@/lib/utils";
 
 export interface RoomRateRow {
   room_type: string;
