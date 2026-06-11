@@ -176,13 +176,13 @@ function DefaultsDialog({ room_type, existing, onClose }: { room_type: string; e
   return (
     <Dialog onClose={onClose} title={`Defaults · ${room_type}`}>
       <Field label="Default Rate (₹/night)">
-        <input className={inputCls} type="number" inputMode="numeric" value={def} onChange={(e) => setDef(e.target.value)} />
+        <input className={inputCls} type="text" inputMode="numeric" pattern="[0-9]*" value={def} onChange={(e) => setDef(e.target.value)} />
       </Field>
       <Field label="Weekday Rate (Sun-Thu, optional)">
-        <input className={inputCls} type="number" inputMode="numeric" value={wk} placeholder="Falls back to default" onChange={(e) => setWk(e.target.value)} />
+        <input className={inputCls} type="text" inputMode="numeric" pattern="[0-9]*" value={wk} placeholder="Falls back to default" onChange={(e) => setWk(e.target.value)} />
       </Field>
       <Field label="Weekend Rate (Fri/Sat, optional)">
-        <input className={inputCls} type="number" inputMode="numeric" value={we} placeholder="Falls back to default" onChange={(e) => setWe(e.target.value)} />
+        <input className={inputCls} type="text" inputMode="numeric" pattern="[0-9]*" value={we} placeholder="Falls back to default" onChange={(e) => setWe(e.target.value)} />
       </Field>
       <button onClick={() => save.mutate()} disabled={save.isPending} className="w-full gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60">
         {save.isPending ? "Saving…" : "Save Defaults"}
@@ -223,7 +223,7 @@ function BulkDialog({ onClose }: { onClose: () => void }) {
         </div>
       )}
       <Field label="Rate (₹/night)">
-        <input type="number" inputMode="numeric" className={inputCls} value={rate} placeholder="e.g. 2500" onChange={(e) => setRate(e.target.value)} />
+        <input type="text" inputMode="numeric" pattern="[0-9]*" className={inputCls} value={rate} placeholder="e.g. 2500" onChange={(e) => setRate(e.target.value)} />
       </Field>
       <Field label="Room Type">
         <select className={inputCls} value={roomType} onChange={(e) => setRoomType(e.target.value)}>
@@ -255,7 +255,7 @@ function CellDialog({ cell, existing, onClose }: { cell: { room_type: string; da
   return (
     <Dialog onClose={onClose} title={`Override · ${cell.room_type} · ${cell.date}`}>
       <Field label="Rate (₹/night)">
-        <input type="number" inputMode="numeric" autoFocus className={inputCls} value={rate} placeholder="Leave blank to inherit" onChange={(e) => setRate(e.target.value)} />
+        <input type="text" inputMode="numeric" pattern="[0-9]*" autoFocus className={inputCls} value={rate} placeholder="Leave blank to inherit" onChange={(e) => setRate(e.target.value)} />
       </Field>
       <Field label="Note (optional)"><input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
       <div className="flex gap-2">

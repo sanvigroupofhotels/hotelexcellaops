@@ -196,8 +196,8 @@ function CategoryEditor({ category, title, placeholder }: { category: string; ti
             <div key={r.id} className="p-2.5 flex flex-wrap items-center gap-2">
               <input className="flex-1 min-w-[180px] bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm" defaultValue={r.label}
                 onBlur={(e) => { if (e.target.value !== r.label) update.mutate({ id: r.id, patch: { label: e.target.value } }); }} />
-              <input type="number" className="w-16 bg-input/60 border border-border rounded-md px-2 py-1.5 text-xs" defaultValue={r.sort_order}
-                onBlur={(e) => { const v = Number(e.target.value); if (v !== r.sort_order) update.mutate({ id: r.id, patch: { sort_order: v } }); }} title="Sort order" />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" className="w-16 bg-input/60 border border-border rounded-md px-2 py-1.5 text-xs" defaultValue={r.sort_order}
+                onBlur={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); const v = raw === "" ? 0 : Number(raw); e.target.value = String(v); if (v !== r.sort_order) update.mutate({ id: r.id, patch: { sort_order: v } }); }} title="Sort order" />
               <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <input type="checkbox" className="h-4 w-4 accent-gold" checked={r.active} onChange={(e) => update.mutate({ id: r.id, patch: { active: e.target.checked } })} />
                 Active
@@ -339,9 +339,14 @@ function PaymentSettingsEditor() {
           </div>
           <div className="flex items-center gap-1">
             <input
-              type="number" min={1} max={100}
-              value={draft.default_part_percent}
-              onChange={(e) => update({ default_part_percent: Math.max(1, Math.min(100, Number(e.target.value) || 0)) })}
+              type="text" inputMode="numeric" pattern="[0-9]*"
+              value={draft.default_part_percent === 0 ? "" : String(draft.default_part_percent)}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9]/g, "");
+                if (raw === "") { update({ default_part_percent: 0 }); return; }
+                update({ default_part_percent: Math.min(100, Number(raw)) });
+              }}
+              onBlur={(e) => { if (!e.target.value) update({ default_part_percent: 1 }); }}
               className="w-20 bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm text-right"
             />
             <span className="text-sm text-muted-foreground">%</span>
