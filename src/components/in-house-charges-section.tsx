@@ -8,6 +8,7 @@ import {
 } from "@/lib/booking-charges-api";
 import { useMasterData } from "@/hooks/use-master-data";
 import { useUserRole } from "@/hooks/use-role";
+import { listStaff } from "@/lib/cash-api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const DEFAULT_CATEGORIES = [
