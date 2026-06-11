@@ -44,6 +44,9 @@ function EditBooking() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [totalOverride, setTotalOverride] = useState<number | null>(null);
   const [taxesIncluded, setTaxesIncluded] = useState<boolean>(false);
+  const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags>({
+    allow_full_payment: true, allow_part_payment: true, allow_pay_at_hotel: true, part_payment_value: 25,
+  });
   const [loaded, setLoaded] = useState(false);
   const { canManage } = useUserRole();
 
