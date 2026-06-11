@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
 import { listBookings } from "@/lib/bookings-api";
+import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listCustomers } from "@/lib/customers-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { BOOKING_STATUSES, bookingStatusStyles } from "@/lib/mock-data";
@@ -20,9 +21,10 @@ export const Route = createFileRoute("/_authenticated/bookings")({
 });
 
 function BookingsPage() {
-  useRealtimeInvalidate(["bookings", "customers"], ["bookings", "customers"], "bookings-list");
+  useRealtimeInvalidate(["bookings", "customers", "booking_charges"], ["bookings", "customers", "all-charge-totals"], "bookings-list");
   const { data: bookings = [], isLoading } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
+  const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const customerById = useMemo(() => Object.fromEntries(customers.map((c) => [c.id, c])), [customers]);
 
   const [q, setQ] = useState("");
@@ -80,7 +82,8 @@ function BookingsPage() {
             </div>
           )}
           {filtered.map((b, i) => {
-            const diff = Number(b.amount) - Number(b.advance_paid || 0);
+            const payable = Number(b.amount) + Number(chargeTotals[b.id] || 0);
+            const diff = payable - Number(b.advance_paid || 0);
             const balance = Math.max(0, diff);
             const excess = diff < 0 ? -diff : 0;
             const roomType = (b.room_details || "").split("×")[0]?.trim() || null;

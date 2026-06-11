@@ -80,3 +80,15 @@ export async function deleteBookingCharge(id: string) {
 export function chargesTotal(rows: BookingChargeRow[]): number {
   return rows.reduce((s, r) => s + Number(r.amount || 0), 0);
 }
+
+export async function listAllChargeTotals(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from("booking_charges" as any)
+    .select("booking_id, amount");
+  if (error) throw error;
+  const map: Record<string, number> = {};
+  for (const r of (data ?? []) as any[]) {
+    map[r.booking_id] = (map[r.booking_id] || 0) + Number(r.amount || 0);
+  }
+  return map;
+}
