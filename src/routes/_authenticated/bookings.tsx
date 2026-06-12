@@ -126,11 +126,11 @@ function BookingsPage() {
           </Link>
         </div>
 
-        {/* Summary chips */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <Chip icon={Hotel} label="In House" count={sections.inHouse.length} tone="success" onClick={() => scrollTo(inHouseRef)} />
-          <Chip icon={Sunrise} label="Today's Arrivals" count={sections.today.length} tone="gold" onClick={() => scrollTo(todayRef)} />
-          <Chip icon={CalendarRange} label="Upcoming" count={sections.upcoming.length} tone="info" onClick={() => scrollTo(upcomingRef)} />
+        {/* Summary chips — single row on mobile, compact */}
+        <div className={cn("grid gap-1.5 md:gap-2", canManage ? "grid-cols-4" : "grid-cols-3")}>
+          <Chip icon={Hotel} label="In-House" count={sections.inHouse.length} tone="success" onClick={() => scrollTo(inHouseRef)} />
+          <Chip icon={Sunrise} label="Arriving" count={sections.today.length} tone="gold" onClick={() => scrollTo(todayRef)} />
+          <Chip icon={CalendarRange} label="Future" count={sections.upcoming.length} tone="info" onClick={() => scrollTo(upcomingRef)} />
           {canManage && (
             <Chip icon={HistoryIcon} label="Past" count={sections.past.length} tone="muted" onClick={() => scrollTo(pastRef)} />
           )}
