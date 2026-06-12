@@ -839,11 +839,6 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
             </>
           )}
 
-          {kind==="expense" && (
-            <Field label="Notes">
-              <textarea rows={2} className={cn(inputCls,"resize-none")} value={notes} onChange={e=>setNotes(e.target.value)} />
-            </Field>
-          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label={kind==="collection"?"Collected By":"Paid By"} required>
