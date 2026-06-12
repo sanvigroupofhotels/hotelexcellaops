@@ -593,6 +593,36 @@ function BookingDetail() {
           onSaved={() => { setAddPaymentForCheckoutOpen(false); toast.success("Payment recorded. You can now check-out."); }}
         />
       )}
+
+      <AlertDialog open={assignRoomOpen} onOpenChange={setAssignRoomOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><DoorOpen className="h-4 w-4 text-gold" /> Assign Room</AlertDialogTitle>
+            <AlertDialogDescription>
+              Pick a room for {b.guest_name} ({b.booking_reference}). Conflicts with existing bookings or maintenance blocks will be rejected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="px-1">
+            <label className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Room</label>
+            <select value={pickedRoomId} onChange={(e) => setPickedRoomId(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
+              <option value="">Select a room…</option>
+              {rooms.map((r: any) => (
+                <option key={r.id} value={r.id}>
+                  {r.room_number} · {r.room_type} · Floor {r.floor}
+                </option>
+              ))}
+            </select>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={!pickedRoomId || assignRoom.isPending}
+              onClick={() => pickedRoomId && assignRoom.mutate(pickedRoomId)}>
+              {assignRoom.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />} Assign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
