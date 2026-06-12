@@ -12,6 +12,7 @@ import {
   createRazorpayOrder,
   recordPayAtHotelIntent,
   updateGuestPortalDetails,
+  confirmRazorpayPayment,
 } from "@/lib/portal.functions";
 import { PortalPaymentOptions, type PortalPaymentChoice } from "@/components/portal/payment-options";
 
