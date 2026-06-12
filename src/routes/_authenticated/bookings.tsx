@@ -158,9 +158,7 @@ function BookingsPage() {
             <Section refEl={inHouseRef} title="In-House Guests" icon={Hotel} bookings={sections.inHouse} chargeTotals={chargeTotals} completedByCustomer={completedByCustomer} />
             <Section refEl={todayRef} title="Today's Arrivals" icon={Sunrise} bookings={sections.today} chargeTotals={chargeTotals} completedByCustomer={completedByCustomer} />
             <Section refEl={upcomingRef} title="Upcoming Arrivals" icon={CalendarRange} bookings={sections.upcoming} chargeTotals={chargeTotals} completedByCustomer={completedByCustomer} />
-            {canManage && (
-              <Section refEl={pastRef} title="Past Bookings" icon={HistoryIcon} bookings={sections.past} chargeTotals={chargeTotals} completedByCustomer={completedByCustomer} />
-            )}
+            <Section refEl={pastRef} title="Past Bookings" icon={HistoryIcon} bookings={sections.past} chargeTotals={chargeTotals} completedByCustomer={completedByCustomer} />
             {visible.length === 0 && (
               <div className="luxe-card rounded-xl py-16 text-center text-sm text-muted-foreground">
                 <BedDouble className="h-8 w-8 text-gold/60 mx-auto mb-3" />
