@@ -706,13 +706,19 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-5 w-5"/></button>
         </div>
         <div className="p-5 space-y-4">
-          <Field label={kind==="collection"?"Collection Type":"Expense Type"} required>
-            <select className={inputCls} value={typeName} onChange={e=>setTypeName(e.target.value)}>
-              {kind==="collection"
-                ? incomeTypes.map(t => <option key={t}>{t}</option>)
-                : etypes.map(t => <option key={t.id}>{t.name}</option>)}
-            </select>
-          </Field>
+          {/* Row 1: Type + Amount */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label={kind==="collection"?"Collection Type":"Expense Type"} required>
+              <select className={inputCls} value={typeName} onChange={e=>setTypeName(e.target.value)}>
+                {kind==="collection"
+                  ? incomeTypes.map(t => <option key={t}>{t}</option>)
+                  : etypes.map(t => <option key={t.id}>{t.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Amount (₹)" required>
+              <NumField value={amount || 0} min={0} decimal prefix="₹" onChange={(v)=>setAmount(v)} />
+            </Field>
+          </div>
           {isOther && (
             <Field label="What's the Other Type?" required>
               <input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)}
@@ -722,17 +728,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
 
           {kind==="collection" && !isOther && (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Guest Name" required>
-                  <input className={inputCls} value={guestName} onChange={e=>setGuestName(e.target.value)} />
-                </Field>
-                <Field label="Guest Mobile" required>
-                  <input className={inputCls} inputMode="tel" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
-                </Field>
-              </div>
-              <Field label="Room Number">
-                <input className={inputCls} value={roomNumber} onChange={e=>setRoomNumber(e.target.value)} />
-              </Field>
+              {/* Row 2: Related Booking */}
               <Field label="Related Booking (optional)">
                 {selectedBooking ? (
                   <div className="flex items-center justify-between rounded-md border border-gold/30 bg-gold-soft/30 px-3 py-2 text-xs">
@@ -762,7 +758,26 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
                   </>
                 )}
               </Field>
+
+              <Field label="Guest Name" required>
+                <input className={inputCls} value={guestName} onChange={e=>setGuestName(e.target.value)} />
+              </Field>
+              <Field label="Mobile Number" required>
+                <input className={inputCls} inputMode="tel" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
+              </Field>
+              <Field label="Notes">
+                <textarea rows={2} className={cn(inputCls,"resize-none")} value={notes} onChange={e=>setNotes(e.target.value)} />
+              </Field>
+              <Field label="Room Number">
+                <input className={inputCls} value={roomNumber} onChange={e=>setRoomNumber(e.target.value)} />
+              </Field>
             </>
+          )}
+
+          {kind==="expense" && (
+            <Field label="Notes">
+              <textarea rows={2} className={cn(inputCls,"resize-none")} value={notes} onChange={e=>setNotes(e.target.value)} />
+            </Field>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -773,17 +788,10 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
               </select>
               {staff.length===0 && <p className="text-[10px] text-muted-foreground mt-1">No active staff. Ask an admin to add staff.</p>}
             </Field>
-            <Field label="Amount (₹)" required>
-              <NumField value={amount || 0} min={0} decimal prefix="₹" onChange={(v)=>setAmount(v)} />
+            <Field label="Date & Time">
+              <input type="datetime-local" className={inputCls} value={occurredAt} onChange={e=>setOccurredAt(e.target.value)} />
             </Field>
           </div>
-
-          <Field label="Notes">
-            <textarea rows={2} className={cn(inputCls,"resize-none")} value={notes} onChange={e=>setNotes(e.target.value)} />
-          </Field>
-          <Field label="Date & Time">
-            <input type="datetime-local" className={inputCls} value={occurredAt} onChange={e=>setOccurredAt(e.target.value)} />
-          </Field>
         </div>
         <div className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex gap-2 justify-end">
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-md border border-border">Cancel</button>
