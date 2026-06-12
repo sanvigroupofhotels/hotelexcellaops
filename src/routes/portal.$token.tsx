@@ -65,6 +65,7 @@ function GuestPortal() {
   const fetchBooking = useServerFn(getPortalBooking);
   const createOrder = useServerFn(createRazorpayOrder);
   const recordIntent = useServerFn(recordPayAtHotelIntent);
+  const confirmPayment = useServerFn(confirmRazorpayPayment);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<null | "paid" | "pay_at_hotel">(null);
 
@@ -98,7 +99,27 @@ function GuestPortal() {
         name: "Hotel Excella", description: `Booking ${order.bookingReference}`,
         prefill: { name: order.guestName, contact: order.phone || "" },
         theme: { color: "#D4AF37" },
-        handler: () => { setDone("paid"); toast.success("Payment received. We're confirming with the bank."); q.refetch(); },
+        handler: async (resp: any) => {
+          // Persist via signed server confirmation; the dashboard webhook stays as a backup.
+          try {
+            await confirmPayment({
+              data: {
+                token,
+                razorpay_order_id: resp.razorpay_order_id,
+                razorpay_payment_id: resp.razorpay_payment_id,
+                razorpay_signature: resp.razorpay_signature,
+              },
+            });
+            setDone("paid");
+            toast.success("Payment received. Thank you!");
+          } catch (e: any) {
+            console.error("confirmRazorpayPayment failed", e);
+            toast.error(errMsg(e, "Payment received but could not be confirmed. Our team will reconcile shortly."));
+          } finally {
+            q.refetch();
+            setBusy(false);
+          }
+        },
         modal: { ondismiss: () => setBusy(false) },
       });
       rzp.on("payment.failed", (resp: any) => { toast.error(resp?.error?.description || "Payment failed"); setBusy(false); });
