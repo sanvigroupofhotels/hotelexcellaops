@@ -199,7 +199,7 @@ function CashPage() {
               {search && <button onClick={()=>setSearch("")} className="text-[10px] uppercase text-muted-foreground hover:text-foreground">Clear</button>}
             </div>
 
-            <SimpleHistory tx={filteredHistory} isAdmin={isAdmin} canManage={canManage}
+            <SimpleHistory tx={filteredHistory} allTx={tx} isAdmin={isAdmin} canManage={canManage}
               onEdit={(t) => setOpenForm({ kind: t.kind, tx: t })}
               onOpen={(t) => setDetailTx(t)} />
           </>
