@@ -833,9 +833,6 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
               <Field label="Mobile Number" required>
                 <input className={inputCls} inputMode="tel" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
               </Field>
-              <Field label="Notes">
-                <textarea rows={2} className={cn(inputCls,"resize-none")} value={notes} onChange={e=>setNotes(e.target.value)} />
-              </Field>
               <Field label="Room Number">
                 <input className={inputCls} value={roomNumber} onChange={e=>setRoomNumber(e.target.value)} />
               </Field>
