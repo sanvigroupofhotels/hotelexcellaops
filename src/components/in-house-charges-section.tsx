@@ -50,9 +50,6 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
         <div className="flex items-center gap-2">
           <Receipt className="h-4 w-4 text-gold" />
           <h3 className="font-display text-base">In-House Charges</h3>
-          {total > 0 && (
-            <span className="text-xs text-muted-foreground">· {rows.length} item{rows.length === 1 ? "" : "s"} · {inr(total)}</span>
-          )}
         </div>
         <button
           onClick={() => { setEditing(null); setOpenForm(true); }}
