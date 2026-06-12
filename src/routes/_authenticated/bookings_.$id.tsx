@@ -418,12 +418,21 @@ function BookingDetail() {
               {(() => {
                 const room = rooms.find((r: any) => r.id === (b as any).room_id);
                 return room ? (
-                  <div className="text-sm">Room <span className="font-medium">{room.room_number}</span> · {room.room_type} · Floor {room.floor}</div>
+                  <>
+                    <div className="text-sm">Room <span className="font-medium">{room.room_number}</span> · {room.room_type} · Floor {room.floor}</div>
+                    <button onClick={() => { setPickedRoomId((b as any).room_id ?? ""); setAssignRoomOpen(true); }}
+                      className="text-[11px] text-gold hover:underline mt-2 inline-block">Change room →</button>
+                  </>
                 ) : (
-                  <div className="text-xs text-muted-foreground italic">No room assigned</div>
+                  <>
+                    <div className="text-xs text-warning italic mb-2">No room assigned — required before Check-In</div>
+                    <button onClick={() => { setPickedRoomId(""); setAssignRoomOpen(true); }}
+                      className="inline-flex items-center gap-2 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">
+                      <DoorOpen className="h-3.5 w-3.5" /> Assign Room
+                    </button>
+                  </>
                 );
               })()}
-              <Link to="/bookings/$id/edit" params={{ id }} className="text-[11px] text-gold hover:underline mt-2 inline-block">Assign / Change →</Link>
             </div>
 
             <InHouseChargesSection bookingId={id} />
