@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard, History, Bell, Calendar, BarChart3,
+  History, Bell, Calendar, BarChart3,
   Users, ListChecks, Menu, X, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
   MessageSquareWarning, Building2, DoorOpen, IndianRupee, Tag, Database, KeyRound,
   Home, FileBarChart,
