@@ -5,7 +5,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare, Save } from "lucide-react";
+import { Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare, Save, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   getPortalBooking,
