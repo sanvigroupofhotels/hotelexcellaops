@@ -207,8 +207,10 @@ function CashPage() {
                 <StatCard label="Total Paid to Owner" value={totals.ownerPaid} icon={ArrowUpCircle} tone="gold" />
               </div>
             ) : (
-              <div className="grid grid-cols-1">
-                <StatCard label="Current Cash Balance" value={totals.balance} icon={Wallet} tone="gold" />
+              <div className="flex justify-center">
+                <div className="w-full max-w-sm">
+                  <StatCard label="Current Cash Balance" value={totals.balance} icon={Wallet} tone="gold" />
+                </div>
               </div>
             )}
 
