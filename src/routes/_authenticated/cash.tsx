@@ -199,7 +199,7 @@ function CashPage() {
               {search && <button onClick={()=>setSearch("")} className="text-[10px] uppercase text-muted-foreground hover:text-foreground">Clear</button>}
             </div>
 
-            <SimpleHistory tx={filteredHistory} isAdmin={isAdmin} canManage={canManage}
+            <SimpleHistory tx={filteredHistory} allTx={tx} isAdmin={isAdmin} canManage={canManage}
               onEdit={(t) => setOpenForm({ kind: t.kind, tx: t })}
               onOpen={(t) => setDetailTx(t)} />
           </>
@@ -224,8 +224,8 @@ function CashPage() {
 }
 
 // ---------- Simple history list (no inline filters; advanced filters live in Reports modal) ----------
-function SimpleHistory({ tx, isAdmin, canManage, onEdit, onOpen }: {
-  tx: CashTxRow[]; isAdmin: boolean; canManage: boolean;
+function SimpleHistory({ tx, allTx, isAdmin, canManage, onEdit, onOpen }: {
+  tx: CashTxRow[]; allTx: CashTxRow[]; isAdmin: boolean; canManage: boolean;
   onEdit: (t: CashTxRow) => void; onOpen: (t: CashTxRow) => void;
 }) {
   const qc = useQueryClient();
@@ -234,22 +234,38 @@ function SimpleHistory({ tx, isAdmin, canManage, onEdit, onOpen }: {
   const react = useMutation({ mutationFn: reactivateCashTx, onSuccess: () => { toast.success("Reactivated"); qc.invalidateQueries({ queryKey:["cash-tx"] }); }, onError: (e:any) => toast.error(e.message) });
   const hard = useMutation({ mutationFn: hardDeleteCashTx, onSuccess: () => { toast.success("Deleted"); setConfirmDelete(null); qc.invalidateQueries({ queryKey:["cash-tx"] }); }, onError: (e:any) => toast.error(e.message) });
 
+  // Running balance across ENTIRE active history (chronological). Map keyed by tx id.
+  const balanceById = useMemo(() => {
+    const sorted = [...allTx].filter(t => t.active).sort((a, b) =>
+      a.occurred_at < b.occurred_at ? -1 : a.occurred_at > b.occurred_at ? 1 : 0
+    );
+    const map: Record<string, number> = {};
+    let bal = 0;
+    for (const t of sorted) {
+      bal += t.kind === "collection" ? Number(t.amount) : -Number(t.amount);
+      map[t.id] = bal;
+    }
+    return map;
+  }, [allTx]);
+
   return (
     <div className="luxe-card rounded-xl p-4 md:p-5">
       <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Transaction History</div>
       <div className="overflow-x-auto -mx-4 md:mx-0">
-        <table className="w-full text-sm min-w-[760px]">
+        <table className="w-full text-sm min-w-[920px]">
           <thead className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
             <tr>
               <th className="px-3 py-2">Date</th><th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">Category</th><th className="px-3 py-2">Guest</th>
               <th className="px-3 py-2">Entered By</th>
               <th className="px-3 py-2 text-right">Amount</th>
+              <th className="px-3 py-2 text-right">Balance</th>
+              <th className="px-3 py-2">Notes</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {tx.length === 0 && (<tr><td colSpan={7} className="text-center text-muted-foreground py-8">No transactions</td></tr>)}
+            {tx.length === 0 && (<tr><td colSpan={9} className="text-center text-muted-foreground py-8">No transactions</td></tr>)}
             {tx.map(t => (
               <tr key={t.id} className={cn("border-b border-border/60 hover:bg-secondary/40", !t.active && "opacity-50")}>
                 <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{new Date(t.occurred_at).toLocaleString("en-IN",{dateStyle:"short",timeStyle:"short"})}</td>
@@ -273,6 +289,19 @@ function SimpleHistory({ tx, isAdmin, canManage, onEdit, onOpen }: {
                 <td className={cn("px-3 py-2 text-right font-medium tabular-nums",
                   t.kind==="collection" ? "text-success" : "text-destructive")}>
                   {t.kind==="collection"?"+":"-"}₹{Number(t.amount).toLocaleString("en-IN")}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-[12px]">
+                  {t.active ? (
+                    <span className={cn(
+                      (balanceById[t.id] ?? 0) < 0 ? "text-destructive" : "text-muted-foreground",
+                    )}>
+                      ₹{Math.abs(balanceById[t.id] ?? 0).toLocaleString("en-IN")}
+                      {(balanceById[t.id] ?? 0) < 0 && " ⚠"}
+                    </span>
+                  ) : <span className="text-muted-foreground/60">—</span>}
+                </td>
+                <td className="px-3 py-2 text-[11px] text-muted-foreground max-w-[160px] truncate" title={t.notes ?? ""}>
+                  {t.notes && t.notes.trim() ? t.notes : "—"}
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center justify-end gap-1">
@@ -685,8 +714,9 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
             </select>
           </Field>
           {isOther && (
-            <Field label={kind==="collection"?"Description":"Expense Description"} required>
-              <input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)} />
+            <Field label="What's the Other Type?" required>
+              <input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)}
+                placeholder="What's the Other Type?" />
             </Field>
           )}
 

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
@@ -7,10 +7,14 @@ import { listBookings } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listCustomers } from "@/lib/customers-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
+import { useUserRole } from "@/hooks/use-role";
 import { BOOKING_STATUSES, bookingStatusStyles } from "@/lib/mock-data";
 import { downloadCSV } from "@/lib/csv";
-import { Search, Loader2, Plus, ChevronRight, BedDouble, Phone, MessageCircle, Download } from "lucide-react";
-import { cn, toLocalYMD } from "@/lib/utils";
+import {
+  Search, Loader2, Plus, ChevronRight, BedDouble, Phone, MessageCircle, Download,
+  Hotel, Sunrise, CalendarRange, History as HistoryIcon, Repeat,
+} from "lucide-react";
+import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -20,41 +24,90 @@ export const Route = createFileRoute("/_authenticated/bookings")({
   component: BookingsPage,
 });
 
+const STATUS_FILTERS = ["All", "Pending", "Advance Paid", "Full Paid", "Checked-In", "Checked-Out", "Cancelled"] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+
 function BookingsPage() {
   useRealtimeInvalidate(["bookings", "customers", "booking_charges"], ["bookings", "customers", "all-charge-totals"], "bookings-list");
+  const { canManage } = useUserRole();
   const { data: bookings = [], isLoading } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const customerById = useMemo(() => Object.fromEntries(customers.map((c) => [c.id, c])), [customers]);
 
   const [q, setQ] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("All");
   const [exportOpen, setExportOpen] = useState(false);
 
-  const filtered = useMemo(() => {
+  // Section refs for chip-driven scrolling
+  const inHouseRef = useRef<HTMLDivElement>(null);
+  const todayRef = useRef<HTMLDivElement>(null);
+  const upcomingRef = useRef<HTMLDivElement>(null);
+  const pastRef = useRef<HTMLDivElement>(null);
+
+  // Completed-stay counts per customer (for Returning Guest badge).
+  // Only counts Checked-Out bookings — cancelled & future ignored.
+  const completedByCustomer = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const b of bookings) {
+      if (b.status === "Checked-Out" && b.customer_id) {
+        m[b.customer_id] = (m[b.customer_id] ?? 0) + 1;
+      }
+    }
+    return m;
+  }, [bookings]);
+
+  const todayStr = toLocalYMD();
+
+  const matchesSearch = (b: any) => {
+    if (!q) return true;
     const ql = q.toLowerCase();
-    const matched = bookings.filter((b) => {
-      if (!q) return true;
-      return (
-        b.guest_name.toLowerCase().includes(ql) ||
-        b.booking_reference.toLowerCase().includes(ql) ||
-        (b.phone ?? "").includes(q)
-      );
-    });
-    // Reception ordering: Today's check-ins → Future (asc) → Past (desc)
-    const todayStr = toLocalYMD();
-    const bucket = (ci: string) => (ci === todayStr ? 0 : ci > todayStr ? 1 : 2);
-    return [...matched].sort((a, b) => {
-      const ba = bucket(a.check_in); const bb = bucket(b.check_in);
-      if (ba !== bb) return ba - bb;
-      if (ba === 2) return a.check_in < b.check_in ? 1 : -1; // past: desc
-      return a.check_in < b.check_in ? -1 : 1; // today/future: asc
-    });
-  }, [bookings, q]);
+    return (
+      b.guest_name.toLowerCase().includes(ql) ||
+      b.booking_reference.toLowerCase().includes(ql) ||
+      (b.phone ?? "").includes(q)
+    );
+  };
+  const matchesStatus = (b: any) => status === "All" || b.status === status;
+
+  const visible = useMemo(
+    () => bookings.filter((b) => matchesSearch(b) && matchesStatus(b)),
+    [bookings, q, status],
+  );
+
+  // Bucket each visible booking into one of: inHouse, today, upcoming, past
+  const sections = useMemo(() => {
+    const inHouse: any[] = [];
+    const today: any[] = [];
+    const upcoming: any[] = [];
+    const past: any[] = [];
+    for (const b of visible) {
+      const isCancelled = b.status === "Cancelled";
+      const isCheckedIn = b.status === "Checked-In";
+      const isPostStay = b.status === "Checked-Out" || b.status === "Stay Completed";
+      if (isCheckedIn) { inHouse.push(b); continue; }
+      if (isCancelled || isPostStay) { past.push(b); continue; }
+      if (b.check_in === todayStr) { today.push(b); continue; }
+      if (b.check_in > todayStr) { upcoming.push(b); continue; }
+      past.push(b); // missed / overdue → past
+    }
+    // ordering inside each
+    inHouse.sort((a, b) => (a.check_out < b.check_out ? -1 : 1));
+    today.sort((a, b) => (a.booking_reference < b.booking_reference ? -1 : 1));
+    upcoming.sort((a, b) => (a.check_in < b.check_in ? -1 : 1));
+    past.sort((a, b) => (a.check_in < b.check_in ? 1 : -1));
+    return { inHouse, today, upcoming, past };
+  }, [visible, todayStr]);
+
+  const scrollTo = (ref: React.RefObject<HTMLDivElement | null>) => {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <>
       <Topbar title="Bookings" subtitle="Confirmed stays & reservations" />
       <div className="px-4 md:px-8 py-6 md:py-8 space-y-5 max-w-[1400px]">
+        {/* Top action row */}
         <div className="flex flex-col md:flex-row gap-2">
           <div className="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-md bg-card border border-border">
             <Search className="h-4 w-4 text-muted-foreground" />
@@ -73,87 +126,176 @@ function BookingsPage() {
           </Link>
         </div>
 
-        <div className="luxe-card rounded-xl overflow-hidden">
-          {isLoading && <div className="p-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>}
-          {!isLoading && filtered.length === 0 && (
-            <div className="py-16 text-center text-sm text-muted-foreground">
-              <BedDouble className="h-8 w-8 text-gold/60 mx-auto mb-3" />
-              No bookings found.
-            </div>
+        {/* Summary chips */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <Chip icon={Hotel} label="In House" count={sections.inHouse.length} tone="success" onClick={() => scrollTo(inHouseRef)} />
+          <Chip icon={Sunrise} label="Today's Arrivals" count={sections.today.length} tone="gold" onClick={() => scrollTo(todayRef)} />
+          <Chip icon={CalendarRange} label="Upcoming" count={sections.upcoming.length} tone="info" onClick={() => scrollTo(upcomingRef)} />
+          {canManage && (
+            <Chip icon={HistoryIcon} label="Past" count={sections.past.length} tone="muted" onClick={() => scrollTo(pastRef)} />
           )}
-          {filtered.map((b, i) => {
-            const payable = Number(b.amount) + Number(chargeTotals[b.id] || 0);
-            const diff = payable - Number(b.advance_paid || 0);
-            const balance = Math.max(0, diff);
-            const excess = diff < 0 ? -diff : 0;
-            const roomType = (b.room_details || "").split("×")[0]?.trim() || null;
-            const guestCount = `${b.adults}A${b.children ? ` + ${b.children}C` : ""}`;
-            return (
-              <motion.div key={b.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
-                className="px-4 md:px-6 py-4 border-b border-border/60 last:border-0 hover:bg-secondary/40 transition">
-                <Link to="/bookings/$id" params={{ id: b.id }} className="block">
-                  <div className="grid grid-cols-3 gap-3 items-start">
-                    {/* Col 1: Guest Name + Status */}
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{b.guest_name}</div>
-                      <div className="mt-1">
-                        <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]", bookingStatusStyles[b.status])}>{b.status}</span>
-                      </div>
-                      {(b as any).special_requests && (
-                        <div className="mt-1.5 text-[10px] text-gold/90 leading-snug line-clamp-2" title={(b as any).special_requests}>
-                          ✦ {(b as any).special_requests}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Col 2: Dates + Guests + Room Type */}
-                    <div className="text-[11px] text-muted-foreground min-w-0">
-                      <div className="whitespace-nowrap">
-                        {new Date(b.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – {new Date(b.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                      </div>
-                      <div className="mt-0.5">{b.nights}N · {guestCount}</div>
-                      {roomType && <div className="text-gold/80 font-medium mt-0.5 truncate">{roomType}</div>}
-                    </div>
-
-                    {/* Col 3: Expected Arrival + Due Amount + Actions */}
-                    <div className="flex flex-col items-end gap-1.5">
-                      {(b as any).expected_arrival_at && b.status !== "Checked-In" && b.status !== "Checked-Out" && b.status !== "Stay Completed" && (
-                        <span className="text-[10px] text-gold/80 font-medium whitespace-nowrap">
-                          Arr: {new Date((b as any).expected_arrival_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
-                        </span>
-                      )}
-                      {balance > 0 ? (
-                        <span className="text-warning font-medium text-xs whitespace-nowrap">Due ₹{balance.toLocaleString("en-IN")}</span>
-                      ) : excess > 0 ? (
-                        <span className="text-success font-medium text-xs whitespace-nowrap">Excess Paid ₹{excess.toLocaleString("en-IN")}</span>
-                      ) : (
-                        <span className="text-success font-medium text-xs">Paid</span>
-                      )}
-                      <div className="flex items-center gap-0.5">
-                        {b.phone && (
-                          <>
-                            <a href={`tel:${b.phone.replace(/\s+/g, "")}`} onClick={(e) => e.stopPropagation()}
-                              className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Call">
-                              <Phone className="h-3.5 w-3.5" />
-                            </a>
-                            <a href={`https://wa.me/${b.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
-                              className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition" title="WhatsApp">
-                              <MessageCircle className="h-3.5 w-3.5" />
-                            </a>
-                          </>
-                        )}
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              </motion.div>
-            );
-          })}
         </div>
+
+        {/* Status filter row */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {STATUS_FILTERS.map((s) => (
+            <button key={s} onClick={() => setStatus(s)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-[11px] border transition",
+                status === s
+                  ? "border-gold bg-gold-soft/40 text-foreground"
+                  : "border-border bg-card text-muted-foreground hover:border-gold/40 hover:text-foreground",
+              )}>
+              {s}
+            </button>
+          ))}
+        </div>
+
+        {isLoading ? (
+          <div className="p-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
+        ) : (
+          <div className="space-y-6">
+            <Section refEl={inHouseRef} title="In-House Guests" icon={Hotel} bookings={sections.inHouse} chargeTotals={chargeTotals} completedByCustomer={completedByCustomer} />
+            <Section refEl={todayRef} title="Today's Arrivals" icon={Sunrise} bookings={sections.today} chargeTotals={chargeTotals} completedByCustomer={completedByCustomer} />
+            <Section refEl={upcomingRef} title="Upcoming Arrivals" icon={CalendarRange} bookings={sections.upcoming} chargeTotals={chargeTotals} completedByCustomer={completedByCustomer} />
+            {canManage && (
+              <Section refEl={pastRef} title="Past Bookings" icon={HistoryIcon} bookings={sections.past} chargeTotals={chargeTotals} completedByCustomer={completedByCustomer} />
+            )}
+            {visible.length === 0 && (
+              <div className="luxe-card rounded-xl py-16 text-center text-sm text-muted-foreground">
+                <BedDouble className="h-8 w-8 text-gold/60 mx-auto mb-3" />
+                No bookings match the current filters.
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <ExportBookingsDialog open={exportOpen} onOpenChange={setExportOpen} bookings={bookings} customers={customerById as any} />
     </>
+  );
+}
+
+function Chip({ icon: Icon, label, count, tone, onClick }: {
+  icon: any; label: string; count: number; tone: "success" | "gold" | "info" | "muted"; onClick: () => void;
+}) {
+  const toneCls =
+    tone === "success" ? "text-success border-success/30 bg-success/10" :
+    tone === "gold" ? "text-gold border-gold/30 bg-gold-soft/30" :
+    tone === "info" ? "text-info border-info/30 bg-info/10" :
+    "text-muted-foreground border-border bg-card";
+  return (
+    <button onClick={onClick}
+      className={cn("flex items-center justify-between gap-2 px-3 py-2.5 rounded-md border text-left transition hover:scale-[1.01]", toneCls)}>
+      <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-wider">
+        <Icon className="h-3.5 w-3.5" /> {label}
+      </span>
+      <span className="font-display text-lg tabular-nums">{count}</span>
+    </button>
+  );
+}
+
+function Section({ refEl, title, icon: Icon, bookings, chargeTotals, completedByCustomer }: {
+  refEl: React.RefObject<HTMLDivElement | null>;
+  title: string;
+  icon: any;
+  bookings: any[];
+  chargeTotals: Record<string, number>;
+  completedByCustomer: Record<string, number>;
+}) {
+  return (
+    <div ref={refEl} className="luxe-card rounded-xl overflow-hidden scroll-mt-24">
+      <div className="px-4 md:px-6 py-3 border-b border-border flex items-center justify-between bg-secondary/30">
+        <h3 className="font-display text-base flex items-center gap-2"><Icon className="h-4 w-4 text-gold" /> {title}</h3>
+        <span className="text-[11px] text-muted-foreground">{bookings.length} booking{bookings.length === 1 ? "" : "s"}</span>
+      </div>
+      {bookings.length === 0 ? (
+        <div className="py-8 text-center text-xs text-muted-foreground">No bookings in this section.</div>
+      ) : (
+        bookings.map((b, i) => {
+          const payable = Number(b.amount) + Number(chargeTotals[b.id] || 0);
+          const diff = payable - Number(b.advance_paid || 0);
+          const balance = Math.max(0, diff);
+          const excess = diff < 0 ? -diff : 0;
+          const roomType = (b.room_details || "").split("×")[0]?.trim() || null;
+          const guestCount = `${b.adults}A${b.children ? ` + ${b.children}C` : ""}`;
+          // Prior completed stays = total completed for this customer minus self (if this booking is itself checked-out).
+          const completed = b.customer_id ? (completedByCustomer[b.customer_id] ?? 0) : 0;
+          const priorCompleted = b.status === "Checked-Out" ? Math.max(0, completed - 1) : completed;
+          const isReturning = priorCompleted >= 1;
+          const showArrival = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status);
+          const arr = showArrival ? smartArrival((b as any).expected_arrival_at) : null;
+          return (
+            <motion.div key={b.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+              className="px-4 md:px-6 py-4 border-b border-border/60 last:border-0 hover:bg-secondary/40 transition">
+              <Link to="/bookings/$id" params={{ id: b.id }} className="block">
+                <div className="grid grid-cols-3 gap-3 items-start">
+                  {/* Col 1: Guest Name + Status + Returning */}
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{b.guest_name}</div>
+                    {isReturning && (
+                      <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-gold/90 font-medium">
+                        <Repeat className="h-2.5 w-2.5" /> Returning Guest ({priorCompleted} stay{priorCompleted === 1 ? "" : "s"})
+                      </div>
+                    )}
+                    <div className="mt-1">
+                      <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]", bookingStatusStyles[b.status as keyof typeof bookingStatusStyles])}>{b.status}</span>
+                    </div>
+                    {(b as any).special_requests && (
+                      <div className="mt-1.5 text-[10px] text-gold/90 leading-snug line-clamp-2" title={(b as any).special_requests}>
+                        ✦ {(b as any).special_requests}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Col 2: Dates + Guests + Room Type */}
+                  <div className="text-[11px] text-muted-foreground min-w-0">
+                    <div className="whitespace-nowrap">
+                      {new Date(b.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – {new Date(b.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                    </div>
+                    <div className="mt-0.5">{b.nights}N · {guestCount}</div>
+                    {roomType && <div className="text-gold/80 font-medium mt-0.5 truncate">{roomType}</div>}
+                  </div>
+
+                  {/* Col 3: Arrival + Due Amount + Actions */}
+                  <div className="flex flex-col items-end gap-1.5">
+                    {arr && (
+                      <span className={cn(
+                        "text-[10px] font-medium whitespace-nowrap",
+                        arr.tone === "gold" && "text-gold/90",
+                        arr.tone === "warning" && "text-warning",
+                        arr.tone === "muted" && "text-muted-foreground",
+                      )}>{arr.label}</span>
+                    )}
+                    {balance > 0 ? (
+                      <span className="text-warning font-medium text-xs whitespace-nowrap">Due ₹{balance.toLocaleString("en-IN")}</span>
+                    ) : excess > 0 ? (
+                      <span className="text-success font-medium text-xs whitespace-nowrap">Excess Paid ₹{excess.toLocaleString("en-IN")}</span>
+                    ) : (
+                      <span className="text-success font-medium text-xs">Paid</span>
+                    )}
+                    <div className="flex items-center gap-0.5">
+                      {b.phone && (
+                        <>
+                          <a href={`tel:${b.phone.replace(/\s+/g, "")}`} onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Call">
+                            <Phone className="h-3.5 w-3.5" />
+                          </a>
+                          <a href={`https://wa.me/${b.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition" title="WhatsApp">
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          </a>
+                        </>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
+          );
+        })
+      )}
+    </div>
   );
 }
 
