@@ -185,11 +185,11 @@ function Chip({ icon: Icon, label, count, tone, onClick }: {
     "text-muted-foreground border-border bg-card";
   return (
     <button onClick={onClick}
-      className={cn("flex items-center justify-between gap-2 px-3 py-2.5 rounded-md border text-left transition hover:scale-[1.01]", toneCls)}>
-      <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-wider">
-        <Icon className="h-3.5 w-3.5" /> {label}
+      className={cn("flex items-center justify-between gap-1 px-1.5 py-1.5 md:px-3 md:py-2.5 rounded-md border text-left transition hover:scale-[1.01] min-w-0", toneCls)}>
+      <span className="inline-flex items-center gap-1 md:gap-2 text-[9px] md:text-[11px] uppercase tracking-wider min-w-0">
+        <Icon className="h-3 w-3 md:h-3.5 md:w-3.5 shrink-0" /> <span className="truncate">{label}</span>
       </span>
-      <span className="font-display text-lg tabular-nums">{count}</span>
+      <span className="font-display text-sm md:text-lg tabular-nums shrink-0">{count}</span>
     </button>
   );
 }
