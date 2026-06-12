@@ -441,10 +441,7 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!booking) throw new Error("Booking not found");
 
-    const modeMap: Record<string, string> = {
-      card: "Card", netbanking: "Bank Transfer", upi: "UPI", wallet: "UPI", emi: "Card",
-    };
-    const payment_mode = modeMap[String(payment.method || "")] || "UPI";
+    const payment_mode = "Razorpay";
 
     const { error: insErr } = await supabaseAdmin.from("booking_payments").insert({
       booking_id: (tok as any).booking_id,

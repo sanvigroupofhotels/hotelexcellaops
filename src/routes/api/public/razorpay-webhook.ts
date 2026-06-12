@@ -90,15 +90,7 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
           .maybeSingle();
         if (!booking) return new Response("Booking not found", { status: 404 });
 
-        const method = String(payment.method || "razorpay");
-        const modeMap: Record<string, string> = {
-          card: "Card",
-          netbanking: "Bank Transfer",
-          upi: "UPI",
-          wallet: "UPI",
-          emi: "Card",
-        };
-        const payment_mode = modeMap[method] || "UPI";
+        const payment_mode = "Razorpay";
 
         const { error: insErr } = await supabaseAdmin.from("booking_payments").insert({
           booking_id,
