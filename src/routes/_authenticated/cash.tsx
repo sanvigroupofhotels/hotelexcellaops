@@ -714,8 +714,9 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
             </select>
           </Field>
           {isOther && (
-            <Field label={kind==="collection"?"Description":"Expense Description"} required>
-              <input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)} />
+            <Field label="What's the Other Type?" required>
+              <input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)}
+                placeholder="What's the Other Type?" />
             </Field>
           )}
 
