@@ -354,3 +354,111 @@ export const recordPayAtHotelIntent = createServerFn({ method: "POST" })
     } as any);
     return { ok: true };
   });
+
+// ---------------------------------------------------------------------------
+// confirmRazorpayPayment (public) — client-side confirmation fallback.
+// Razorpay's checkout.js handler returns razorpay_order_id / payment_id /
+// signature. We verify HMAC_SHA256(order_id|payment_id, key_secret) === signature
+// and, if valid, insert a booking_payments row. Idempotent on razorpay_payment_id.
+// This complements the dashboard webhook so payments are never lost if the
+// webhook is misconfigured or delayed.
+// ---------------------------------------------------------------------------
+export const confirmRazorpayPayment = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z.object({
+      token: z.string().min(8).max(128),
+      razorpay_order_id: z.string().min(4).max(128),
+      razorpay_payment_id: z.string().min(4).max(128),
+      razorpay_signature: z.string().min(8).max(256),
+    }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    if (!keySecret || !keyId) throw new Error("Razorpay is not configured");
+
+    // Verify checkout signature
+    const { createHmac, timingSafeEqual } = await import("crypto");
+    const expected = createHmac("sha256", keySecret)
+      .update(`${data.razorpay_order_id}|${data.razorpay_payment_id}`)
+      .digest("hex");
+    const sig = Buffer.from(data.razorpay_signature);
+    const exp = Buffer.from(expected);
+    if (sig.length !== exp.length || !timingSafeEqual(sig, exp)) {
+      console.error("Razorpay confirm: signature mismatch", {
+        order: data.razorpay_order_id, payment: data.razorpay_payment_id,
+      });
+      throw new Error("Payment signature verification failed");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Validate token + booking
+    const { data: tok } = await supabaseAdmin
+      .from("booking_tokens")
+      .select("booking_id, revoked_at, expires_at")
+      .eq("token", data.token)
+      .maybeSingle();
+    if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
+      throw new Error("Link is invalid or expired");
+    }
+
+    // Idempotency — if we've already inserted this razorpay_payment_id, do nothing.
+    const { data: existing } = await supabaseAdmin
+      .from("booking_payments")
+      .select("id")
+      .eq("booking_id", (tok as any).booking_id)
+      .ilike("notes", `%${data.razorpay_payment_id}%`)
+      .limit(1)
+      .maybeSingle();
+    if (existing) return { ok: true, alreadyRecorded: true };
+
+    // Fetch payment details from Razorpay to get authoritative amount/method
+    const fetchRes = await fetch(
+      `https://api.razorpay.com/v1/payments/${encodeURIComponent(data.razorpay_payment_id)}`,
+      { headers: { Authorization: "Basic " + btoa(`${keyId}:${keySecret}`) } },
+    );
+    if (!fetchRes.ok) {
+      const txt = await fetchRes.text();
+      console.error("Razorpay payment fetch failed", fetchRes.status, txt);
+      throw new Error("Could not verify payment with Razorpay");
+    }
+    const payment = await fetchRes.json() as {
+      id: string; amount: number; status: string; method?: string; order_id: string;
+    };
+    if (payment.status !== "captured" && payment.status !== "authorized") {
+      throw new Error(`Payment not captured (status: ${payment.status})`);
+    }
+    if (payment.order_id !== data.razorpay_order_id) {
+      throw new Error("Order/payment mismatch");
+    }
+    const amountInr = Number(payment.amount) / 100;
+
+    const { data: booking } = await supabaseAdmin
+      .from("bookings")
+      .select("user_id, customer_id")
+      .eq("id", (tok as any).booking_id)
+      .maybeSingle();
+    if (!booking) throw new Error("Booking not found");
+
+    const modeMap: Record<string, string> = {
+      card: "Card", netbanking: "Bank Transfer", upi: "UPI", wallet: "UPI", emi: "Card",
+    };
+    const payment_mode = modeMap[String(payment.method || "")] || "UPI";
+
+    const { error: insErr } = await supabaseAdmin.from("booking_payments").insert({
+      booking_id: (tok as any).booking_id,
+      customer_id: (booking as any).customer_id,
+      amount: amountInr,
+      payment_mode,
+      collected_by: "Guest Portal",
+      occurred_at: new Date().toISOString(),
+      notes: `Razorpay ${data.razorpay_payment_id}`,
+      user_id: (booking as any).user_id,
+    } as any);
+    if (insErr) {
+      console.error("confirmRazorpayPayment insert failed", insErr);
+      throw new Error("Could not record payment");
+    }
+    return { ok: true, alreadyRecorded: false };
+  });
