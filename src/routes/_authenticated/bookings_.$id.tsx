@@ -364,7 +364,10 @@ function BookingDetail() {
                 return (
                   <div className="space-y-2">
                     {canCheckIn && (
-                      <button onClick={() => status.mutate("Checked-In" as any)}
+                      <button onClick={() => {
+                        if (!(b as any).room_id) { toast.error("Please assign a room before Check-In."); return; }
+                        status.mutate("Checked-In" as any);
+                      }}
                         className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal">
                         <LogIn className="h-3.5 w-3.5" /> Check-In
                       </button>
