@@ -209,7 +209,7 @@ function CashPage() {
             ) : (
               <div className="flex justify-center">
                 <div className="w-full max-w-sm">
-                  <StatCard label="Current Cash Balance" value={totals.balance} icon={Wallet} tone="gold" />
+                  <StatCard label="Current Cash Balance" value={totals.balance} icon={Wallet} tone="gold" centered />
                 </div>
               </div>
             )}
