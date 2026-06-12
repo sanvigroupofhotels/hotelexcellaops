@@ -157,11 +157,12 @@ function GuestPortal() {
             <Field label="Check-Out" value={b.checkOut} />
             <Field label="Room" value={b.roomType} />
             <Field label="Guests" value={String(b.guests)} />
-            <Field label="Room Total" value={inr(b.totalAmount)} />
-            {b.chargesTotal > 0 && <Field label="In-House Charges" value={inr(b.chargesTotal)} />}
             <Field label="Payable" value={inr(b.payable)} />
             <Field label="Paid" value={inr(b.advancePaid)} />
           </div>
+
+          <PricingBreakdown b={b} />
+          {b.charges && b.charges.length > 0 && <ChargesBreakdown charges={b.charges} total={b.chargesTotal} />}
         </div>
 
         {/* Profile Completion */}
