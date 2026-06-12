@@ -771,8 +771,8 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-5 w-5"/></button>
         </div>
         <div className="p-5 space-y-4">
-          {/* Row 1: Type + Amount */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Row 1: Type + Amount + Notes (reception's most-used trio) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label={kind==="collection"?"Collection Type":"Expense Type"} required>
               <select className={inputCls} value={typeName} onChange={e=>setTypeName(e.target.value)}>
                 {kind==="collection"
@@ -782,6 +782,9 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
             </Field>
             <Field label="Amount (₹)" required>
               <NumField value={amount || 0} min={0} decimal prefix="₹" onChange={(v)=>setAmount(v)} />
+            </Field>
+            <Field label="Notes">
+              <input className={inputCls} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Quick note (optional)" />
             </Field>
           </div>
           {isOther && (
