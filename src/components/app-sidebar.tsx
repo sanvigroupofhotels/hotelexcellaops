@@ -1,24 +1,26 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard, History, Bell, Calendar, BarChart3,
+  History, Bell, Calendar, BarChart3,
   Users, ListChecks, Menu, X, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
   MessageSquareWarning, Building2, DoorOpen, IndianRupee, Tag, Database, KeyRound,
+  Home, FileBarChart,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
 import { UserMenu } from "@/components/user-menu";
 
-type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean };
+type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; hideForStaff?: boolean };
 
 const nav: NavItem[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, adminOnly: true },
+  { to: "/", label: "Home", icon: Home },
   { to: "/customers", label: "Customers", icon: Users },
-  { to: "/history", label: "Quotes", icon: History },
+  { to: "/history", label: "Quotes", icon: History, hideForStaff: true },
   { to: "/bookings", label: "Bookings", icon: BedDouble },
   { to: "/house-view", label: "House View", icon: Building2 },
   { to: "/cash", label: "CashBook", icon: Wallet },
+  { to: "/reporting", label: "Reporting", icon: FileBarChart },
   { to: "/payments-reports", label: "Payments Reports", icon: IndianRupee, adminOnly: true },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
@@ -49,8 +51,12 @@ function Logo() {
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { isAdmin } = useUserRole();
-  const visible = nav.filter((n) => !n.adminOnly || isAdmin);
+  const { isAdmin, role } = useUserRole();
+  const visible = nav.filter((n) => {
+    if (n.adminOnly && !isAdmin) return false;
+    if (n.hideForStaff && role === "staff") return false;
+    return true;
+  });
   return (
     <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
       {visible.map((item, i) => {

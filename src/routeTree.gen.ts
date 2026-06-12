@@ -17,6 +17,7 @@ import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedRoomsRouteImport } from './routes/_authenticated/rooms'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedReportingRouteImport } from './routes/_authenticated/reporting'
 import { Route as AuthenticatedRatesRouteImport } from './routes/_authenticated/rates'
 import { Route as AuthenticatedPaymentsReportsRouteImport } from './routes/_authenticated/payments-reports'
 import { Route as AuthenticatedMasterDataRouteImport } from './routes/_authenticated/master-data'
@@ -78,6 +79,11 @@ const AuthenticatedRoomsRoute = AuthenticatedRoomsRouteImport.update({
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedReportingRoute = AuthenticatedReportingRouteImport.update({
+  id: '/reporting',
+  path: '/reporting',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedRatesRoute = AuthenticatedRatesRouteImport.update({
@@ -222,6 +228,7 @@ export interface FileRoutesByFullPath {
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/rates': typeof AuthenticatedRatesRoute
+  '/reporting': typeof AuthenticatedReportingRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/tasks': typeof AuthenticatedTasksRoute
@@ -253,6 +260,7 @@ export interface FileRoutesByTo {
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/rates': typeof AuthenticatedRatesRoute
+  '/reporting': typeof AuthenticatedReportingRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/tasks': typeof AuthenticatedTasksRoute
@@ -287,6 +295,7 @@ export interface FileRoutesById {
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
   '/_authenticated/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/_authenticated/rates': typeof AuthenticatedRatesRoute
+  '/_authenticated/reporting': typeof AuthenticatedReportingRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rooms': typeof AuthenticatedRoomsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
@@ -322,6 +331,7 @@ export interface FileRouteTypes {
     | '/master-data'
     | '/payments-reports'
     | '/rates'
+    | '/reporting'
     | '/reports'
     | '/rooms'
     | '/tasks'
@@ -353,6 +363,7 @@ export interface FileRouteTypes {
     | '/master-data'
     | '/payments-reports'
     | '/rates'
+    | '/reporting'
     | '/reports'
     | '/rooms'
     | '/tasks'
@@ -386,6 +397,7 @@ export interface FileRouteTypes {
     | '/_authenticated/master-data'
     | '/_authenticated/payments-reports'
     | '/_authenticated/rates'
+    | '/_authenticated/reporting'
     | '/_authenticated/reports'
     | '/_authenticated/rooms'
     | '/_authenticated/tasks'
@@ -465,6 +477,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/reporting': {
+      id: '/_authenticated/reporting'
+      path: '/reporting'
+      fullPath: '/reporting'
+      preLoaderRoute: typeof AuthenticatedReportingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/rates': {
@@ -647,6 +666,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
   AuthenticatedPaymentsReportsRoute: typeof AuthenticatedPaymentsReportsRoute
   AuthenticatedRatesRoute: typeof AuthenticatedRatesRoute
+  AuthenticatedReportingRoute: typeof AuthenticatedReportingRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRoomsRoute: typeof AuthenticatedRoomsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
@@ -677,6 +697,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
   AuthenticatedPaymentsReportsRoute: AuthenticatedPaymentsReportsRoute,
   AuthenticatedRatesRoute: AuthenticatedRatesRoute,
+  AuthenticatedReportingRoute: AuthenticatedReportingRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRoomsRoute: AuthenticatedRoomsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
