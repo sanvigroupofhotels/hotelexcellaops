@@ -86,11 +86,6 @@ const AuthenticatedReportingRoute = AuthenticatedReportingRouteImport.update({
   path: '/reporting',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedReportingRoute = AuthenticatedReportingRouteImport.update({
-  id: '/reporting',
-  path: '/reporting',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedRatesRoute = AuthenticatedRatesRouteImport.update({
   id: '/rates',
   path: '/rates',
@@ -235,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/rates': typeof AuthenticatedRatesRoute
   '/reporting': typeof AuthenticatedReportingRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/reporting': typeof AuthenticatedReportingRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
