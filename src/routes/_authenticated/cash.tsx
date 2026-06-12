@@ -101,6 +101,48 @@ function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
   downloadCSV(`cash-${range}-${toLocalYMD()}.csv`, rows);
   toast.success("Exported");
 }
+/** Build a WhatsApp-friendly cash report summary for a given calendar day. */
+function buildDailyReport(tx: CashTxRow[], day: Date, openingBalance: number) {
+  const ymdKey = ymd(day);
+  const dayTx = tx.filter((t) => t.active && ymd(new Date(t.occurred_at)) === ymdKey);
+  const income = dayTx.filter((t) => t.kind === "collection");
+  const expense = dayTx.filter((t) => t.kind === "expense");
+  const totalIn = income.reduce((s, t) => s + Number(t.amount), 0);
+  const totalOut = expense.reduce((s, t) => s + Number(t.amount), 0);
+  const closing = openingBalance + totalIn - totalOut;
+  const fmt = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
+  const dateLabel = day.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const lines: string[] = [];
+  lines.push(`Cash Report – ${dateLabel}`);
+  lines.push("");
+  lines.push(`Opening Balance:`);
+  lines.push(fmt(openingBalance));
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+  lines.push("Income Today:");
+  if (income.length === 0) lines.push("(none)");
+  else for (const t of income) lines.push(`${fmt(Number(t.amount))} - ${t.type_name}${t.description ? ` (${t.description})` : ""}`);
+  lines.push("");
+  lines.push(`Total Income:`);
+  lines.push(fmt(totalIn));
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+  lines.push("Expenses Today:");
+  if (expense.length === 0) lines.push("(none)");
+  else for (const t of expense) lines.push(`${fmt(Number(t.amount))} - ${t.type_name}${t.description ? ` (${t.description})` : ""}`);
+  lines.push("");
+  lines.push(`Total Expenses:`);
+  lines.push(fmt(totalOut));
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+  lines.push(`Current Cash Balance:`);
+  lines.push(fmt(closing));
+  return lines.join("\n");
+}
+
 
 function CashPage() {
   const { isAdmin, canManage } = useUserRole();
