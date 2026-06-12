@@ -72,3 +72,22 @@ export function smartArrival(iso: string | null | undefined): { label: string; t
   const date = t.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
   return { label: `Expected ${date} ${time}`, tone: "warning" };
 }
+
+/**
+ * Human-friendly ledger timestamp.
+ *   Today        → "Today, 10:30 AM"
+ *   Yesterday    → "Yesterday, 09:15 PM"
+ *   Older        → "14 Jun 2026, 05:30 PM"
+ */
+export function smartDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const dYmd = toLocalYMD(d);
+  const nYmd = toLocalYMD(new Date());
+  if (dYmd === nYmd) return `Today, ${time}`;
+  if (dYmd === localYMDOffset(-1)) return `Yesterday, ${time}`;
+  const date = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return `${date}, ${time}`;
+}

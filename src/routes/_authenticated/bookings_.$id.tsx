@@ -345,6 +345,29 @@ function BookingDetail() {
               </div>
             )}
 
+            {/* Assigned room — placed above Status: operationally more important */}
+            <div className="luxe-card rounded-xl p-5">
+              <h4 className="font-display text-lg mb-2 flex items-center gap-2"><DoorOpen className="h-4 w-4 text-gold" /> Room Assignment</h4>
+              {(() => {
+                const room = rooms.find((r: any) => r.id === (b as any).room_id);
+                return room ? (
+                  <>
+                    <div className="text-sm">Room <span className="font-medium">{room.room_number}</span> · {room.room_type} · Floor {room.floor}</div>
+                    <button onClick={() => { setPickedRoomId((b as any).room_id ?? ""); setAssignRoomOpen(true); }}
+                      className="text-[11px] text-gold hover:underline mt-2 inline-block">Change room →</button>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-xs text-warning italic mb-2">No room assigned — required before Check-In</div>
+                    <button onClick={() => { setPickedRoomId(""); setAssignRoomOpen(true); }}
+                      className="inline-flex items-center gap-2 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">
+                      <DoorOpen className="h-3.5 w-3.5" /> Assign Room
+                    </button>
+                  </>
+                );
+              })()}
+            </div>
+
             <div className="luxe-card rounded-xl p-5">
               <h4 className="font-display text-lg mb-3">Status</h4>
               <div className="mb-3">
@@ -365,7 +388,12 @@ function BookingDetail() {
                   <div className="space-y-2">
                     {canCheckIn && (
                       <button onClick={() => {
-                        if (!(b as any).room_id) { toast.error("Please assign a room before Check-In."); return; }
+                        if (!(b as any).room_id) {
+                          setPickedRoomId("");
+                          setAssignRoomOpen(true);
+                          toast.info("Assign a room to continue Check-In");
+                          return;
+                        }
                         status.mutate("Checked-In" as any);
                       }}
                         className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal">
@@ -404,33 +432,6 @@ function BookingDetail() {
                       Payment status (Pending / Advance Paid / Full Paid) is set automatically from collected payments.
                     </p>
                   </div>
-                );
-              })()}
-            </div>
-
-            {/* (Activity moved to the bottom of the page — see below) */}
-
-
-
-            {/* Assigned room */}
-            <div className="luxe-card rounded-xl p-5">
-              <h4 className="font-display text-lg mb-2 flex items-center gap-2"><DoorOpen className="h-4 w-4 text-gold" /> Room Assignment</h4>
-              {(() => {
-                const room = rooms.find((r: any) => r.id === (b as any).room_id);
-                return room ? (
-                  <>
-                    <div className="text-sm">Room <span className="font-medium">{room.room_number}</span> · {room.room_type} · Floor {room.floor}</div>
-                    <button onClick={() => { setPickedRoomId((b as any).room_id ?? ""); setAssignRoomOpen(true); }}
-                      className="text-[11px] text-gold hover:underline mt-2 inline-block">Change room →</button>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-xs text-warning italic mb-2">No room assigned — required before Check-In</div>
-                    <button onClick={() => { setPickedRoomId(""); setAssignRoomOpen(true); }}
-                      className="inline-flex items-center gap-2 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">
-                      <DoorOpen className="h-3.5 w-3.5" /> Assign Room
-                    </button>
-                  </>
                 );
               })()}
             </div>

@@ -19,7 +19,7 @@ import {
   Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download, Printer,
   Pencil, PowerOff, Power, Clock, User as UserIcon,
 } from "lucide-react";
-import { cn, toLocalYMD } from "@/lib/utils";
+import { cn, toLocalYMD, smartDateTime } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
 import { NumField } from "@/components/num-field";
 
@@ -207,8 +207,10 @@ function CashPage() {
                 <StatCard label="Total Paid to Owner" value={totals.ownerPaid} icon={ArrowUpCircle} tone="gold" />
               </div>
             ) : (
-              <div className="grid grid-cols-1">
-                <StatCard label="Current Cash Balance" value={totals.balance} icon={Wallet} tone="gold" />
+              <div className="flex justify-center">
+                <div className="w-full max-w-sm">
+                  <StatCard label="Current Cash Balance" value={totals.balance} icon={Wallet} tone="gold" />
+                </div>
               </div>
             )}
 
@@ -318,12 +320,14 @@ function SimpleHistory({ tx, allTx, isAdmin, canManage, onEdit, onOpen }: {
         <table className="w-full text-sm min-w-[920px]">
           <thead className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
             <tr>
-              <th className="px-3 py-2">Date</th><th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Category</th><th className="px-3 py-2">Guest</th>
-              <th className="px-3 py-2">Entered By</th>
+              <th className="px-3 py-2">Date</th>
+              <th className="px-3 py-2">Type</th>
+              <th className="px-3 py-2">Category</th>
               <th className="px-3 py-2 text-right">Amount</th>
               <th className="px-3 py-2 text-right">Balance</th>
               <th className="px-3 py-2">Notes</th>
+              <th className="px-3 py-2">Guest</th>
+              <th className="px-3 py-2">Entered By</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
@@ -331,11 +335,13 @@ function SimpleHistory({ tx, allTx, isAdmin, canManage, onEdit, onOpen }: {
             {tx.length === 0 && (<tr><td colSpan={9} className="text-center text-muted-foreground py-8">No transactions</td></tr>)}
             {tx.map(t => (
               <tr key={t.id} className={cn("border-b border-border/60 hover:bg-secondary/40", !t.active && "opacity-50")}>
-                <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{new Date(t.occurred_at).toLocaleString("en-IN",{dateStyle:"short",timeStyle:"short"})}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{smartDateTime(t.occurred_at)}</td>
                 <td className="px-3 py-2">
-                  <span className={cn("text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5",
-                    t.kind==="collection" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
-                    {t.kind==="collection"?"In":"Out"}
+                  <span className={cn("text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-bold border",
+                    t.kind==="collection"
+                      ? "bg-success/25 text-success border-success/40"
+                      : "bg-destructive/25 text-destructive border-destructive/40")}>
+                    {t.kind==="collection"?"IN":"OUT"}
                   </span>
                   {!t.active && <span className="ml-1 text-[9px] uppercase text-muted-foreground">Inactive</span>}
                 </td>
@@ -344,11 +350,6 @@ function SimpleHistory({ tx, allTx, isAdmin, canManage, onEdit, onOpen }: {
                   {t.description ? <span className="block text-[10px] text-muted-foreground">{t.description}</span> : null}
                   {t.booking_id && <Link to="/bookings/$id" params={{id:t.booking_id}} className="block text-[10px] text-gold hover:underline">View booking</Link>}
                 </td>
-                <td className="px-3 py-2">
-                  {t.guest_name ?? "—"}
-                  {t.guest_mobile && <span className="block text-[10px] text-muted-foreground">{t.guest_mobile}</span>}
-                </td>
-                <td className="px-3 py-2 text-[11px]">{t.staff_name ?? "—"}</td>
                 <td className={cn("px-3 py-2 text-right font-medium tabular-nums",
                   t.kind==="collection" ? "text-success" : "text-destructive")}>
                   {t.kind==="collection"?"+":"-"}₹{Number(t.amount).toLocaleString("en-IN")}
@@ -363,9 +364,14 @@ function SimpleHistory({ tx, allTx, isAdmin, canManage, onEdit, onOpen }: {
                     </span>
                   ) : <span className="text-muted-foreground/60">—</span>}
                 </td>
-                <td className="px-3 py-2 text-[11px] text-muted-foreground max-w-[160px] truncate" title={t.notes ?? ""}>
+                <td className="px-3 py-2 text-[11px] text-muted-foreground max-w-[180px] truncate" title={t.notes ?? ""}>
                   {t.notes && t.notes.trim() ? t.notes : "—"}
                 </td>
+                <td className="px-3 py-2">
+                  {t.guest_name ?? "—"}
+                  {t.guest_mobile && <span className="block text-[10px] text-muted-foreground">{t.guest_mobile}</span>}
+                </td>
+                <td className="px-3 py-2 text-[11px]">{t.staff_name ?? "—"}</td>
                 <td className="px-3 py-2">
                   <div className="flex items-center justify-end gap-1">
                     <button title="View / activity" onClick={()=>onOpen(t)} className="p-1 text-muted-foreground hover:text-foreground"><HistoryIcon className="h-4 w-4"/></button>
@@ -769,8 +775,8 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-5 w-5"/></button>
         </div>
         <div className="p-5 space-y-4">
-          {/* Row 1: Type + Amount */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Row 1: Type + Amount + Notes (reception's most-used trio) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label={kind==="collection"?"Collection Type":"Expense Type"} required>
               <select className={inputCls} value={typeName} onChange={e=>setTypeName(e.target.value)}>
                 {kind==="collection"
@@ -780,6 +786,9 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
             </Field>
             <Field label="Amount (₹)" required>
               <NumField value={amount || 0} min={0} decimal prefix="₹" onChange={(v)=>setAmount(v)} />
+            </Field>
+            <Field label="Notes">
+              <input className={inputCls} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Quick note (optional)" />
             </Field>
           </div>
           {isOther && (
@@ -828,20 +837,12 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
               <Field label="Mobile Number" required>
                 <input className={inputCls} inputMode="tel" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
               </Field>
-              <Field label="Notes">
-                <textarea rows={2} className={cn(inputCls,"resize-none")} value={notes} onChange={e=>setNotes(e.target.value)} />
-              </Field>
               <Field label="Room Number">
                 <input className={inputCls} value={roomNumber} onChange={e=>setRoomNumber(e.target.value)} />
               </Field>
             </>
           )}
 
-          {kind==="expense" && (
-            <Field label="Notes">
-              <textarea rows={2} className={cn(inputCls,"resize-none")} value={notes} onChange={e=>setNotes(e.target.value)} />
-            </Field>
-          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label={kind==="collection"?"Collected By":"Paid By"} required>
