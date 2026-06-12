@@ -320,12 +320,14 @@ function SimpleHistory({ tx, allTx, isAdmin, canManage, onEdit, onOpen }: {
         <table className="w-full text-sm min-w-[920px]">
           <thead className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
             <tr>
-              <th className="px-3 py-2">Date</th><th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Category</th><th className="px-3 py-2">Guest</th>
-              <th className="px-3 py-2">Entered By</th>
+              <th className="px-3 py-2">Date</th>
+              <th className="px-3 py-2">Type</th>
+              <th className="px-3 py-2">Category</th>
               <th className="px-3 py-2 text-right">Amount</th>
               <th className="px-3 py-2 text-right">Balance</th>
               <th className="px-3 py-2">Notes</th>
+              <th className="px-3 py-2">Guest</th>
+              <th className="px-3 py-2">Entered By</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
@@ -333,11 +335,13 @@ function SimpleHistory({ tx, allTx, isAdmin, canManage, onEdit, onOpen }: {
             {tx.length === 0 && (<tr><td colSpan={9} className="text-center text-muted-foreground py-8">No transactions</td></tr>)}
             {tx.map(t => (
               <tr key={t.id} className={cn("border-b border-border/60 hover:bg-secondary/40", !t.active && "opacity-50")}>
-                <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{new Date(t.occurred_at).toLocaleString("en-IN",{dateStyle:"short",timeStyle:"short"})}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{smartDateTime(t.occurred_at)}</td>
                 <td className="px-3 py-2">
-                  <span className={cn("text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5",
-                    t.kind==="collection" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
-                    {t.kind==="collection"?"In":"Out"}
+                  <span className={cn("text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-bold border",
+                    t.kind==="collection"
+                      ? "bg-success/25 text-success border-success/40"
+                      : "bg-destructive/25 text-destructive border-destructive/40")}>
+                    {t.kind==="collection"?"IN":"OUT"}
                   </span>
                   {!t.active && <span className="ml-1 text-[9px] uppercase text-muted-foreground">Inactive</span>}
                 </td>
@@ -346,11 +350,6 @@ function SimpleHistory({ tx, allTx, isAdmin, canManage, onEdit, onOpen }: {
                   {t.description ? <span className="block text-[10px] text-muted-foreground">{t.description}</span> : null}
                   {t.booking_id && <Link to="/bookings/$id" params={{id:t.booking_id}} className="block text-[10px] text-gold hover:underline">View booking</Link>}
                 </td>
-                <td className="px-3 py-2">
-                  {t.guest_name ?? "—"}
-                  {t.guest_mobile && <span className="block text-[10px] text-muted-foreground">{t.guest_mobile}</span>}
-                </td>
-                <td className="px-3 py-2 text-[11px]">{t.staff_name ?? "—"}</td>
                 <td className={cn("px-3 py-2 text-right font-medium tabular-nums",
                   t.kind==="collection" ? "text-success" : "text-destructive")}>
                   {t.kind==="collection"?"+":"-"}₹{Number(t.amount).toLocaleString("en-IN")}
@@ -365,9 +364,14 @@ function SimpleHistory({ tx, allTx, isAdmin, canManage, onEdit, onOpen }: {
                     </span>
                   ) : <span className="text-muted-foreground/60">—</span>}
                 </td>
-                <td className="px-3 py-2 text-[11px] text-muted-foreground max-w-[160px] truncate" title={t.notes ?? ""}>
+                <td className="px-3 py-2 text-[11px] text-muted-foreground max-w-[180px] truncate" title={t.notes ?? ""}>
                   {t.notes && t.notes.trim() ? t.notes : "—"}
                 </td>
+                <td className="px-3 py-2">
+                  {t.guest_name ?? "—"}
+                  {t.guest_mobile && <span className="block text-[10px] text-muted-foreground">{t.guest_mobile}</span>}
+                </td>
+                <td className="px-3 py-2 text-[11px]">{t.staff_name ?? "—"}</td>
                 <td className="px-3 py-2">
                   <div className="flex items-center justify-end gap-1">
                     <button title="View / activity" onClick={()=>onOpen(t)} className="p-1 text-muted-foreground hover:text-foreground"><HistoryIcon className="h-4 w-4"/></button>
