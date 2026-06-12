@@ -162,6 +162,18 @@ function BookingDetail() {
   const [revertOutReason, setRevertOutReason] = useState("");
   const [addPaymentForCheckoutOpen, setAddPaymentForCheckoutOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [assignRoomOpen, setAssignRoomOpen] = useState(false);
+  const [pickedRoomId, setPickedRoomId] = useState<string>("");
+
+  const assignRoom = useMutation({
+    mutationFn: async (roomId: string) => {
+      const { error } = await supabase.from("bookings" as any).update({ room_id: roomId } as any).eq("id", id);
+      if (error) throw error;
+      await logBookingActivity({ booking_id: id, action: "reactivated", from_status: b?.status ?? null, to_status: b?.status ?? null, notes: `Room assigned` });
+    },
+    onSuccess: () => { invalidateAll(); setAssignRoomOpen(false); setPickedRoomId(""); toast.success("Room assigned"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not assign room"),
+  });
 
   const { data: payments = [] } = useQuery({
     queryKey: ["booking-payments", id],
