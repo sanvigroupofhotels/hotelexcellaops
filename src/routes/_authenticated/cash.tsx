@@ -212,8 +212,8 @@ function CashPage() {
               </div>
             )}
 
-            {/* Primary actions — Add Income / Add Expense side-by-side; View Reports admin-only */}
-            <div className={cn("grid gap-3", isAdmin ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2")}>
+            {/* Primary actions */}
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
               <button onClick={()=>setOpenForm({ kind: "collection" })}
                 className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                 style={{ background: "linear-gradient(135deg, oklch(0.65 0.18 150), oklch(0.55 0.18 150))" }}>
@@ -223,6 +223,27 @@ function CashPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                 style={{ background: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.52 0.22 25))" }}>
                 <ArrowUpCircle className="h-4 w-4"/> Add Expense
+              </button>
+              <button onClick={async () => {
+                  try {
+                    // Opening balance = net of all active transactions BEFORE today
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const todayKey = ymd(today);
+                    let opening = 0;
+                    for (const t of tx) {
+                      if (!t.active) continue;
+                      if (ymd(new Date(t.occurred_at)) >= todayKey) continue;
+                      opening += t.kind === "collection" ? Number(t.amount) : -Number(t.amount);
+                    }
+                    const report = buildDailyReport(tx, today, opening);
+                    await navigator.clipboard.writeText(report);
+                    toast.success("Today's report copied to clipboard.");
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Could not copy report");
+                  }
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-3 text-sm hover:bg-gold-soft/50">
+                📋 Copy Today's Report
               </button>
               {isAdmin && (
                 <button onClick={() => setReportsOpen(true)}
