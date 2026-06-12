@@ -5,7 +5,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare, Save } from "lucide-react";
+import { Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare, Save, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   getPortalBooking,
@@ -157,11 +157,12 @@ function GuestPortal() {
             <Field label="Check-Out" value={b.checkOut} />
             <Field label="Room" value={b.roomType} />
             <Field label="Guests" value={String(b.guests)} />
-            <Field label="Room Total" value={inr(b.totalAmount)} />
-            {b.chargesTotal > 0 && <Field label="In-House Charges" value={inr(b.chargesTotal)} />}
             <Field label="Payable" value={inr(b.payable)} />
             <Field label="Paid" value={inr(b.advancePaid)} />
           </div>
+
+          <PricingBreakdown b={b} />
+          {b.charges && b.charges.length > 0 && <ChargesBreakdown charges={b.charges} total={b.chargesTotal} />}
         </div>
 
         {/* Profile Completion */}
@@ -349,3 +350,67 @@ function Input({ label, icon, value, onChange, type = "text" }: {
     </label>
   );
 }
+
+function PricingBreakdown({ b }: { b: any }) {
+  const [open, setOpen] = useState(false);
+  const taxRate = Number(b.taxRate || 0);
+  const taxPct = taxRate > 0 ? Math.round(taxRate * 100) : null;
+  const taxableAmount = Number(b.subtotal || 0);
+  const taxes = Number(b.taxes || 0);
+  const balance = Number(b.balanceDue || 0);
+  return (
+    <div className="mt-4 border-t border-border/40 pt-3">
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between text-xs font-medium text-gold hover:text-gold/80">
+        <span className="inline-flex items-center gap-1.5"><ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} /> View Detailed Breakdown</span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-1.5 text-xs">
+          <Row label="Room Charges" value={inr(b.roomCharges || 0)} />
+          {b.additionalStay > 0 && <Row label="Additional Stay Charges" value={inr(b.additionalStay)} />}
+          {b.chargesTotal > 0 && <Row label="In-House Charges" value={inr(b.chargesTotal)} />}
+          <Row label="Taxable Amount" value={inr(taxableAmount + (b.chargesTotal || 0))} />
+          <Row label={`Tax${taxPct ? ` (${taxPct}%)` : ""}${b.taxesIncluded ? " · included" : ""}`} value={inr(taxes)} />
+          <Row label="Final Amount" value={inr(b.payable)} strong />
+          <Row label="Amount Paid" value={inr(b.advancePaid)} />
+          <Row label="Balance Due" value={inr(balance)} strong tone={balance > 0 ? "warning" : "success"} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChargesBreakdown({ charges, total }: { charges: any[]; total: number }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-3 border-t border-border/40 pt-3">
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between text-xs font-medium hover:text-gold">
+        <span className="inline-flex items-center gap-1.5"><ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} /> In-House Charges {inr(total)}</span>
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">View Charges</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-1.5 text-xs">
+          {charges.map((c) => (
+            <div key={c.id} className="flex items-center justify-between border-b border-border/40 pb-1.5 last:border-0">
+              <div className="min-w-0">
+                <div className="font-medium truncate">{c.category}{c.description ? ` — ${c.description}` : ""}</div>
+                <div className="text-[10px] text-muted-foreground">Qty {c.quantity} × {inr(c.unitPrice)}</div>
+              </div>
+              <div className="tabular-nums">{inr(c.amount)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Row({ label, value, strong, tone }: { label: string; value: string; strong?: boolean; tone?: "warning" | "success" }) {
+  const toneCls = tone === "warning" ? "text-warning" : tone === "success" ? "text-emerald-600" : "";
+  return (
+    <div className={`flex justify-between ${strong ? "font-medium" : "text-muted-foreground"}`}>
+      <span>{label}</span>
+      <span className={`tabular-nums ${toneCls}`}>{value}</span>
+    </div>
+  );
+}
+

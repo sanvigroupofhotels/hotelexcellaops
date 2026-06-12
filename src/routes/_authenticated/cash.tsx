@@ -101,6 +101,48 @@ function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
   downloadCSV(`cash-${range}-${toLocalYMD()}.csv`, rows);
   toast.success("Exported");
 }
+/** Build a WhatsApp-friendly cash report summary for a given calendar day. */
+function buildDailyReport(tx: CashTxRow[], day: Date, openingBalance: number) {
+  const ymdKey = ymd(day);
+  const dayTx = tx.filter((t) => t.active && ymd(new Date(t.occurred_at)) === ymdKey);
+  const income = dayTx.filter((t) => t.kind === "collection");
+  const expense = dayTx.filter((t) => t.kind === "expense");
+  const totalIn = income.reduce((s, t) => s + Number(t.amount), 0);
+  const totalOut = expense.reduce((s, t) => s + Number(t.amount), 0);
+  const closing = openingBalance + totalIn - totalOut;
+  const fmt = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
+  const dateLabel = day.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const lines: string[] = [];
+  lines.push(`Cash Report – ${dateLabel}`);
+  lines.push("");
+  lines.push(`Opening Balance:`);
+  lines.push(fmt(openingBalance));
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+  lines.push("Income Today:");
+  if (income.length === 0) lines.push("(none)");
+  else for (const t of income) lines.push(`${fmt(Number(t.amount))} - ${t.type_name}${t.description ? ` (${t.description})` : ""}`);
+  lines.push("");
+  lines.push(`Total Income:`);
+  lines.push(fmt(totalIn));
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+  lines.push("Expenses Today:");
+  if (expense.length === 0) lines.push("(none)");
+  else for (const t of expense) lines.push(`${fmt(Number(t.amount))} - ${t.type_name}${t.description ? ` (${t.description})` : ""}`);
+  lines.push("");
+  lines.push(`Total Expenses:`);
+  lines.push(fmt(totalOut));
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+  lines.push(`Current Cash Balance:`);
+  lines.push(fmt(closing));
+  return lines.join("\n");
+}
+
 
 function CashPage() {
   const { isAdmin, canManage } = useUserRole();
@@ -170,8 +212,8 @@ function CashPage() {
               </div>
             )}
 
-            {/* Primary actions — Add Income / Add Expense side-by-side; View Reports admin-only */}
-            <div className={cn("grid gap-3", isAdmin ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2")}>
+            {/* Primary actions */}
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
               <button onClick={()=>setOpenForm({ kind: "collection" })}
                 className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                 style={{ background: "linear-gradient(135deg, oklch(0.65 0.18 150), oklch(0.55 0.18 150))" }}>
@@ -181,6 +223,27 @@ function CashPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                 style={{ background: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.52 0.22 25))" }}>
                 <ArrowUpCircle className="h-4 w-4"/> Add Expense
+              </button>
+              <button onClick={async () => {
+                  try {
+                    // Opening balance = net of all active transactions BEFORE today
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const todayKey = ymd(today);
+                    let opening = 0;
+                    for (const t of tx) {
+                      if (!t.active) continue;
+                      if (ymd(new Date(t.occurred_at)) >= todayKey) continue;
+                      opening += t.kind === "collection" ? Number(t.amount) : -Number(t.amount);
+                    }
+                    const report = buildDailyReport(tx, today, opening);
+                    await navigator.clipboard.writeText(report);
+                    toast.success("Today's report copied to clipboard.");
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Could not copy report");
+                  }
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-3 text-sm hover:bg-gold-soft/50">
+                📋 Copy Today's Report
               </button>
               {isAdmin && (
                 <button onClick={() => setReportsOpen(true)}
@@ -706,13 +769,19 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-5 w-5"/></button>
         </div>
         <div className="p-5 space-y-4">
-          <Field label={kind==="collection"?"Collection Type":"Expense Type"} required>
-            <select className={inputCls} value={typeName} onChange={e=>setTypeName(e.target.value)}>
-              {kind==="collection"
-                ? incomeTypes.map(t => <option key={t}>{t}</option>)
-                : etypes.map(t => <option key={t.id}>{t.name}</option>)}
-            </select>
-          </Field>
+          {/* Row 1: Type + Amount */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label={kind==="collection"?"Collection Type":"Expense Type"} required>
+              <select className={inputCls} value={typeName} onChange={e=>setTypeName(e.target.value)}>
+                {kind==="collection"
+                  ? incomeTypes.map(t => <option key={t}>{t}</option>)
+                  : etypes.map(t => <option key={t.id}>{t.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Amount (₹)" required>
+              <NumField value={amount || 0} min={0} decimal prefix="₹" onChange={(v)=>setAmount(v)} />
+            </Field>
+          </div>
           {isOther && (
             <Field label="What's the Other Type?" required>
               <input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)}
@@ -722,17 +791,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
 
           {kind==="collection" && !isOther && (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Guest Name" required>
-                  <input className={inputCls} value={guestName} onChange={e=>setGuestName(e.target.value)} />
-                </Field>
-                <Field label="Guest Mobile" required>
-                  <input className={inputCls} inputMode="tel" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
-                </Field>
-              </div>
-              <Field label="Room Number">
-                <input className={inputCls} value={roomNumber} onChange={e=>setRoomNumber(e.target.value)} />
-              </Field>
+              {/* Row 2: Related Booking */}
               <Field label="Related Booking (optional)">
                 {selectedBooking ? (
                   <div className="flex items-center justify-between rounded-md border border-gold/30 bg-gold-soft/30 px-3 py-2 text-xs">
@@ -762,7 +821,26 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
                   </>
                 )}
               </Field>
+
+              <Field label="Guest Name" required>
+                <input className={inputCls} value={guestName} onChange={e=>setGuestName(e.target.value)} />
+              </Field>
+              <Field label="Mobile Number" required>
+                <input className={inputCls} inputMode="tel" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
+              </Field>
+              <Field label="Notes">
+                <textarea rows={2} className={cn(inputCls,"resize-none")} value={notes} onChange={e=>setNotes(e.target.value)} />
+              </Field>
+              <Field label="Room Number">
+                <input className={inputCls} value={roomNumber} onChange={e=>setRoomNumber(e.target.value)} />
+              </Field>
             </>
+          )}
+
+          {kind==="expense" && (
+            <Field label="Notes">
+              <textarea rows={2} className={cn(inputCls,"resize-none")} value={notes} onChange={e=>setNotes(e.target.value)} />
+            </Field>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -773,17 +851,10 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
               </select>
               {staff.length===0 && <p className="text-[10px] text-muted-foreground mt-1">No active staff. Ask an admin to add staff.</p>}
             </Field>
-            <Field label="Amount (₹)" required>
-              <NumField value={amount || 0} min={0} decimal prefix="₹" onChange={(v)=>setAmount(v)} />
+            <Field label="Date & Time">
+              <input type="datetime-local" className={inputCls} value={occurredAt} onChange={e=>setOccurredAt(e.target.value)} />
             </Field>
           </div>
-
-          <Field label="Notes">
-            <textarea rows={2} className={cn(inputCls,"resize-none")} value={notes} onChange={e=>setNotes(e.target.value)} />
-          </Field>
-          <Field label="Date & Time">
-            <input type="datetime-local" className={inputCls} value={occurredAt} onChange={e=>setOccurredAt(e.target.value)} />
-          </Field>
         </div>
         <div className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex gap-2 justify-end">
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-md border border-border">Cancel</button>

@@ -7,7 +7,7 @@ import { listBookings } from "@/lib/bookings-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban } from "lucide-react";
-import { cn, toLocalYMD } from "@/lib/utils";
+import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
 import { toast } from "sonner";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { InvoiceDialog } from "@/components/invoice-dialog";
@@ -508,9 +508,10 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
           <Field label="Check-Out" value={fmtFull(b.check_out)} />
           <Field label="Guests" value={`${b.adults} Adult${b.adults === 1 ? "" : "s"}${b.children ? ` + ${b.children}` : ""}`} />
           <Field label="Breakfast" value={hasBreakfast ? "Included" : "Not Included"} />
-          {(b as any).expected_arrival_at && b.status !== "Checked-In" && b.status !== "Checked-Out" && b.status !== "Stay Completed" && (
-            <Field label="Expected Arrival" value={new Date((b as any).expected_arrival_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })} />
-          )}
+          {(b as any).expected_arrival_at && b.status !== "Checked-In" && b.status !== "Checked-Out" && b.status !== "Stay Completed" && (() => {
+            const arr = smartArrival((b as any).expected_arrival_at);
+            return arr ? <Field label="Expected Arrival" value={arr.label.replace(/^Arr: /, "")} /> : null;
+          })()}
           {b.phone && <Field label="Mobile" value={b.phone} icon={<Phone className="h-3 w-3" />} />}
         </div>
         {(b as any).special_requests && (

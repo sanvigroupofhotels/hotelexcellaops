@@ -126,11 +126,11 @@ function BookingsPage() {
           </Link>
         </div>
 
-        {/* Summary chips */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <Chip icon={Hotel} label="In House" count={sections.inHouse.length} tone="success" onClick={() => scrollTo(inHouseRef)} />
-          <Chip icon={Sunrise} label="Today's Arrivals" count={sections.today.length} tone="gold" onClick={() => scrollTo(todayRef)} />
-          <Chip icon={CalendarRange} label="Upcoming" count={sections.upcoming.length} tone="info" onClick={() => scrollTo(upcomingRef)} />
+        {/* Summary chips — single row on mobile, compact */}
+        <div className={cn("grid gap-1.5 md:gap-2", canManage ? "grid-cols-4" : "grid-cols-3")}>
+          <Chip icon={Hotel} label="In-House" count={sections.inHouse.length} tone="success" onClick={() => scrollTo(inHouseRef)} />
+          <Chip icon={Sunrise} label="Arriving" count={sections.today.length} tone="gold" onClick={() => scrollTo(todayRef)} />
+          <Chip icon={CalendarRange} label="Future" count={sections.upcoming.length} tone="info" onClick={() => scrollTo(upcomingRef)} />
           {canManage && (
             <Chip icon={HistoryIcon} label="Past" count={sections.past.length} tone="muted" onClick={() => scrollTo(pastRef)} />
           )}
@@ -185,11 +185,11 @@ function Chip({ icon: Icon, label, count, tone, onClick }: {
     "text-muted-foreground border-border bg-card";
   return (
     <button onClick={onClick}
-      className={cn("flex items-center justify-between gap-2 px-3 py-2.5 rounded-md border text-left transition hover:scale-[1.01]", toneCls)}>
-      <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-wider">
-        <Icon className="h-3.5 w-3.5" /> {label}
+      className={cn("flex items-center justify-between gap-1 px-1.5 py-1.5 md:px-3 md:py-2.5 rounded-md border text-left transition hover:scale-[1.01] min-w-0", toneCls)}>
+      <span className="inline-flex items-center gap-1 md:gap-2 text-[9px] md:text-[11px] uppercase tracking-wider min-w-0">
+        <Icon className="h-3 w-3 md:h-3.5 md:w-3.5 shrink-0" /> <span className="truncate">{label}</span>
       </span>
-      <span className="font-display text-lg tabular-nums">{count}</span>
+      <span className="font-display text-sm md:text-lg tabular-nums shrink-0">{count}</span>
     </button>
   );
 }
@@ -234,7 +234,7 @@ function Section({ refEl, title, icon: Icon, bookings, chargeTotals, completedBy
                     <div className="text-sm font-medium truncate">{b.guest_name}</div>
                     {isReturning && (
                       <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-gold/90 font-medium">
-                        <Repeat className="h-2.5 w-2.5" /> Returning Guest ({priorCompleted} stay{priorCompleted === 1 ? "" : "s"})
+                        <Repeat className="h-2.5 w-2.5" /> Returning Guest ({priorCompleted} stay{priorCompleted === 1 ? "" : "s"} past)
                       </div>
                     )}
                     <div className="mt-1">

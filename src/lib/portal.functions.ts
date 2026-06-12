@@ -87,7 +87,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     const { data: b, error: bErr } = await supabaseAdmin
       .from("bookings")
       .select(
-        "id, customer_id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel, expected_arrival_at, emergency_contact_name, emergency_contact_phone, special_requests",
+        "id, customer_id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, subtotal, taxes, tax_rate, taxes_included, total_override, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel, expected_arrival_at, emergency_contact_name, emergency_contact_phone, special_requests",
       )
       .eq("id", tok.booking_id)
       .maybeSingle();
@@ -110,17 +110,39 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     if (!ecName) ecName = (b as any).emergency_contact_name ?? "";
     if (!ecPhone) ecPhone = (b as any).emergency_contact_phone ?? "";
 
-    // Pull in-house charges total to surface in the portal balance
-    const { data: charges } = await supabaseAdmin
+    // Pull in-house charges (full breakdown) + total
+    const { data: chargeRows } = await supabaseAdmin
       .from("booking_charges")
-      .select("amount")
+      .select("id, category, other_description, quantity, unit_price, amount, occurred_at")
+      .eq("booking_id", (b as any).id)
+      .order("occurred_at", { ascending: true });
+    const charges = (chargeRows ?? []).map((r: any) => ({
+      id: r.id,
+      category: r.category,
+      description: r.other_description ?? "",
+      quantity: Number(r.quantity ?? 1),
+      unitPrice: Number(r.unit_price ?? 0),
+      amount: Number(r.amount ?? 0),
+    }));
+    const chargesTotal = charges.reduce((s, r) => s + r.amount, 0);
+
+    // Booking line items (separate room charges from extras)
+    const { data: itemRows } = await supabaseAdmin
+      .from("booking_items")
+      .select("subtotal")
       .eq("booking_id", (b as any).id);
-    const chargesTotal = (charges ?? []).reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+    const roomCharges = (itemRows ?? []).reduce((s: number, r: any) => s + Number(r.subtotal || 0), 0);
 
     const total = Number((b as any).amount) || 0;
+    const subtotal = Number((b as any).subtotal) || 0;
+    const taxes = Number((b as any).taxes) || 0;
+    const taxRate = Number((b as any).tax_rate) || 0;
+    const taxesIncluded = !!(b as any).taxes_included;
     const advance = Number((b as any).advance_paid) || 0;
     const payable = total + chargesTotal;
     const balance = Math.max(0, payable - advance);
+    // Stay extras = stay subtotal beyond the pure room charges line(s)
+    const additionalStay = Math.max(0, subtotal - roomCharges);
 
     let minPartPayment = 0;
     const ptype = (b as any).part_payment_type as string | null;
@@ -140,7 +162,15 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       guests: (b as any).guests,
       breakfastIncluded: false,
       totalAmount: total,
+      // Detailed breakdown
+      subtotal,
+      taxes,
+      taxRate,
+      taxesIncluded,
+      roomCharges,
+      additionalStay,
       chargesTotal,
+      charges,
       payable,
       advancePaid: advance,
       balanceDue: balance,
