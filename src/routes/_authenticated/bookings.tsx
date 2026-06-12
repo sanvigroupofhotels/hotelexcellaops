@@ -234,7 +234,7 @@ function Section({ refEl, title, icon: Icon, bookings, chargeTotals, completedBy
                     <div className="text-sm font-medium truncate">{b.guest_name}</div>
                     {isReturning && (
                       <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-gold/90 font-medium">
-                        <Repeat className="h-2.5 w-2.5" /> Returning Guest ({priorCompleted} stay{priorCompleted === 1 ? "" : "s"})
+                        <Repeat className="h-2.5 w-2.5" /> Returning Guest ({priorCompleted} stay{priorCompleted === 1 ? "" : "s"} past)
                       </div>
                     )}
                     <div className="mt-1">
