@@ -23,6 +23,10 @@ export interface ComplaintRow {
   entered_by_staff_id: string | null; entered_by_name: string | null;
   assigned_to_staff_id: string | null; assigned_to_name: string | null;
   description: string;
+  issue_type: string | null;
+  guest_impacted: boolean;
+  resolution_notes: string | null;
+  closed_at: string | null;
   resolved_at: string | null;
   created_at: string; updated_at: string;
 }
@@ -42,6 +46,9 @@ export interface ComplaintInput {
   entered_by_staff_id?: string | null; entered_by_name?: string | null;
   assigned_to_staff_id?: string | null; assigned_to_name?: string | null;
   description: string;
+  issue_type?: string | null;
+  guest_impacted?: boolean;
+  resolution_notes?: string | null;
 }
 
 // ---------- Categories ----------
