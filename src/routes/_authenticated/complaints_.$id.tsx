@@ -342,7 +342,19 @@ function ComplaintDetail() {
               <h4 className="font-display text-lg mb-3">Status</h4>
               <div className="grid grid-cols-1 gap-2">
                 {COMPLAINT_STATUSES.map(s => (
-                  <button key={s} onClick={() => setStatusM.mutate(s)} disabled={s === c.status}
+                  <button
+                    key={s}
+                    onClick={() => {
+                      if (s === c.status) return;
+                      if (s === "Resolved") {
+                        setResolveNotes(c.resolution_notes ?? "");
+                        setResolveByStaffId(c.assigned_to_staff_id ?? c.entered_by_staff_id ?? "");
+                        setResolveOpen(true);
+                        return;
+                      }
+                      setStatusM.mutate(s);
+                    }}
+                    disabled={s === c.status}
                     className={cn("rounded-md border px-3 py-1.5 text-xs transition text-left",
                       s === c.status ? "border-gold/50 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30")}>
                     {s}
