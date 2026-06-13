@@ -42,12 +42,12 @@ import { cn, toLocalYMD } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
 import { lineSubtotal } from "@/components/line-items-editor";
 import { computePricing } from "@/lib/pricing";
-import { listRooms, listOccupiedRoomIds } from "@/lib/rooms-api";
-import { listActiveBlocks, isRoomBlockedInRange } from "@/lib/blocks-api";
+import { listRooms } from "@/lib/rooms-api";
 import { listBookingCharges, chargesTotal as sumCharges } from "@/lib/booking-charges-api";
 import {
-  listAssignments, addAssignment, removeAssignment, requiredRoomCount,
+  listAssignments, removeAssignment, requiredRoomCount,
 } from "@/lib/booking-room-assignments-api";
+import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
@@ -179,7 +179,7 @@ function BookingDetail() {
   const [addPaymentForCheckoutOpen, setAddPaymentForCheckoutOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [assignRoomOpen, setAssignRoomOpen] = useState(false);
-  const [pickedRoomId, setPickedRoomId] = useState<string>("");
+  const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   // When set, the Assign dialog acts as a "Change" — confirming swaps the named assignment.
   const [changingAssignmentId, setChangingAssignmentId] = useState<string | null>(null);
 
@@ -187,45 +187,6 @@ function BookingDetail() {
     queryKey: ["booking-room-assignments", id],
     queryFn: () => listAssignments(id),
     enabled: !!id,
-  });
-  const { data: blocks = [] } = useQuery({ queryKey: ["blocks", "active"], queryFn: listActiveBlocks });
-  const { data: occupiedRoomIds = new Set<string>() } = useQuery({
-    queryKey: ["rooms-occupied", b?.check_in, b?.check_out, id],
-    queryFn: () => listOccupiedRoomIds(b!.check_in, b!.check_out, id),
-    enabled: !!(b?.check_in && b?.check_out),
-  });
-
-  const assignRoom = useMutation({
-    mutationFn: async (roomId: string) => {
-      await addAssignment(id, roomId);
-      await logBookingActivity({ booking_id: id, action: "reactivated", from_status: b?.status ?? null, to_status: b?.status ?? null, notes: `Room assigned` });
-    },
-    onSuccess: () => { invalidateAll(); refetchAssignments(); setAssignRoomOpen(false); setPickedRoomId(""); toast.success("Room assigned"); },
-    onError: (e: any) => toast.error(e?.message ?? "Could not assign room"),
-  });
-
-  const changeRoom = useMutation({
-    mutationFn: async ({ assignmentId, newRoomId }: { assignmentId: string; newRoomId: string }) => {
-      const oldAssignment = assignments.find((a) => a.id === assignmentId);
-      const oldRoom = oldAssignment ? rooms.find((r: any) => r.id === oldAssignment.room_id) : null;
-      const newRoom = rooms.find((r: any) => r.id === newRoomId);
-      // Add new first (trigger validates), then remove old. If add fails, old stays intact.
-      await addAssignment(id, newRoomId);
-      await removeAssignment(id, assignmentId);
-      await logBookingActivity({
-        booking_id: id,
-        action: "reactivated",
-        from_status: b?.status ?? null,
-        to_status: b?.status ?? null,
-        notes: `Room Changed: ${oldRoom?.room_number ?? "?"} → ${newRoom?.room_number ?? "?"}`,
-      });
-    },
-    onSuccess: () => {
-      invalidateAll(); refetchAssignments();
-      setAssignRoomOpen(false); setPickedRoomId(""); setChangingAssignmentId(null);
-      toast.success("Room changed");
-    },
-    onError: (e: any) => toast.error(e?.message ?? "Could not change room"),
   });
 
   const unassignRoom = useMutation({
@@ -438,7 +399,6 @@ function BookingDetail() {
                                 <button
                                   onClick={() => {
                                     setChangingAssignmentId(a.id);
-                                    setPickedRoomId("");
                                     setAssignRoomOpen(true);
                                   }}
                                   className="text-muted-foreground hover:text-gold"
@@ -459,9 +419,9 @@ function BookingDetail() {
                     </ul>
                   )}
                   {!ready && b.status !== "Checked-Out" && (
-                    <button onClick={() => { setPickedRoomId(""); setAssignRoomOpen(true); }}
+                    <button onClick={() => { setChangingAssignmentId(null); setAssignRoomOpen(true); }}
                       className="inline-flex items-center gap-2 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">
-                      <DoorOpen className="h-3.5 w-3.5" /> {assigned === 0 ? "Assign Room" : "Assign Another Room"}
+                      <DoorOpen className="h-3.5 w-3.5" /> {assigned === 0 ? "Assign Rooms" : "Assign Another Room"}
                     </button>
                   )}
                 </div>
@@ -490,9 +450,9 @@ function BookingDetail() {
                       <button onClick={() => {
                         const required = requiredRoomCount(items as any);
                         if (assignments.length < required) {
-                          setPickedRoomId("");
-                          setAssignRoomOpen(true);
                           toast.error("Please assign all rooms before Check-In.");
+                          setChangingAssignmentId(null);
+                          setCheckinFlowOpen(true);
                           return;
                         }
                         status.mutate("Checked-In" as any);
@@ -696,81 +656,21 @@ function BookingDetail() {
         />
       )}
 
-      <AlertDialog
+      <RoomAssignmentDialog
+        bookingId={id}
         open={assignRoomOpen}
-        onOpenChange={(o) => { setAssignRoomOpen(o); if (!o) setChangingAssignmentId(null); }}
-      >
-        <AlertDialogContent>
-          {(() => {
-            const isChange = !!changingAssignmentId;
-            const current = isChange ? assignments.find((a) => a.id === changingAssignmentId) : null;
-            const currentRoom = current ? rooms.find((r: any) => r.id === current.room_id) : null;
-            const targetType = currentRoom?.room_type;
-            return (
-              <>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2">
-                    <DoorOpen className="h-4 w-4 text-gold" /> {isChange ? "Change Room" : "Assign Room"}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {isChange && currentRoom ? (
-                      <>Swap Room <span className="font-medium">{currentRoom.room_number}</span> ({currentRoom.room_type}) for another eligible room.</>
-                    ) : (
-                      <>Pick a room for {b.guest_name} ({b.booking_reference}). Conflicts with existing bookings or maintenance blocks will be rejected.</>
-                    )}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <div className="px-1">
-                  <label className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Room</label>
-                  <select value={pickedRoomId} onChange={(e) => setPickedRoomId(e.target.value)}
-                    className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                    <option value="">Select a room…</option>
-                    {rooms
-                      .filter((r: any) => {
-                        // In Change mode, hide the room being changed and restrict to same type when known.
-                        if (isChange && current && r.id === current.room_id) return false;
-                        if (isChange && targetType && r.room_type !== targetType) return false;
-                        if (assignments.some((a) => a.room_id === r.id)) return false; // already assigned
-                        if (b?.check_in && b?.check_out) {
-                          if (isRoomBlockedInRange(blocks, r.id, b.check_in, b.check_out)) return false;
-                          if (occupiedRoomIds.has(r.id) && r.id !== (b as any).room_id) return false;
-                        }
-                        return true;
-                      })
-                      .map((r: any) => (
-                        <option key={r.id} value={r.id}>
-                          {r.room_number} · {r.room_type} · Floor {r.floor}
-                        </option>
-                      ))}
-                  </select>
-                  <p className="text-[10px] text-muted-foreground mt-1.5">
-                    {isChange && targetType
-                      ? `Showing eligible ${targetType} rooms only — occupied, blocked and already-assigned rooms hidden.`
-                      : "Already assigned, occupied, or blocked rooms are hidden."}
-                  </p>
-                </div>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    disabled={!pickedRoomId || assignRoom.isPending || changeRoom.isPending}
-                    onClick={() => {
-                      if (!pickedRoomId) return;
-                      if (isChange && changingAssignmentId) {
-                        changeRoom.mutate({ assignmentId: changingAssignmentId, newRoomId: pickedRoomId });
-                      } else {
-                        assignRoom.mutate(pickedRoomId);
-                      }
-                    }}
-                  >
-                    {(assignRoom.isPending || changeRoom.isPending) && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                    {isChange ? "Change" : "Assign"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </>
-            );
-          })()}
-        </AlertDialogContent>
-      </AlertDialog>
+        onClose={() => { setAssignRoomOpen(false); setChangingAssignmentId(null); }}
+        mode={changingAssignmentId ? "change" : "assign-one"}
+        changingAssignmentId={changingAssignmentId}
+      />
+
+      <RoomAssignmentDialog
+        bookingId={id}
+        open={checkinFlowOpen}
+        onClose={() => setCheckinFlowOpen(false)}
+        mode="checkin-flow"
+        onAllAssigned={() => status.mutate("Checked-In" as any)}
+      />
     </>
   );
 }
