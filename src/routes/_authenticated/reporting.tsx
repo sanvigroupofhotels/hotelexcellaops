@@ -190,7 +190,10 @@ function ReportingPage() {
     let totalCollection = 0;
     let totalDue = 0;
     const dueRoomSet = new Set<string>();
+    const counted = new Set<string>();
     for (const b of [...inHouse, ...arrivals, ...pending]) {
+      if (counted.has(b.id)) continue;
+      counted.add(b.id);
       const t = bookingTotals(b);
       totalCollection += t.paid;
       totalDue += t.due;
