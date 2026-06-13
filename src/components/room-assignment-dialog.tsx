@@ -13,7 +13,7 @@ import { listActiveBlocks, isRoomBlockedInRange } from "@/lib/blocks-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import {
   listAssignments, addAssignment, removeAssignment,
-  requiredRoomCount, requiredByType, rebalanceBookingItemTypes, normalizeRoomType,
+  requiredRoomCount, rebalanceBookingItemTypes, normalizeRoomType,
 } from "@/lib/booking-room-assignments-api";
 import { logBookingActivity } from "@/lib/booking-activities-api";
 
