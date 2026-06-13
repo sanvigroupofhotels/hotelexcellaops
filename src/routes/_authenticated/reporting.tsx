@@ -33,6 +33,23 @@ function ReportingPage() {
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: complaints = [], isLoading: lc } = useQuery({ queryKey: ["complaints"], queryFn: () => listComplaints() });
   const { data: tx = [], isLoading: lt } = useQuery({ queryKey: ["cash-tx"], queryFn: () => listCashTx({ includeInactive: false }) });
+  const { data: rooms = [] } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
+  const { data: allItems = [] } = useQuery({
+    queryKey: ["booking-items-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("booking_items" as any).select("booking_id,room_type,rooms");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const { data: allAssignments = [] } = useQuery({
+    queryKey: ["booking-room-assignments-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("booking_room_assignments" as any).select("booking_id,room_id");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
 
   const today = toLocalYMD();
   const todayDate = new Date(); todayDate.setHours(0,0,0,0);
