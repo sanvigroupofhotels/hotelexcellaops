@@ -113,7 +113,7 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
   );
 }
 
-function ChargeFormDialog({
+export function ChargeFormDialog({
   open, onOpenChange, bookingId, categories, editing,
 }: {
   open: boolean; onOpenChange: (v: boolean) => void;
