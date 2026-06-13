@@ -5,6 +5,7 @@ import { Topbar } from "@/components/topbar";
 import {
   getComplaint, listComplaintActivities, updateComplaint, deleteComplaint,
   setComplaintStatus, assignComplaint, listComplaintCategories,
+  resolveComplaint,
   COMPLAINT_STATUSES, COMPLAINT_PRIORITIES,
   priorityStyles, statusStyles,
   type ComplaintPriority, type ComplaintStatus, type ComplaintType,
