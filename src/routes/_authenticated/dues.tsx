@@ -64,7 +64,7 @@ function DuesPage() {
         const charges = Number((chargeTotals as any)[b.id] ?? 0);
         const total = Number(b.amount) + charges;
         const paid = Number(b.advance_paid ?? 0);
-        const due = Math.max(0, total - paid);
+        const due = b.status === "Cancelled" ? 0 : Math.max(0, total - paid);
         return { b, total, paid, due, charges };
       })
       .filter((r) => r.due > 0);
