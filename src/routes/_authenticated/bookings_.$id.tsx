@@ -46,8 +46,9 @@ import { listRooms, listOccupiedRoomIds } from "@/lib/rooms-api";
 import { listActiveBlocks, isRoomBlockedInRange } from "@/lib/blocks-api";
 import { listBookingCharges, chargesTotal as sumCharges } from "@/lib/booking-charges-api";
 import {
-  listAssignments, addAssignment, removeAssignment, requiredRoomCount,
+  listAssignments, removeAssignment, requiredRoomCount,
 } from "@/lib/booking-room-assignments-api";
+import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
