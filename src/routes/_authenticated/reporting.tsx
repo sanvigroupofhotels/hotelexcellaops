@@ -8,6 +8,7 @@ import { listBookings } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listComplaints } from "@/lib/complaints-api";
 import { listCashTx } from "@/lib/cash-api";
+import { buildDailyCashReport, computeOpeningBalance } from "@/lib/cash-report";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
 import { ClipboardCopy, FileBarChart, Loader2 } from "lucide-react";
@@ -109,14 +110,10 @@ function ReportingPage() {
     `📣 Open Complaints: ${metrics.openComplaints}`,
   ].join("\n"), [metrics, todayDate]);
 
-  const cash = useMemo(() => [
-    `💵 *Today's Cash Report — ${todayDate.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })}*`,
-    ``,
-    `Opening Balance: ${inr(metrics.opening)}`,
-    `Total Income: ${inr(metrics.todayIn)}`,
-    `Total Expenses: ${inr(metrics.todayOut)}`,
-    `Current Cash Balance: ${inr(metrics.balance)}`,
-  ].join("\n"), [metrics, todayDate]);
+  const cash = useMemo(() => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    return buildDailyCashReport(tx, today, computeOpeningBalance(tx, today));
+  }, [tx]);
 
   return (
     <>

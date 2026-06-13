@@ -5,11 +5,14 @@ import { Topbar } from "@/components/topbar";
 import { listBookings } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listComplaints } from "@/lib/complaints-api";
+import { listCashTx } from "@/lib/cash-api";
+import { listRooms } from "@/lib/rooms-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
 import {
   BedDouble, Sunrise, LogIn, IndianRupee, MessageSquareWarning, Brush,
   Plus, Wallet, Tag, Building2, LogOut, FileBarChart, ArrowUpRight,
+  TrendingUp, CalendarPlus, PieChart,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -18,16 +21,19 @@ export const Route = createFileRoute("/_authenticated/")({
 
 function HomePage() {
   useRealtimeInvalidate(
-    ["bookings", "complaints", "booking_charges"],
-    ["bookings", "complaints", "all-charge-totals"],
+    ["bookings", "complaints", "booking_charges", "cash_transactions", "rooms"],
+    ["bookings", "complaints", "all-charge-totals", "cash-tx-home", "rooms-home"],
     "home-dashboard",
   );
   const navigate = useNavigate();
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: complaints = [] } = useQuery({ queryKey: ["complaints"], queryFn: () => listComplaints() });
+  const { data: tx = [] } = useQuery({ queryKey: ["cash-tx-home"], queryFn: () => listCashTx({}) });
+  const { data: rooms = [] } = useQuery({ queryKey: ["rooms-home"], queryFn: () => listRooms() });
 
   const today = toLocalYMD();
+  const todayKey = today;
 
   const active = bookings.filter((b) => b.status !== "Cancelled");
   const occupied = active.filter((b) => b.status === "Checked-In").length;
@@ -43,11 +49,23 @@ function HomePage() {
   const complaintsOpen = complaints.filter((c) => c.status === "Open" || c.status === "In Progress").length;
   const roomsToClean = active.filter((b) => b.status === "Checked-Out" && b.check_out === today).length;
 
+  // New stats
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const revenueCollectedToday = tx
+    .filter((t) => t.active && t.kind === "collection" && ymd(new Date(t.occurred_at)) === todayKey)
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const newBookingsToday = bookings.filter((b) => ymd(new Date(b.created_at)) === todayKey).length;
+  const totalRooms = rooms.filter((r: any) => r.active !== false).length;
+  const occupancyPct = totalRooms > 0 ? Math.round((occupied / totalRooms) * 100) : 0;
+
   const stats: Array<{ label: string; value: number | string; icon: any; emoji: string; to: string }> = [
     { label: "Occupied Rooms",   value: occupied,         icon: BedDouble,            emoji: "🏨", to: "/house-view" },
     { label: "Arrivals Today",   value: arrivalsToday,    icon: Sunrise,              emoji: "🟢", to: "/bookings" },
     { label: "Pending Check-ins",value: pendingCheckins,  icon: LogIn,                emoji: "🔴", to: "/bookings" },
     { label: "Due Collection",   value: `₹${dueCollection.toLocaleString("en-IN")}`, icon: IndianRupee, emoji: "💰", to: "/bookings" },
+    { label: "Revenue Today",    value: `₹${revenueCollectedToday.toLocaleString("en-IN")}`, icon: TrendingUp, emoji: "📈", to: "/cash" },
+    { label: "New Bookings Today", value: newBookingsToday, icon: CalendarPlus,       emoji: "🆕", to: "/bookings" },
+    { label: "Occupancy %",      value: `${occupancyPct}%`, icon: PieChart,            emoji: "📊", to: "/house-view" },
     { label: "Complaints Open",  value: complaintsOpen,   icon: MessageSquareWarning, emoji: "🛎", to: "/complaints" },
     { label: "Rooms To Clean",   value: roomsToClean,     icon: Brush,                emoji: "🧹", to: "/house-view" },
   ];
@@ -121,20 +139,20 @@ function HomePage() {
           <h3 className="font-display text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3">
             Quick Actions
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
             {quickActions.map((a, i) => (
               <motion.button
                 key={a.label}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 * i, duration: 0.3 }}
                 onClick={a.onClick}
-                className="luxe-card rounded-xl p-5 text-left hover:border-gold/40 hover:bg-secondary/40 transition-all flex items-center gap-3"
+                className="luxe-card rounded-xl p-3 sm:p-4 text-left hover:border-gold/40 hover:bg-secondary/40 transition-all flex items-center gap-2.5 min-h-[72px]"
               >
-                <div className="h-10 w-10 rounded-md bg-secondary text-gold flex items-center justify-center text-xl">
+                <div className="h-9 w-9 shrink-0 rounded-md bg-secondary text-gold flex items-center justify-center text-base">
                   {a.emoji}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{a.label}</div>
-                  <div className="text-[11px] text-muted-foreground">Tap to open</div>
+                  <div className="text-[13px] sm:text-sm font-medium leading-snug break-words">{a.label}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Tap to open</div>
                 </div>
               </motion.button>
             ))}
