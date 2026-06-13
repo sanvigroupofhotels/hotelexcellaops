@@ -66,6 +66,10 @@ function ComplaintDetail() {
   const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
   const { data: categories = [] } = useQuery({ queryKey: ["complaint-categories"], queryFn: () => listComplaintCategories(true) });
 
+  const [resolveOpen, setResolveOpen] = useState(false);
+  const [resolveNotes, setResolveNotes] = useState("");
+  const [resolveByStaffId, setResolveByStaffId] = useState<string>("");
+
   const setStatusM = useMutation({
     mutationFn: (s: ComplaintStatus) => setComplaintStatus(id, s),
     onSuccess: () => {
@@ -74,6 +78,26 @@ function ComplaintDetail() {
       qc.invalidateQueries({ queryKey: ["complaints"] });
       toast.success("Status updated");
     },
+  });
+
+  const resolveM = useMutation({
+    mutationFn: () => {
+      const s = staff.find(x => x.id === resolveByStaffId);
+      return resolveComplaint(id, {
+        resolution_notes: resolveNotes,
+        resolved_by_staff_id: s?.id ?? null,
+        resolved_by_name: s?.name ?? null,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["complaint", id] });
+      qc.invalidateQueries({ queryKey: ["complaint-acts", id] });
+      qc.invalidateQueries({ queryKey: ["complaints"] });
+      setResolveOpen(false);
+      setResolveNotes("");
+      toast.success("Issue resolved");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not resolve"),
   });
   const assignM = useMutation({
     mutationFn: (staffId: string) => {
