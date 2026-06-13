@@ -12,7 +12,7 @@ import { BOOKING_STATUSES, bookingStatusStyles } from "@/lib/mock-data";
 import { downloadCSV } from "@/lib/csv";
 import {
   Search, Loader2, Plus, ChevronRight, BedDouble, Phone, MessageCircle, Download,
-  Hotel, Sunrise, CalendarRange, History as HistoryIcon, Repeat,
+  Hotel, Sunrise, CalendarRange, History as HistoryIcon, Repeat, LayoutGrid,
 } from "lucide-react";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
 import { toast } from "sonner";
