@@ -164,6 +164,20 @@ function BookingDetail() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const cancelBooking = useMutation({
+    mutationFn: async (reason: string) => {
+      const from = b?.status as string | undefined;
+      await setBookingStatus(id, "Cancelled" as any);
+      await logBookingActivity({
+        booking_id: id, action: "cancelled",
+        from_status: from ?? null, to_status: "Cancelled",
+        notes: reason,
+      });
+    },
+    onSuccess: () => { invalidateAll(); toast.success("Booking cancelled"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const del = useMutation({
     mutationFn: () => deleteBooking(id),
     onSuccess: () => { toast.success("Deleted"); navigate({ to: "/bookings" }); },
