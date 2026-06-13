@@ -25,6 +25,7 @@ import { Route as AuthenticatedHouseViewRouteImport } from './routes/_authentica
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedGenerateRouteImport } from './routes/_authenticated/generate'
 import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authenticated/follow-ups'
+import { Route as AuthenticatedDuesRouteImport } from './routes/_authenticated/dues'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
 import { Route as AuthenticatedComplaintsRouteImport } from './routes/_authenticated/complaints'
 import { Route as AuthenticatedCashRouteImport } from './routes/_authenticated/cash'
@@ -120,6 +121,11 @@ const AuthenticatedGenerateRoute = AuthenticatedGenerateRouteImport.update({
 const AuthenticatedFollowUpsRoute = AuthenticatedFollowUpsRouteImport.update({
   id: '/follow-ups',
   path: '/follow-ups',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDuesRoute = AuthenticatedDuesRouteImport.update({
+  id: '/dues',
+  path: '/dues',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedCustomersRoute = AuthenticatedCustomersRouteImport.update({
@@ -221,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/cash': typeof AuthenticatedCashRoute
   '/complaints': typeof AuthenticatedComplaintsRoute
   '/customers': typeof AuthenticatedCustomersRoute
+  '/dues': typeof AuthenticatedDuesRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
@@ -253,6 +260,7 @@ export interface FileRoutesByTo {
   '/cash': typeof AuthenticatedCashRoute
   '/complaints': typeof AuthenticatedComplaintsRoute
   '/customers': typeof AuthenticatedCustomersRoute
+  '/dues': typeof AuthenticatedDuesRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
@@ -288,6 +296,7 @@ export interface FileRoutesById {
   '/_authenticated/cash': typeof AuthenticatedCashRoute
   '/_authenticated/complaints': typeof AuthenticatedComplaintsRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRoute
+  '/_authenticated/dues': typeof AuthenticatedDuesRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/_authenticated/generate': typeof AuthenticatedGenerateRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
@@ -324,6 +333,7 @@ export interface FileRouteTypes {
     | '/cash'
     | '/complaints'
     | '/customers'
+    | '/dues'
     | '/follow-ups'
     | '/generate'
     | '/history'
@@ -356,6 +366,7 @@ export interface FileRouteTypes {
     | '/cash'
     | '/complaints'
     | '/customers'
+    | '/dues'
     | '/follow-ups'
     | '/generate'
     | '/history'
@@ -390,6 +401,7 @@ export interface FileRouteTypes {
     | '/_authenticated/cash'
     | '/_authenticated/complaints'
     | '/_authenticated/customers'
+    | '/_authenticated/dues'
     | '/_authenticated/follow-ups'
     | '/_authenticated/generate'
     | '/_authenticated/history'
@@ -535,6 +547,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFollowUpsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/dues': {
+      id: '/_authenticated/dues'
+      path: '/dues'
+      fullPath: '/dues'
+      preLoaderRoute: typeof AuthenticatedDuesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/customers': {
       id: '/_authenticated/customers'
       path: '/customers'
@@ -659,6 +678,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCashRoute: typeof AuthenticatedCashRoute
   AuthenticatedComplaintsRoute: typeof AuthenticatedComplaintsRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRoute
+  AuthenticatedDuesRoute: typeof AuthenticatedDuesRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
   AuthenticatedGenerateRoute: typeof AuthenticatedGenerateRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
@@ -690,6 +710,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCashRoute: AuthenticatedCashRoute,
   AuthenticatedComplaintsRoute: AuthenticatedComplaintsRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRoute,
+  AuthenticatedDuesRoute: AuthenticatedDuesRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
   AuthenticatedGenerateRoute: AuthenticatedGenerateRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
