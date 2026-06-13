@@ -145,15 +145,10 @@ function HomePage() {
                 key={a.label}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 * i, duration: 0.3 }}
                 onClick={a.onClick}
-                className="luxe-card rounded-xl p-3 sm:p-4 text-left hover:border-gold/40 hover:bg-secondary/40 transition-all flex items-center gap-2.5 min-h-[72px]"
+                className="luxe-card rounded-xl p-3 text-center hover:border-gold/40 hover:bg-secondary/40 transition-all flex flex-col items-center justify-center gap-1.5 min-h-[96px]"
               >
-                <div className="h-9 w-9 shrink-0 rounded-md bg-secondary text-gold flex items-center justify-center text-base">
-                  {a.emoji}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13px] sm:text-sm font-medium leading-snug break-words">{a.label}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">Tap to open</div>
-                </div>
+                <div className="text-2xl leading-none">{a.emoji}</div>
+                <div className="text-[12px] sm:text-sm font-medium leading-tight break-words">{a.label}</div>
               </motion.button>
             ))}
           </div>
