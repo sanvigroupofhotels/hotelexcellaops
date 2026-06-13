@@ -204,6 +204,30 @@ function BookingDetail() {
     onError: (e: any) => toast.error(e?.message ?? "Could not assign room"),
   });
 
+  const changeRoom = useMutation({
+    mutationFn: async ({ assignmentId, newRoomId }: { assignmentId: string; newRoomId: string }) => {
+      const oldAssignment = assignments.find((a) => a.id === assignmentId);
+      const oldRoom = oldAssignment ? rooms.find((r: any) => r.id === oldAssignment.room_id) : null;
+      const newRoom = rooms.find((r: any) => r.id === newRoomId);
+      // Add new first (trigger validates), then remove old. If add fails, old stays intact.
+      await addAssignment(id, newRoomId);
+      await removeAssignment(id, assignmentId);
+      await logBookingActivity({
+        booking_id: id,
+        action: "reactivated",
+        from_status: b?.status ?? null,
+        to_status: b?.status ?? null,
+        notes: `Room Changed: ${oldRoom?.room_number ?? "?"} → ${newRoom?.room_number ?? "?"}`,
+      });
+    },
+    onSuccess: () => {
+      invalidateAll(); refetchAssignments();
+      setAssignRoomOpen(false); setPickedRoomId(""); setChangingAssignmentId(null);
+      toast.success("Room changed");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not change room"),
+  });
+
   const unassignRoom = useMutation({
     mutationFn: async (assignmentId: string) => {
       await removeAssignment(id, assignmentId);
