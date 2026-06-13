@@ -4,8 +4,9 @@ import {
   History, Bell, Calendar, BarChart3,
   Users, ListChecks, Menu, X, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
   MessageSquareWarning, Building2, DoorOpen, IndianRupee, Tag, Database, KeyRound,
-  Home, FileBarChart,
+  Home, FileBarChart, UserCog,
 } from "lucide-react";
+
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
