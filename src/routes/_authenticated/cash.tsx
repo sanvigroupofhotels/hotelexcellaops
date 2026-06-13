@@ -1224,11 +1224,11 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
         <div className="flex justify-end gap-2">
           <button onClick={onExportExcel}
             className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
-            <Download className="h-4 w-4 text-gold" /> Export Excel (CSV)
+            <Download className="h-4 w-4 text-gold" /> Export CSV
           </button>
-          <button onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
-            <Printer className="h-4 w-4 text-gold" /> Export PDF
+          <button onClick={onCopyReport}
+            className="inline-flex items-center gap-2 rounded-md gold-gradient text-charcoal px-4 py-2 text-sm font-medium">
+            <ClipboardCopy className="h-4 w-4" /> Copy Report
           </button>
         </div>
       </div>
