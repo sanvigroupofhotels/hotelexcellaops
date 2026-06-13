@@ -33,6 +33,7 @@ import { Route as AuthenticatedCashRouteImport } from './routes/_authenticated/c
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticated/bookings'
 import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
+import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAccessSettingsRouteImport } from './routes/_authenticated/access-settings'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
@@ -164,6 +165,11 @@ const AuthenticatedAuditRoute = AuthenticatedAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAttendanceRoute = AuthenticatedAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/attendance': typeof AuthenticatedAttendanceRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
@@ -261,6 +268,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/attendance': typeof AuthenticatedAttendanceRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
@@ -298,6 +306,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
   '/_authenticated/bookings': typeof AuthenticatedBookingsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
@@ -336,6 +345,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/access-settings'
     | '/analytics'
+    | '/attendance'
     | '/audit'
     | '/bookings'
     | '/calendar'
@@ -370,6 +380,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/access-settings'
     | '/analytics'
+    | '/attendance'
     | '/audit'
     | '/bookings'
     | '/calendar'
@@ -406,6 +417,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authenticated/access-settings'
     | '/_authenticated/analytics'
+    | '/_authenticated/attendance'
     | '/_authenticated/audit'
     | '/_authenticated/bookings'
     | '/_authenticated/calendar'
@@ -615,6 +627,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAuditRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/attendance': {
+      id: '/_authenticated/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof AuthenticatedAttendanceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/analytics': {
       id: '/_authenticated/analytics'
       path: '/analytics'
@@ -691,6 +710,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedAccessSettingsRoute: typeof AuthenticatedAccessSettingsRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
   AuthenticatedAuditRoute: typeof AuthenticatedAuditRoute
   AuthenticatedBookingsRoute: typeof AuthenticatedBookingsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
@@ -724,6 +744,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccessSettingsRoute: AuthenticatedAccessSettingsRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
   AuthenticatedAuditRoute: AuthenticatedAuditRoute,
   AuthenticatedBookingsRoute: AuthenticatedBookingsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
@@ -767,3 +788,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
