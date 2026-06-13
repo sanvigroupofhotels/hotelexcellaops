@@ -180,6 +180,8 @@ function BookingDetail() {
   const [activityOpen, setActivityOpen] = useState(false);
   const [assignRoomOpen, setAssignRoomOpen] = useState(false);
   const [pickedRoomId, setPickedRoomId] = useState<string>("");
+  // When set, the Assign dialog acts as a "Change" — confirming swaps the named assignment.
+  const [changingAssignmentId, setChangingAssignmentId] = useState<string | null>(null);
 
   const { data: assignments = [], refetch: refetchAssignments } = useQuery({
     queryKey: ["booking-room-assignments", id],
