@@ -738,7 +738,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
       open={chargeOpen}
       onOpenChange={setChargeOpen}
       bookingId={b.id}
-      categories={["Food Order","Water Bottles","Laundry","Dental Kit","Shaving Kit","Coffee","Tea","Late Check-out","Early Check-in","Extra Pet","Extra Adult","Transportation","Other"]}
+      categories={chargeCategories}
       editing={null}
     />
     <RoomAssignmentDialog
