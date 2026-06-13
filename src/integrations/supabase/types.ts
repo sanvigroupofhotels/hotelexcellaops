@@ -779,6 +779,8 @@ export type Database = {
           priority: Database["public"]["Enums"]["complaint_priority"]
           resolution_notes: string | null
           resolved_at: string | null
+          resolved_by_name: string | null
+          resolved_by_staff_id: string | null
           room_number: string | null
           status: Database["public"]["Enums"]["complaint_status"]
           updated_at: string
@@ -804,6 +806,8 @@ export type Database = {
           priority?: Database["public"]["Enums"]["complaint_priority"]
           resolution_notes?: string | null
           resolved_at?: string | null
+          resolved_by_name?: string | null
+          resolved_by_staff_id?: string | null
           room_number?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
           updated_at?: string
@@ -829,12 +833,22 @@ export type Database = {
           priority?: Database["public"]["Enums"]["complaint_priority"]
           resolution_notes?: string | null
           resolved_at?: string | null
+          resolved_by_name?: string | null
+          resolved_by_staff_id?: string | null
           room_number?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "complaints_resolved_by_staff_id_fkey"
+            columns: ["resolved_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customers: {
         Row: {
