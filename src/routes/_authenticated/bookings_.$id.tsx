@@ -164,6 +164,20 @@ function BookingDetail() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const cancelBooking = useMutation({
+    mutationFn: async (reason: string) => {
+      const from = b?.status as string | undefined;
+      await setBookingStatus(id, "Cancelled" as any);
+      await logBookingActivity({
+        booking_id: id, action: "cancelled",
+        from_status: from ?? null, to_status: "Cancelled",
+        notes: reason,
+      });
+    },
+    onSuccess: () => { invalidateAll(); toast.success("Booking cancelled"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const del = useMutation({
     mutationFn: () => deleteBooking(id),
     onSuccess: () => { toast.success("Deleted"); navigate({ to: "/bookings" }); },
@@ -182,6 +196,8 @@ function BookingDetail() {
   const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   // When set, the Assign dialog acts as a "Change" — confirming swaps the named assignment.
   const [changingAssignmentId, setChangingAssignmentId] = useState<string | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   const { data: assignments = [], refetch: refetchAssignments } = useQuery({
     queryKey: ["booking-room-assignments", id],
@@ -478,7 +494,7 @@ function BookingDetail() {
                       </>
                     )}
                     {canCancel && (
-                      <button onClick={() => { if (confirm("Cancel this booking?")) status.mutate("Cancelled" as any); }}
+                      <button onClick={() => { setCancelReason(""); setCancelOpen(true); }}
                         className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] text-destructive hover:bg-destructive/20">
                         Cancel Booking
                       </button>
@@ -647,6 +663,49 @@ function BookingDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Cancel Booking with mandatory reason */}
+      <AlertDialog open={cancelOpen} onOpenChange={(o) => { setCancelOpen(o); if (!o) setCancelReason(""); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The booking will be marked <span className="font-medium text-foreground">Cancelled</span>, assigned rooms become vacant and Due is set to ₹0. This is recorded with your name and time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="px-1 space-y-2">
+            <label className="block text-[11px] uppercase tracking-wider text-muted-foreground">Reason for cancellation <span className="text-destructive">*</span></label>
+            <div className="flex flex-wrap gap-1.5">
+              {["Guest cancelled", "Duplicate booking", "Guest no-show", "Wrong dates booked", "OTA cancelled", "Other"].map((r) => (
+                <button key={r} type="button" onClick={() => setCancelReason(r)}
+                  className={cn("rounded-full border px-2.5 py-1 text-[11px]",
+                    cancelReason === r ? "border-gold bg-gold-soft/40" : "border-border bg-card hover:border-gold/40")}>
+                  {r}
+                </button>
+              ))}
+            </div>
+            <textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={3}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+              placeholder="Add details (required)" />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!cancelReason.trim() || cancelBooking.isPending}
+              onClick={(e) => {
+                const r = cancelReason.trim();
+                if (!r) { e.preventDefault(); toast.error("Please enter a reason"); return; }
+                setCancelOpen(false);
+                cancelBooking.mutate(r);
+                setCancelReason("");
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Cancel Booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {addPaymentForCheckoutOpen && (
         <AddBookingPaymentModal

@@ -8,6 +8,8 @@ import { listBookings } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listComplaints } from "@/lib/complaints-api";
 import { listCashTx } from "@/lib/cash-api";
+import { listRooms } from "@/lib/rooms-api";
+import { supabase } from "@/integrations/supabase/client";
 import { buildDailyCashReport, computeOpeningBalance } from "@/lib/cash-report";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
@@ -31,6 +33,23 @@ function ReportingPage() {
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: complaints = [], isLoading: lc } = useQuery({ queryKey: ["complaints"], queryFn: () => listComplaints() });
   const { data: tx = [], isLoading: lt } = useQuery({ queryKey: ["cash-tx"], queryFn: () => listCashTx({ includeInactive: false }) });
+  const { data: rooms = [] } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
+  const { data: allItems = [] } = useQuery({
+    queryKey: ["booking-items-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("booking_items" as any).select("booking_id,room_type,rooms");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const { data: allAssignments = [] } = useQuery({
+    queryKey: ["booking-room-assignments-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("booking_room_assignments" as any).select("booking_id,room_id");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
 
   const today = toLocalYMD();
   const todayDate = new Date(); todayDate.setHours(0,0,0,0);
@@ -115,6 +134,89 @@ function ReportingPage() {
     return buildDailyCashReport(tx, today, computeOpeningBalance(tx, today));
   }, [tx]);
 
+  const todayRooms = useMemo(() => {
+    const roomNumById = new Map<string, string>((rooms as any[]).map((r) => [r.id, r.room_number]));
+    const assignsByBooking = new Map<string, string[]>();
+    for (const a of allAssignments as any[]) {
+      const n = roomNumById.get(a.room_id);
+      if (!n) continue;
+      const list = assignsByBooking.get(a.booking_id) ?? [];
+      list.push(n);
+      assignsByBooking.set(a.booking_id, list);
+    }
+    const itemsByBooking = new Map<string, any[]>();
+    for (const it of allItems as any[]) {
+      const list = itemsByBooking.get(it.booking_id) ?? [];
+      list.push(it);
+      itemsByBooking.set(it.booking_id, list);
+    }
+    const roomsLabel = (b: any) => {
+      const nums = (assignsByBooking.get(b.id) ?? []).sort();
+      if (nums.length > 0) return nums.join(", ");
+      const its = itemsByBooking.get(b.id) ?? [];
+      const mix = new Map<string, number>();
+      for (const it of its) mix.set(it.room_type, (mix.get(it.room_type) ?? 0) + Math.max(1, Number(it.rooms ?? 1)));
+      const parts = [...mix.entries()].map(([t, n]) => n > 1 ? `${t} × ${n}` : t);
+      return parts.join(", ") || "—";
+    };
+    const bookingTotals = (b: any) => {
+      const charges = Number((chargeTotals as any)[b.id] ?? 0);
+      const total = Number(b.amount) + charges;
+      const paid = Number(b.advance_paid ?? 0);
+      const due = b.status === "Cancelled" ? 0 : Math.max(0, total - paid);
+      return { total, paid, due };
+    };
+    const active = (bookings as any[]).filter((b) => b.status !== "Cancelled");
+    const inHouse = active.filter((b) => b.status === "Checked-In");
+    const arrivals = active.filter((b) => b.check_in === today && b.status === "Checked-In");
+    const pending = active.filter((b) => b.check_in === today && b.status !== "Checked-In" && b.status !== "Checked-Out");
+
+    const fmtBooking = (b: any) => {
+      const t = bookingTotals(b);
+      return [
+        `Room(s): ${roomsLabel(b)}`,
+        `Guest Name: ${b.guest_name}`,
+        `Booking Total: ${inr(t.total)}`,
+        `Paid: ${inr(t.paid)}`,
+        `Due: ${inr(t.due)}`,
+      ].join("\n");
+    };
+
+    const section = (title: string, rows: any[]) =>
+      rows.length === 0
+        ? `${title}:\nNone`
+        : `${title}:\n\n${rows.map(fmtBooking).join("\n\n---\n\n")}`;
+
+    let totalCollection = 0;
+    let totalDue = 0;
+    const dueRoomSet = new Set<string>();
+    for (const b of [...inHouse, ...arrivals, ...pending]) {
+      const t = bookingTotals(b);
+      totalCollection += t.paid;
+      totalDue += t.due;
+      if (t.due > 0) {
+        (assignsByBooking.get(b.id) ?? []).forEach((n) => dueRoomSet.add(n));
+      }
+    }
+    const dueRooms = [...dueRoomSet].sort().join(", ");
+
+    return [
+      `🏨 *TODAY ROOMS REPORT — ${todayDate.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })}*`,
+      ``,
+      section("In-House Guests", inHouse),
+      ``,
+      section("Today's Arrivals", arrivals),
+      ``,
+      section("Check-In Pending Today", pending),
+      ``,
+      `---`,
+      `Total Collection: ${inr(totalCollection)}`,
+      `Total Due: ${inr(totalDue)}`,
+      dueRooms ? `Rooms with Due: ${dueRooms}` : ``,
+    ].filter(Boolean).join("\n");
+  }, [bookings, allAssignments, allItems, rooms, chargeTotals, today, todayDate]);
+
+
   return (
     <>
       <Topbar title="Reporting" subtitle="Operational reports — copy & share on WhatsApp" />
@@ -123,6 +225,7 @@ function ReportingPage() {
           <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
+            <ReportCard title="Today's Rooms Report" subtitle="In-house, arrivals, pending check-ins" text={todayRooms} />
             <ReportCard title="Shift Handover Report" subtitle="Concise operational snapshot" text={handover} />
             <ReportCard title="Daily Operations Report" subtitle="End-of-day operational summary" text={daily} />
             <ReportCard title="Today's Cash Report" subtitle="Cashbook opening / in / out / balance" text={cash} />
