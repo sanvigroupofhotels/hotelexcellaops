@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Search, Users as UsersIcon } from "lucide-react";
+import { Plus, Pencil, Search, Users as UsersIcon, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import {
   listStaffHr, createStaffHr, updateStaffHr, type StaffHrRow,
@@ -146,11 +146,16 @@ function StaffPage() {
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
-                    {isAdmin && (
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <div className="flex justify-end gap-1">
+                      <Link to="/staff/$id/ledger" params={{ id: s.id }}>
+                        <Button variant="ghost" size="icon" title="Ledger"><BookOpen className="h-4 w-4" /></Button>
+                      </Link>
+                      {isAdmin && (
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(s)} title="Edit">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

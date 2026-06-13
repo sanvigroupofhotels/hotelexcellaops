@@ -43,6 +43,7 @@ import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenti
 import { Route as AuthenticatedComplaintsIdRouteImport } from './routes/_authenticated/complaints_.$id'
 import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenticated/bookings_.new'
 import { Route as AuthenticatedBookingsIdRouteImport } from './routes/_authenticated/bookings_.$id'
+import { Route as AuthenticatedStaffIdLedgerRouteImport } from './routes/_authenticated/staff_.$id.ledger'
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
 import { Route as AuthenticatedBookingsIdEditRouteImport } from './routes/_authenticated/bookings_.$id_.edit'
 
@@ -221,6 +222,12 @@ const AuthenticatedBookingsIdRoute = AuthenticatedBookingsIdRouteImport.update({
   path: '/bookings/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedStaffIdLedgerRoute =
+  AuthenticatedStaffIdLedgerRouteImport.update({
+    id: '/staff_/$id/ledger',
+    path: '/staff/$id/ledger',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedQuoteIdEditRoute =
   AuthenticatedQuoteIdEditRouteImport.update({
     id: '/quote/$id_/edit',
@@ -270,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
+  '/staff/$id/ledger': typeof AuthenticatedStaffIdLedgerRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -307,6 +315,7 @@ export interface FileRoutesByTo {
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
+  '/staff/$id/ledger': typeof AuthenticatedStaffIdLedgerRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -346,6 +355,7 @@ export interface FileRoutesById {
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
+  '/_authenticated/staff_/$id/ledger': typeof AuthenticatedStaffIdLedgerRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -385,6 +395,7 @@ export interface FileRouteTypes {
     | '/api/public/razorpay-webhook'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
+    | '/staff/$id/ledger'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -422,6 +433,7 @@ export interface FileRouteTypes {
     | '/api/public/razorpay-webhook'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
+    | '/staff/$id/ledger'
   id:
     | '__root__'
     | '/_authenticated'
@@ -460,6 +472,7 @@ export interface FileRouteTypes {
     | '/api/public/razorpay-webhook'
     | '/_authenticated/bookings_/$id_/edit'
     | '/_authenticated/quote/$id_/edit'
+    | '/_authenticated/staff_/$id/ledger'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -709,6 +722,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBookingsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/staff_/$id/ledger': {
+      id: '/_authenticated/staff_/$id/ledger'
+      path: '/staff/$id/ledger'
+      fullPath: '/staff/$id/ledger'
+      preLoaderRoute: typeof AuthenticatedStaffIdLedgerRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/quote/$id_/edit': {
       id: '/_authenticated/quote/$id_/edit'
       path: '/quote/$id/edit'
@@ -759,6 +779,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
   AuthenticatedBookingsIdEditRoute: typeof AuthenticatedBookingsIdEditRoute
   AuthenticatedQuoteIdEditRoute: typeof AuthenticatedQuoteIdEditRoute
+  AuthenticatedStaffIdLedgerRoute: typeof AuthenticatedStaffIdLedgerRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -794,6 +815,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
   AuthenticatedBookingsIdEditRoute: AuthenticatedBookingsIdEditRoute,
   AuthenticatedQuoteIdEditRoute: AuthenticatedQuoteIdEditRoute,
+  AuthenticatedStaffIdLedgerRoute: AuthenticatedStaffIdLedgerRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

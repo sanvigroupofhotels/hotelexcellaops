@@ -4,6 +4,8 @@ import { toLocalYMD } from "@/lib/utils";
 export const COMPLAINT_TYPES = ["Room", "General"] as const;
 export const COMPLAINT_PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
 export const COMPLAINT_STATUSES = ["Open", "In Progress", "Resolved"] as const;
+export const ISSUE_TYPES = ["Complaint", "Maintenance", "Housekeeping", "Service", "Other"] as const;
+export type IssueType = (typeof ISSUE_TYPES)[number];
 
 export type ComplaintType = (typeof COMPLAINT_TYPES)[number];
 export type ComplaintPriority = (typeof COMPLAINT_PRIORITIES)[number];
@@ -23,6 +25,10 @@ export interface ComplaintRow {
   entered_by_staff_id: string | null; entered_by_name: string | null;
   assigned_to_staff_id: string | null; assigned_to_name: string | null;
   description: string;
+  issue_type: string | null;
+  guest_impacted: boolean;
+  resolution_notes: string | null;
+  closed_at: string | null;
   resolved_at: string | null;
   created_at: string; updated_at: string;
 }
@@ -42,6 +48,9 @@ export interface ComplaintInput {
   entered_by_staff_id?: string | null; entered_by_name?: string | null;
   assigned_to_staff_id?: string | null; assigned_to_name?: string | null;
   description: string;
+  issue_type?: string | null;
+  guest_impacted?: boolean;
+  resolution_notes?: string | null;
 }
 
 // ---------- Categories ----------

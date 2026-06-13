@@ -24,7 +24,7 @@ const nav: NavItem[] = [
   { to: "/dues", label: "Due Collection", icon: IndianRupee },
   { to: "/reporting", label: "Reporting", icon: FileBarChart },
   { to: "/payments-reports", label: "Payments Reports", icon: IndianRupee, adminOnly: true },
-  { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
+  { to: "/complaints", label: "Issues", icon: MessageSquareWarning },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/follow-ups", label: "Follow-ups", icon: Bell },
   { to: "/calendar", label: "Calendar", icon: Calendar },

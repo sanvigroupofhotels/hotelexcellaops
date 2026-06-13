@@ -5,7 +5,7 @@ import { Topbar } from "@/components/topbar";
 import {
   listComplaints, createComplaint, listComplaintCategories,
   createComplaintCategory, updateComplaintCategory,
-  COMPLAINT_PRIORITIES, COMPLAINT_STATUSES,
+  COMPLAINT_PRIORITIES, COMPLAINT_STATUSES, ISSUE_TYPES,
   priorityStyles, statusStyles,
   findActiveBookingForRoom,
   type ComplaintPriority, type ComplaintStatus, type ComplaintType,
@@ -77,7 +77,7 @@ function ComplaintsPage() {
 
   return (
     <>
-      <Topbar title="Complaints" subtitle={`${activeList.length} active`} />
+      <Topbar title="Issues" subtitle={`${activeList.length} active`} />
       <div className="px-4 md:px-8 py-6 md:py-8 space-y-5">
         <div className="flex flex-col md:flex-row gap-2">
           <div className="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-md bg-card border border-border">
@@ -85,7 +85,7 @@ function ComplaintsPage() {
             <input
               value={filters.search}
               onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-              placeholder="Search active complaints…"
+              placeholder="Search active issues…"
               className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
             />
           </div>
@@ -100,7 +100,7 @@ function ComplaintsPage() {
           <Dialog open={newOpen} onOpenChange={setNewOpen}>
             <DialogTrigger asChild>
               <button className="inline-flex items-center gap-2 rounded-md gold-gradient text-charcoal px-4 py-2.5 text-sm font-medium">
-                <Plus className="h-4 w-4" /> New Complaint
+                <Plus className="h-4 w-4" /> New Issue
               </button>
             </DialogTrigger>
             <NewComplaintDialog
@@ -116,7 +116,7 @@ function ComplaintsPage() {
           {isLoading ? (
             <div className="p-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
           ) : activeList.length === 0 ? (
-            <div className="p-12 text-center text-sm text-muted-foreground">No active complaints. 🎉</div>
+            <div className="p-12 text-center text-sm text-muted-foreground">No active issues. 🎉</div>
           ) : (
             <div className="divide-y divide-border">
               {activeList.map(c => (
@@ -280,6 +280,8 @@ function NewComplaintDialog({
     entered_by_staff_id: "",
     assigned_to_staff_id: "",
     description: "",
+    issue_type: "Complaint" as string,
+    guest_impacted: false,
   });
   const [suggestion, setSuggestion] = useState<any | null>(null);
   const [checkingRoom, setCheckingRoom] = useState(false);
@@ -309,10 +311,12 @@ function NewComplaintDialog({
         assigned_to_staff_id: form.assigned_to_staff_id || null,
         assigned_to_name: assigned?.name ?? null,
         description: form.description.trim(),
+        issue_type: form.issue_type,
+        guest_impacted: form.guest_impacted,
       });
     },
-    onSuccess: () => { toast.success("Complaint recorded"); onSaved(); reset(); },
-    onError: (e: any) => toast.error(e?.message ?? "Failed to save complaint"),
+    onSuccess: () => { toast.success("Issue recorded"); onSaved(); reset(); },
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save issue"),
   });
 
   const reset = () => {
@@ -320,22 +324,36 @@ function NewComplaintDialog({
       complaint_type: "Room", room_number: "", customer_id: null, booking_id: null,
       category: "", category_other: "", priority: "Medium", status: "Open",
       entered_by_staff_id: "", assigned_to_staff_id: "", description: "",
+      issue_type: "Complaint", guest_impacted: false,
     });
     setSuggestion(null);
   };
 
   return (
     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader><DialogTitle>New Complaint</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>New Issue</DialogTitle></DialogHeader>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label="Complaint Type *">
+        <Field label="Issue Type *">
+          <Select value={form.issue_type} onValueChange={v => setForm(f => ({ ...f, issue_type: v }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{ISSUE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+          </Select>
+        </Field>
+        <Field label="Scope *">
           <Select value={form.complaint_type} onValueChange={v => setForm(f => ({ ...f, complaint_type: v as ComplaintType }))}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="Room">Room Complaint</SelectItem>
-              <SelectItem value="General">General Complaint</SelectItem>
+              <SelectItem value="Room">Room</SelectItem>
+              <SelectItem value="General">General</SelectItem>
             </SelectContent>
           </Select>
+        </Field>
+        <Field label="Guest Impacted">
+          <label className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-input/40 text-sm">
+            <input type="checkbox" checked={form.guest_impacted}
+              onChange={e => setForm(f => ({ ...f, guest_impacted: e.target.checked }))} />
+            <span className="text-muted-foreground">Yes — affecting guest stay</span>
+          </label>
         </Field>
         {form.complaint_type === "Room" && (
           <Field label="Room Number *">
@@ -386,7 +404,7 @@ function NewComplaintDialog({
           </Select>
         </Field>
         {form.category === "Other" && (
-          <Field label="Enter Complaint Category *">
+          <Field label="Enter Category *">
             <Input value={form.category_other} onChange={e => setForm(f => ({ ...f, category_other: e.target.value }))} placeholder="Describe category" />
           </Field>
         )}
@@ -424,7 +442,7 @@ function NewComplaintDialog({
           rows={4}
           value={form.description}
           onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-          placeholder="Describe the complaint…"
+          placeholder="Describe the issue…"
         />
       </Field>
 
@@ -432,7 +450,7 @@ function NewComplaintDialog({
         <button onClick={() => onOpenChange(false)} className="rounded-md border border-border px-4 py-2 text-sm">Cancel</button>
         <button onClick={() => create.mutate()} disabled={create.isPending}
           className="rounded-md gold-gradient text-charcoal px-4 py-2 text-sm font-medium disabled:opacity-60">
-          {create.isPending ? "Saving…" : "Save Complaint"}
+          {create.isPending ? "Saving…" : "Save Issue"}
         </button>
       </DialogFooter>
     </DialogContent>
