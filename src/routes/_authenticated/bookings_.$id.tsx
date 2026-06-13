@@ -42,8 +42,12 @@ import { cn, toLocalYMD } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
 import { lineSubtotal } from "@/components/line-items-editor";
 import { computePricing } from "@/lib/pricing";
-import { listRooms } from "@/lib/rooms-api";
+import { listRooms, listOccupiedRoomIds } from "@/lib/rooms-api";
+import { listActiveBlocks, isRoomBlockedInRange } from "@/lib/blocks-api";
 import { listBookingCharges, chargesTotal as sumCharges } from "@/lib/booking-charges-api";
+import {
+  listAssignments, addAssignment, removeAssignment, requiredRoomCount,
+} from "@/lib/booking-room-assignments-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
