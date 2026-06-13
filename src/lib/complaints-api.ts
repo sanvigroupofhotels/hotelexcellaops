@@ -41,6 +41,8 @@ export interface ComplaintRow {
   resolution_notes: string | null;
   closed_at: string | null;
   resolved_at: string | null;
+  resolved_by_staff_id: string | null;
+  resolved_by_name: string | null;
   created_at: string; updated_at: string;
 }
 export interface ComplaintActivityRow {
