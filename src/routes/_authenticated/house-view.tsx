@@ -173,6 +173,12 @@ function HouseView() {
   const occupiedRooms = new Set<string>();
   const inHouseBookings: any[] = [];
   let arrivalsToday = 0, departuresToday = 0;
+  // Per-booking assigned-rooms lookup (multi-room aware)
+  const roomIdsForBooking = (bookingId: string, fallbackRoomId: string | null): string[] => {
+    const ids = (allAssignments as any[]).filter((a) => a.booking_id === bookingId).map((a) => a.room_id);
+    if (ids.length > 0) return ids;
+    return fallbackRoomId ? [fallbackRoomId] : [];
+  };
   for (const b of (bookings as any[])) {
     if (b.status === "Cancelled") continue;
     if (b.check_in === todayKey) arrivalsToday++;
@@ -181,7 +187,7 @@ function HouseView() {
       && b.status !== "Checked-Out" && b.status !== "Stay Completed";
     if (inHouse) {
       inHouseBookings.push(b);
-      if (b.room_id) occupiedRooms.add(b.room_id);
+      for (const rid of roomIdsForBooking(b.id, b.room_id)) occupiedRooms.add(rid);
     }
   }
   const totalRooms = rooms.length;
@@ -200,8 +206,10 @@ function HouseView() {
     const r = rooms.find((x: any) => x.id === id);
     return r ? r.room_number : null;
   };
-  const breakfastRoomNumbers = breakfastBookings.map((b) => roomNumber(b.room_id)).filter(Boolean) as string[];
-  const inHouseRoomNumbers = inHouseBookings.map((b) => roomNumber(b.room_id)).filter(Boolean) as string[];
+  const roomNumbersFor = (b: any): string[] =>
+    roomIdsForBooking(b.id, b.room_id).map((rid) => roomNumber(rid)).filter(Boolean) as string[];
+  const breakfastRoomNumbers = breakfastBookings.flatMap(roomNumbersFor);
+  const inHouseRoomNumbers = inHouseBookings.flatMap(roomNumbersFor);
 
   return (
     <>
