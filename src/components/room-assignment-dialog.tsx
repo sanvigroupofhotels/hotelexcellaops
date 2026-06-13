@@ -89,34 +89,50 @@ export function RoomAssignmentDialog({
     return Array.from(set.keys()).sort();
   }, [rooms]);
 
-  const required = requiredRoomCount(items as any);
-  const requiredMix = useMemo(() => requiredByType(items as any), [items]);
+  // Resolve any room_type label ("Oak Room", "oak", etc.) to the canonical
+  // category string from the rooms table ("Oak"). Falls back to original.
+  const canon = useMemo(() => {
+    return (raw?: string | null) => {
+      const n = normalizeRoomType(raw);
+      if (!n) return "";
+      const hit = categories.find((c) => normalizeRoomType(c) === n);
+      return hit ?? (raw || "").trim();
+    };
+  }, [categories]);
 
-  // Assigned-by-type (normalized), derived from current assignments + rooms.
+  const required = requiredRoomCount(items as any);
+
+  // requiredMix keyed by canonical category labels.
+  const requiredMix = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const it of items as any[]) {
+      const k = canon(it.room_type);
+      if (!k) continue;
+      out[k] = (out[k] ?? 0) + Math.max(1, Number(it.rooms ?? 1));
+    }
+    return out;
+  }, [items, canon]);
+
+  // Assigned-by-category, derived from current assignments + rooms.
   const assignedMix = useMemo(() => {
     const out: Record<string, number> = {};
     for (const a of assignments) {
       const r = (rooms as any[]).find((x) => x.id === a.room_id);
-      const t = normalizeRoomType(r?.room_type);
+      const t = canon(r?.room_type);
       if (!t) continue;
       out[t] = (out[t] ?? 0) + 1;
     }
     return out;
-  }, [assignments, rooms]);
+  }, [assignments, rooms, canon]);
 
-  // Next slot category (first type with a deficit). Returns the *display* label
-  // by finding the matching rooms category that normalizes to this key.
+  // Next slot category (first category with a deficit).
   const nextSlotType: string | null = useMemo(() => {
-    for (const [normT, need] of Object.entries(requiredMix)) {
-      const have = assignedMix[normT] ?? 0;
-      if (have < need) {
-        // Map back to a display category from rooms
-        const match = categories.find((c) => normalizeRoomType(c) === normT);
-        return match ?? null;
-      }
+    for (const [t, need] of Object.entries(requiredMix)) {
+      const have = assignedMix[t] ?? 0;
+      if (have < need) return t;
     }
     return null;
-  }, [requiredMix, assignedMix, categories]);
+  }, [requiredMix, assignedMix]);
 
   // The assignment being changed (change mode only).
   const changingAssignment = changingAssignmentId
