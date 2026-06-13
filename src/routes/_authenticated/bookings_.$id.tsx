@@ -169,14 +169,34 @@ function BookingDetail() {
   const [assignRoomOpen, setAssignRoomOpen] = useState(false);
   const [pickedRoomId, setPickedRoomId] = useState<string>("");
 
+  const { data: assignments = [], refetch: refetchAssignments } = useQuery({
+    queryKey: ["booking-room-assignments", id],
+    queryFn: () => listAssignments(id),
+    enabled: !!id,
+  });
+  const { data: blocks = [] } = useQuery({ queryKey: ["blocks", "active"], queryFn: listActiveBlocks });
+  const { data: occupiedRoomIds = new Set<string>() } = useQuery({
+    queryKey: ["rooms-occupied", b?.check_in, b?.check_out, id],
+    queryFn: () => listOccupiedRoomIds(b!.check_in, b!.check_out, id),
+    enabled: !!(b?.check_in && b?.check_out),
+  });
+
   const assignRoom = useMutation({
     mutationFn: async (roomId: string) => {
-      const { error } = await supabase.from("bookings" as any).update({ room_id: roomId } as any).eq("id", id);
-      if (error) throw error;
+      await addAssignment(id, roomId);
       await logBookingActivity({ booking_id: id, action: "reactivated", from_status: b?.status ?? null, to_status: b?.status ?? null, notes: `Room assigned` });
     },
-    onSuccess: () => { invalidateAll(); setAssignRoomOpen(false); setPickedRoomId(""); toast.success("Room assigned"); },
+    onSuccess: () => { invalidateAll(); refetchAssignments(); setAssignRoomOpen(false); setPickedRoomId(""); toast.success("Room assigned"); },
     onError: (e: any) => toast.error(e?.message ?? "Could not assign room"),
+  });
+
+  const unassignRoom = useMutation({
+    mutationFn: async (assignmentId: string) => {
+      await removeAssignment(id, assignmentId);
+      await logBookingActivity({ booking_id: id, action: "reactivated", from_status: b?.status ?? null, to_status: b?.status ?? null, notes: `Room unassigned` });
+    },
+    onSuccess: () => { invalidateAll(); refetchAssignments(); toast.success("Room unassigned"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not unassign room"),
   });
 
   const { data: payments = [] } = useQuery({
