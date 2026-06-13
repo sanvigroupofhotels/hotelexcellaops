@@ -5,7 +5,7 @@ import { Topbar } from "@/components/topbar";
 import {
   listComplaints, createComplaint, listComplaintCategories,
   createComplaintCategory, updateComplaintCategory,
-  COMPLAINT_PRIORITIES, COMPLAINT_STATUSES,
+  COMPLAINT_PRIORITIES, COMPLAINT_STATUSES, ISSUE_TYPES,
   priorityStyles, statusStyles,
   findActiveBookingForRoom,
   type ComplaintPriority, type ComplaintStatus, type ComplaintType,
