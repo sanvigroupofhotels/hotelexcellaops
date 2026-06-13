@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Search, Users as UsersIcon } from "lucide-react";
+import { Plus, Pencil, Search, Users as UsersIcon, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import {
   listStaffHr, createStaffHr, updateStaffHr, type StaffHrRow,
