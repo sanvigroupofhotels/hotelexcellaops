@@ -69,11 +69,13 @@ function HouseView() {
     queryKey: ["room_maintenance", "active"],
     queryFn: async () => (await listMaintenance()).filter((m: any) => m.active !== false),
   });
-  // All booking items (for breakfast lookup keyed by booking_id)
+  // All booking items (breakfast lookup + room_type/rooms per item for placeholder occupancy)
   const { data: allItems = [] } = useQuery({
     queryKey: ["booking-items-all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("booking_items" as any).select("booking_id,breakfast_included");
+      const { data, error } = await supabase
+        .from("booking_items" as any)
+        .select("booking_id,breakfast_included,room_type,rooms");
       if (error) throw error;
       return (data ?? []) as any[];
     },
