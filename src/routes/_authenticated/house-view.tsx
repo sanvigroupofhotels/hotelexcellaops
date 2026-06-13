@@ -535,15 +535,22 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   const isCheckedOut = status === "Checked-Out" || status === "Stay Completed";
 
-  const { data: itemsForInvoice = [] } = useQuery({
+  const { data: itemsForBooking = [] } = useQuery({
     queryKey: ["booking-items", b.id],
     queryFn: async () => {
       const { listBookingItems } = await import("@/lib/booking-items-api");
       return listBookingItems(b.id);
     },
-    enabled: invoiceOpen,
+  });
+  const { data: assignmentsForBooking = [] } = useQuery({
+    queryKey: ["booking-room-assignments", b.id],
+    queryFn: async () => {
+      const { listAssignments } = await import("@/lib/booking-room-assignments-api");
+      return listAssignments(b.id);
+    },
   });
   const { data: paymentsForInvoice = [] } = useQuery({
     queryKey: ["booking-payments", b.id],
@@ -551,14 +558,19 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
     enabled: invoiceOpen,
   });
 
-  const checkInMut = useMutation({
+  const performCheckIn = useMutation({
     mutationFn: async () => {
       const { setBookingStatus } = await import("@/lib/bookings-api");
       await setBookingStatus(b.id, "Checked-In" as any);
     },
-    onSuccess: () => {
-      toast.success("Checked-in");
+    onSuccess: async () => {
+      // Fetch fresh assignments to list room numbers
+      const { listAssignments } = await import("@/lib/booking-room-assignments-api");
+      const latest = await listAssignments(b.id);
+      const nums = latest.map((a: any) => rooms.find((r) => r.id === a.room_id)?.room_number).filter(Boolean).join(", ");
+      toast.success(`Checked In Successfully${nums ? ` · Assigned Rooms: ${nums}` : ""}`);
       qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
       onClose();
     },
     onError: (e: any) => toast.error(e.message),
@@ -576,7 +588,18 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Dynamic action button (P5):
+  const handleCheckIn = async () => {
+    const { requiredRoomCount } = await import("@/lib/booking-room-assignments-api");
+    const required = requiredRoomCount(itemsForBooking as any);
+    if (assignmentsForBooking.length < required) {
+      toast.error("Please assign all rooms before Check-In.");
+      setCheckinFlowOpen(true);
+      return;
+    }
+    performCheckIn.mutate();
+  };
+
+  // Dynamic action button:
   //   Case 1: Balance > 0 (not yet checked-out)  → Add Payment
   //   Case 2: Balance = 0 AND today >= check_in AND not yet in-house  → Check-In
   //   Case 3: status = Checked-In                                     → Check-Out
@@ -588,7 +611,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
     } else if (balance > 0) {
       primary = { label: "Add Payment", onClick: () => setPayOpen(true), tone: "gold" };
     } else if (today >= b.check_in) {
-      primary = { label: "Check-In", onClick: () => checkInMut.mutate(), tone: "green" };
+      primary = { label: "Check-In", onClick: handleCheckIn, tone: "green" };
     }
   }
 
