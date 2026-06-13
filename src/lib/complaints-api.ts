@@ -4,7 +4,18 @@ import { toLocalYMD } from "@/lib/utils";
 export const COMPLAINT_TYPES = ["Room", "General"] as const;
 export const COMPLAINT_PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
 export const COMPLAINT_STATUSES = ["Open", "In Progress", "Resolved"] as const;
-export const ISSUE_TYPES = ["Complaint", "Maintenance", "Housekeeping", "Service", "Other"] as const;
+export const ISSUE_TYPES = [
+  "Guest Complaint",
+  "Housekeeping",
+  "Maintenance",
+  "Electrical",
+  "Plumbing",
+  "AC",
+  "TV",
+  "WiFi",
+  "Furniture",
+  "Other",
+] as const;
 export type IssueType = (typeof ISSUE_TYPES)[number];
 
 export type ComplaintType = (typeof COMPLAINT_TYPES)[number];
@@ -30,6 +41,8 @@ export interface ComplaintRow {
   resolution_notes: string | null;
   closed_at: string | null;
   resolved_at: string | null;
+  resolved_by_staff_id: string | null;
+  resolved_by_name: string | null;
   created_at: string; updated_at: string;
 }
 export interface ComplaintActivityRow {
@@ -152,6 +165,27 @@ export async function updateComplaint(id: string, patch: Partial<ComplaintInput>
 
 export async function setComplaintStatus(id: string, status: ComplaintStatus) {
   const { error } = await supabase.from("complaints" as any).update({ status } as any).eq("id", id);
+  if (error) throw error;
+}
+
+/** Resolve / close an issue with mandatory notes + resolver identity. */
+export async function resolveComplaint(
+  id: string,
+  payload: {
+    resolution_notes: string;
+    resolved_by_staff_id?: string | null;
+    resolved_by_name?: string | null;
+    status?: "Resolved";
+  },
+) {
+  if (!payload.resolution_notes?.trim()) throw new Error("Resolution notes are required");
+  const { error } = await supabase.from("complaints" as any).update({
+    status: payload.status ?? "Resolved",
+    resolution_notes: payload.resolution_notes.trim(),
+    resolved_by_staff_id: payload.resolved_by_staff_id ?? null,
+    resolved_by_name: payload.resolved_by_name ?? null,
+    resolved_at: new Date().toISOString(),
+  } as any).eq("id", id);
   if (error) throw error;
 }
 

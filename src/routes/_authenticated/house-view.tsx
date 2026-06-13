@@ -15,6 +15,7 @@ import { listBookingPayments } from "@/lib/booking-payments-api";
 import { BlockRoomDialog } from "@/components/block-room-dialog";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
+import { useMasterData } from "@/hooks/use-master-data";
 
 export const Route = createFileRoute("/_authenticated/house-view")({
   component: HouseView,
@@ -567,6 +568,10 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
+  const { values: chargeCategories } = useMasterData("in_house_charge", [
+    "Food Order","Water Bottles","Laundry","Dental Kit","Shaving Kit","Coffee","Tea",
+    "Late Check-out","Early Check-in","Extra Pet","Extra Adult","Transportation","Other",
+  ]);
   const isCheckedOut = status === "Checked-Out" || status === "Stay Completed";
   const canTransact = status !== "Cancelled" && !isCheckedOut;
 
@@ -733,7 +738,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
       open={chargeOpen}
       onOpenChange={setChargeOpen}
       bookingId={b.id}
-      categories={["Food Order","Water Bottles","Laundry","Dental Kit","Shaving Kit","Coffee","Tea","Late Check-out","Early Check-in","Extra Pet","Extra Adult","Transportation","Other"]}
+      categories={chargeCategories}
       editing={null}
     />
     <RoomAssignmentDialog

@@ -5,6 +5,7 @@ import { Topbar } from "@/components/topbar";
 import {
   getComplaint, listComplaintActivities, updateComplaint, deleteComplaint,
   setComplaintStatus, assignComplaint, listComplaintCategories,
+  resolveComplaint,
   COMPLAINT_STATUSES, COMPLAINT_PRIORITIES,
   priorityStyles, statusStyles,
   type ComplaintPriority, type ComplaintStatus, type ComplaintType,
@@ -19,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,6 +67,10 @@ function ComplaintDetail() {
   const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
   const { data: categories = [] } = useQuery({ queryKey: ["complaint-categories"], queryFn: () => listComplaintCategories(true) });
 
+  const [resolveOpen, setResolveOpen] = useState(false);
+  const [resolveNotes, setResolveNotes] = useState("");
+  const [resolveByStaffId, setResolveByStaffId] = useState<string>("");
+
   const setStatusM = useMutation({
     mutationFn: (s: ComplaintStatus) => setComplaintStatus(id, s),
     onSuccess: () => {
@@ -73,6 +79,26 @@ function ComplaintDetail() {
       qc.invalidateQueries({ queryKey: ["complaints"] });
       toast.success("Status updated");
     },
+  });
+
+  const resolveM = useMutation({
+    mutationFn: () => {
+      const s = staff.find(x => x.id === resolveByStaffId);
+      return resolveComplaint(id, {
+        resolution_notes: resolveNotes,
+        resolved_by_staff_id: s?.id ?? null,
+        resolved_by_name: s?.name ?? null,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["complaint", id] });
+      qc.invalidateQueries({ queryKey: ["complaint-acts", id] });
+      qc.invalidateQueries({ queryKey: ["complaints"] });
+      setResolveOpen(false);
+      setResolveNotes("");
+      toast.success("Issue resolved");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not resolve"),
   });
   const assignM = useMutation({
     mutationFn: (staffId: string) => {
@@ -275,6 +301,14 @@ function ComplaintDetail() {
                   <div>Entered by: <span className="text-foreground">{c.entered_by_name ?? "—"}</span></div>
                   <div>Assigned to: <span className="text-foreground">{c.assigned_to_name ?? "—"}</span></div>
                   {c.resolved_at && <div>Resolved: <span className="text-foreground">{new Date(c.resolved_at).toLocaleString("en-IN")}</span></div>}
+                  {c.resolved_by_name && <div>Resolved by: <span className="text-foreground">{c.resolved_by_name}</span></div>}
+                  {c.closed_at && <div>Closed: <span className="text-foreground">{new Date(c.closed_at).toLocaleString("en-IN")}</span></div>}
+                </div>
+              )}
+              {!editing && c.resolution_notes && (
+                <div className="mt-3 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-xs">
+                  <div className="text-[10px] uppercase tracking-wider text-success mb-1">Resolution Notes</div>
+                  <div className="text-foreground whitespace-pre-wrap">{c.resolution_notes}</div>
                 </div>
               )}
             </div>
@@ -309,7 +343,19 @@ function ComplaintDetail() {
               <h4 className="font-display text-lg mb-3">Status</h4>
               <div className="grid grid-cols-1 gap-2">
                 {COMPLAINT_STATUSES.map(s => (
-                  <button key={s} onClick={() => setStatusM.mutate(s)} disabled={s === c.status}
+                  <button
+                    key={s}
+                    onClick={() => {
+                      if (s === c.status) return;
+                      if (s === "Resolved") {
+                        setResolveNotes(c.resolution_notes ?? "");
+                        setResolveByStaffId(c.assigned_to_staff_id ?? c.entered_by_staff_id ?? "");
+                        setResolveOpen(true);
+                        return;
+                      }
+                      setStatusM.mutate(s);
+                    }}
+                    disabled={s === c.status}
                     className={cn("rounded-md border px-3 py-1.5 text-xs transition text-left",
                       s === c.status ? "border-gold/50 bg-gold-soft text-gold" : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/30")}>
                     {s}
@@ -354,6 +400,40 @@ function ComplaintDetail() {
           </div>
         </div>
       </div>
+
+      <Dialog open={resolveOpen} onOpenChange={setResolveOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Resolve Issue</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Resolution Notes *</Label>
+              <Textarea rows={4} value={resolveNotes} onChange={e => setResolveNotes(e.target.value)}
+                placeholder="What was done to resolve this issue?" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Resolved By</Label>
+              <Select value={resolveByStaffId || "_none"} onValueChange={v => setResolveByStaffId(v === "_none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— None —</SelectItem>
+                  {staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button onClick={() => setResolveOpen(false)}
+              className="rounded-md border border-border bg-card px-3 py-2 text-xs">Cancel</button>
+            <button onClick={() => resolveM.mutate()}
+              disabled={!resolveNotes.trim() || resolveM.isPending}
+              className="rounded-md gold-gradient text-charcoal px-3 py-2 text-xs font-medium disabled:opacity-60">
+              {resolveM.isPending ? "Saving…" : "Mark Resolved"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { useMasterData } from "@/hooks/use-master-data";
 import {
   Plus, Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Search, X,
-  Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download, Printer,
+  Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download,
   Pencil, PowerOff, Power, Clock, User as UserIcon, ClipboardCopy,
 } from "lucide-react";
 import { cn, toLocalYMD, smartDateTime } from "@/lib/utils";
@@ -737,8 +737,8 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-5 w-5"/></button>
         </div>
         <div className="p-5 space-y-4">
-          {/* Row 1: Type + Amount + Notes (reception's most-used trio) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Row 1: Type + (Other Type if needed) + Amount + Notes */}
+          <div className={cn("grid grid-cols-1 gap-3", isOther ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
             <Field label={kind==="collection"?"Collection Type":"Expense Type"} required>
               <select className={inputCls} value={typeName} onChange={e=>setTypeName(e.target.value)}>
                 {kind==="collection"
@@ -746,6 +746,12 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
                   : etypes.map(t => <option key={t.id}>{t.name}</option>)}
               </select>
             </Field>
+            {isOther && (
+              <Field label="What's the Other Type?" required>
+                <input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)}
+                  placeholder="Specify…" />
+              </Field>
+            )}
             <Field label="Amount (₹)" required>
               <NumField value={amount || 0} min={0} decimal prefix="₹" onChange={(v)=>setAmount(v)} />
             </Field>
@@ -753,12 +759,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
               <input className={inputCls} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Quick note (optional)" />
             </Field>
           </div>
-          {isOther && (
-            <Field label="What's the Other Type?" required>
-              <input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)}
-                placeholder="What's the Other Type?" />
-            </Field>
-          )}
+
 
           {kind==="collection" && !isOther && (
             <>
@@ -1007,6 +1008,86 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
     toast.success("Exported");
   };
 
+  // -------- Copy WhatsApp-friendly report --------
+  const buildWhatsAppReport = () => {
+    const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
+    const fmtDate = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const period = range === "all"
+      ? "All time"
+      : `${fmtDate(fromDate)} - ${fmtDate(toDate)}`;
+
+    // Opening balance = net cash before fromDate (only meaningful when a date range is set)
+    let opening = 0;
+    if (range !== "all") {
+      const fromD = new Date(fromDate + "T00:00:00");
+      for (const t of tx) {
+        if (!t.active) continue;
+        if (new Date(t.occurred_at) < fromD) opening += t.kind === "collection" ? Number(t.amount) : -Number(t.amount);
+      }
+    }
+
+    // Group filtered rows by category respecting kindFilter
+    const incomeBy = new Map<string, number>();
+    const expenseBy = new Map<string, number>();
+    for (const t of filtered) {
+      if (t.kind === "collection") incomeBy.set(t.type_name, (incomeBy.get(t.type_name) ?? 0) + Number(t.amount));
+      else expenseBy.set(t.type_name, (expenseBy.get(t.type_name) ?? 0) + Number(t.amount));
+    }
+
+    const lines: string[] = [];
+    lines.push("CASH REPORT");
+    lines.push(`Period: ${period}`);
+    if (categoryFilter) lines.push(`Category: ${categoryFilter}`);
+    if (staffFilter) lines.push(`Entered By: ${staffFilter}`);
+    lines.push("");
+    if (range !== "all") {
+      lines.push(`Opening Balance: ${inr(opening)}`);
+      lines.push("");
+    }
+
+    const showIncome = kindFilter !== "expense";
+    const showExpense = kindFilter !== "collection";
+
+    if (showIncome) {
+      lines.push("*Income*");
+      if (incomeBy.size === 0) lines.push("  None");
+      else for (const [k, v] of [...incomeBy.entries()].sort((a, b) => b[1] - a[1])) {
+        lines.push(`  ${k} - ${inr(v)}`);
+      }
+      lines.push(`Total Income: ${inr(filteredTotals.collected)}`);
+      lines.push("");
+    }
+    if (showExpense) {
+      lines.push("*Expenses*");
+      if (expenseBy.size === 0) lines.push("  None");
+      else for (const [k, v] of [...expenseBy.entries()].sort((a, b) => b[1] - a[1])) {
+        lines.push(`  ${k} - ${inr(v)}`);
+      }
+      lines.push(`Total Expense: ${inr(filteredTotals.spent)}`);
+      lines.push("");
+    }
+
+    if (range !== "all" && showIncome && showExpense) {
+      const closing = opening + filteredTotals.collected - filteredTotals.spent;
+      lines.push(`Closing Balance: ${inr(closing)}`);
+    } else if (showIncome && showExpense) {
+      lines.push(`Net: ${inr(filteredTotals.balance)}`);
+    }
+
+    return lines.join("\n");
+  };
+
+  const onCopyReport = async () => {
+    try {
+      const text = buildWhatsAppReport();
+      await navigator.clipboard.writeText(text);
+      toast.success("Report copied — paste into WhatsApp");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not copy");
+    }
+  };
+
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="luxe-card rounded-xl w-full max-w-4xl p-5 space-y-4 max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -1139,11 +1220,11 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
         <div className="flex justify-end gap-2">
           <button onClick={onExportExcel}
             className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
-            <Download className="h-4 w-4 text-gold" /> Export Excel (CSV)
+            <Download className="h-4 w-4 text-gold" /> Export CSV
           </button>
-          <button onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
-            <Printer className="h-4 w-4 text-gold" /> Export PDF
+          <button onClick={onCopyReport}
+            className="inline-flex items-center gap-2 rounded-md gold-gradient text-charcoal px-4 py-2 text-sm font-medium">
+            <ClipboardCopy className="h-4 w-4" /> Copy Report
           </button>
         </div>
       </div>
