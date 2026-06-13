@@ -377,7 +377,7 @@ export function RoomAssignmentDialog({
                 <option value="">{pickedCategory ? "Select a room…" : "Pick a category first"}</option>
                 {eligibleRooms.map((r: any) => (
                   <option key={r.id} value={r.id}>
-                    Room {r.room_number} · Floor {r.floor}
+                    {r.room_number}
                   </option>
                 ))}
               </select>
