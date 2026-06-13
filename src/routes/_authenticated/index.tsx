@@ -22,15 +22,19 @@ export const Route = createFileRoute("/_authenticated/")({
 function HomePage() {
   useRealtimeInvalidate(
     ["bookings", "complaints", "booking_charges"],
-    ["bookings", "complaints", "all-charge-totals"],
+    ["bookings", "complaints", "booking_charges", "cash_transactions", "rooms"],
+    ["bookings", "complaints", "all-charge-totals", "cash-tx-home", "rooms-home"],
     "home-dashboard",
   );
   const navigate = useNavigate();
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: complaints = [] } = useQuery({ queryKey: ["complaints"], queryFn: () => listComplaints() });
+  const { data: tx = [] } = useQuery({ queryKey: ["cash-tx-home"], queryFn: () => listCashTx({}) });
+  const { data: rooms = [] } = useQuery({ queryKey: ["rooms-home"], queryFn: listRooms });
 
   const today = toLocalYMD();
+  const todayKey = today;
 
   const active = bookings.filter((b) => b.status !== "Cancelled");
   const occupied = active.filter((b) => b.status === "Checked-In").length;
@@ -46,11 +50,23 @@ function HomePage() {
   const complaintsOpen = complaints.filter((c) => c.status === "Open" || c.status === "In Progress").length;
   const roomsToClean = active.filter((b) => b.status === "Checked-Out" && b.check_out === today).length;
 
+  // New stats
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const revenueCollectedToday = tx
+    .filter((t) => t.active && t.kind === "collection" && ymd(new Date(t.occurred_at)) === todayKey)
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const newBookingsToday = bookings.filter((b) => ymd(new Date(b.created_at)) === todayKey).length;
+  const totalRooms = rooms.filter((r: any) => r.active !== false).length;
+  const occupancyPct = totalRooms > 0 ? Math.round((occupied / totalRooms) * 100) : 0;
+
   const stats: Array<{ label: string; value: number | string; icon: any; emoji: string; to: string }> = [
     { label: "Occupied Rooms",   value: occupied,         icon: BedDouble,            emoji: "🏨", to: "/house-view" },
     { label: "Arrivals Today",   value: arrivalsToday,    icon: Sunrise,              emoji: "🟢", to: "/bookings" },
     { label: "Pending Check-ins",value: pendingCheckins,  icon: LogIn,                emoji: "🔴", to: "/bookings" },
     { label: "Due Collection",   value: `₹${dueCollection.toLocaleString("en-IN")}`, icon: IndianRupee, emoji: "💰", to: "/bookings" },
+    { label: "Revenue Today",    value: `₹${revenueCollectedToday.toLocaleString("en-IN")}`, icon: TrendingUp, emoji: "📈", to: "/cash" },
+    { label: "New Bookings Today", value: newBookingsToday, icon: CalendarPlus,       emoji: "🆕", to: "/bookings" },
+    { label: "Occupancy %",      value: `${occupancyPct}%`, icon: PieChart,            emoji: "📊", to: "/house-view" },
     { label: "Complaints Open",  value: complaintsOpen,   icon: MessageSquareWarning, emoji: "🛎", to: "/complaints" },
     { label: "Rooms To Clean",   value: roomsToClean,     icon: Brush,                emoji: "🧹", to: "/house-view" },
   ];
