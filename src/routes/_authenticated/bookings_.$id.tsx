@@ -87,8 +87,20 @@ function BookingDetail() {
         from_status: from ?? null,
         to_status: s,
       });
+      return s;
     },
-    onSuccess: () => { invalidateAll(); toast.success("Status updated"); },
+    onSuccess: (s) => {
+      invalidateAll();
+      if (s === "Checked-In") {
+        const nums = assignments
+          .map((a) => rooms.find((r: any) => r.id === a.room_id)?.room_number)
+          .filter(Boolean)
+          .join(", ");
+        toast.success(`Checked In Successfully${nums ? ` · Assigned Rooms: ${nums}` : ""}`);
+      } else {
+        toast.success("Status updated");
+      }
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
