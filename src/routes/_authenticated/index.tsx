@@ -30,7 +30,7 @@ function HomePage() {
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: complaints = [] } = useQuery({ queryKey: ["complaints"], queryFn: () => listComplaints() });
   const { data: tx = [] } = useQuery({ queryKey: ["cash-tx-home"], queryFn: () => listCashTx({}) });
-  const { data: rooms = [] } = useQuery({ queryKey: ["rooms-home"], queryFn: listRooms });
+  const { data: rooms = [] } = useQuery({ queryKey: ["rooms-home"], queryFn: () => listRooms() });
 
   const today = toLocalYMD();
   const todayKey = today;
