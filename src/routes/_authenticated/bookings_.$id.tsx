@@ -663,81 +663,21 @@ function BookingDetail() {
         />
       )}
 
-      <AlertDialog
+      <RoomAssignmentDialog
+        bookingId={id}
         open={assignRoomOpen}
-        onOpenChange={(o) => { setAssignRoomOpen(o); if (!o) setChangingAssignmentId(null); }}
-      >
-        <AlertDialogContent>
-          {(() => {
-            const isChange = !!changingAssignmentId;
-            const current = isChange ? assignments.find((a) => a.id === changingAssignmentId) : null;
-            const currentRoom = current ? rooms.find((r: any) => r.id === current.room_id) : null;
-            const targetType = currentRoom?.room_type;
-            return (
-              <>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2">
-                    <DoorOpen className="h-4 w-4 text-gold" /> {isChange ? "Change Room" : "Assign Room"}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {isChange && currentRoom ? (
-                      <>Swap Room <span className="font-medium">{currentRoom.room_number}</span> ({currentRoom.room_type}) for another eligible room.</>
-                    ) : (
-                      <>Pick a room for {b.guest_name} ({b.booking_reference}). Conflicts with existing bookings or maintenance blocks will be rejected.</>
-                    )}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <div className="px-1">
-                  <label className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Room</label>
-                  <select value={pickedRoomId} onChange={(e) => setPickedRoomId(e.target.value)}
-                    className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                    <option value="">Select a room…</option>
-                    {rooms
-                      .filter((r: any) => {
-                        // In Change mode, hide the room being changed and restrict to same type when known.
-                        if (isChange && current && r.id === current.room_id) return false;
-                        if (isChange && targetType && r.room_type !== targetType) return false;
-                        if (assignments.some((a) => a.room_id === r.id)) return false; // already assigned
-                        if (b?.check_in && b?.check_out) {
-                          if (isRoomBlockedInRange(blocks, r.id, b.check_in, b.check_out)) return false;
-                          if (occupiedRoomIds.has(r.id) && r.id !== (b as any).room_id) return false;
-                        }
-                        return true;
-                      })
-                      .map((r: any) => (
-                        <option key={r.id} value={r.id}>
-                          {r.room_number} · {r.room_type} · Floor {r.floor}
-                        </option>
-                      ))}
-                  </select>
-                  <p className="text-[10px] text-muted-foreground mt-1.5">
-                    {isChange && targetType
-                      ? `Showing eligible ${targetType} rooms only — occupied, blocked and already-assigned rooms hidden.`
-                      : "Already assigned, occupied, or blocked rooms are hidden."}
-                  </p>
-                </div>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    disabled={!pickedRoomId || assignRoom.isPending || changeRoom.isPending}
-                    onClick={() => {
-                      if (!pickedRoomId) return;
-                      if (isChange && changingAssignmentId) {
-                        changeRoom.mutate({ assignmentId: changingAssignmentId, newRoomId: pickedRoomId });
-                      } else {
-                        assignRoom.mutate(pickedRoomId);
-                      }
-                    }}
-                  >
-                    {(assignRoom.isPending || changeRoom.isPending) && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                    {isChange ? "Change" : "Assign"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </>
-            );
-          })()}
-        </AlertDialogContent>
-      </AlertDialog>
+        onClose={() => { setAssignRoomOpen(false); setChangingAssignmentId(null); }}
+        mode={changingAssignmentId ? "change" : "assign-one"}
+        changingAssignmentId={changingAssignmentId}
+      />
+
+      <RoomAssignmentDialog
+        bookingId={id}
+        open={checkinFlowOpen}
+        onClose={() => setCheckinFlowOpen(false)}
+        mode="checkin-flow"
+        onAllAssigned={() => status.mutate("Checked-In" as any)}
+      />
     </>
   );
 }
