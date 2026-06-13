@@ -665,9 +665,9 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
           )}
           {primary && (
             <button onClick={primary.onClick}
-              disabled={checkInMut.isPending || checkOutMut.isPending}
+              disabled={performCheckIn.isPending || checkOutMut.isPending}
               className={cn("flex-1 text-center rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60", toneCls(primary.tone))}>
-              {(checkInMut.isPending || checkOutMut.isPending) ? "Working…" : primary.label}
+              {(performCheckIn.isPending || checkOutMut.isPending) ? "Working…" : primary.label}
             </button>
           )}
         </div>
@@ -681,9 +681,16 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
       />
     )}
     {invoiceOpen && (
-      <InvoiceDialog booking={b} items={itemsForInvoice as any} payments={paymentsForInvoice}
+      <InvoiceDialog booking={b} items={itemsForBooking as any} payments={paymentsForInvoice}
         onClose={() => setInvoiceOpen(false)} />
     )}
+    <RoomAssignmentDialog
+      bookingId={b.id}
+      open={checkinFlowOpen}
+      onClose={() => setCheckinFlowOpen(false)}
+      mode="checkin-flow"
+      onAllAssigned={() => performCheckIn.mutate()}
+    />
     </>
   );
 }
