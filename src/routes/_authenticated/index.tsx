@@ -21,7 +21,6 @@ export const Route = createFileRoute("/_authenticated/")({
 
 function HomePage() {
   useRealtimeInvalidate(
-    ["bookings", "complaints", "booking_charges"],
     ["bookings", "complaints", "booking_charges", "cash_transactions", "rooms"],
     ["bookings", "complaints", "all-charge-totals", "cash-tx-home", "rooms-home"],
     "home-dashboard",
