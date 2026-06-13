@@ -1008,6 +1008,90 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
     toast.success("Exported");
   };
 
+  // -------- Copy WhatsApp-friendly report --------
+  const buildWhatsAppReport = () => {
+    const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
+    const fmtDate = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const period = range === "all"
+      ? "All time"
+      : `${fmtDate(fromDate)} - ${fmtDate(toDate)}`;
+
+    // Opening balance = net cash before fromDate (only meaningful when a date range is set)
+    let opening = 0;
+    if (range !== "all") {
+      const fromD = new Date(fromDate + "T00:00:00");
+      for (const t of tx) {
+        if (!t.active) continue;
+        if (new Date(t.occurred_at) < fromD) opening += t.kind === "collection" ? Number(t.amount) : -Number(t.amount);
+      }
+    }
+
+    // Group filtered rows by category respecting kindFilter
+    const incomeBy = new Map<string, number>();
+    const expenseBy = new Map<string, number>();
+    for (const t of filtered) {
+      const cat = t.type_name + (t.description ? ` (${t.description})` : "");
+      if (t.kind === "collection") incomeBy.set(t.type_name, (incomeBy.get(t.type_name) ?? 0) + Number(t.amount));
+      else expenseBy.set(t.type_name, (expenseBy.get(t.type_name) ?? 0) + Number(t.amount));
+      void cat;
+    }
+
+    const lines: string[] = [];
+    lines.push("CASH REPORT");
+    lines.push(`Period: ${period}`);
+    if (categoryFilter) lines.push(`Category: ${categoryFilter}`);
+    if (staffFilter) lines.push(`Entered By: ${staffFilter}`);
+    lines.push("");
+    if (range !== "all") {
+      lines.push(`Opening Balance: ${inr(opening)}`);
+      lines.push("");
+    }
+
+    const showIncome = kindFilter !== "expense";
+    const showExpense = kindFilter !== "collection";
+
+    if (showIncome) {
+      lines.push("*Income*");
+      if (incomeBy.size === 0) lines.push("  None");
+      else for (const [k, v] of [...incomeBy.entries()].sort((a, b) => b[1] - a[1])) {
+        lines.push(`  ${k} - ${inr(v)}`);
+      }
+      lines.push(`Total Income: ${inr(filteredTotals.collected)}`);
+      lines.push("");
+    }
+    if (showExpense) {
+      lines.push("*Expenses*");
+      if (expenseBy.size === 0) lines.push("  None");
+      else for (const [k, v] of [...expenseBy.entries()].sort((a, b) => b[1] - a[1])) {
+        lines.push(`  ${k} - ${inr(v)}`);
+      }
+      lines.push(`Total Expense: ${inr(filteredTotals.spent)}`);
+      lines.push("");
+    }
+
+    if (range !== "all" && showIncome && showExpense) {
+      const closing = opening + filteredTotals.collected - filteredTotals.spent;
+      lines.push(`Closing Balance: ${inr(closing)}`);
+    } else if (showIncome && showExpense) {
+      lines.push(`Net: ${inr(filteredTotals.balance)}`);
+    }
+
+    return lines.join("\n");
+  };
+
+  const onCopyReport = async () => {
+    try {
+      const text = buildWhatsAppReport();
+      await navigator.clipboard.writeText(text);
+      toast.success("Report copied — paste into WhatsApp");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not copy");
+    }
+  };
+
+  const noop = () => {};
+  void noop;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="luxe-card rounded-xl w-full max-w-4xl p-5 space-y-4 max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
