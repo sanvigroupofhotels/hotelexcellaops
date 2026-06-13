@@ -494,7 +494,7 @@ function BookingDetail() {
                       </>
                     )}
                     {canCancel && (
-                      <button onClick={() => { if (confirm("Cancel this booking?")) status.mutate("Cancelled" as any); }}
+                      <button onClick={() => { setCancelReason(""); setCancelOpen(true); }}
                         className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] text-destructive hover:bg-destructive/20">
                         Cancel Booking
                       </button>
