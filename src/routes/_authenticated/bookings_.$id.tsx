@@ -659,12 +659,24 @@ function BookingDetail() {
             <select value={pickedRoomId} onChange={(e) => setPickedRoomId(e.target.value)}
               className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
               <option value="">Select a room…</option>
-              {rooms.map((r: any) => (
-                <option key={r.id} value={r.id}>
-                  {r.room_number} · {r.room_type} · Floor {r.floor}
-                </option>
-              ))}
+              {rooms
+                .filter((r: any) => {
+                  if (assignments.some((a) => a.room_id === r.id)) return false; // already assigned
+                  if (b?.check_in && b?.check_out) {
+                    if (isRoomBlockedInRange(blocks, r.id, b.check_in, b.check_out)) return false;
+                    if (occupiedRoomIds.has(r.id) && r.id !== (b as any).room_id) return false;
+                  }
+                  return true;
+                })
+                .map((r: any) => (
+                  <option key={r.id} value={r.id}>
+                    {r.room_number} · {r.room_type} · Floor {r.floor}
+                  </option>
+                ))}
             </select>
+            <p className="text-[10px] text-muted-foreground mt-1.5">
+              Already assigned, occupied, or blocked rooms are hidden.
+            </p>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
