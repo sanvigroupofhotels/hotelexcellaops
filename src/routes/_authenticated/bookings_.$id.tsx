@@ -406,7 +406,6 @@ function BookingDetail() {
                                 <button
                                   onClick={() => {
                                     setChangingAssignmentId(a.id);
-                                    setPickedRoomId("");
                                     setAssignRoomOpen(true);
                                   }}
                                   className="text-muted-foreground hover:text-gold"
@@ -427,9 +426,9 @@ function BookingDetail() {
                     </ul>
                   )}
                   {!ready && b.status !== "Checked-Out" && (
-                    <button onClick={() => { setPickedRoomId(""); setAssignRoomOpen(true); }}
+                    <button onClick={() => { setChangingAssignmentId(null); setAssignRoomOpen(true); }}
                       className="inline-flex items-center gap-2 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">
-                      <DoorOpen className="h-3.5 w-3.5" /> {assigned === 0 ? "Assign Room" : "Assign Another Room"}
+                      <DoorOpen className="h-3.5 w-3.5" /> {assigned === 0 ? "Assign Rooms" : "Assign Another Room"}
                     </button>
                   )}
                 </div>
