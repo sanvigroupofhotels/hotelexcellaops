@@ -109,11 +109,20 @@ export async function rebalanceBookingItemTypes(
   if (insErr) throw insErr;
 }
 
-/** Required count by type, summed across booking_items. */
+/** Normalize a room type label so "Oak" == "Oak Room" == "oak  room ". */
+export function normalizeRoomType(t?: string | null): string {
+  return (t || "")
+    .toLowerCase()
+    .replace(/\s+room\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Required count by normalized type, summed across booking_items. */
 export function requiredByType(items: { room_type?: string | null; rooms?: number | null }[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const it of items) {
-    const t = (it.room_type || "").trim();
+    const t = normalizeRoomType(it.room_type);
     if (!t) continue;
     out[t] = (out[t] ?? 0) + Math.max(1, Number(it.rooms ?? 1));
   }
