@@ -566,7 +566,9 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
   const [payOpen, setPayOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
+  const [chargeOpen, setChargeOpen] = useState(false);
   const isCheckedOut = status === "Checked-Out" || status === "Stay Completed";
+  const canTransact = status !== "Cancelled" && !isCheckedOut;
 
   const { data: itemsForBooking = [] } = useQuery({
     queryKey: ["booking-items", b.id],
