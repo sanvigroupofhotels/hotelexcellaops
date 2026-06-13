@@ -1030,10 +1030,8 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
     const incomeBy = new Map<string, number>();
     const expenseBy = new Map<string, number>();
     for (const t of filtered) {
-      const cat = t.type_name + (t.description ? ` (${t.description})` : "");
       if (t.kind === "collection") incomeBy.set(t.type_name, (incomeBy.get(t.type_name) ?? 0) + Number(t.amount));
       else expenseBy.set(t.type_name, (expenseBy.get(t.type_name) ?? 0) + Number(t.amount));
-      void cat;
     }
 
     const lines: string[] = [];
