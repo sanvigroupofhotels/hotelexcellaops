@@ -404,7 +404,7 @@ function NewComplaintDialog({
           </Select>
         </Field>
         {form.category === "Other" && (
-          <Field label="Enter Complaint Category *">
+          <Field label="Enter Category *">
             <Input value={form.category_other} onChange={e => setForm(f => ({ ...f, category_other: e.target.value }))} placeholder="Describe category" />
           </Field>
         )}
@@ -442,7 +442,7 @@ function NewComplaintDialog({
           rows={4}
           value={form.description}
           onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-          placeholder="Describe the complaint…"
+          placeholder="Describe the issue…"
         />
       </Field>
 
@@ -450,7 +450,7 @@ function NewComplaintDialog({
         <button onClick={() => onOpenChange(false)} className="rounded-md border border-border px-4 py-2 text-sm">Cancel</button>
         <button onClick={() => create.mutate()} disabled={create.isPending}
           className="rounded-md gold-gradient text-charcoal px-4 py-2 text-sm font-medium disabled:opacity-60">
-          {create.isPending ? "Saving…" : "Save Complaint"}
+          {create.isPending ? "Saving…" : "Save Issue"}
         </button>
       </DialogFooter>
     </DialogContent>
