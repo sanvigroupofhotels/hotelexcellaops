@@ -88,7 +88,7 @@ function StaffPage() {
 
   return (
     <div className="min-h-screen">
-      <Topbar />
+      <Topbar title="Staff Master" subtitle="Manage employees, salaries and HR fields" />
       <main className="p-4 md:p-6 max-w-7xl mx-auto space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
