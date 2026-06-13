@@ -133,6 +133,12 @@ function HouseView() {
       arr.push(a.room_id);
       assignmentsByBooking.set(a.booking_id, arr);
     }
+    // Legacy fallback: pre-2026 bookings may have bookings.room_id but no assignment row.
+    for (const b of visibleBookings) {
+      if (!assignmentsByBooking.has(b.id) && b.room_id) {
+        assignmentsByBooking.set(b.id, [b.room_id]);
+      }
+    }
     const itemsByBooking = new Map<string, any[]>();
     for (const it of allItems as any[]) {
       const arr = itemsByBooking.get(it.booking_id) ?? [];
