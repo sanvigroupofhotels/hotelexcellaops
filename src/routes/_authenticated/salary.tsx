@@ -476,3 +476,152 @@ function AdvancesTab({ month, canEdit }: { month: string; canEdit: boolean }) {
     </div>
   );
 }
+
+// ---------- Reports tab ----------
+function ReportsTab({ month }: { month: string }) {
+  const range = monthRange(month);
+  const { data: staff = [] } = useQuery({ queryKey: ["staff-hr"], queryFn: () => listStaffHr() });
+  const { data: attendance = [] } = useQuery({
+    queryKey: ["attendance", range.from, range.to],
+    queryFn: () => listAttendance({ from: range.from, to: range.to }),
+  });
+  const { data: advances = [] } = useQuery({ queryKey: ["advances", "all"], queryFn: () => listAdvances() });
+  const { data: payments = [] } = useQuery({ queryKey: ["salary-payments", month], queryFn: () => listSalaryPayments({ month }) });
+
+  const nameById = new Map(staff.map((s) => [s.id, s.name]));
+
+  // Attendance Summary
+  const attRows = useMemo(() => staff.filter((s) => s.active).map((s) => {
+    const rows = attendance.filter((a) => a.staff_id === s.id);
+    return {
+      name: s.name,
+      present: rows.filter((r) => r.status === "Present").length,
+      absent: rows.filter((r) => r.status === "Absent").length,
+      half: rows.filter((r) => r.status === "HalfDay").length,
+      leave: rows.filter((r) => r.status === "Leave").length,
+    };
+  }), [staff, attendance]);
+
+  // Salary Summary
+  const salRows = useMemo(() => payments.map((p) => ({
+    name: nameById.get(p.staff_id) ?? "—",
+    gross: Number(p.gross),
+    deductions: Number(p.absent_deduction) + Number(p.halfday_deduction) + Number(p.advance_recovery) + Number(p.other_deductions),
+    net: Number(p.net),
+    paid: Number(p.paid_amount),
+    status: p.status,
+  })), [payments, nameById]);
+
+  // Advance Register: compute running balance per staff (chronological)
+  const advRows = useMemo(() => {
+    const byStaff = new Map<string, typeof advances>();
+    for (const a of advances) {
+      if (!byStaff.has(a.staff_id)) byStaff.set(a.staff_id, [] as any);
+      (byStaff.get(a.staff_id) as any).push(a);
+    }
+    const out: Array<{ date: string; name: string; amount: number; status: string; balance: number }> = [];
+    for (const [sid, list] of byStaff) {
+      const sorted = [...list].sort((a, b) => a.advance_date.localeCompare(b.advance_date));
+      let bal = 0;
+      for (const a of sorted) {
+        const recovered = !!a.recovered_in_month;
+        bal += recovered ? 0 : Number(a.amount);
+        out.push({
+          date: a.advance_date,
+          name: nameById.get(sid) ?? "—",
+          amount: Number(a.amount),
+          status: recovered ? `Recovered (${a.recovered_in_month})` : "Outstanding",
+          balance: bal,
+        });
+      }
+    }
+    return out.sort((a, b) => b.date.localeCompare(a.date));
+  }, [advances, nameById]);
+
+  return (
+    <div className="space-y-6">
+      <ReportCard title="Attendance Summary">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Employee</TableHead>
+            <TableHead className="text-center">Present</TableHead>
+            <TableHead className="text-center">Absent</TableHead>
+            <TableHead className="text-center">Half Day</TableHead>
+            <TableHead className="text-center">Leave</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {attRows.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-4">No data</TableCell></TableRow>}
+            {attRows.map((r) => (
+              <TableRow key={r.name}>
+                <TableCell className="font-medium">{r.name}</TableCell>
+                <TableCell className="text-center text-emerald-400">{r.present}</TableCell>
+                <TableCell className="text-center text-red-400">{r.absent}</TableCell>
+                <TableCell className="text-center text-amber-400">{r.half}</TableCell>
+                <TableCell className="text-center text-sky-400">{r.leave}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </ReportCard>
+
+      <ReportCard title="Salary Summary">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Employee</TableHead>
+            <TableHead className="text-right">Gross</TableHead>
+            <TableHead className="text-right">Deductions</TableHead>
+            <TableHead className="text-right">Net</TableHead>
+            <TableHead className="text-right">Paid</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {salRows.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-4">No salaries processed for this month</TableCell></TableRow>}
+            {salRows.map((r) => (
+              <TableRow key={r.name}>
+                <TableCell className="font-medium">{r.name}</TableCell>
+                <TableCell className="text-right">{inr(r.gross)}</TableCell>
+                <TableCell className="text-right text-red-400">{inr(r.deductions)}</TableCell>
+                <TableCell className="text-right font-semibold text-gold">{inr(r.net)}</TableCell>
+                <TableCell className="text-right">{inr(r.paid)}</TableCell>
+                <TableCell><StatusPill s={r.status as SalaryStatus} /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </ReportCard>
+
+      <ReportCard title="Advance Register">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Date</TableHead>
+            <TableHead>Employee</TableHead>
+            <TableHead className="text-right">Amount</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Running Balance</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {advRows.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-4">No advances recorded</TableCell></TableRow>}
+            {advRows.map((r, i) => (
+              <TableRow key={i}>
+                <TableCell className="text-xs">{r.date}</TableCell>
+                <TableCell className="font-medium">{r.name}</TableCell>
+                <TableCell className="text-right">{inr(r.amount)}</TableCell>
+                <TableCell className="text-xs">{r.status}</TableCell>
+                <TableCell className="text-right tabular-nums">{inr(r.balance)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </ReportCard>
+    </div>
+  );
+}
+
+function ReportCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="luxe-card rounded-xl p-4 space-y-2">
+      <h3 className="font-display text-base">{title}</h3>
+      <div className="rounded-md border border-border overflow-x-auto bg-card">{children}</div>
+    </div>
+  );
+}
