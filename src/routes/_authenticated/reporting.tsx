@@ -225,6 +225,7 @@ function ReportingPage() {
           <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
+            <ReportCard title="Today's Rooms Report" subtitle="In-house, arrivals, pending check-ins" text={todayRooms} />
             <ReportCard title="Shift Handover Report" subtitle="Concise operational snapshot" text={handover} />
             <ReportCard title="Daily Operations Report" subtitle="End-of-day operational summary" text={daily} />
             <ReportCard title="Today's Cash Report" subtitle="Cashbook opening / in / out / balance" text={cash} />
