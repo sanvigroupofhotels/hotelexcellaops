@@ -399,6 +399,40 @@ function ComplaintDetail() {
           </div>
         </div>
       </div>
+
+      <Dialog open={resolveOpen} onOpenChange={setResolveOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Resolve Issue</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Resolution Notes *</Label>
+              <Textarea rows={4} value={resolveNotes} onChange={e => setResolveNotes(e.target.value)}
+                placeholder="What was done to resolve this issue?" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Resolved By</Label>
+              <Select value={resolveByStaffId || "_none"} onValueChange={v => setResolveByStaffId(v === "_none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— None —</SelectItem>
+                  {staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button onClick={() => setResolveOpen(false)}
+              className="rounded-md border border-border bg-card px-3 py-2 text-xs">Cancel</button>
+            <button onClick={() => resolveM.mutate()}
+              disabled={!resolveNotes.trim() || resolveM.isPending}
+              className="rounded-md gold-gradient text-charcoal px-3 py-2 text-xs font-medium disabled:opacity-60">
+              {resolveM.isPending ? "Saving…" : "Mark Resolved"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
