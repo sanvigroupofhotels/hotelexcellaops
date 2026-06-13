@@ -77,7 +77,7 @@ function ComplaintsPage() {
 
   return (
     <>
-      <Topbar title="Complaints" subtitle={`${activeList.length} active`} />
+      <Topbar title="Issues" subtitle={`${activeList.length} active`} />
       <div className="px-4 md:px-8 py-6 md:py-8 space-y-5">
         <div className="flex flex-col md:flex-row gap-2">
           <div className="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-md bg-card border border-border">
@@ -85,7 +85,7 @@ function ComplaintsPage() {
             <input
               value={filters.search}
               onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-              placeholder="Search active complaints…"
+              placeholder="Search active issues…"
               className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
             />
           </div>
@@ -100,7 +100,7 @@ function ComplaintsPage() {
           <Dialog open={newOpen} onOpenChange={setNewOpen}>
             <DialogTrigger asChild>
               <button className="inline-flex items-center gap-2 rounded-md gold-gradient text-charcoal px-4 py-2.5 text-sm font-medium">
-                <Plus className="h-4 w-4" /> New Complaint
+                <Plus className="h-4 w-4" /> New Issue
               </button>
             </DialogTrigger>
             <NewComplaintDialog
@@ -116,7 +116,7 @@ function ComplaintsPage() {
           {isLoading ? (
             <div className="p-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
           ) : activeList.length === 0 ? (
-            <div className="p-12 text-center text-sm text-muted-foreground">No active complaints. 🎉</div>
+            <div className="p-12 text-center text-sm text-muted-foreground">No active issues. 🎉</div>
           ) : (
             <div className="divide-y divide-border">
               {activeList.map(c => (
