@@ -169,7 +169,7 @@ function DuesPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Due</div>
-                      <div className="font-display text-lg text-danger tabular-nums">{inr(due)}</div>
+                      <div className="font-display text-lg text-destructive tabular-nums">{inr(due)}</div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
@@ -210,7 +210,7 @@ function DuesPage() {
                       <Td>{b.check_out}</Td>
                       <Td className="text-right tabular-nums">{inr(total)}</Td>
                       <Td className="text-right tabular-nums">{inr(paid)}</Td>
-                      <Td className="text-right tabular-nums font-medium text-danger">{inr(due)}</Td>
+                      <Td className="text-right tabular-nums font-medium text-destructive">{inr(due)}</Td>
                       <Td className="text-right">
                         <RowActions b={b} onAddPayment={() => setPayFor(b)} compact />
                       </Td>
@@ -238,7 +238,7 @@ function DuesPage() {
 
 function SummaryCard({ label, value, tone }: { label: string; value: number; tone: "danger" | "gold" | "info" }) {
   const accent =
-    tone === "danger" ? "text-danger" :
+    tone === "danger" ? "text-destructive" :
     tone === "gold" ? "gold-text-gradient" :
     "text-foreground";
   return (
