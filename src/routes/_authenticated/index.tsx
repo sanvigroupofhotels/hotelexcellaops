@@ -5,11 +5,14 @@ import { Topbar } from "@/components/topbar";
 import { listBookings } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listComplaints } from "@/lib/complaints-api";
+import { listCashTx } from "@/lib/cash-api";
+import { listRooms } from "@/lib/rooms-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
 import {
   BedDouble, Sunrise, LogIn, IndianRupee, MessageSquareWarning, Brush,
   Plus, Wallet, Tag, Building2, LogOut, FileBarChart, ArrowUpRight,
+  TrendingUp, CalendarPlus, PieChart,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
