@@ -195,19 +195,20 @@ export function RoomAssignmentDialog({
 
       // Build the post-change mix (what booking_items should look like) if rebalancing.
       if (rebalance) {
+        const newCat = canon(newRoom.room_type);
         const futureAssignedMix: Record<string, number> = { ...assignedMix };
         if (mode === "change" && changingRoom) {
-          futureAssignedMix[changingRoom.room_type] = Math.max(0, (futureAssignedMix[changingRoom.room_type] ?? 0) - 1);
-          if (futureAssignedMix[changingRoom.room_type] === 0) delete futureAssignedMix[changingRoom.room_type];
+          const oldCat = canon(changingRoom.room_type);
+          futureAssignedMix[oldCat] = Math.max(0, (futureAssignedMix[oldCat] ?? 0) - 1);
+          if (futureAssignedMix[oldCat] === 0) delete futureAssignedMix[oldCat];
         }
-        futureAssignedMix[newRoom.room_type] = (futureAssignedMix[newRoom.room_type] ?? 0) + 1;
+        futureAssignedMix[newCat] = (futureAssignedMix[newCat] ?? 0) + 1;
 
         // For not-yet-assigned slots, keep the original required types so totals add up.
         const desiredMix: Record<string, number> = {};
         for (const [t, n] of Object.entries(futureAssignedMix)) desiredMix[t] = n;
         const remainingAfter = Math.max(0, required - (totalAssigned + (mode === "change" ? 0 : 1)));
         if (remainingAfter > 0) {
-          // Carry leftover required slots from the *original* mix that aren't yet filled
           const leftoverRequired: Record<string, number> = { ...requiredMix };
           for (const [t, n] of Object.entries(desiredMix)) {
             leftoverRequired[t] = Math.max(0, (leftoverRequired[t] ?? 0) - n);
