@@ -512,6 +512,17 @@ function HouseView() {
           </div>
         </div>
       )}
+
+      {/* Floating action button — quick walk-in booking */}
+      <Link
+        to="/bookings/new"
+        search={{ customerId: undefined, fromQuoteId: undefined } as any}
+        title="New Booking"
+        aria-label="New Booking"
+        className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full gold-gradient text-charcoal shadow-lg flex items-center justify-center hover:scale-105 hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.45)] transition"
+      >
+        <Plus className="h-6 w-6" />
+      </Link>
     </>
   );
 }
