@@ -20,6 +20,7 @@ const nav: NavItem[] = [
   { to: "/bookings", label: "Bookings", icon: BedDouble },
   { to: "/house-view", label: "House View", icon: Building2 },
   { to: "/cash", label: "CashBook", icon: Wallet },
+  { to: "/dues", label: "Due Collection", icon: IndianRupee },
   { to: "/reporting", label: "Reporting", icon: FileBarChart },
   { to: "/payments-reports", label: "Payments Reports", icon: IndianRupee, adminOnly: true },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
