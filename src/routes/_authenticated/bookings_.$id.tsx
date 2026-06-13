@@ -369,28 +369,54 @@ function BookingDetail() {
               </div>
             )}
 
-            {/* Assigned room — placed above Status: operationally more important */}
-            <div className="luxe-card rounded-xl p-5">
-              <h4 className="font-display text-lg mb-2 flex items-center gap-2"><DoorOpen className="h-4 w-4 text-gold" /> Room Assignment</h4>
-              {(() => {
-                const room = rooms.find((r: any) => r.id === (b as any).room_id);
-                return room ? (
-                  <>
-                    <div className="text-sm">Room <span className="font-medium">{room.room_number}</span> · {room.room_type} · Floor {room.floor}</div>
-                    <button onClick={() => { setPickedRoomId((b as any).room_id ?? ""); setAssignRoomOpen(true); }}
-                      className="text-[11px] text-gold hover:underline mt-2 inline-block">Change room →</button>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-xs text-warning italic mb-2">No room assigned — required before Check-In</div>
+            {/* Assigned room(s) — supports multi-room bookings */}
+            {(() => {
+              const required = requiredRoomCount(items as any);
+              const assigned = assignments.length;
+              const remaining = Math.max(0, required - assigned);
+              const ready = assigned >= required;
+              return (
+                <div className="luxe-card rounded-xl p-5">
+                  <h4 className="font-display text-lg mb-2 flex items-center gap-2">
+                    <DoorOpen className="h-4 w-4 text-gold" /> Room Assignment
+                  </h4>
+                  <div className={cn(
+                    "text-xs font-medium mb-3",
+                    ready ? "text-emerald-500" : "text-warning",
+                  )}>
+                    Assigned {assigned} / {required} {ready ? "✓ Ready for Check-In" : `· ${remaining} remaining`}
+                  </div>
+                  {assignments.length > 0 && (
+                    <ul className="space-y-1.5 mb-3">
+                      {assignments.map((a) => {
+                        const room = rooms.find((r: any) => r.id === a.room_id);
+                        return (
+                          <li key={a.id} className="flex items-center justify-between text-sm bg-muted/30 rounded-md px-2.5 py-1.5">
+                            <span>
+                              {room ? <>Room <span className="font-medium">{room.room_number}</span> · {room.room_type}</> : "Unknown room"}
+                            </span>
+                            {b.status !== "Checked-Out" && (
+                              <button
+                                onClick={() => unassignRoom.mutate(a.id)}
+                                disabled={unassignRoom.isPending}
+                                className="text-[11px] text-muted-foreground hover:text-destructive"
+                                aria-label="Remove room"
+                              >Remove</button>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {!ready && b.status !== "Checked-Out" && (
                     <button onClick={() => { setPickedRoomId(""); setAssignRoomOpen(true); }}
                       className="inline-flex items-center gap-2 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">
-                      <DoorOpen className="h-3.5 w-3.5" /> Assign Room
+                      <DoorOpen className="h-3.5 w-3.5" /> {assigned === 0 ? "Assign Room" : "Assign Another Room"}
                     </button>
-                  </>
-                );
-              })()}
-            </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="luxe-card rounded-xl p-5">
               <h4 className="font-display text-lg mb-3">Status</h4>
