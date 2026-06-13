@@ -53,12 +53,16 @@ function SalaryPage() {
           <TabsList>
             <TabsTrigger value="payroll">Payroll</TabsTrigger>
             <TabsTrigger value="advances">Advances</TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
           </TabsList>
           <TabsContent value="payroll">
             <PayrollTab month={month} canEdit={isAdmin} />
           </TabsContent>
           <TabsContent value="advances">
             <AdvancesTab month={month} canEdit={isAdmin} />
+          </TabsContent>
+          <TabsContent value="reports">
+            <ReportsTab month={month} />
           </TabsContent>
         </Tabs>
       </main>
