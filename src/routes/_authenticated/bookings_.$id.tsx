@@ -196,6 +196,8 @@ function BookingDetail() {
   const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   // When set, the Assign dialog acts as a "Change" — confirming swaps the named assignment.
   const [changingAssignmentId, setChangingAssignmentId] = useState<string | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   const { data: assignments = [], refetch: refetchAssignments } = useQuery({
     queryKey: ["booking-room-assignments", id],
