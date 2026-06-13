@@ -1,124 +1,121 @@
-# Next Phase — Operational Modules Plan
+# Next Phase — Issues + Staff Attendance & Salary
 
-UAT fixes shipped this turn (Cashbook text removed, Quick Actions full-text, Reporting cash report now uses the same `buildDailyCashReport` util as Cashbook, Home Dashboard now includes Revenue Today, New Bookings Today, Occupancy %).
+Production fixes shipped this turn alongside this plan:
 
-The remaining scope is **three large modules**. I recommend building them in the order below — each is independently shippable and unlocks daily operational value.
+- **Multi-room Check-In (server-side)**: new BEFORE-UPDATE trigger `bookings_enforce_full_assignment_on_checkin` rejects any status transition to `Checked-In` when assigned rooms < required rooms (sum of `booking_items.rooms`). Direct API calls cannot bypass the UI guard anymore.
+- **House View → multi-room aware**: now reads `booking_room_assignments` and renders the booking on every assigned room. Falls back to legacy `bookings.room_id` for older single-room bookings. Occupancy, vacant count and in-house room list all derive from assignments.
+- **Quick Actions**: cards now stack icon + label vertically (`min-h-[96px]`, centered, larger emoji, wrapping label). All eight labels visible on 360px mobile without truncation.
+- **Today's Cash Report (Reporting)**: already shares `buildDailyCashReport` with Cashbook — confirmed single source of truth.
+
+Two open clarifications below the plan.
 
 ---
 
 ## Recommended Order
 
-1. **Due Collection Dashboard** (smallest, highest immediate ROI — reuses existing booking + charges data, no new schema)
-2. **Issues Consolidation** (medium — extends existing `complaints` table; merges Maintenance via `room_maintenance`)
-3. **Staff Attendance & Salary** (largest — net-new domain, 4 new tables, salary engine)
+1. **Issues Module** (small — extends `complaints`, 1 migration, ~2 hours of UI)
+2. **Staff Attendance & Salary** (large — 4 new tables + 4 new pages, multi-turn)
 
-Rationale: 1 and 2 use the data we already have, so they ship in 1–2 turns each. Staff/Salary is a multi-turn build and deserves its own focused phase.
-
----
-
-## 1. Due Collection Dashboard
-
-**Simplifications**
-- No new tables. Compute everything from `bookings` + `booking_charges` + `booking_payments`.
-- Reuse existing `AddBookingPaymentModal` for "Add Payment" action.
-- Reuse `phone` field + existing WhatsApp helper (`src/components/whatsapp-menu.tsx`) for Call / WhatsApp.
-
-**Page** `/dues`
-- Top 3 cards: Total Outstanding · Due Today · Due Tomorrow
-- Filter tabs: Due Today | Due Tomorrow | All Dues | In-House | Checked-Out (with due)
-- Table rows: Guest · Room · Check-In · Check-Out · Total · Paid · **Due** (highlighted)
-- Row actions: Open Booking · Add Payment · Call (tel:) · WhatsApp (wa.me)
-
-**Sidebar** — new "Due Collection" entry under Operations.
+Rationale: Issues reuses existing `complaints` infra (table, RLS, audit trigger, sidebar entry). Staff is a net-new domain and deserves its own focused phase.
 
 ---
 
-## 2. Issues (Complaints + Maintenance Consolidation)
+## 1. Issues Module (Unified)
 
-**Recommendation**: keep `complaints` as the unified table, deprecate the standalone "Maintenance" surface, and surface `room_maintenance` blocks inside the same Issues page.
+**Approach**: rename "Complaints" → "Issues" everywhere. Add `issue_type` enum and `resolution_notes` to the existing `complaints` table. Keep `room_maintenance` (calendar blocks) as a separate concern — different domain (blocks calendar/inventory). Surface a "Block Room" affordance from inside an Issue when needed.
 
-**DB changes (one migration)**
-- Add `issue_type` enum to `complaints`: `Guest Complaint | Housekeeping | Electrical | Plumbing | AC | TV | WiFi | Furniture | Other`
-- Add `resolution_notes text` column
-- Keep existing `complaint_categories` master (rename UI label to "Issue Types"); seed the new defaults.
-- No data migration needed — existing complaints default to "Guest Complaint".
+### DB (one migration)
 
-**UI changes**
-- Rename "Complaints" → "Issues" in sidebar and Home stat ("Complaints Open" → "Open Issues").
-- Filter chips by issue_type.
-- Form gains Issue Type select + Resolution Notes textarea (shown when status moves to Resolved/Closed).
-- Home Dashboard "Complaints Open" continues to work — same query.
+```sql
+CREATE TYPE issue_type AS ENUM (
+  'Guest Complaint','Housekeeping','Maintenance','Electrical',
+  'Plumbing','AC','TV','WiFi','Furniture','Other'
+);
+ALTER TABLE complaints
+  ADD COLUMN issue_type issue_type NOT NULL DEFAULT 'Guest Complaint',
+  ADD COLUMN resolution_notes text;
+```
 
-**Out of scope**: merging `room_maintenance` records into `complaints`. Maintenance blocks rooms (calendar impact); complaints don't. Different domains — link them via a "View related block" affordance, but don't unify schemas.
+No data migration — existing rows default to "Guest Complaint".
+
+### UI
+
+- Sidebar: "Complaints" → "Issues".
+- Home stat "Complaints Open" → "Open Issues" (same query — Open + In Progress).
+- Issues list: filter chips for Issue Type + Status. Search by room, guest, description.
+- Issue form: Issue Type select, Resolution Notes textarea (appears when status → Resolved/Closed).
+- Statuses unchanged: Open → In Progress → Resolved → Closed.
 
 ---
 
-## 3. Staff Attendance & Salary Module
+## 2. Staff Attendance & Salary
 
-**Simplifications vs Paga**
-- One `employees` table extending current `staff` (don't fork — add columns: `employee_code`, `designation`, `department`, `date_of_joining`, `basic_salary`, `monthly_salary`, `food_provided`, `accommodation_provided`).
-- Single attendance status per day (Present/Absent/Half/Leave). Defer check-in/out times to a later phase.
-- Salary processing = simple monthly snapshot. No tax/PF/ESI calc (out of scope).
+### Simplifications
 
-**DB — one migration, four new tables**
+- **Extend `staff`** (don't fork) with: `employee_code`, `designation`, `department`, `date_of_joining`, `basic_salary`, `monthly_salary`, `food_provided`, `accommodation_provided`, `mobile`.
+- **One status per day** for attendance (Present | Absent | HalfDay | Leave). Check-in/out times are optional columns for later.
+- **Working-days basis configurable in `app_settings`**: `30` (default) or `calendar`. Drives the per-day rate.
+- **Salary engine = deterministic** (no PF/ESI/tax — out of scope):
+
+```
+per_day      = monthly_salary / (basis === '30' ? 30 : days_in_month)
+absent_ded   = per_day × absent_days
+halfday_ded  = per_day × 0.5 × half_days
+advance_rec  = SUM(advances WHERE recovered_in_month = this_month)
+deductions   = absent_ded + halfday_ded + advance_rec + other_deductions
+net          = monthly_salary + bonus + incentives − deductions
+```
+
+### DB (one migration, four tables)
+
 ```text
-employees (extends staff)        -- ALTER existing staff table
-  + employee_code, designation, department, date_of_joining,
-    basic_salary, monthly_salary, food_provided, accommodation_provided
+staff (ALTER)
+  + employee_code text, designation text, department text,
+    date_of_joining date, mobile text,
+    basic_salary numeric, monthly_salary numeric,
+    food_provided bool default false,
+    accommodation_provided bool default false
 
 attendance
-  id, staff_id, date, status (Present|Absent|HalfDay|Leave),
-  check_in_time?, check_out_time?, notes
+  id, user_id, staff_id, date, status (enum), check_in_time?, check_out_time?, notes
   UNIQUE(staff_id, date)
 
 salary_advances
-  id, staff_id, advance_date, amount, notes, recovered_in_month?
+  id, user_id, staff_id, advance_date, amount, notes,
+  recovered_in_month text NULL    -- 'YYYY-MM' once recovered
 
 salary_payments
-  id, staff_id, month (YYYY-MM), gross, deductions, bonus, incentives,
-  net, paid_amount, status (Pending|Partial|Paid), payment_mode, notes
-
-salary_runs (optional, can defer)
-  Monthly snapshot — present_days, absent_days, etc.
+  id, user_id, staff_id, month text ('YYYY-MM'),
+  gross numeric, bonus numeric, incentives numeric,
+  absent_days int, halfday_count int, leave_days int,
+  absent_deduction numeric, halfday_deduction numeric,
+  advance_recovery numeric, other_deductions numeric,
+  net numeric, paid_amount numeric default 0,
+  status text ('Pending'|'Partial'|'Paid'),
+  payment_mode text, paid_at timestamptz, notes
+  UNIQUE(staff_id, month)
 ```
 
-All four tables: standard RLS, `service_role` ALL, `authenticated` SELECT/INSERT/UPDATE/DELETE, scoped to user_id of the hotel.
+All four: standard RLS (`auth.uid() = user_id`), `GRANT SELECT/INSERT/UPDATE/DELETE TO authenticated`, `GRANT ALL TO service_role`. Reuse `set_updated_at()` trigger.
 
-**Pages**
-- `/staff` — extend existing Staff Master with new fields
-- `/attendance` — month grid (rows = employees, cols = days), tap a cell to mark
-- `/salary` — month picker → table of employees with auto-computed Gross/Deductions/Net, "Process Salary" button per row, "Pay" action
-- `/salary/:staff_id/:month` — printable slip
-- Reports tab: Attendance Summary · Salary Summary · Pending Salary · Advance Register
+### Pages
 
-**Salary engine (deterministic, no surprises)**
-```
-gross         = monthly_salary
-per_day       = monthly_salary / days_in_month
-absent_deduct = per_day × absent_days
-halfday_deduct= per_day × 0.5 × half_days
-advance_recov = sum(unrecovered advances for this staff)
-deductions    = absent_deduct + halfday_deduct + advance_recov + other_deductions
-net           = gross + bonus + incentives - deductions
-```
+- **`/staff`** — extend existing Staff Master with new fields (employee_code, designation, etc.).
+- **`/attendance`** — month-grid (rows = active employees, cols = days). Tap a cell to cycle P→A→H→L. Mark-all-present for a column. **Default = month grid for speed**; per-day list available as a secondary view.
+- **`/salary`** — month picker → table with auto-computed Gross/Deductions/Net per employee. "Process" creates the `salary_payments` row. "Pay" records the payment.
+- **`/salary/$staff_id/$month`** — printable slip with the full breakdown (PDF via `window.print()` — same pattern as the Invoice dialog).
+- **`/staff/$id/ledger`** — chronological view: salary credits + advances + payments. Running balance.
+- **Reports tab** (under Reporting): Attendance Summary · Salary Summary · Pending Salary · Advance Register.
+
+### Audit & Activity
+
+Reuse the `cash_tx_activities` / `booking_payment_activities` pattern: `salary_payment_activities` records create / pay / status_change events with actor identity, so the ledger has a real audit trail.
 
 ---
 
-## Database Considerations
+## Open Clarifications
 
-- All new tables: same `user_id` pattern + RLS as existing tables. Standard `GRANT SELECT/INSERT/UPDATE/DELETE TO authenticated; GRANT ALL TO service_role;` block per the project rules.
-- `updated_at` triggers reused from `public.set_updated_at()`.
-- Audit log: salary_payments + salary_advances should write activity rows (reuse the pattern in `cash_tx_activities`).
+1. **Check-In Welcome WhatsApp** — production finding "Update checkin welcome message too" — what content change? The current message points to `hotelexcella.in/guest` + order food + breakfast line. Should I align it with the new Confirmation Message style (greetings, booking ref block, payment summary), or do you have specific new copy?
+2. **Staff `mobile` already exists?** — current `staff` table has 7 columns, will check during migration; if `mobile` is missing I'll add it, otherwise skip.
 
----
-
-## Confirmation Needed
-
-Before I start, please confirm:
-
-1. **Order**: proceed in order Due Collection → Issues → Staff/Salary?
-2. **Issues consolidation**: keep `room_maintenance` separate (recommended), or also fold maintenance blocks into the unified Issues table?
-3. **Salary engine**: is the deterministic formula above acceptable, or do you want configurable rules (e.g. different per-day basis like 26 working days vs calendar days)?
-4. **Attendance entry**: month-grid bulk mark (recommended for speed) vs per-day list?
-
-Once confirmed I'll start with Due Collection in the next turn.
+Once you confirm (1) and (2), I'll proceed in this order: **Issues → Staff (schema + Master) → Attendance grid → Salary engine → Slip + Reports.**
