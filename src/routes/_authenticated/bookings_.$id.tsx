@@ -42,8 +42,7 @@ import { cn, toLocalYMD } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
 import { lineSubtotal } from "@/components/line-items-editor";
 import { computePricing } from "@/lib/pricing";
-import { listRooms, listOccupiedRoomIds } from "@/lib/rooms-api";
-import { listActiveBlocks, isRoomBlockedInRange } from "@/lib/blocks-api";
+import { listRooms } from "@/lib/rooms-api";
 import { listBookingCharges, chargesTotal as sumCharges } from "@/lib/booking-charges-api";
 import {
   listAssignments, removeAssignment, requiredRoomCount,
