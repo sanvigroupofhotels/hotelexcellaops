@@ -583,6 +583,7 @@ export type Database = {
           active: boolean
           amount: number
           booking_id: string | null
+          booking_payment_id: string | null
           created_at: string
           customer_id: string | null
           description: string | null
@@ -604,6 +605,7 @@ export type Database = {
           active?: boolean
           amount: number
           booking_id?: string | null
+          booking_payment_id?: string | null
           created_at?: string
           customer_id?: string | null
           description?: string | null
@@ -625,6 +627,7 @@ export type Database = {
           active?: boolean
           amount?: number
           booking_id?: string | null
+          booking_payment_id?: string | null
           created_at?: string
           customer_id?: string | null
           description?: string | null
@@ -762,6 +765,7 @@ export type Database = {
           booking_id: string | null
           category: string
           category_other: string | null
+          closed_at: string | null
           complaint_number: string
           complaint_type: Database["public"]["Enums"]["complaint_type"]
           created_at: string
@@ -769,8 +773,11 @@ export type Database = {
           description: string
           entered_by_name: string | null
           entered_by_staff_id: string | null
+          guest_impacted: boolean
           id: string
+          issue_type: string | null
           priority: Database["public"]["Enums"]["complaint_priority"]
+          resolution_notes: string | null
           resolved_at: string | null
           room_number: string | null
           status: Database["public"]["Enums"]["complaint_status"]
@@ -783,6 +790,7 @@ export type Database = {
           booking_id?: string | null
           category: string
           category_other?: string | null
+          closed_at?: string | null
           complaint_number?: string
           complaint_type?: Database["public"]["Enums"]["complaint_type"]
           created_at?: string
@@ -790,8 +798,11 @@ export type Database = {
           description: string
           entered_by_name?: string | null
           entered_by_staff_id?: string | null
+          guest_impacted?: boolean
           id?: string
+          issue_type?: string | null
           priority?: Database["public"]["Enums"]["complaint_priority"]
+          resolution_notes?: string | null
           resolved_at?: string | null
           room_number?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
@@ -804,6 +815,7 @@ export type Database = {
           booking_id?: string | null
           category?: string
           category_other?: string | null
+          closed_at?: string | null
           complaint_number?: string
           complaint_type?: Database["public"]["Enums"]["complaint_type"]
           created_at?: string
@@ -811,8 +823,11 @@ export type Database = {
           description?: string
           entered_by_name?: string | null
           entered_by_staff_id?: string | null
+          guest_impacted?: boolean
           id?: string
+          issue_type?: string | null
           priority?: Database["public"]["Enums"]["complaint_priority"]
+          resolution_notes?: string | null
           resolved_at?: string | null
           room_number?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
