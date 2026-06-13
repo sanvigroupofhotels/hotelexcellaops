@@ -280,7 +280,7 @@ function NewComplaintDialog({
     entered_by_staff_id: "",
     assigned_to_staff_id: "",
     description: "",
-    issue_type: "Complaint" as string,
+    issue_type: "Guest Complaint" as string,
     guest_impacted: false,
   });
   const [suggestion, setSuggestion] = useState<any | null>(null);
@@ -324,7 +324,7 @@ function NewComplaintDialog({
       complaint_type: "Room", room_number: "", customer_id: null, booking_id: null,
       category: "", category_other: "", priority: "Medium", status: "Open",
       entered_by_staff_id: "", assigned_to_staff_id: "", description: "",
-      issue_type: "Complaint", guest_impacted: false,
+      issue_type: "Guest Complaint", guest_impacted: false,
     });
     setSuggestion(null);
   };
