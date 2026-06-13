@@ -8,6 +8,8 @@ import { listBookings } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listComplaints } from "@/lib/complaints-api";
 import { listCashTx } from "@/lib/cash-api";
+import { listRooms } from "@/lib/rooms-api";
+import { supabase } from "@/integrations/supabase/client";
 import { buildDailyCashReport, computeOpeningBalance } from "@/lib/cash-report";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
