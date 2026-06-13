@@ -457,9 +457,9 @@ function BookingDetail() {
                       <button onClick={() => {
                         const required = requiredRoomCount(items as any);
                         if (assignments.length < required) {
-                          setPickedRoomId("");
-                          setAssignRoomOpen(true);
                           toast.error("Please assign all rooms before Check-In.");
+                          setChangingAssignmentId(null);
+                          setCheckinFlowOpen(true);
                           return;
                         }
                         status.mutate("Checked-In" as any);
