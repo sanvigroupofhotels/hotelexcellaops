@@ -226,6 +226,23 @@ function HouseView() {
         }
       }
     }
+
+    // 3) Hide Checked-Out / Stay Completed bookings on a room once another
+    //    booking has been assigned to that same room with overlapping dates.
+    //    (Keeps the checked-out pill visible only until the room turns over.)
+    for (const [rid, arr] of m) {
+      const filtered = arr.filter((b) => {
+        const isPast = b.status === "Checked-Out" || b.status === "Stay Completed";
+        if (!isPast) return true;
+        return !arr.some((other) =>
+          other !== b
+          && other.status !== "Checked-Out"
+          && other.status !== "Stay Completed"
+          && datesOverlap(b.check_in, b.check_out, other.check_in, other.check_out)
+        );
+      });
+      m.set(rid, filtered);
+    }
     return m;
   }, [visibleBookings, rooms, allAssignments, allItems]);
 
