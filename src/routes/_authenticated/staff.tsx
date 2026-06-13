@@ -146,11 +146,16 @@ function StaffPage() {
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
-                    {isAdmin && (
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <div className="flex justify-end gap-1">
+                      <Link to="/staff/$id/ledger" params={{ id: s.id }}>
+                        <Button variant="ghost" size="icon" title="Ledger"><BookOpen className="h-4 w-4" /></Button>
+                      </Link>
+                      {isAdmin && (
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(s)} title="Edit">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
