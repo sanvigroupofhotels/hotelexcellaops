@@ -311,14 +311,16 @@ export function RoomAssignmentDialog({
     if (!pickedRoomId) return "";
     const newRoom = (rooms as any[]).find((r) => r.id === pickedRoomId);
     if (!newRoom) return "";
+    const newCat = canon(newRoom.room_type);
     const future: Record<string, number> = { ...assignedMix };
     if (mode === "change" && changingRoom) {
-      future[changingRoom.room_type] = Math.max(0, (future[changingRoom.room_type] ?? 0) - 1);
-      if (future[changingRoom.room_type] === 0) delete future[changingRoom.room_type];
+      const oldCat = canon(changingRoom.room_type);
+      future[oldCat] = Math.max(0, (future[oldCat] ?? 0) - 1);
+      if (future[oldCat] === 0) delete future[oldCat];
     }
-    future[newRoom.room_type] = (future[newRoom.room_type] ?? 0) + 1;
+    future[newCat] = (future[newCat] ?? 0) + 1;
     return Object.entries(future).map(([t, n]) => `${t} × ${n}`).join(", ");
-  }, [pickedRoomId, rooms, assignedMix, mode, changingRoom]);
+  }, [pickedRoomId, rooms, assignedMix, mode, changingRoom, canon]);
   const originalMixStr = Object.entries(requiredMix).map(([t, n]) => `${t} × ${n}`).join(", ");
 
   // Title
