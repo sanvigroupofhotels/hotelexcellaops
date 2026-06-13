@@ -92,26 +92,31 @@ export function RoomAssignmentDialog({
   const required = requiredRoomCount(items as any);
   const requiredMix = useMemo(() => requiredByType(items as any), [items]);
 
-  // Assigned-by-type, derived from current assignments + rooms.
+  // Assigned-by-type (normalized), derived from current assignments + rooms.
   const assignedMix = useMemo(() => {
     const out: Record<string, number> = {};
     for (const a of assignments) {
       const r = (rooms as any[]).find((x) => x.id === a.room_id);
-      const t = r?.room_type ?? "";
+      const t = normalizeRoomType(r?.room_type);
       if (!t) continue;
       out[t] = (out[t] ?? 0) + 1;
     }
     return out;
   }, [assignments, rooms]);
 
-  // Next slot category (first type in requiredMix with a deficit).
+  // Next slot category (first type with a deficit). Returns the *display* label
+  // by finding the matching rooms category that normalizes to this key.
   const nextSlotType: string | null = useMemo(() => {
-    for (const [t, need] of Object.entries(requiredMix)) {
-      const have = assignedMix[t] ?? 0;
-      if (have < need) return t;
+    for (const [normT, need] of Object.entries(requiredMix)) {
+      const have = assignedMix[normT] ?? 0;
+      if (have < need) {
+        // Map back to a display category from rooms
+        const match = categories.find((c) => normalizeRoomType(c) === normT);
+        return match ?? null;
+      }
     }
     return null;
-  }, [requiredMix, assignedMix]);
+  }, [requiredMix, assignedMix, categories]);
 
   // The assignment being changed (change mode only).
   const changingAssignment = changingAssignmentId
