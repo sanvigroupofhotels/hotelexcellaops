@@ -168,6 +168,27 @@ export async function setComplaintStatus(id: string, status: ComplaintStatus) {
   if (error) throw error;
 }
 
+/** Resolve / close an issue with mandatory notes + resolver identity. */
+export async function resolveComplaint(
+  id: string,
+  payload: {
+    resolution_notes: string;
+    resolved_by_staff_id?: string | null;
+    resolved_by_name?: string | null;
+    status?: "Resolved";
+  },
+) {
+  if (!payload.resolution_notes?.trim()) throw new Error("Resolution notes are required");
+  const { error } = await supabase.from("complaints" as any).update({
+    status: payload.status ?? "Resolved",
+    resolution_notes: payload.resolution_notes.trim(),
+    resolved_by_staff_id: payload.resolved_by_staff_id ?? null,
+    resolved_by_name: payload.resolved_by_name ?? null,
+    resolved_at: new Date().toISOString(),
+  } as any).eq("id", id);
+  if (error) throw error;
+}
+
 export async function assignComplaint(id: string, staff: { id: string; name: string } | null) {
   const { error } = await supabase.from("complaints" as any)
     .update({ assigned_to_staff_id: staff?.id ?? null, assigned_to_name: staff?.name ?? null } as any)
