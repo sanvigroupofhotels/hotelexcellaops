@@ -348,14 +348,12 @@ function NewComplaintDialog({
             </SelectContent>
           </Select>
         </Field>
-        <Field label="Complaint Type *">
-          <Select value={form.complaint_type} onValueChange={v => setForm(f => ({ ...f, complaint_type: v as ComplaintType }))}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Room">Room Complaint</SelectItem>
-              <SelectItem value="General">General Complaint</SelectItem>
-            </SelectContent>
-          </Select>
+        <Field label="Guest Impacted">
+          <label className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-input/40 text-sm">
+            <input type="checkbox" checked={form.guest_impacted}
+              onChange={e => setForm(f => ({ ...f, guest_impacted: e.target.checked }))} />
+            <span className="text-muted-foreground">Yes — affecting guest stay</span>
+          </label>
         </Field>
         {form.complaint_type === "Room" && (
           <Field label="Room Number *">
