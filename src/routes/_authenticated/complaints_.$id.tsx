@@ -300,6 +300,14 @@ function ComplaintDetail() {
                   <div>Entered by: <span className="text-foreground">{c.entered_by_name ?? "—"}</span></div>
                   <div>Assigned to: <span className="text-foreground">{c.assigned_to_name ?? "—"}</span></div>
                   {c.resolved_at && <div>Resolved: <span className="text-foreground">{new Date(c.resolved_at).toLocaleString("en-IN")}</span></div>}
+                  {c.resolved_by_name && <div>Resolved by: <span className="text-foreground">{c.resolved_by_name}</span></div>}
+                  {c.closed_at && <div>Closed: <span className="text-foreground">{new Date(c.closed_at).toLocaleString("en-IN")}</span></div>}
+                </div>
+              )}
+              {!editing && c.resolution_notes && (
+                <div className="mt-3 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-xs">
+                  <div className="text-[10px] uppercase tracking-wider text-success mb-1">Resolution Notes</div>
+                  <div className="text-foreground whitespace-pre-wrap">{c.resolution_notes}</div>
                 </div>
               )}
             </div>
