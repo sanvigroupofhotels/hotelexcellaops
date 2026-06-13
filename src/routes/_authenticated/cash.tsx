@@ -737,8 +737,8 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-5 w-5"/></button>
         </div>
         <div className="p-5 space-y-4">
-          {/* Row 1: Type + Amount + Notes (reception's most-used trio) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Row 1: Type + (Other Type if needed) + Amount + Notes */}
+          <div className={cn("grid grid-cols-1 gap-3", isOther ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
             <Field label={kind==="collection"?"Collection Type":"Expense Type"} required>
               <select className={inputCls} value={typeName} onChange={e=>setTypeName(e.target.value)}>
                 {kind==="collection"
@@ -746,6 +746,12 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
                   : etypes.map(t => <option key={t.id}>{t.name}</option>)}
               </select>
             </Field>
+            {isOther && (
+              <Field label="What's the Other Type?" required>
+                <input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)}
+                  placeholder="Specify…" />
+              </Field>
+            )}
             <Field label="Amount (₹)" required>
               <NumField value={amount || 0} min={0} decimal prefix="₹" onChange={(v)=>setAmount(v)} />
             </Field>
@@ -753,12 +759,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
               <input className={inputCls} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Quick note (optional)" />
             </Field>
           </div>
-          {isOther && (
-            <Field label="What's the Other Type?" required>
-              <input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)}
-                placeholder="What's the Other Type?" />
-            </Field>
-          )}
+
 
           {kind==="collection" && !isOther && (
             <>
