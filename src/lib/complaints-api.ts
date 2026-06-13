@@ -4,6 +4,8 @@ import { toLocalYMD } from "@/lib/utils";
 export const COMPLAINT_TYPES = ["Room", "General"] as const;
 export const COMPLAINT_PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
 export const COMPLAINT_STATUSES = ["Open", "In Progress", "Resolved"] as const;
+export const ISSUE_TYPES = ["Complaint", "Maintenance", "Housekeeping", "Service", "Other"] as const;
+export type IssueType = (typeof ISSUE_TYPES)[number];
 
 export type ComplaintType = (typeof COMPLAINT_TYPES)[number];
 export type ComplaintPriority = (typeof COMPLAINT_PRIORITIES)[number];
