@@ -179,31 +179,18 @@ function CashPage() {
               <div className="w-full max-w-sm">
                 <motion.div initial={{opacity:0,y:6}} animate={{opacity:1,y:0}}
                   className="luxe-card rounded-xl p-5 flex flex-col items-center text-center gap-2">
-                  <div className="flex items-center justify-center gap-2">
-                    <ClipboardCopy className="h-4 w-4 gold-text-gradient" />
-                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Today's Report</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    WhatsApp-friendly summary of today's cash activity.
-                  </div>
                   <button onClick={async () => {
                       try {
                         const today = new Date(); today.setHours(0,0,0,0);
-                        const todayKey = ymd(today);
-                        let opening = 0;
-                        for (const t of tx) {
-                          if (!t.active) continue;
-                          if (ymd(new Date(t.occurred_at)) >= todayKey) continue;
-                          opening += t.kind === "collection" ? Number(t.amount) : -Number(t.amount);
-                        }
-                        const report = buildDailyReport(tx, today, opening);
+                        const opening = computeOpeningBalance(tx, today);
+                        const report = buildDailyCashReport(tx, today, opening);
                         await navigator.clipboard.writeText(report);
                         toast.success("Today's report copied to clipboard.");
                       } catch (e: any) {
                         toast.error(e?.message ?? "Could not copy report");
                       }
                     }}
-                    className="mt-1 inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-2 text-sm hover:bg-gold-soft/50">
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-2 text-sm hover:bg-gold-soft/50">
                     <ClipboardCopy className="h-4 w-4" /> Copy Today's Report
                   </button>
                 </motion.div>
