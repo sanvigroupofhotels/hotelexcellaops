@@ -78,6 +78,15 @@ function HouseView() {
       return (data ?? []) as any[];
     },
   });
+  // Multi-room assignments — drives per-room occupancy in House View.
+  const { data: allAssignments = [] } = useQuery({
+    queryKey: ["booking-room-assignments-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("booking_room_assignments" as any).select("booking_id,room_id");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
   const isLoading = lr || lb;
 
   const days = useMemo(() => Array.from({ length: DAY_COUNT }, (_, i) => addDays(anchor, i)), [anchor]);
@@ -105,14 +114,35 @@ function HouseView() {
     [blocks, rangeStart, rangeEnd],
   );
 
-  /** Greedy place unassigned bookings into vacant rooms (display-only). */
+  /**
+   * Place bookings into rooms. Multi-room aware:
+   *   - If a booking has rows in booking_room_assignments, render the booking
+   *     in EACH assigned room (so 2 Oak rooms → appears on both 101 and 102).
+   *   - Else fall back to bookings.room_id (legacy single-room).
+   *   - Else greedily place unassigned bookings into vacant rooms (display-only).
+   */
   const byRoom = useMemo(() => {
     const m = new Map<string, any[]>();
-    const assigned = visibleBookings.filter((b) => b.room_id);
-    const unassigned = visibleBookings.filter((b) => !b.room_id);
-    for (const b of assigned) {
-      const arr = m.get(b.room_id) ?? [];
-      arr.push(b); m.set(b.room_id, arr);
+    const assignmentsByBooking = new Map<string, string[]>();
+    for (const a of allAssignments as any[]) {
+      const arr = assignmentsByBooking.get(a.booking_id) ?? [];
+      arr.push(a.room_id);
+      assignmentsByBooking.set(a.booking_id, arr);
+    }
+    const unassigned: any[] = [];
+    for (const b of visibleBookings) {
+      const roomIds = assignmentsByBooking.get(b.id);
+      if (roomIds && roomIds.length > 0) {
+        for (const rid of roomIds) {
+          const arr = m.get(rid) ?? [];
+          arr.push(b); m.set(rid, arr);
+        }
+      } else if (b.room_id) {
+        const arr = m.get(b.room_id) ?? [];
+        arr.push(b); m.set(b.room_id, arr);
+      } else {
+        unassigned.push(b);
+      }
     }
     for (const b of unassigned) {
       let placed = false;
@@ -127,7 +157,7 @@ function HouseView() {
       }
     }
     return m;
-  }, [visibleBookings, rooms]);
+  }, [visibleBookings, rooms, allAssignments]);
 
   const blocksByRoom = useMemo(() => {
     const m = new Map<string, any[]>();
@@ -143,6 +173,12 @@ function HouseView() {
   const occupiedRooms = new Set<string>();
   const inHouseBookings: any[] = [];
   let arrivalsToday = 0, departuresToday = 0;
+  // Per-booking assigned-rooms lookup (multi-room aware)
+  const roomIdsForBooking = (bookingId: string, fallbackRoomId: string | null): string[] => {
+    const ids = (allAssignments as any[]).filter((a) => a.booking_id === bookingId).map((a) => a.room_id);
+    if (ids.length > 0) return ids;
+    return fallbackRoomId ? [fallbackRoomId] : [];
+  };
   for (const b of (bookings as any[])) {
     if (b.status === "Cancelled") continue;
     if (b.check_in === todayKey) arrivalsToday++;
@@ -151,7 +187,7 @@ function HouseView() {
       && b.status !== "Checked-Out" && b.status !== "Stay Completed";
     if (inHouse) {
       inHouseBookings.push(b);
-      if (b.room_id) occupiedRooms.add(b.room_id);
+      for (const rid of roomIdsForBooking(b.id, b.room_id)) occupiedRooms.add(rid);
     }
   }
   const totalRooms = rooms.length;
@@ -170,8 +206,10 @@ function HouseView() {
     const r = rooms.find((x: any) => x.id === id);
     return r ? r.room_number : null;
   };
-  const breakfastRoomNumbers = breakfastBookings.map((b) => roomNumber(b.room_id)).filter(Boolean) as string[];
-  const inHouseRoomNumbers = inHouseBookings.map((b) => roomNumber(b.room_id)).filter(Boolean) as string[];
+  const roomNumbersFor = (b: any): string[] =>
+    roomIdsForBooking(b.id, b.room_id).map((rid) => roomNumber(rid)).filter(Boolean) as string[];
+  const breakfastRoomNumbers = breakfastBookings.flatMap(roomNumbersFor);
+  const inHouseRoomNumbers = inHouseBookings.flatMap(roomNumbersFor);
 
   return (
     <>
