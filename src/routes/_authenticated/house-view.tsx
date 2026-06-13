@@ -687,6 +687,18 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
           <div className="flex justify-between"><span className="text-muted-foreground">Advance Paid</span><span className="tabular-nums">₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</span></div>
           <div className="flex justify-between border-t border-border/50 pt-1"><span className="font-medium">Balance Due</span><span className="font-display text-base gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
         </div>
+        {canTransact && (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button onClick={() => setPayOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-gold/40 bg-gold-soft/40 text-gold px-3 py-2 text-xs font-medium hover:bg-gold-soft/70">
+              <Plus className="h-3 w-3" /> Add Payment
+            </button>
+            <button onClick={() => setChargeOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium hover:border-gold/40">
+              <Plus className="h-3 w-3" /> Add Charge
+            </button>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2 pt-1">
           <Link to="/bookings/$id" params={{ id: b.id }} className="flex-1 text-center rounded-md border border-border bg-card px-3 py-2 text-xs hover:border-gold/40">View Booking</Link>
           {isCheckedOut && (
@@ -716,6 +728,14 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
       <InvoiceDialog booking={b} items={itemsForBooking as any} payments={paymentsForInvoice}
         onClose={() => setInvoiceOpen(false)} />
     )}
+    <ChargeFormDialog
+      key={chargeOpen ? "open" : "closed"}
+      open={chargeOpen}
+      onOpenChange={setChargeOpen}
+      bookingId={b.id}
+      categories={["Food Order","Water Bottles","Laundry","Dental Kit","Shaving Kit","Coffee","Tea","Late Check-out","Early Check-in","Extra Pet","Extra Adult","Transportation","Other"]}
+      editing={null}
+    />
     <RoomAssignmentDialog
       bookingId={b.id}
       open={checkinFlowOpen}
