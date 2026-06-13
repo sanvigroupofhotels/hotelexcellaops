@@ -40,7 +40,6 @@ function HomePage() {
   const arrivalsToday = active.filter((b) => b.check_in === today && b.status !== "Checked-In" && b.status !== "Checked-Out").length;
   const pendingCheckins = active.filter((b) => b.check_in <= today && !["Checked-In","Checked-Out"].includes(b.status as string)).length;
   const dueCollection = active
-    .filter((b: any) => b.status !== "Cancelled")
     .filter((b) => b.status !== "Checked-Out")
     .reduce((sum, b) => {
       const charges = Number((chargeTotals as any)[b.id] ?? 0);
