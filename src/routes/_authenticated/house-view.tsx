@@ -13,6 +13,7 @@ import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { InvoiceDialog } from "@/components/invoice-dialog";
 import { listBookingPayments } from "@/lib/booking-payments-api";
 import { BlockRoomDialog } from "@/components/block-room-dialog";
+import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 
 export const Route = createFileRoute("/_authenticated/house-view")({
   component: HouseView,
