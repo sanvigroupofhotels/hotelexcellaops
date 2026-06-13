@@ -280,6 +280,8 @@ function NewComplaintDialog({
     entered_by_staff_id: "",
     assigned_to_staff_id: "",
     description: "",
+    issue_type: "Complaint" as string,
+    guest_impacted: false,
   });
   const [suggestion, setSuggestion] = useState<any | null>(null);
   const [checkingRoom, setCheckingRoom] = useState(false);
