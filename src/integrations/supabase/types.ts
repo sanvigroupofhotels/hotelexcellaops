@@ -1581,35 +1581,245 @@ export type Database = {
         }
         Relationships: []
       }
-      staff: {
+      salary_advances: {
         Row: {
-          active: boolean
+          advance_date: string
+          amount: number
           created_at: string
           id: string
+          notes: string | null
+          recovered_in_month: string | null
+          staff_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          advance_date?: string
+          amount: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          recovered_in_month?: string | null
+          staff_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          advance_date?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          recovered_in_month?: string | null
+          staff_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salary_advances_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      salary_payments: {
+        Row: {
+          absent_days: number
+          absent_deduction: number
+          advance_recovery: number
+          bonus: number
+          created_at: string
+          gross: number
+          halfday_count: number
+          halfday_deduction: number
+          id: string
+          incentives: number
+          leave_days: number
+          month: string
+          net: number
+          notes: string | null
+          other_deductions: number
+          paid_amount: number
+          paid_at: string | null
+          payment_mode: string | null
+          present_days: number
+          salary_period_from: string | null
+          salary_period_to: string | null
+          staff_id: string
+          status: string
+          updated_at: string
+          user_id: string
+          working_days_basis: string
+        }
+        Insert: {
+          absent_days?: number
+          absent_deduction?: number
+          advance_recovery?: number
+          bonus?: number
+          created_at?: string
+          gross?: number
+          halfday_count?: number
+          halfday_deduction?: number
+          id?: string
+          incentives?: number
+          leave_days?: number
+          month: string
+          net?: number
+          notes?: string | null
+          other_deductions?: number
+          paid_amount?: number
+          paid_at?: string | null
+          payment_mode?: string | null
+          present_days?: number
+          salary_period_from?: string | null
+          salary_period_to?: string | null
+          staff_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          working_days_basis?: string
+        }
+        Update: {
+          absent_days?: number
+          absent_deduction?: number
+          advance_recovery?: number
+          bonus?: number
+          created_at?: string
+          gross?: number
+          halfday_count?: number
+          halfday_deduction?: number
+          id?: string
+          incentives?: number
+          leave_days?: number
+          month?: string
+          net?: number
+          notes?: string | null
+          other_deductions?: number
+          paid_amount?: number
+          paid_at?: string | null
+          payment_mode?: string | null
+          present_days?: number
+          salary_period_from?: string | null
+          salary_period_to?: string | null
+          staff_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          working_days_basis?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salary_payments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff: {
+        Row: {
+          accommodation_provided: boolean
+          active: boolean
+          basic_salary: number | null
+          created_at: string
+          date_of_joining: string | null
+          department: string | null
+          designation: string | null
+          employee_code: string | null
+          food_provided: boolean
+          id: string
           mobile: string | null
+          monthly_salary: number | null
           name: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          accommodation_provided?: boolean
           active?: boolean
+          basic_salary?: number | null
           created_at?: string
+          date_of_joining?: string | null
+          department?: string | null
+          designation?: string | null
+          employee_code?: string | null
+          food_provided?: boolean
           id?: string
           mobile?: string | null
+          monthly_salary?: number | null
           name: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          accommodation_provided?: boolean
           active?: boolean
+          basic_salary?: number | null
           created_at?: string
+          date_of_joining?: string | null
+          department?: string | null
+          designation?: string | null
+          employee_code?: string | null
+          food_provided?: boolean
           id?: string
           mobile?: string | null
+          monthly_salary?: number | null
           name?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      staff_attendance: {
+        Row: {
+          check_in_time: string | null
+          check_out_time: string | null
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          staff_id: string
+          status: Database["public"]["Enums"]["attendance_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          notes?: string | null
+          staff_id: string
+          status: Database["public"]["Enums"]["attendance_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          staff_id?: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_attendance_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {
@@ -1749,6 +1959,7 @@ export type Database = {
         | "deleted"
         | "duplicated"
       app_role: "admin" | "staff" | "owner"
+      attendance_status: "Present" | "Absent" | "HalfDay" | "Leave"
       booking_status:
         | "Draft"
         | "Confirmed"
@@ -1918,6 +2129,7 @@ export const Constants = {
         "duplicated",
       ],
       app_role: ["admin", "staff", "owner"],
+      attendance_status: ["Present", "Absent", "HalfDay", "Leave"],
       booking_status: [
         "Draft",
         "Confirmed",

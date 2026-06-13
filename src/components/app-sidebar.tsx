@@ -4,8 +4,9 @@ import {
   History, Bell, Calendar, BarChart3,
   Users, ListChecks, Menu, X, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
   MessageSquareWarning, Building2, DoorOpen, IndianRupee, Tag, Database, KeyRound,
-  Home, FileBarChart,
+  Home, FileBarChart, UserCog,
 } from "lucide-react";
+
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
@@ -27,8 +28,12 @@ const nav: NavItem[] = [
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/follow-ups", label: "Follow-ups", icon: Bell },
   { to: "/calendar", label: "Calendar", icon: Calendar },
+  { to: "/staff", label: "Staff Master", icon: UserCog, adminOnly: true },
+  { to: "/attendance", label: "Attendance", icon: ClipboardCheck },
+  { to: "/salary", label: "Salary", icon: IndianRupee, adminOnly: true },
   { to: "/rates", label: "Rates & Inventory", icon: Tag, adminOnly: true },
   { to: "/rooms", label: "Room Master", icon: DoorOpen, adminOnly: true },
+
   { to: "/master-data", label: "Master Data", icon: Database, adminOnly: true },
   { to: "/audit", label: "Audit", icon: ClipboardCheck, adminOnly: true },
   { to: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: true },

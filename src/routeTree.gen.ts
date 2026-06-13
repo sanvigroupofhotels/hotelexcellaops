@@ -15,6 +15,8 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
+import { Route as AuthenticatedStaffRouteImport } from './routes/_authenticated/staff'
+import { Route as AuthenticatedSalaryRouteImport } from './routes/_authenticated/salary'
 import { Route as AuthenticatedRoomsRouteImport } from './routes/_authenticated/rooms'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedReportingRouteImport } from './routes/_authenticated/reporting'
@@ -32,6 +34,7 @@ import { Route as AuthenticatedCashRouteImport } from './routes/_authenticated/c
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticated/bookings'
 import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
+import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAccessSettingsRouteImport } from './routes/_authenticated/access-settings'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
@@ -70,6 +73,16 @@ const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
 const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedStaffRoute = AuthenticatedStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSalaryRoute = AuthenticatedSalaryRouteImport.update({
+  id: '/salary',
+  path: '/salary',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedRoomsRoute = AuthenticatedRoomsRouteImport.update({
@@ -158,6 +171,11 @@ const AuthenticatedAuditRoute = AuthenticatedAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAttendanceRoute = AuthenticatedAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -221,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/attendance': typeof AuthenticatedAttendanceRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
@@ -238,6 +257,8 @@ export interface FileRoutesByFullPath {
   '/reporting': typeof AuthenticatedReportingRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
+  '/salary': typeof AuthenticatedSalaryRoute
+  '/staff': typeof AuthenticatedStaffRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
   '/portal/$token': typeof PortalTokenRoute
@@ -254,6 +275,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/attendance': typeof AuthenticatedAttendanceRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/bookings': typeof AuthenticatedBookingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
@@ -271,6 +293,8 @@ export interface FileRoutesByTo {
   '/reporting': typeof AuthenticatedReportingRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
+  '/salary': typeof AuthenticatedSalaryRoute
+  '/staff': typeof AuthenticatedStaffRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
   '/portal/$token': typeof PortalTokenRoute
@@ -290,6 +314,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
   '/_authenticated/bookings': typeof AuthenticatedBookingsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
@@ -307,6 +332,8 @@ export interface FileRoutesById {
   '/_authenticated/reporting': typeof AuthenticatedReportingRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rooms': typeof AuthenticatedRoomsRoute
+  '/_authenticated/salary': typeof AuthenticatedSalaryRoute
+  '/_authenticated/staff': typeof AuthenticatedStaffRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/portal/$token': typeof PortalTokenRoute
@@ -327,6 +354,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/access-settings'
     | '/analytics'
+    | '/attendance'
     | '/audit'
     | '/bookings'
     | '/calendar'
@@ -344,6 +372,8 @@ export interface FileRouteTypes {
     | '/reporting'
     | '/reports'
     | '/rooms'
+    | '/salary'
+    | '/staff'
     | '/tasks'
     | '/users'
     | '/portal/$token'
@@ -360,6 +390,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/access-settings'
     | '/analytics'
+    | '/attendance'
     | '/audit'
     | '/bookings'
     | '/calendar'
@@ -377,6 +408,8 @@ export interface FileRouteTypes {
     | '/reporting'
     | '/reports'
     | '/rooms'
+    | '/salary'
+    | '/staff'
     | '/tasks'
     | '/users'
     | '/portal/$token'
@@ -395,6 +428,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authenticated/access-settings'
     | '/_authenticated/analytics'
+    | '/_authenticated/attendance'
     | '/_authenticated/audit'
     | '/_authenticated/bookings'
     | '/_authenticated/calendar'
@@ -412,6 +446,8 @@ export interface FileRouteTypes {
     | '/_authenticated/reporting'
     | '/_authenticated/reports'
     | '/_authenticated/rooms'
+    | '/_authenticated/salary'
+    | '/_authenticated/staff'
     | '/_authenticated/tasks'
     | '/_authenticated/users'
     | '/portal/$token'
@@ -475,6 +511,20 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof AuthenticatedTasksRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/staff': {
+      id: '/_authenticated/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof AuthenticatedStaffRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/salary': {
+      id: '/_authenticated/salary'
+      path: '/salary'
+      fullPath: '/salary'
+      preLoaderRoute: typeof AuthenticatedSalaryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/rooms': {
@@ -596,6 +646,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAuditRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/attendance': {
+      id: '/_authenticated/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof AuthenticatedAttendanceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/analytics': {
       id: '/_authenticated/analytics'
       path: '/analytics'
@@ -672,6 +729,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedAccessSettingsRoute: typeof AuthenticatedAccessSettingsRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
   AuthenticatedAuditRoute: typeof AuthenticatedAuditRoute
   AuthenticatedBookingsRoute: typeof AuthenticatedBookingsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
@@ -689,6 +747,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedReportingRoute: typeof AuthenticatedReportingRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRoomsRoute: typeof AuthenticatedRoomsRoute
+  AuthenticatedSalaryRoute: typeof AuthenticatedSalaryRoute
+  AuthenticatedStaffRoute: typeof AuthenticatedStaffRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -704,6 +764,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccessSettingsRoute: AuthenticatedAccessSettingsRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
   AuthenticatedAuditRoute: AuthenticatedAuditRoute,
   AuthenticatedBookingsRoute: AuthenticatedBookingsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
@@ -721,6 +782,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedReportingRoute: AuthenticatedReportingRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRoomsRoute: AuthenticatedRoomsRoute,
+  AuthenticatedSalaryRoute: AuthenticatedSalaryRoute,
+  AuthenticatedStaffRoute: AuthenticatedStaffRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
