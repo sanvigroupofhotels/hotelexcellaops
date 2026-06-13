@@ -13,7 +13,7 @@ import { listActiveBlocks, isRoomBlockedInRange } from "@/lib/blocks-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import {
   listAssignments, addAssignment, removeAssignment,
-  requiredRoomCount, requiredByType, rebalanceBookingItemTypes,
+  requiredRoomCount, rebalanceBookingItemTypes, normalizeRoomType,
 } from "@/lib/booking-room-assignments-api";
 import { logBookingActivity } from "@/lib/booking-activities-api";
 
@@ -89,22 +89,43 @@ export function RoomAssignmentDialog({
     return Array.from(set.keys()).sort();
   }, [rooms]);
 
-  const required = requiredRoomCount(items as any);
-  const requiredMix = useMemo(() => requiredByType(items as any), [items]);
+  // Resolve any room_type label ("Oak Room", "oak", etc.) to the canonical
+  // category string from the rooms table ("Oak"). Falls back to original.
+  const canon = useMemo(() => {
+    return (raw?: string | null) => {
+      const n = normalizeRoomType(raw);
+      if (!n) return "";
+      const hit = categories.find((c) => normalizeRoomType(c) === n);
+      return hit ?? (raw || "").trim();
+    };
+  }, [categories]);
 
-  // Assigned-by-type, derived from current assignments + rooms.
+  const required = requiredRoomCount(items as any);
+
+  // requiredMix keyed by canonical category labels.
+  const requiredMix = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const it of items as any[]) {
+      const k = canon(it.room_type);
+      if (!k) continue;
+      out[k] = (out[k] ?? 0) + Math.max(1, Number(it.rooms ?? 1));
+    }
+    return out;
+  }, [items, canon]);
+
+  // Assigned-by-category, derived from current assignments + rooms.
   const assignedMix = useMemo(() => {
     const out: Record<string, number> = {};
     for (const a of assignments) {
       const r = (rooms as any[]).find((x) => x.id === a.room_id);
-      const t = r?.room_type ?? "";
+      const t = canon(r?.room_type);
       if (!t) continue;
       out[t] = (out[t] ?? 0) + 1;
     }
     return out;
-  }, [assignments, rooms]);
+  }, [assignments, rooms, canon]);
 
-  // Next slot category (first type in requiredMix with a deficit).
+  // Next slot category (first category with a deficit).
   const nextSlotType: string | null = useMemo(() => {
     for (const [t, need] of Object.entries(requiredMix)) {
       const have = assignedMix[t] ?? 0;
@@ -174,19 +195,20 @@ export function RoomAssignmentDialog({
 
       // Build the post-change mix (what booking_items should look like) if rebalancing.
       if (rebalance) {
+        const newCat = canon(newRoom.room_type);
         const futureAssignedMix: Record<string, number> = { ...assignedMix };
         if (mode === "change" && changingRoom) {
-          futureAssignedMix[changingRoom.room_type] = Math.max(0, (futureAssignedMix[changingRoom.room_type] ?? 0) - 1);
-          if (futureAssignedMix[changingRoom.room_type] === 0) delete futureAssignedMix[changingRoom.room_type];
+          const oldCat = canon(changingRoom.room_type);
+          futureAssignedMix[oldCat] = Math.max(0, (futureAssignedMix[oldCat] ?? 0) - 1);
+          if (futureAssignedMix[oldCat] === 0) delete futureAssignedMix[oldCat];
         }
-        futureAssignedMix[newRoom.room_type] = (futureAssignedMix[newRoom.room_type] ?? 0) + 1;
+        futureAssignedMix[newCat] = (futureAssignedMix[newCat] ?? 0) + 1;
 
         // For not-yet-assigned slots, keep the original required types so totals add up.
         const desiredMix: Record<string, number> = {};
         for (const [t, n] of Object.entries(futureAssignedMix)) desiredMix[t] = n;
         const remainingAfter = Math.max(0, required - (totalAssigned + (mode === "change" ? 0 : 1)));
         if (remainingAfter > 0) {
-          // Carry leftover required slots from the *original* mix that aren't yet filled
           const leftoverRequired: Record<string, number> = { ...requiredMix };
           for (const [t, n] of Object.entries(desiredMix)) {
             leftoverRequired[t] = Math.max(0, (leftoverRequired[t] ?? 0) - n);
@@ -266,15 +288,14 @@ export function RoomAssignmentDialog({
     if (!pickedRoomId) return false;
     const newRoom = (rooms as any[]).find((r) => r.id === pickedRoomId);
     if (!newRoom) return false;
+    const newCat = canon(newRoom.room_type);
     if (mode === "change") {
-      return changingRoom && newRoom.room_type !== changingRoom.room_type;
+      return !!changingRoom && newCat !== canon(changingRoom.room_type);
     }
-    // assign-one or checkin-flow: changes if this slot's required type isn't the room's type.
-    // i.e., room.room_type is NOT a type with a deficit in requiredMix.
-    const have = assignedMix[newRoom.room_type] ?? 0;
-    const need = requiredMix[newRoom.room_type] ?? 0;
-    return have >= need; // no slot of this type left → this would change the mix
-  }, [pickedRoomId, rooms, mode, changingRoom, assignedMix, requiredMix]);
+    const have = assignedMix[newCat] ?? 0;
+    const need = requiredMix[newCat] ?? 0;
+    return have >= need;
+  }, [pickedRoomId, rooms, mode, changingRoom, assignedMix, requiredMix, canon]);
 
   const handleConfirm = () => {
     if (!pickedRoomId) return;
@@ -290,14 +311,16 @@ export function RoomAssignmentDialog({
     if (!pickedRoomId) return "";
     const newRoom = (rooms as any[]).find((r) => r.id === pickedRoomId);
     if (!newRoom) return "";
+    const newCat = canon(newRoom.room_type);
     const future: Record<string, number> = { ...assignedMix };
     if (mode === "change" && changingRoom) {
-      future[changingRoom.room_type] = Math.max(0, (future[changingRoom.room_type] ?? 0) - 1);
-      if (future[changingRoom.room_type] === 0) delete future[changingRoom.room_type];
+      const oldCat = canon(changingRoom.room_type);
+      future[oldCat] = Math.max(0, (future[oldCat] ?? 0) - 1);
+      if (future[oldCat] === 0) delete future[oldCat];
     }
-    future[newRoom.room_type] = (future[newRoom.room_type] ?? 0) + 1;
+    future[newCat] = (future[newCat] ?? 0) + 1;
     return Object.entries(future).map(([t, n]) => `${t} × ${n}`).join(", ");
-  }, [pickedRoomId, rooms, assignedMix, mode, changingRoom]);
+  }, [pickedRoomId, rooms, assignedMix, mode, changingRoom, canon]);
   const originalMixStr = Object.entries(requiredMix).map(([t, n]) => `${t} × ${n}`).join(", ");
 
   // Title

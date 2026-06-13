@@ -12,7 +12,7 @@ import { BOOKING_STATUSES, bookingStatusStyles } from "@/lib/mock-data";
 import { downloadCSV } from "@/lib/csv";
 import {
   Search, Loader2, Plus, ChevronRight, BedDouble, Phone, MessageCircle, Download,
-  Hotel, Sunrise, CalendarRange, History as HistoryIcon, Repeat,
+  Hotel, Sunrise, CalendarRange, History as HistoryIcon, Repeat, LayoutGrid,
 } from "lucide-react";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
 import { toast } from "sonner";
@@ -117,6 +117,10 @@ function BookingsPage() {
               className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
             />
           </div>
+          <Link to="/house-view"
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
+            <LayoutGrid className="h-4 w-4 text-gold" /> House View
+          </Link>
           <button onClick={() => setExportOpen(true)} className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
             <Download className="h-4 w-4 text-gold" /> Export
           </button>
@@ -210,8 +214,9 @@ function Section({ refEl, title, icon: Icon, bookings, chargeTotals, completedBy
         <div className="py-8 text-center text-xs text-muted-foreground">No bookings in this section.</div>
       ) : (
         bookings.map((b, i) => {
+          const isCancelled = b.status === "Cancelled";
           const payable = Number(b.amount) + Number(chargeTotals[b.id] || 0);
-          const diff = payable - Number(b.advance_paid || 0);
+          const diff = isCancelled ? 0 : payable - Number(b.advance_paid || 0);
           const balance = Math.max(0, diff);
           const excess = diff < 0 ? -diff : 0;
           const roomType = (b.room_details || "").split("×")[0]?.trim() || null;
@@ -219,7 +224,8 @@ function Section({ refEl, title, icon: Icon, bookings, chargeTotals, completedBy
           // Prior completed stays = total completed for this customer minus self (if this booking is itself checked-out).
           const completed = b.customer_id ? (completedByCustomer[b.customer_id] ?? 0) : 0;
           const priorCompleted = b.status === "Checked-Out" ? Math.max(0, completed - 1) : completed;
-          const isReturning = priorCompleted >= 1;
+          const isReturning = priorCompleted >= 1
+            && !["Checked-In", "Checked-Out", "Stay Completed", "Cancelled"].includes(b.status as string);
           const showArrival = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status);
           const arr = showArrival ? smartArrival((b as any).expected_arrival_at) : null;
           return (
