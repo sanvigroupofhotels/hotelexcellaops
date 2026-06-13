@@ -78,6 +78,15 @@ function HouseView() {
       return (data ?? []) as any[];
     },
   });
+  // Multi-room assignments — drives per-room occupancy in House View.
+  const { data: allAssignments = [] } = useQuery({
+    queryKey: ["booking-room-assignments-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("booking_room_assignments" as any).select("booking_id,room_id");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
   const isLoading = lr || lb;
 
   const days = useMemo(() => Array.from({ length: DAY_COUNT }, (_, i) => addDays(anchor, i)), [anchor]);
