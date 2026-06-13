@@ -114,14 +114,35 @@ function HouseView() {
     [blocks, rangeStart, rangeEnd],
   );
 
-  /** Greedy place unassigned bookings into vacant rooms (display-only). */
+  /**
+   * Place bookings into rooms. Multi-room aware:
+   *   - If a booking has rows in booking_room_assignments, render the booking
+   *     in EACH assigned room (so 2 Oak rooms → appears on both 101 and 102).
+   *   - Else fall back to bookings.room_id (legacy single-room).
+   *   - Else greedily place unassigned bookings into vacant rooms (display-only).
+   */
   const byRoom = useMemo(() => {
     const m = new Map<string, any[]>();
-    const assigned = visibleBookings.filter((b) => b.room_id);
-    const unassigned = visibleBookings.filter((b) => !b.room_id);
-    for (const b of assigned) {
-      const arr = m.get(b.room_id) ?? [];
-      arr.push(b); m.set(b.room_id, arr);
+    const assignmentsByBooking = new Map<string, string[]>();
+    for (const a of allAssignments as any[]) {
+      const arr = assignmentsByBooking.get(a.booking_id) ?? [];
+      arr.push(a.room_id);
+      assignmentsByBooking.set(a.booking_id, arr);
+    }
+    const unassigned: any[] = [];
+    for (const b of visibleBookings) {
+      const roomIds = assignmentsByBooking.get(b.id);
+      if (roomIds && roomIds.length > 0) {
+        for (const rid of roomIds) {
+          const arr = m.get(rid) ?? [];
+          arr.push(b); m.set(rid, arr);
+        }
+      } else if (b.room_id) {
+        const arr = m.get(b.room_id) ?? [];
+        arr.push(b); m.set(b.room_id, arr);
+      } else {
+        unassigned.push(b);
+      }
     }
     for (const b of unassigned) {
       let placed = false;
@@ -136,7 +157,7 @@ function HouseView() {
       }
     }
     return m;
-  }, [visibleBookings, rooms]);
+  }, [visibleBookings, rooms, allAssignments]);
 
   const blocksByRoom = useMemo(() => {
     const m = new Map<string, any[]>();
