@@ -180,7 +180,7 @@ function BookingDetail() {
   const [addPaymentForCheckoutOpen, setAddPaymentForCheckoutOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [assignRoomOpen, setAssignRoomOpen] = useState(false);
-  const [pickedRoomId, setPickedRoomId] = useState<string>("");
+  const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   // When set, the Assign dialog acts as a "Change" — confirming swaps the named assignment.
   const [changingAssignmentId, setChangingAssignmentId] = useState<string | null>(null);
 
@@ -194,39 +194,6 @@ function BookingDetail() {
     queryKey: ["rooms-occupied", b?.check_in, b?.check_out, id],
     queryFn: () => listOccupiedRoomIds(b!.check_in, b!.check_out, id),
     enabled: !!(b?.check_in && b?.check_out),
-  });
-
-  const assignRoom = useMutation({
-    mutationFn: async (roomId: string) => {
-      await addAssignment(id, roomId);
-      await logBookingActivity({ booking_id: id, action: "reactivated", from_status: b?.status ?? null, to_status: b?.status ?? null, notes: `Room assigned` });
-    },
-    onSuccess: () => { invalidateAll(); refetchAssignments(); setAssignRoomOpen(false); setPickedRoomId(""); toast.success("Room assigned"); },
-    onError: (e: any) => toast.error(e?.message ?? "Could not assign room"),
-  });
-
-  const changeRoom = useMutation({
-    mutationFn: async ({ assignmentId, newRoomId }: { assignmentId: string; newRoomId: string }) => {
-      const oldAssignment = assignments.find((a) => a.id === assignmentId);
-      const oldRoom = oldAssignment ? rooms.find((r: any) => r.id === oldAssignment.room_id) : null;
-      const newRoom = rooms.find((r: any) => r.id === newRoomId);
-      // Add new first (trigger validates), then remove old. If add fails, old stays intact.
-      await addAssignment(id, newRoomId);
-      await removeAssignment(id, assignmentId);
-      await logBookingActivity({
-        booking_id: id,
-        action: "reactivated",
-        from_status: b?.status ?? null,
-        to_status: b?.status ?? null,
-        notes: `Room Changed: ${oldRoom?.room_number ?? "?"} → ${newRoom?.room_number ?? "?"}`,
-      });
-    },
-    onSuccess: () => {
-      invalidateAll(); refetchAssignments();
-      setAssignRoomOpen(false); setPickedRoomId(""); setChangingAssignmentId(null);
-      toast.success("Room changed");
-    },
-    onError: (e: any) => toast.error(e?.message ?? "Could not change room"),
   });
 
   const unassignRoom = useMutation({
