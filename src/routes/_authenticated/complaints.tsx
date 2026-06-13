@@ -331,8 +331,23 @@ function NewComplaintDialog({
 
   return (
     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader><DialogTitle>New Complaint</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>New Issue</DialogTitle></DialogHeader>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field label="Issue Type *">
+          <Select value={form.issue_type} onValueChange={v => setForm(f => ({ ...f, issue_type: v }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{ISSUE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+          </Select>
+        </Field>
+        <Field label="Scope *">
+          <Select value={form.complaint_type} onValueChange={v => setForm(f => ({ ...f, complaint_type: v as ComplaintType }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Room">Room</SelectItem>
+              <SelectItem value="General">General</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
         <Field label="Complaint Type *">
           <Select value={form.complaint_type} onValueChange={v => setForm(f => ({ ...f, complaint_type: v as ComplaintType }))}>
             <SelectTrigger><SelectValue /></SelectTrigger>
