@@ -322,6 +322,7 @@ function NewComplaintDialog({
       complaint_type: "Room", room_number: "", customer_id: null, booking_id: null,
       category: "", category_other: "", priority: "Medium", status: "Open",
       entered_by_staff_id: "", assigned_to_staff_id: "", description: "",
+      issue_type: "Complaint", guest_impacted: false,
     });
     setSuggestion(null);
   };
