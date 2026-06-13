@@ -438,10 +438,11 @@ function BookingDetail() {
                   <div className="space-y-2">
                     {canCheckIn && (
                       <button onClick={() => {
-                        if (!(b as any).room_id) {
+                        const required = requiredRoomCount(items as any);
+                        if (assignments.length < required) {
                           setPickedRoomId("");
                           setAssignRoomOpen(true);
-                          toast.info("Assign a room to continue Check-In");
+                          toast.error("Please assign all rooms before Check-In.");
                           return;
                         }
                         status.mutate("Checked-In" as any);
