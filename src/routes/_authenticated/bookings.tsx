@@ -210,8 +210,9 @@ function Section({ refEl, title, icon: Icon, bookings, chargeTotals, completedBy
         <div className="py-8 text-center text-xs text-muted-foreground">No bookings in this section.</div>
       ) : (
         bookings.map((b, i) => {
+          const isCancelled = b.status === "Cancelled";
           const payable = Number(b.amount) + Number(chargeTotals[b.id] || 0);
-          const diff = payable - Number(b.advance_paid || 0);
+          const diff = isCancelled ? 0 : payable - Number(b.advance_paid || 0);
           const balance = Math.max(0, diff);
           const excess = diff < 0 ? -diff : 0;
           const roomType = (b.room_details || "").split("×")[0]?.trim() || null;
