@@ -282,20 +282,19 @@ export function RoomAssignmentDialog({
     },
   });
 
-  // Detect whether confirming would change categories (normalized comparison).
+  // Detect whether confirming would change categories.
   const wouldChangeCategories = useMemo(() => {
     if (!pickedRoomId) return false;
     const newRoom = (rooms as any[]).find((r) => r.id === pickedRoomId);
     if (!newRoom) return false;
-    const newNorm = normalizeRoomType(newRoom.room_type);
+    const newCat = canon(newRoom.room_type);
     if (mode === "change") {
-      return !!changingRoom && newNorm !== normalizeRoomType(changingRoom.room_type);
+      return !!changingRoom && newCat !== canon(changingRoom.room_type);
     }
-    // assign-one / checkin-flow: not a change if this category still has a deficit
-    const have = assignedMix[newNorm] ?? 0;
-    const need = requiredMix[newNorm] ?? 0;
-    return have >= need; // no slot of this type left → this would change the mix
-  }, [pickedRoomId, rooms, mode, changingRoom, assignedMix, requiredMix]);
+    const have = assignedMix[newCat] ?? 0;
+    const need = requiredMix[newCat] ?? 0;
+    return have >= need;
+  }, [pickedRoomId, rooms, mode, changingRoom, assignedMix, requiredMix, canon]);
 
   const handleConfirm = () => {
     if (!pickedRoomId) return;
