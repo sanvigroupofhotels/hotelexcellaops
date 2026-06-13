@@ -188,12 +188,6 @@ function BookingDetail() {
     queryFn: () => listAssignments(id),
     enabled: !!id,
   });
-  const { data: blocks = [] } = useQuery({ queryKey: ["blocks", "active"], queryFn: listActiveBlocks });
-  const { data: occupiedRoomIds = new Set<string>() } = useQuery({
-    queryKey: ["rooms-occupied", b?.check_in, b?.check_out, id],
-    queryFn: () => listOccupiedRoomIds(b!.check_in, b!.check_out, id),
-    enabled: !!(b?.check_in && b?.check_out),
-  });
 
   const unassignRoom = useMutation({
     mutationFn: async (assignmentId: string) => {
