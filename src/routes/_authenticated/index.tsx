@@ -139,20 +139,20 @@ function HomePage() {
           <h3 className="font-display text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3">
             Quick Actions
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
             {quickActions.map((a, i) => (
               <motion.button
                 key={a.label}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 * i, duration: 0.3 }}
                 onClick={a.onClick}
-                className="luxe-card rounded-xl p-5 text-left hover:border-gold/40 hover:bg-secondary/40 transition-all flex items-center gap-3"
+                className="luxe-card rounded-xl p-3 sm:p-4 text-left hover:border-gold/40 hover:bg-secondary/40 transition-all flex items-center gap-2.5 min-h-[72px]"
               >
-                <div className="h-10 w-10 rounded-md bg-secondary text-gold flex items-center justify-center text-xl">
+                <div className="h-9 w-9 shrink-0 rounded-md bg-secondary text-gold flex items-center justify-center text-base">
                   {a.emoji}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{a.label}</div>
-                  <div className="text-[11px] text-muted-foreground">Tap to open</div>
+                  <div className="text-[13px] sm:text-sm font-medium leading-snug break-words">{a.label}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Tap to open</div>
                 </div>
               </motion.button>
             ))}
