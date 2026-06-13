@@ -15,6 +15,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
+import { Route as AuthenticatedStaffRouteImport } from './routes/_authenticated/staff'
 import { Route as AuthenticatedRoomsRouteImport } from './routes/_authenticated/rooms'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedReportingRouteImport } from './routes/_authenticated/reporting'
@@ -70,6 +71,11 @@ const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
 const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedStaffRoute = AuthenticatedStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedRoomsRoute = AuthenticatedRoomsRouteImport.update({
@@ -238,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/reporting': typeof AuthenticatedReportingRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
+  '/staff': typeof AuthenticatedStaffRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
   '/portal/$token': typeof PortalTokenRoute
@@ -271,6 +278,7 @@ export interface FileRoutesByTo {
   '/reporting': typeof AuthenticatedReportingRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
+  '/staff': typeof AuthenticatedStaffRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
   '/portal/$token': typeof PortalTokenRoute
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   '/_authenticated/reporting': typeof AuthenticatedReportingRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rooms': typeof AuthenticatedRoomsRoute
+  '/_authenticated/staff': typeof AuthenticatedStaffRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/portal/$token': typeof PortalTokenRoute
@@ -344,6 +353,7 @@ export interface FileRouteTypes {
     | '/reporting'
     | '/reports'
     | '/rooms'
+    | '/staff'
     | '/tasks'
     | '/users'
     | '/portal/$token'
@@ -377,6 +387,7 @@ export interface FileRouteTypes {
     | '/reporting'
     | '/reports'
     | '/rooms'
+    | '/staff'
     | '/tasks'
     | '/users'
     | '/portal/$token'
@@ -412,6 +423,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reporting'
     | '/_authenticated/reports'
     | '/_authenticated/rooms'
+    | '/_authenticated/staff'
     | '/_authenticated/tasks'
     | '/_authenticated/users'
     | '/portal/$token'
@@ -475,6 +487,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof AuthenticatedTasksRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/staff': {
+      id: '/_authenticated/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof AuthenticatedStaffRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/rooms': {
@@ -689,6 +708,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedReportingRoute: typeof AuthenticatedReportingRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRoomsRoute: typeof AuthenticatedRoomsRoute
+  AuthenticatedStaffRoute: typeof AuthenticatedStaffRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -721,6 +741,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedReportingRoute: AuthenticatedReportingRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRoomsRoute: AuthenticatedRoomsRoute,
+  AuthenticatedStaffRoute: AuthenticatedStaffRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
