@@ -390,7 +390,7 @@ function HouseView() {
                                 if (span <= 0) return null;
                                 const cellW = CELL_W_MOB;
                                 const hasBreakfast = breakfastByBooking.get(b.id);
-                                const balanceDue = Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+                                const balanceDue = b.status === "Cancelled" ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
                                 return (
                                   <button key={b.id} onClick={() => setSelected(b)}
                                     className={cn(
