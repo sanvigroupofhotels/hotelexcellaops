@@ -434,12 +434,24 @@ function BookingDetail() {
                               {room ? <>Room <span className="font-medium">{room.room_number}</span> · {room.room_type}</> : "Unknown room"}
                             </span>
                             {b.status !== "Checked-Out" && (
-                              <button
-                                onClick={() => unassignRoom.mutate(a.id)}
-                                disabled={unassignRoom.isPending}
-                                className="text-[11px] text-muted-foreground hover:text-destructive"
-                                aria-label="Remove room"
-                              >Remove</button>
+                              <span className="flex items-center gap-2 text-[11px]">
+                                <button
+                                  onClick={() => {
+                                    setChangingAssignmentId(a.id);
+                                    setPickedRoomId("");
+                                    setAssignRoomOpen(true);
+                                  }}
+                                  className="text-muted-foreground hover:text-gold"
+                                  aria-label="Change room"
+                                >Change</button>
+                                <span className="text-border">|</span>
+                                <button
+                                  onClick={() => unassignRoom.mutate(a.id)}
+                                  disabled={unassignRoom.isPending}
+                                  className="text-muted-foreground hover:text-destructive"
+                                  aria-label="Remove room"
+                                >Remove</button>
+                              </span>
                             )}
                           </li>
                         );
