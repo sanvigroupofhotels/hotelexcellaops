@@ -311,10 +311,12 @@ function NewComplaintDialog({
         assigned_to_staff_id: form.assigned_to_staff_id || null,
         assigned_to_name: assigned?.name ?? null,
         description: form.description.trim(),
+        issue_type: form.issue_type,
+        guest_impacted: form.guest_impacted,
       });
     },
-    onSuccess: () => { toast.success("Complaint recorded"); onSaved(); reset(); },
-    onError: (e: any) => toast.error(e?.message ?? "Failed to save complaint"),
+    onSuccess: () => { toast.success("Issue recorded"); onSaved(); reset(); },
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save issue"),
   });
 
   const reset = () => {
