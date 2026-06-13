@@ -69,11 +69,13 @@ function HouseView() {
     queryKey: ["room_maintenance", "active"],
     queryFn: async () => (await listMaintenance()).filter((m: any) => m.active !== false),
   });
-  // All booking items (for breakfast lookup keyed by booking_id)
+  // All booking items (breakfast lookup + room_type/rooms per item for placeholder occupancy)
   const { data: allItems = [] } = useQuery({
     queryKey: ["booking-items-all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("booking_items" as any).select("booking_id,breakfast_included");
+      const { data, error } = await supabase
+        .from("booking_items" as any)
+        .select("booking_id,breakfast_included,room_type,rooms");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -115,11 +117,13 @@ function HouseView() {
   );
 
   /**
-   * Place bookings into rooms. Multi-room aware:
-   *   - If a booking has rows in booking_room_assignments, render the booking
-   *     in EACH assigned room (so 2 Oak rooms → appears on both 101 and 102).
-   *   - Else fall back to bookings.room_id (legacy single-room).
-   *   - Else greedily place unassigned bookings into vacant rooms (display-only).
+   * Place bookings into rooms. Multi-room aware with per-type placeholders:
+   *   - For each booking, render once per ASSIGNED room.
+   *   - Compute the remaining-rooms-by-type from booking_items minus already-assigned
+   *     rooms of that type. For each remaining slot, place a VIRTUAL placeholder
+   *     into the first vacant room of the matching type (falls back to any vacant
+   *     room when no type match is available).
+   *   - Bookings with no items default to 1 virtual placeholder (any vacant room).
    */
   const byRoom = useMemo(() => {
     const m = new Map<string, any[]>();
@@ -129,35 +133,100 @@ function HouseView() {
       arr.push(a.room_id);
       assignmentsByBooking.set(a.booking_id, arr);
     }
-    const unassigned: any[] = [];
+    // Legacy fallback: pre-2026 bookings may have bookings.room_id but no assignment row.
     for (const b of visibleBookings) {
-      const roomIds = assignmentsByBooking.get(b.id);
-      if (roomIds && roomIds.length > 0) {
-        for (const rid of roomIds) {
-          const arr = m.get(rid) ?? [];
-          arr.push(b); m.set(rid, arr);
-        }
-      } else if (b.room_id) {
-        const arr = m.get(b.room_id) ?? [];
-        arr.push(b); m.set(b.room_id, arr);
-      } else {
-        unassigned.push(b);
+      if (!assignmentsByBooking.has(b.id) && b.room_id) {
+        assignmentsByBooking.set(b.id, [b.room_id]);
       }
     }
-    for (const b of unassigned) {
-      let placed = false;
-      for (const r of rooms) {
-        const arr = m.get(r.id) ?? [];
-        const conflict = arr.some((x) => datesOverlap(b.check_in, b.check_out, x.check_in, x.check_out));
-        if (!conflict) { arr.push({ ...b, _virtual: true }); m.set(r.id, arr); placed = true; break; }
+    const itemsByBooking = new Map<string, any[]>();
+    for (const it of allItems as any[]) {
+      const arr = itemsByBooking.get(it.booking_id) ?? [];
+      arr.push(it); itemsByBooking.set(it.booking_id, arr);
+    }
+    const roomTypeOf = (rid: string) => (rooms as any[]).find((r) => r.id === rid)?.room_type as string | undefined;
+    const conflictsAt = (rid: string, b: any) =>
+      (m.get(rid) ?? []).some((x) => datesOverlap(b.check_in, b.check_out, x.check_in, x.check_out));
+    const typeMatches = (roomType: string, itemType: string) => {
+      if (roomType === itemType) return true;
+      const a = roomType.toLowerCase().split(" ")[0];
+      const b = itemType.toLowerCase().split(" ")[0];
+      return a && b && a === b;
+    };
+
+    // 1) Render each booking on every assigned room.
+    for (const b of visibleBookings) {
+      const roomIds = assignmentsByBooking.get(b.id) ?? [];
+      for (const rid of roomIds) {
+        const arr = m.get(rid) ?? [];
+        arr.push(b); m.set(rid, arr);
       }
-      if (!placed && rooms[0]) {
-        const arr = m.get(rooms[0].id) ?? [];
-        arr.push({ ...b, _virtual: true }); m.set(rooms[0].id, arr);
+    }
+
+    // 2) For each booking, compute remaining slots per room_type and place virtual placeholders.
+    for (const b of visibleBookings) {
+      const assigned = assignmentsByBooking.get(b.id) ?? [];
+      const items = itemsByBooking.get(b.id) ?? [];
+
+      // Required by type
+      const required = new Map<string, number>();
+      if (items.length === 0) {
+        required.set("__any__", 1);
+      } else {
+        for (const it of items) {
+          const t = (it.room_type as string) || "__any__";
+          required.set(t, (required.get(t) ?? 0) + Math.max(1, Number(it.rooms ?? 1)));
+        }
+      }
+      // Assigned by type
+      const assignedByType = new Map<string, number>();
+      for (const rid of assigned) {
+        const t = roomTypeOf(rid) ?? "__any__";
+        // Find matching required key (exact, else fuzzy)
+        let key: string | null = null;
+        for (const k of required.keys()) {
+          if (k === "__any__") continue;
+          if (typeMatches(t, k)) { key = k; break; }
+        }
+        if (!key) key = t;
+        assignedByType.set(key, (assignedByType.get(key) ?? 0) + 1);
+      }
+
+      // For each required type, place placeholders for the deficit.
+      for (const [type, need] of required) {
+        const have = assignedByType.get(type) ?? 0;
+        let deficit = Math.max(0, need - have);
+        if (deficit === 0) continue;
+        // Candidate rooms: matching type first, then any room as fallback.
+        const matching = (rooms as any[]).filter((r) =>
+          type === "__any__" ? true : typeMatches(r.room_type, type),
+        );
+        const fallback = (rooms as any[]);
+        const candidates = matching.length > 0 ? matching : fallback;
+
+        for (const r of candidates) {
+          if (deficit === 0) break;
+          // Skip rooms already assigned to this same booking (it's the same booking already shown).
+          if (assigned.includes(r.id)) continue;
+          if (conflictsAt(r.id, b)) continue;
+          const arr = m.get(r.id) ?? [];
+          arr.push({ ...b, _virtual: true });
+          m.set(r.id, arr);
+          deficit--;
+        }
+        // If still deficit, drop into the first matching room regardless (rare overflow).
+        if (deficit > 0 && candidates[0]) {
+          for (let i = 0; i < deficit; i++) {
+            const r = candidates[i % candidates.length];
+            const arr = m.get(r.id) ?? [];
+            arr.push({ ...b, _virtual: true });
+            m.set(r.id, arr);
+          }
+        }
       }
     }
     return m;
-  }, [visibleBookings, rooms, allAssignments]);
+  }, [visibleBookings, rooms, allAssignments, allItems]);
 
   const blocksByRoom = useMemo(() => {
     const m = new Map<string, any[]>();

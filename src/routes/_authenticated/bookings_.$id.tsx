@@ -87,8 +87,20 @@ function BookingDetail() {
         from_status: from ?? null,
         to_status: s,
       });
+      return s;
     },
-    onSuccess: () => { invalidateAll(); toast.success("Status updated"); },
+    onSuccess: (s) => {
+      invalidateAll();
+      if (s === "Checked-In") {
+        const nums = assignments
+          .map((a) => rooms.find((r: any) => r.id === a.room_id)?.room_number)
+          .filter(Boolean)
+          .join(", ");
+        toast.success(`Checked In Successfully${nums ? ` · Assigned Rooms: ${nums}` : ""}`);
+      } else {
+        toast.success("Status updated");
+      }
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -168,6 +180,8 @@ function BookingDetail() {
   const [activityOpen, setActivityOpen] = useState(false);
   const [assignRoomOpen, setAssignRoomOpen] = useState(false);
   const [pickedRoomId, setPickedRoomId] = useState<string>("");
+  // When set, the Assign dialog acts as a "Change" — confirming swaps the named assignment.
+  const [changingAssignmentId, setChangingAssignmentId] = useState<string | null>(null);
 
   const { data: assignments = [], refetch: refetchAssignments } = useQuery({
     queryKey: ["booking-room-assignments", id],
@@ -188,6 +202,30 @@ function BookingDetail() {
     },
     onSuccess: () => { invalidateAll(); refetchAssignments(); setAssignRoomOpen(false); setPickedRoomId(""); toast.success("Room assigned"); },
     onError: (e: any) => toast.error(e?.message ?? "Could not assign room"),
+  });
+
+  const changeRoom = useMutation({
+    mutationFn: async ({ assignmentId, newRoomId }: { assignmentId: string; newRoomId: string }) => {
+      const oldAssignment = assignments.find((a) => a.id === assignmentId);
+      const oldRoom = oldAssignment ? rooms.find((r: any) => r.id === oldAssignment.room_id) : null;
+      const newRoom = rooms.find((r: any) => r.id === newRoomId);
+      // Add new first (trigger validates), then remove old. If add fails, old stays intact.
+      await addAssignment(id, newRoomId);
+      await removeAssignment(id, assignmentId);
+      await logBookingActivity({
+        booking_id: id,
+        action: "reactivated",
+        from_status: b?.status ?? null,
+        to_status: b?.status ?? null,
+        notes: `Room Changed: ${oldRoom?.room_number ?? "?"} → ${newRoom?.room_number ?? "?"}`,
+      });
+    },
+    onSuccess: () => {
+      invalidateAll(); refetchAssignments();
+      setAssignRoomOpen(false); setPickedRoomId(""); setChangingAssignmentId(null);
+      toast.success("Room changed");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not change room"),
   });
 
   const unassignRoom = useMutation({
@@ -396,12 +434,24 @@ function BookingDetail() {
                               {room ? <>Room <span className="font-medium">{room.room_number}</span> · {room.room_type}</> : "Unknown room"}
                             </span>
                             {b.status !== "Checked-Out" && (
-                              <button
-                                onClick={() => unassignRoom.mutate(a.id)}
-                                disabled={unassignRoom.isPending}
-                                className="text-[11px] text-muted-foreground hover:text-destructive"
-                                aria-label="Remove room"
-                              >Remove</button>
+                              <span className="flex items-center gap-2 text-[11px]">
+                                <button
+                                  onClick={() => {
+                                    setChangingAssignmentId(a.id);
+                                    setPickedRoomId("");
+                                    setAssignRoomOpen(true);
+                                  }}
+                                  className="text-muted-foreground hover:text-gold"
+                                  aria-label="Change room"
+                                >Change</button>
+                                <span className="text-border">|</span>
+                                <button
+                                  onClick={() => unassignRoom.mutate(a.id)}
+                                  disabled={unassignRoom.isPending}
+                                  className="text-muted-foreground hover:text-destructive"
+                                  aria-label="Remove room"
+                                >Remove</button>
+                              </span>
                             )}
                           </li>
                         );
@@ -646,45 +696,79 @@ function BookingDetail() {
         />
       )}
 
-      <AlertDialog open={assignRoomOpen} onOpenChange={setAssignRoomOpen}>
+      <AlertDialog
+        open={assignRoomOpen}
+        onOpenChange={(o) => { setAssignRoomOpen(o); if (!o) setChangingAssignmentId(null); }}
+      >
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><DoorOpen className="h-4 w-4 text-gold" /> Assign Room</AlertDialogTitle>
-            <AlertDialogDescription>
-              Pick a room for {b.guest_name} ({b.booking_reference}). Conflicts with existing bookings or maintenance blocks will be rejected.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="px-1">
-            <label className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Room</label>
-            <select value={pickedRoomId} onChange={(e) => setPickedRoomId(e.target.value)}
-              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-              <option value="">Select a room…</option>
-              {rooms
-                .filter((r: any) => {
-                  if (assignments.some((a) => a.room_id === r.id)) return false; // already assigned
-                  if (b?.check_in && b?.check_out) {
-                    if (isRoomBlockedInRange(blocks, r.id, b.check_in, b.check_out)) return false;
-                    if (occupiedRoomIds.has(r.id) && r.id !== (b as any).room_id) return false;
-                  }
-                  return true;
-                })
-                .map((r: any) => (
-                  <option key={r.id} value={r.id}>
-                    {r.room_number} · {r.room_type} · Floor {r.floor}
-                  </option>
-                ))}
-            </select>
-            <p className="text-[10px] text-muted-foreground mt-1.5">
-              Already assigned, occupied, or blocked rooms are hidden.
-            </p>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={!pickedRoomId || assignRoom.isPending}
-              onClick={() => pickedRoomId && assignRoom.mutate(pickedRoomId)}>
-              {assignRoom.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />} Assign
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          {(() => {
+            const isChange = !!changingAssignmentId;
+            const current = isChange ? assignments.find((a) => a.id === changingAssignmentId) : null;
+            const currentRoom = current ? rooms.find((r: any) => r.id === current.room_id) : null;
+            const targetType = currentRoom?.room_type;
+            return (
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <DoorOpen className="h-4 w-4 text-gold" /> {isChange ? "Change Room" : "Assign Room"}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {isChange && currentRoom ? (
+                      <>Swap Room <span className="font-medium">{currentRoom.room_number}</span> ({currentRoom.room_type}) for another eligible room.</>
+                    ) : (
+                      <>Pick a room for {b.guest_name} ({b.booking_reference}). Conflicts with existing bookings or maintenance blocks will be rejected.</>
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="px-1">
+                  <label className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Room</label>
+                  <select value={pickedRoomId} onChange={(e) => setPickedRoomId(e.target.value)}
+                    className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
+                    <option value="">Select a room…</option>
+                    {rooms
+                      .filter((r: any) => {
+                        // In Change mode, hide the room being changed and restrict to same type when known.
+                        if (isChange && current && r.id === current.room_id) return false;
+                        if (isChange && targetType && r.room_type !== targetType) return false;
+                        if (assignments.some((a) => a.room_id === r.id)) return false; // already assigned
+                        if (b?.check_in && b?.check_out) {
+                          if (isRoomBlockedInRange(blocks, r.id, b.check_in, b.check_out)) return false;
+                          if (occupiedRoomIds.has(r.id) && r.id !== (b as any).room_id) return false;
+                        }
+                        return true;
+                      })
+                      .map((r: any) => (
+                        <option key={r.id} value={r.id}>
+                          {r.room_number} · {r.room_type} · Floor {r.floor}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    {isChange && targetType
+                      ? `Showing eligible ${targetType} rooms only — occupied, blocked and already-assigned rooms hidden.`
+                      : "Already assigned, occupied, or blocked rooms are hidden."}
+                  </p>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={!pickedRoomId || assignRoom.isPending || changeRoom.isPending}
+                    onClick={() => {
+                      if (!pickedRoomId) return;
+                      if (isChange && changingAssignmentId) {
+                        changeRoom.mutate({ assignmentId: changingAssignmentId, newRoomId: pickedRoomId });
+                      } else {
+                        assignRoom.mutate(pickedRoomId);
+                      }
+                    }}
+                  >
+                    {(assignRoom.isPending || changeRoom.isPending) && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                    {isChange ? "Change" : "Assign"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </>
+            );
+          })()}
         </AlertDialogContent>
       </AlertDialog>
     </>
