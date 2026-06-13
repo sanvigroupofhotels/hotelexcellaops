@@ -220,7 +220,8 @@ function Section({ refEl, title, icon: Icon, bookings, chargeTotals, completedBy
           // Prior completed stays = total completed for this customer minus self (if this booking is itself checked-out).
           const completed = b.customer_id ? (completedByCustomer[b.customer_id] ?? 0) : 0;
           const priorCompleted = b.status === "Checked-Out" ? Math.max(0, completed - 1) : completed;
-          const isReturning = priorCompleted >= 1;
+          const isReturning = priorCompleted >= 1
+            && !["Checked-In", "Checked-Out", "Stay Completed", "Cancelled"].includes(b.status as string);
           const showArrival = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status);
           const arr = showArrival ? smartArrival((b as any).expected_arrival_at) : null;
           return (
