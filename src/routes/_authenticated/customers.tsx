@@ -17,6 +17,7 @@ import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/use-role";
 import { CustomerEditDialog } from "@/components/customer-edit-dialog";
+import { phoneToWaDigits } from "@/lib/phone";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";

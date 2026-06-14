@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
+import { phoneToWaDigits } from "@/lib/phone";
 
 export const Route = createFileRoute("/_authenticated/customers_/$id")({
   component: CustomerDetail,

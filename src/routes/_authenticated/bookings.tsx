@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
 import { toast } from "sonner";
+import { phoneToWaDigits } from "@/lib/phone";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
