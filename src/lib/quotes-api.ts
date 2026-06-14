@@ -75,8 +75,10 @@ export interface QuoteRow extends QuoteInput {
 export function validateQuoteInput(input: QuoteInput) {
   if (!input.guest_name?.trim()) throw new Error("Guest name is required");
   if (!input.phone?.trim()) throw new Error("Phone is required");
-  if (!/^[+0-9 ()-]{7,}$/.test(input.phone.trim()))
-    throw new Error("Phone number looks invalid");
+  const normPhone = normalizePhoneNumber(input.phone);
+  if (!validatePhoneNumber(normPhone))
+    throw new Error("Please enter a valid mobile number.");
+  input.phone = normPhone;
   if (input.email && input.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email))
     throw new Error("Email looks invalid");
   if (!input.check_in || !input.check_out) throw new Error("Stay dates are required");
@@ -518,7 +520,7 @@ export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
   ];
 
   const text = encodeURIComponent(lines.join("\n"));
-  const phone = q.phone.replace(/[^0-9]/g, "");
+  const phone = phoneToWaDigits(q.phone);
   return `https://wa.me/${phone}?text=${text}`;
 }
 
