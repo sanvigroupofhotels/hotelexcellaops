@@ -268,15 +268,52 @@ function HouseView() {
     if (ids.length > 0) return ids;
     return fallbackRoomId ? [fallbackRoomId] : [];
   };
+  // Split-stay aware: a booking is active on `date` when ANY of its booking_items
+  // segments covers that date. Falls back to envelope when no items exist.
+  const itemsByBookingForActive = new Map<string, any[]>();
+  for (const it of allItems as any[]) {
+    const arr = itemsByBookingForActive.get(it.booking_id) ?? [];
+    arr.push(it); itemsByBookingForActive.set(it.booking_id, arr);
+  }
+  const activeOnDate = (b: any, date: string) => {
+    const items = itemsByBookingForActive.get(b.id) ?? [];
+    if (items.length === 0) return b.check_in <= date && b.check_out > date;
+    return items.some((it) => (it.check_in ?? b.check_in) <= date && (it.check_out ?? b.check_out) > date);
+  };
+  // Match a room to an active item by normalized room_type prefix (e.g. "Oak" == "Oak Room").
+  const typeMatch = (a?: string, b?: string) => {
+    if (!a || !b) return false;
+    const na = a.toLowerCase().split(" ")[0];
+    const nb = b.toLowerCase().split(" ")[0];
+    return na === nb;
+  };
   for (const b of (bookings as any[])) {
     if (b.status === "Cancelled") continue;
     if (b.check_in === todayKey) arrivalsToday++;
     if (b.check_out === todayKey) departuresToday++;
-    const inHouse = b.check_in <= todayKey && b.check_out > todayKey
+    const inHouse = activeOnDate(b, todayKey)
       && b.status !== "Checked-Out" && b.status !== "Stay Completed";
     if (inHouse) {
       inHouseBookings.push(b);
-      for (const rid of roomIdsForBooking(b.id, b.room_id)) occupiedRooms.add(rid);
+      const items = itemsByBookingForActive.get(b.id) ?? [];
+      const activeItems = items.filter((it) => (it.check_in ?? b.check_in) <= todayKey && (it.check_out ?? b.check_out) > todayKey);
+      const assignedRoomIds = roomIdsForBooking(b.id, b.room_id);
+      // If we have segment info, only count assigned rooms whose type matches an active segment.
+      if (activeItems.length > 0 && assignedRoomIds.length > 0) {
+        const activeTypes = new Set(activeItems.map((it) => it.room_type));
+        let matched = 0;
+        for (const rid of assignedRoomIds) {
+          const r = (rooms as any[]).find((x) => x.id === rid);
+          if (r && [...activeTypes].some((t) => typeMatch(r.room_type, t))) {
+            occupiedRooms.add(rid);
+            matched++;
+          }
+        }
+        // Fallback when no type match — count all assigned (legacy bookings).
+        if (matched === 0) for (const rid of assignedRoomIds) occupiedRooms.add(rid);
+      } else {
+        for (const rid of assignedRoomIds) occupiedRooms.add(rid);
+      }
     }
   }
   const totalRooms = rooms.length;

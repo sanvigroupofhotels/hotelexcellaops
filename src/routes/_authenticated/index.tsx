@@ -87,28 +87,45 @@ function HomePage() {
   return (
     <>
       <Topbar title="Home" subtitle="Operational command centre — today at a glance" />
-      <div className="px-4 md:px-8 py-6 md:py-8 space-y-8 max-w-[1400px]">
+      <div className="px-4 md:px-8 py-6 md:py-8 space-y-6 max-w-[1400px]">
+        {/* Compact Welcome Summary */}
         <motion.section
-          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-          className="luxe-card rounded-2xl p-6 md:p-8 relative overflow-hidden"
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
+          className="luxe-card rounded-2xl px-5 py-4 md:px-6 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
         >
-          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
-          <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-            <div>
-              <p className="text-xs tracking-[0.3em] uppercase text-gold/80">{greeting}</p>
-              <h2 className="font-display text-2xl md:text-4xl mt-2">
-                Welcome to <span className="gold-text-gradient">Hotel Excella Ops</span>.
-              </h2>
-              <p className="text-sm text-muted-foreground mt-2 max-w-md">
-                {occupied} occupied · {arrivalsToday} arrivals today · {complaintsOpen} open complaints
-              </p>
-            </div>
-            <Link to="/reporting" className="group inline-flex items-center gap-2 self-start md:self-auto rounded-full gold-gradient px-5 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_30px_oklch(0.82_0.13_82/0.35)] transition">
-              Open Reporting
-              <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </Link>
+          <div>
+            <p className="text-xs tracking-[0.25em] uppercase text-gold/80">{greeting}</p>
+            <p className="text-sm md:text-base text-foreground mt-1">
+              <span className="tabular-nums font-medium">{occupied}</span> Occupied ·{" "}
+              <span className="tabular-nums font-medium">{arrivalsToday}</span> Arrivals Today ·{" "}
+              <span className="tabular-nums font-medium">₹{revenueCollectedToday.toLocaleString("en-IN")}</span> Cash Today
+            </p>
           </div>
+          <Link to="/reporting" className="group inline-flex items-center gap-2 self-start md:self-auto rounded-full gold-gradient px-4 py-2 text-sm font-medium text-charcoal hover:shadow-[0_0_30px_oklch(0.82_0.13_82/0.35)] transition">
+            Open Reporting
+            <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+          </Link>
         </motion.section>
+
+        {/* Quick actions */}
+        <section>
+          <h3 className="font-display text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3">
+            Quick Actions
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+            {quickActions.map((a, i) => (
+              <motion.button
+                key={a.label}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 * i, duration: 0.3 }}
+                onClick={a.onClick}
+                className="luxe-card rounded-xl p-3 text-center hover:border-gold/40 hover:bg-secondary/40 transition-all flex flex-col items-center justify-center gap-1.5 min-h-[96px]"
+              >
+                <div className="text-2xl leading-none">{a.emoji}</div>
+                <div className="text-[12px] sm:text-sm font-medium leading-tight break-words">{a.label}</div>
+              </motion.button>
+            ))}
+          </div>
+        </section>
 
         {/* Stats */}
         <section>
@@ -129,26 +146,6 @@ function HomePage() {
                 </div>
                 <div className="mt-3 font-display text-2xl text-foreground tabular-nums">{s.value}</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5 tracking-wide">{s.label}</div>
-              </motion.button>
-            ))}
-          </div>
-        </section>
-
-        {/* Quick actions */}
-        <section>
-          <h3 className="font-display text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3">
-            Quick Actions
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-            {quickActions.map((a, i) => (
-              <motion.button
-                key={a.label}
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 * i, duration: 0.3 }}
-                onClick={a.onClick}
-                className="luxe-card rounded-xl p-3 text-center hover:border-gold/40 hover:bg-secondary/40 transition-all flex flex-col items-center justify-center gap-1.5 min-h-[96px]"
-              >
-                <div className="text-2xl leading-none">{a.emoji}</div>
-                <div className="text-[12px] sm:text-sm font-medium leading-tight break-words">{a.label}</div>
               </motion.button>
             ))}
           </div>
