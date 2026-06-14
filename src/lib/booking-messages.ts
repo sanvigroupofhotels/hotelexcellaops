@@ -173,7 +173,9 @@ export function checkOutThankYouMessage(b: BookingRow) {
   ].join("\n");
 }
 
+import { phoneToWaDigits } from "@/lib/phone";
+
 export function bookingWhatsAppLink(b: BookingRow, text: string) {
-  const phone = (b.phone ?? "").replace(/[^0-9]/g, "");
+  const phone = phoneToWaDigits(b.phone);
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }

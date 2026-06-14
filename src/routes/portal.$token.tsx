@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare, Save, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { validatePhoneNumber, normalizePhoneNumber } from "@/lib/phone";
 import {
   getPortalBooking,
   createRazorpayOrder,
@@ -266,7 +267,7 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
 
   const save = async () => {
     if (!name.trim()) return toast.error("Name is required");
-    if (!phone.trim() || !/^[+0-9 ()-]{7,}$/.test(phone.trim())) return toast.error("Valid mobile number is required");
+    if (!phone.trim() || !validatePhoneNumber(phone)) return toast.error("Please enter a valid mobile number.");
     if (!arrival) return toast.error("Please provide your expected arrival date and time.");
     setSaving(true);
     try {
@@ -274,11 +275,11 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
         data: {
           token,
           guest_name: name.trim(),
-          phone: phone.trim(),
+          phone: normalizePhoneNumber(phone),
           email: email.trim() || "",
           expected_arrival_at: arrival ? new Date(arrival).toISOString() : "",
           emergency_contact_name: eName.trim(),
-          emergency_contact_phone: ePhone.trim(),
+          emergency_contact_phone: ePhone.trim() ? normalizePhoneNumber(ePhone) : "",
           special_requests: requests.trim(),
         },
       });

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
+import { phoneToWaDigits } from "@/lib/phone";
 
 export const Route = createFileRoute("/_authenticated/customers_/$id")({
   component: CustomerDetail,
@@ -143,7 +144,7 @@ function CustomerDetail() {
                       className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-xs hover:border-gold/40">
                       <Phone className="h-3.5 w-3.5" /> Call
                     </a>
-                    <a href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer"
+                    <a href={`https://wa.me/${phoneToWaDigits(c.phone)}`} target="_blank" rel="noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-xs text-success hover:border-success/40">
                       <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
                     </a>

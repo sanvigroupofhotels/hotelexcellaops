@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
 
 export interface CustomerRow {
   id: string;
@@ -65,9 +66,25 @@ export async function listCustomerQuotes(customerId: string) {
   return data ?? [];
 }
 
+function normalizeCustomerPhones<T extends Partial<CustomerInput>>(input: T): T {
+  const out: any = { ...input };
+  if (out.phone !== undefined && out.phone !== null && String(out.phone).trim() !== "") {
+    const n = normalizePhoneNumber(out.phone);
+    if (!validatePhoneNumber(n)) throw new Error("Please enter a valid mobile number.");
+    out.phone = n;
+  }
+  if (out.emergency_contact_phone && String(out.emergency_contact_phone).trim() !== "") {
+    const n = normalizePhoneNumber(out.emergency_contact_phone);
+    if (!validatePhoneNumber(n)) throw new Error("Please enter a valid emergency contact number.");
+    out.emergency_contact_phone = n;
+  }
+  return out;
+}
+
 export async function updateCustomer(id: string, patch: Partial<CustomerInput>) {
+  const payload = normalizeCustomerPhones(patch);
   const { data, error } = await supabase
-    .from("customers" as any).update(patch as any).eq("id", id).select().single();
+    .from("customers" as any).update(payload as any).eq("id", id).select().single();
   if (error) throw error;
   return data as unknown as CustomerRow;
 }
@@ -75,9 +92,10 @@ export async function updateCustomer(id: string, patch: Partial<CustomerInput>) 
 export async function createCustomer(input: CustomerInput) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
+  const payload = normalizeCustomerPhones(input);
   const { data, error } = await supabase
     .from("customers" as any)
-    .insert({ ...input, user_id: user.id } as any)
+    .insert({ ...payload, user_id: user.id } as any)
     .select().single();
   if (error) {
     // Duplicate-phone is enforced by partial unique index `customers_phone_unique_when_set`
