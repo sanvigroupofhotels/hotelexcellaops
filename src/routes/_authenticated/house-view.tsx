@@ -268,11 +268,23 @@ function HouseView() {
     if (ids.length > 0) return ids;
     return fallbackRoomId ? [fallbackRoomId] : [];
   };
+  // Split-stay aware: a booking is active on `date` when ANY of its booking_items
+  // segments covers that date. Falls back to envelope when no items exist.
+  const itemsByBookingForActive = new Map<string, any[]>();
+  for (const it of allItems as any[]) {
+    const arr = itemsByBookingForActive.get(it.booking_id) ?? [];
+    arr.push(it); itemsByBookingForActive.set(it.booking_id, arr);
+  }
+  const activeOnDate = (b: any, date: string) => {
+    const items = itemsByBookingForActive.get(b.id) ?? [];
+    if (items.length === 0) return b.check_in <= date && b.check_out > date;
+    return items.some((it) => (it.check_in ?? b.check_in) <= date && (it.check_out ?? b.check_out) > date);
+  };
   for (const b of (bookings as any[])) {
     if (b.status === "Cancelled") continue;
     if (b.check_in === todayKey) arrivalsToday++;
     if (b.check_out === todayKey) departuresToday++;
-    const inHouse = b.check_in <= todayKey && b.check_out > todayKey
+    const inHouse = activeOnDate(b, todayKey)
       && b.status !== "Checked-Out" && b.status !== "Stay Completed";
     if (inHouse) {
       inHouseBookings.push(b);
