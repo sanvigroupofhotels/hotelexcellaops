@@ -13,6 +13,7 @@ import {
   IndianRupee, Phone, MessageCircle, ExternalLink, Plus, Search, Loader2, AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { phoneToWaDigits } from "@/lib/phone";
 
 export const Route = createFileRoute("/_authenticated/dues")({
   component: DuesPage,
