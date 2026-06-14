@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { updateCustomer, createCustomer, type CustomerRow } from "@/lib/customers-api";
 import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
 import { useMasterData } from "@/hooks/use-master-data";
+import { validatePhoneNumber } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 const inputCls =
@@ -72,7 +73,7 @@ export function CustomerEditDialog({
     mutationFn: async () => {
       if (!form.guest_name.trim()) throw new Error("Name is required");
       if (!form.phone.trim()) throw new Error("Mobile number is required");
-      if (!/^[+0-9 ()-]{7,}$/.test(form.phone.trim())) throw new Error("Please enter a valid mobile number");
+      if (!validatePhoneNumber(form.phone)) throw new Error("Please enter a valid mobile number.");
       if (customer) return updateCustomer(customer.id, form as any);
       return createCustomer(form as any);
     },

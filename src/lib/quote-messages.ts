@@ -48,7 +48,9 @@ export function quoteCheckOutThankYouMessage(q: any) {
   ].join("\n");
 }
 
+import { phoneToWaDigits } from "@/lib/phone";
+
 export function waLink(phone: string | null | undefined, text?: string) {
-  const num = (phone ?? "").replace(/[^0-9]/g, "");
+  const num = phoneToWaDigits(phone);
   return text ? `https://wa.me/${num}?text=${encodeURIComponent(text)}` : `https://wa.me/${num}`;
 }
