@@ -254,7 +254,7 @@ function SummaryCard({ label, value, tone }: { label: string; value: number; ton
 }
 
 function RowActions({ b, onAddPayment, compact }: { b: BookingRow; onAddPayment: () => void; compact?: boolean }) {
-  const phoneDigits = (b.phone ?? "").replace(/\D/g, "");
+  const phoneDigits = phoneToWaDigits(b.phone);
   const cls = "inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs hover:bg-secondary/60 transition";
   return (
     <div className={cn("flex flex-wrap items-center gap-2", compact && "justify-end")}>
