@@ -275,11 +275,11 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
         data: {
           token,
           guest_name: name.trim(),
-          phone: phone.trim(),
+          phone: normalizePhoneNumber(phone),
           email: email.trim() || "",
           expected_arrival_at: arrival ? new Date(arrival).toISOString() : "",
           emergency_contact_name: eName.trim(),
-          emergency_contact_phone: ePhone.trim(),
+          emergency_contact_phone: ePhone.trim() ? normalizePhoneNumber(ePhone) : "",
           special_requests: requests.trim(),
         },
       });
