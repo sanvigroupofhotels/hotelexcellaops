@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare, Save, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { validatePhoneNumber, normalizePhoneNumber } from "@/lib/phone";
 import {
   getPortalBooking,
   createRazorpayOrder,
