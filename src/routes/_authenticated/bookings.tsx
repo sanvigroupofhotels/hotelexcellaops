@@ -284,7 +284,7 @@ function Section({ refEl, title, icon: Icon, bookings, chargeTotals, completedBy
                             className="p-1.5 rounded text-muted-foreground hover:text-gold hover:bg-gold-soft transition" title="Call">
                             <Phone className="h-3.5 w-3.5" />
                           </a>
-                          <a href={`https://wa.me/${b.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                          <a href={`https://wa.me/${phoneToWaDigits(b.phone)}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
                             className="p-1.5 rounded text-muted-foreground hover:text-success hover:bg-success/10 transition" title="WhatsApp">
                             <MessageCircle className="h-3.5 w-3.5" />
                           </a>
