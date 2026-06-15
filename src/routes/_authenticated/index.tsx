@@ -152,7 +152,6 @@ function HomePage() {
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
-  const selectedInHouseRoom = inHouseRooms.find((row) => row.roomId === selectedRoomId) ?? null;
 
   return (
     <>
