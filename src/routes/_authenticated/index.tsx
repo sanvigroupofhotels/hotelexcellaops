@@ -300,6 +300,87 @@ function HomePage() {
         categories={chargeCategories}
         editing={null}
       />
+
+      {/* Today's Arrivals — Check-In flow */}
+      <Dialog open={arrivalsOpen} onOpenChange={(o) => { if (!o) setArrivalsOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Check-In Guest · Today's Arrivals</DialogTitle>
+          </DialogHeader>
+          {todaysArrivals.length === 0 ? (
+            <div className="rounded-md border border-border bg-secondary/30 p-4 text-sm text-muted-foreground text-center">
+              No arrivals scheduled for today.
+            </div>
+          ) : (
+            <div className="divide-y divide-border max-h-[60vh] overflow-y-auto">
+              {todaysArrivals.map((b: any) => (
+                <button
+                  key={b.id}
+                  onClick={async () => {
+                    setArrivalsOpen(false);
+                    // Decide: open assignment dialog OR check-in directly if all rooms already assigned.
+                    try {
+                      const [items, assigns] = await Promise.all([listBookingItems(b.id), listAssignments(b.id)]);
+                      const required = requiredRoomCount(items as any);
+                      if (assigns.length >= required && required > 0) {
+                        await setBookingStatus(b.id, "Checked-In" as any);
+                        await logBookingActivity({
+                          booking_id: b.id, action: "check_in",
+                          from_status: b.status ?? null, to_status: "Checked-In",
+                        });
+                        toast.success(`Checked In: ${b.guest_name}`);
+                        qc.invalidateQueries({ queryKey: ["bookings"] });
+                      } else {
+                        setCheckInBookingId(b.id);
+                      }
+                    } catch (e: any) {
+                      toast.error(e?.message ?? "Could not start check-in");
+                    }
+                  }}
+                  className="w-full text-left px-3 py-3 hover:bg-secondary/40 flex items-center justify-between gap-3"
+                >
+                  <div>
+                    <div className="font-medium text-sm">{b.guest_name}</div>
+                    {b.phone && (
+                      <div className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                        <Phone className="h-3 w-3" /> {b.phone}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wider text-gold">{b.status}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {checkInBookingId && (
+        <RoomAssignmentDialog
+          bookingId={checkInBookingId}
+          open={!!checkInBookingId}
+          mode="checkin-flow"
+          onClose={() => setCheckInBookingId(null)}
+          onAllAssigned={async () => {
+            const bid = checkInBookingId;
+            setCheckInBookingId(null);
+            if (!bid) return;
+            try {
+              const b = bookings.find((x: any) => x.id === bid);
+              await setBookingStatus(bid, "Checked-In" as any);
+              await logBookingActivity({
+                booking_id: bid, action: "check_in",
+                from_status: b?.status ?? null, to_status: "Checked-In",
+              });
+              toast.success("Checked-In Successfully");
+              qc.invalidateQueries({ queryKey: ["bookings"] });
+              qc.invalidateQueries({ queryKey: ["booking-room-assignments-all-home"] });
+            } catch (e: any) {
+              toast.error(e?.message ?? "Check-in failed");
+            }
+          }}
+        />
+      )}
     </>
   );
 }
