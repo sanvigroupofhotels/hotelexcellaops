@@ -168,7 +168,7 @@ function HomePage() {
               <span className="tabular-nums font-medium">{occupied}</span> Occupied ·{" "}
               <span className="tabular-nums font-medium">{arrivalsToday}</span> Arrivals Today ·{" "}
               <span className="tabular-nums font-medium">₹{counterCash.toLocaleString("en-IN")}</span> Counter Cash ·{" "}
-              <Link to="/dues" className="font-medium hover:text-gold hover:underline">
+              <Link to="/dues" search={{ filter: "inhouse" }} className="font-medium hover:text-gold hover:underline">
                 <span className="tabular-nums">₹{dueTodayAmount.toLocaleString("en-IN")}</span> Due Today{dueRoomNumbers.length > 0 ? ` (${dueRoomNumbers.join(",")})` : ""}
               </Link>
             </p>
