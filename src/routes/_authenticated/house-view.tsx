@@ -367,7 +367,7 @@ function HouseView() {
                                 const hasBreakfast = breakfastByBooking.get(b.id);
                                 const balanceDue = b.status === "Cancelled" ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
                                 return (
-                                  <button key={b.id} onClick={() => setSelected(b)}
+                                  <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={() => setSelected(b)}
                                     className={cn(
                                       "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
                                       blockClasses(b.status),
