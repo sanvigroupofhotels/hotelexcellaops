@@ -285,12 +285,12 @@ function HouseView() {
         {isLoading ? (
           <div className="p-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>
         ) : (
-          <div className="luxe-card rounded-xl p-0 overflow-x-auto relative">
+          <div className="luxe-card rounded-xl p-0 overflow-auto relative max-h-[calc(100vh-220px)]">
             <table className="border-separate border-spacing-0 min-w-fit">
               <thead>
                 <tr>
                   <th
-                    className="sticky left-0 z-20 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-left"
+                    className="sticky left-0 top-0 z-40 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-left"
                     style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                   >Room</th>
                   {days.map((d, i) => {
@@ -298,7 +298,7 @@ function HouseView() {
                     const isLast = i === days.length - 1;
                     return (
                       <th key={d.toISOString()}
-                        className={cn("border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
+                        className={cn("sticky top-0 z-30 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
                           isToday ? "text-gold bg-gold-soft/40" : "text-muted-foreground",
                           isLast && "border-r-0")}
                         style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
@@ -347,7 +347,7 @@ function HouseView() {
                             <div className="relative h-full" style={{ minHeight: 56 }}>
                               {/* Vacant action button — visible when no booking/block starts here AND no booking covers this day */}
                               {(() => {
-                                const coveredByBooking = bs.some((b) => b.check_in <= dk && b.check_out > dk);
+                                const coveredByBooking = bs.some((b) => b.check_in <= dk && b.check_out >= dk);
                                 const coveredByBlock = ms.some((m: any) => m.start_date <= dk && m.end_date > dk);
                                 if (coveredByBooking || coveredByBlock) return null;
                                 return (
@@ -364,7 +364,7 @@ function HouseView() {
                               {startingBookings.map((b) => {
                                 const startCol = b.check_in < rangeStart ? 0 : dayKeys.indexOf(b.check_in);
                                 const outIdx = dayKeys.indexOf(b.check_out);
-                                const endCol = outIdx < 0 ? DAY_COUNT : outIdx;
+                                const endCol = outIdx < 0 ? DAY_COUNT : outIdx + 1;
                                 const span = endCol - startCol;
                                 if (span <= 0) return null;
                                 const cellW = CELL_W_MOB;
