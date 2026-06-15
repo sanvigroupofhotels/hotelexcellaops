@@ -154,7 +154,7 @@ function HouseView() {
       for (const { room_id: rid, slot } of paired) {
         if (!segmentOverlapsRange(slot, rangeStart, rangeEnd)) continue;
         const arr = m.get(rid) ?? [];
-        arr.push({ ...b, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key });
+        arr.push({ ...b, room_id: rid, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key });
         m.set(rid, arr);
       }
     }
@@ -178,7 +178,7 @@ function HouseView() {
           if (assignedRoomIds.includes(r.id)) continue;
           if (conflictsAt(r.id, slot)) continue;
           const arr = m.get(r.id) ?? [];
-          arr.push({ ...b, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
+          arr.push({ ...b, room_id: r.id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
           m.set(r.id, arr);
           placed = true;
           break;
@@ -186,7 +186,7 @@ function HouseView() {
         // If still unplaced, drop into the first matching room regardless (rare overflow).
         if (!placed && candidates[0]) {
           const arr = m.get(candidates[0].id) ?? [];
-          arr.push({ ...b, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
+          arr.push({ ...b, room_id: candidates[0].id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
           m.set(candidates[0].id, arr);
         }
       }
