@@ -167,8 +167,8 @@ function GenerateQuote() {
     mutationFn: () => {
       if (!form.guest_name.trim()) throw new Error("Guest name is required");
       if (!form.phone.trim()) throw new Error("Phone is required");
-      if (new Date(form.check_out) <= new Date(form.check_in))
-        throw new Error("Check-out must be after check-in");
+      if (new Date(form.check_out) < new Date(form.check_in))
+        throw new Error("Check-out cannot be before check-in");
       return createQuote(form, "Pending", extraItems, resolvedRate);
     },
     onSuccess: (q) => {

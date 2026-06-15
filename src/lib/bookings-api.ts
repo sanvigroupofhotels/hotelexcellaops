@@ -87,8 +87,8 @@ export function validateBookingInput(b: BookingInput) {
     throw new Error("Please enter a valid mobile number.");
   b.phone = normPhone;
   if (!b.check_in || !b.check_out) throw new Error("Stay dates are required");
-  if (new Date(b.check_out) <= new Date(b.check_in))
-    throw new Error("Check-out must be after check-in");
+  if (new Date(b.check_out) < new Date(b.check_in))
+    throw new Error("Check-out cannot be before check-in");
   if (b.adults < 1) throw new Error("At least 1 adult is required");
   if (b.amount < 0) throw new Error("Amount cannot be negative");
   if ((b.advance_paid ?? 0) < 0) throw new Error("Advance paid cannot be negative");
@@ -141,8 +141,8 @@ export async function createBooking(input: BookingInput) {
 }
 
 export async function updateBooking(id: string, patch: Partial<BookingInput>) {
-  if (patch.check_in && patch.check_out && new Date(patch.check_out) <= new Date(patch.check_in))
-    throw new Error("Check-out must be after check-in");
+  if (patch.check_in && patch.check_out && new Date(patch.check_out) < new Date(patch.check_in))
+    throw new Error("Check-out cannot be before check-in");
   const { data, error } = await supabase
     .from("bookings" as any).update(patch as any).eq("id", id).select().single();
   if (error) throw error;
