@@ -109,11 +109,11 @@ import { buildDailyCashReport, computeOpeningBalance } from "@/lib/cash-report";
 
 function CashPage() {
   const { isAdmin, canManage } = useUserRole();
-  const search = Route.useSearch();
+  const routeSearch = Route.useSearch();
   const navigate = Route.useNavigate();
   const [tab, setTab] = useState<"dashboard" | "staff" | "etypes">("dashboard");
   const [openForm, setOpenForm] = useState<null | { kind: "collection" | "expense"; tx?: CashTxRow }>(
-    search.new ? { kind: search.new } : null,
+    routeSearch.new ? { kind: routeSearch.new } : null,
   );
   const [detailTx, setDetailTx] = useState<CashTxRow | null>(null);
   const [reportsOpen, setReportsOpen] = useState(false);
