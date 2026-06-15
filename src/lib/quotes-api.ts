@@ -83,8 +83,8 @@ export function validateQuoteInput(input: QuoteInput) {
   if (input.email && input.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email))
     throw new Error("Email looks invalid");
   if (!input.check_in || !input.check_out) throw new Error("Stay dates are required");
-  if (new Date(input.check_out) <= new Date(input.check_in))
-    throw new Error("Check-out must be after check-in");
+  if (new Date(input.check_out) < new Date(input.check_in))
+    throw new Error("Check-out cannot be before check-in");
   if (input.rooms < 1) throw new Error("At least 1 room is required");
   if (input.adults < 1) throw new Error("At least 1 adult is required");
   if (input.guests < input.adults) throw new Error("Guests cannot be less than adults");
