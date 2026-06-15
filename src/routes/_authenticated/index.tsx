@@ -230,7 +230,7 @@ function HomePage() {
         onContinue={(row) => {
           if (roomAction === "payment") { setPaymentTarget(row); setRoomAction(null); setSelectedRoomId(""); }
           else if (roomAction === "charge") { setChargeTarget(row); setRoomAction(null); setSelectedRoomId(""); }
-          else if (roomAction === "checkout") navigate({ to: "/bookings/$id", params: { id: row.booking.id } });
+          else if (roomAction === "checkout") { setRoomAction(null); setSelectedRoomId(""); navigate({ to: "/bookings/$id", params: { id: row.booking.id } }); }
         }}
       />
 
