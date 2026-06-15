@@ -168,14 +168,17 @@ function HomePage() {
             <p className="text-sm md:text-base text-foreground mt-1">
               <span className="tabular-nums font-medium">{occupied}</span> Occupied ·{" "}
               <span className="tabular-nums font-medium">{arrivalsToday}</span> Arrivals Today ·{" "}
-              <span className="tabular-nums font-medium">₹{revenueCollectedToday.toLocaleString("en-IN")}</span> Cash Today
+              <span className="tabular-nums font-medium">₹{counterCash.toLocaleString("en-IN")}</span> Counter Cash ·{" "}
+              <Link to="/dues" className="font-medium hover:text-gold hover:underline">
+                <span className="tabular-nums">₹{dueTodayAmount.toLocaleString("en-IN")}</span> Due Today{dueRoomNumbers.length > 0 ? ` (${dueRoomNumbers.join(",")})` : ""}
+              </Link>
             </p>
           </div>
         </motion.section>
 
         {/* Quick actions */}
         <section>
-          <h3 className="font-display text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3">
+          <h3 className="font-display text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3 text-center">
             Quick Actions
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
@@ -195,7 +198,7 @@ function HomePage() {
 
         {/* Stats */}
         <section>
-          <h3 className="font-display text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3">
+          <h3 className="font-display text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3 text-center">
             Today's Operations
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -217,6 +220,95 @@ function HomePage() {
           </div>
         </section>
       </div>
+
+      <RoomActionDialog
+        open={!!roomAction}
+        action={roomAction}
+        rooms={inHouseRooms}
+        selectedRoomId={selectedRoomId}
+        onSelectedRoomIdChange={setSelectedRoomId}
+        onClose={() => { setRoomAction(null); setSelectedRoomId(""); }}
+        onContinue={(row) => {
+          if (roomAction === "payment") { setPaymentTarget(row); setRoomAction(null); setSelectedRoomId(""); }
+          else if (roomAction === "charge") { setChargeTarget(row); setRoomAction(null); setSelectedRoomId(""); }
+          else if (roomAction === "checkout") navigate({ to: "/bookings/$id", params: { id: row.booking.id } });
+        }}
+      />
+
+      {paymentTarget && (
+        <AddBookingPaymentModal
+          bookingId={paymentTarget.booking.id}
+          customerId={paymentTarget.booking.customer_id ?? null}
+          maxAmount={paymentTarget.due}
+          onClose={() => setPaymentTarget(null)}
+          onSaved={() => setPaymentTarget(null)}
+        />
+      )}
+
+      <ChargeFormDialog
+        key={chargeTarget?.booking.id ?? "home-charge-closed"}
+        open={!!chargeTarget}
+        onOpenChange={(open) => { if (!open) setChargeTarget(null); }}
+        bookingId={chargeTarget?.booking.id ?? "00000000-0000-0000-0000-000000000000"}
+        categories={chargeCategories}
+        editing={null}
+      />
     </>
+  );
+}
+
+function RoomActionDialog({
+  open, action, rooms, selectedRoomId, onSelectedRoomIdChange, onClose, onContinue,
+}: {
+  open: boolean;
+  action: "payment" | "charge" | "checkout" | null;
+  rooms: InHouseRoomOption[];
+  selectedRoomId: string;
+  onSelectedRoomIdChange: (value: string) => void;
+  onClose: () => void;
+  onContinue: (row: InHouseRoomOption) => void;
+}) {
+  const selected = rooms.find((row) => row.roomId === selectedRoomId) ?? null;
+  const title = action === "payment" ? "Collect Payment" : action === "charge" ? "Add In-House Charge" : "Check-Out Guest";
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Room Number *</span>
+            <select value={selectedRoomId} onChange={(e) => onSelectedRoomIdChange(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
+              <option value="">Select in-house room…</option>
+              {rooms.map((row) => (
+                <option key={row.roomId} value={row.roomId}>{row.roomNumber} - {row.booking.guest_name}</option>
+              ))}
+            </select>
+          </label>
+
+          {selected ? (
+            <div className="rounded-md bg-secondary/40 border border-border px-3 py-2 text-xs space-y-1">
+              <div className="flex justify-between"><span className="text-muted-foreground">Guest Name</span><span className="font-medium">{selected.booking.guest_name}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Booking Total</span><span className="tabular-nums">₹{selected.total.toLocaleString("en-IN")}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="tabular-nums">₹{selected.paid.toLocaleString("en-IN")}</span></div>
+              <div className="flex justify-between border-t border-border/50 pt-1"><span className="font-medium">Due</span><span className="font-display text-base gold-text-gradient">₹{selected.due.toLocaleString("en-IN")}</span></div>
+            </div>
+          ) : rooms.length === 0 ? (
+            <div className="rounded-md border border-border bg-secondary/30 p-3 text-sm text-muted-foreground text-center">No in-house rooms right now.</div>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="rounded-md border border-border bg-card px-3 py-2 text-xs">Cancel</button>
+            <button onClick={() => selected && onContinue(selected)} disabled={!selected}
+              className="rounded-md gold-gradient px-4 py-2 text-xs font-medium text-charcoal disabled:opacity-50">
+              Continue
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
