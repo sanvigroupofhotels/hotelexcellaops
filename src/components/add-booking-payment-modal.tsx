@@ -56,6 +56,8 @@ export function AddBookingPaymentModal({
       qc.invalidateQueries({ queryKey: ["booking", bookingId] });
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["cash"] });
+      qc.invalidateQueries({ queryKey: ["cash-tx-home"] });
+      qc.invalidateQueries({ queryKey: ["all-booking-payments"] });
       onSaved?.(); onClose();
     },
     onError: (e: any) => toast.error(e.message),
