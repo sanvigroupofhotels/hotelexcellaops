@@ -528,6 +528,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
+  const issueToken = useServerFn(issueBookingToken);
   const { values: chargeCategories } = useMasterData("in_house_charge", [
     "Food Order","Water Bottles","Laundry","Dental Kit","Shaving Kit","Coffee","Tea",
     "Late Check-out","Early Check-in","Extra Pet","Extra Adult","Transportation","Other",
@@ -617,6 +618,23 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
     t === "blue" ? "bg-blue-600 text-white hover:bg-blue-700" :
     "gold-gradient text-charcoal";
 
+  const sendWhatsApp = () => {
+    if (!b.phone) { toast.error("Customer has no phone number"); return; }
+    window.open(bookingWhatsAppLink(b, paymentReminderMessage(b, balance > 0 ? balance : undefined)), "_blank");
+  };
+
+  const sharePaymentLink = async () => {
+    try {
+      const { token } = await issueToken({ data: { booking_id: b.id } });
+      const url = `${publicOrigin()}/portal/${token}`;
+      const text = [`Hello ${b.guest_name || "Guest"},`, "", "Thank you for choosing Hotel Excella.", "", "To complete your booking, please proceed with the payment here -", "", url, "", `Booking Ref: ${b.booking_reference}`, "", "Regards", "Hotel Excella"].join("\n");
+      try { await navigator.clipboard.writeText(url); toast.success("Payment link copied"); } catch { /* noop */ }
+      if (b.phone) window.open(bookingWhatsAppLink(b, text), "_blank");
+    } catch (e: any) {
+      toast.error(e?.message || "Could not generate payment link");
+    }
+  };
+
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -626,7 +644,17 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
             <h3 className="font-display text-xl">{b.guest_name}</h3>
             <div className="text-xs text-muted-foreground font-mono">{b.booking_reference}</div>
           </div>
-          <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+          <div className="flex items-center gap-1">
+            <button onClick={sendWhatsApp} disabled={!b.phone} title="WhatsApp" aria-label="WhatsApp"
+              className="p-1.5 rounded-md text-green-600 hover:bg-green-600/10 disabled:opacity-40 disabled:pointer-events-none">
+              <MessageCircle className="h-4 w-4" />
+            </button>
+            <button onClick={sharePaymentLink} title="Payment Link" aria-label="Payment Link"
+              className="p-1.5 rounded-md text-gold hover:bg-gold-soft/40">
+              <Link2 className="h-4 w-4" />
+            </button>
+            <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <Field label="Room" value={room ? `Room ${room.room_number}` : "Unassigned"} />
@@ -639,7 +667,14 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
             const arr = smartArrival((b as any).expected_arrival_at);
             return arr ? <Field label="Expected Arrival" value={arr.label.replace(/^Arr: /, "")} /> : null;
           })()}
-          {b.phone && <Field label="Mobile" value={b.phone} icon={<Phone className="h-3 w-3" />} />}
+          {b.phone && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Mobile</div>
+              <a href={`tel:${b.phone}`} className="text-xs inline-flex items-center gap-1 hover:text-gold">
+                <Phone className="h-3 w-3" />{b.phone}
+              </a>
+            </div>
+          )}
         </div>
         {(b as any).special_requests && (
           <div className="rounded-md border border-gold/40 bg-gold-soft/40 px-3 py-2 text-xs">
