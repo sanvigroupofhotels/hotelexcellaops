@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
@@ -6,16 +7,23 @@ import { listRooms, listMaintenance } from "@/lib/rooms-api";
 import { listBookings } from "@/lib/bookings-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2 } from "lucide-react";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
 import { toast } from "sonner";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { InvoiceDialog } from "@/components/invoice-dialog";
 import { listBookingPayments } from "@/lib/booking-payments-api";
+import { bookingWhatsAppLink, paymentReminderMessage } from "@/lib/booking-messages";
+import { issueBookingToken } from "@/lib/portal.functions";
+import { publicOrigin } from "@/lib/public-url";
 import { BlockRoomDialog } from "@/components/block-room-dialog";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useMasterData } from "@/hooks/use-master-data";
+import {
+  groupStayAssignments, groupStayItems, pairStaySlotsToRooms,
+  segmentCoversDate, segmentOverlapsRange, segmentsOverlap, stayRoomTypesMatch,
+} from "@/lib/stay-segments";
 
 export const Route = createFileRoute("/_authenticated/house-view")({
   component: HouseView,
@@ -54,10 +62,6 @@ function blockClasses(status: string): string {
   }
 }
 
-function datesOverlap(aIn: string, aOut: string, bIn: string, bOut: string) {
-  return aIn < bOut && bIn < aOut;
-}
-
 function HouseView() {
   const [anchor, setAnchor] = useState(() => { const t = new Date(); t.setHours(0,0,0,0); return t; });
   const [selected, setSelected] = useState<any | null>(null);
@@ -78,7 +82,7 @@ function HouseView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("booking_items" as any)
-        .select("booking_id,breakfast_included,room_type,rooms");
+        .select("booking_id,position,breakfast_included,room_type,rooms,check_in,check_out");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -87,7 +91,7 @@ function HouseView() {
   const { data: allAssignments = [] } = useQuery({
     queryKey: ["booking-room-assignments-all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("booking_room_assignments" as any).select("booking_id,room_id");
+      const { data, error } = await supabase.from("booking_room_assignments" as any).select("booking_id,room_id,created_at");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -108,9 +112,16 @@ function HouseView() {
     return m;
   }, [allItems]);
 
+  const itemsByBooking = useMemo(() => groupStayItems(allItems as any[]), [allItems]);
+  const assignmentsByBooking = useMemo(() => groupStayAssignments(allAssignments as any[]), [allAssignments]);
+
   const visibleBookings = useMemo(
-    () => (bookings as any[]).filter((b) => b.status !== "Cancelled" && b.check_in < rangeEnd && b.check_out > rangeStart),
-    [bookings, rangeStart, rangeEnd],
+    () => (bookings as any[]).filter((b) => {
+      if (b.status === "Cancelled") return false;
+      const { slots } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      return slots.some((slot) => segmentOverlapsRange(slot, rangeStart, rangeEnd));
+    }),
+    [bookings, itemsByBooking, assignmentsByBooking, rooms, rangeStart, rangeEnd],
   );
 
   // Blocks (maintenance) visible in range
@@ -130,101 +141,49 @@ function HouseView() {
    */
   const byRoom = useMemo(() => {
     const m = new Map<string, any[]>();
-    const assignmentsByBooking = new Map<string, string[]>();
-    for (const a of allAssignments as any[]) {
-      const arr = assignmentsByBooking.get(a.booking_id) ?? [];
-      arr.push(a.room_id);
-      assignmentsByBooking.set(a.booking_id, arr);
-    }
-    // Legacy fallback: pre-2026 bookings may have bookings.room_id but no assignment row.
-    for (const b of visibleBookings) {
-      if (!assignmentsByBooking.has(b.id) && b.room_id) {
-        assignmentsByBooking.set(b.id, [b.room_id]);
-      }
-    }
-    const itemsByBooking = new Map<string, any[]>();
-    for (const it of allItems as any[]) {
-      const arr = itemsByBooking.get(it.booking_id) ?? [];
-      arr.push(it); itemsByBooking.set(it.booking_id, arr);
-    }
-    const roomTypeOf = (rid: string) => (rooms as any[]).find((r) => r.id === rid)?.room_type as string | undefined;
-    const conflictsAt = (rid: string, b: any) =>
-      (m.get(rid) ?? []).some((x) => datesOverlap(b.check_in, b.check_out, x.check_in, x.check_out));
-    const typeMatches = (roomType: string, itemType: string) => {
-      if (roomType === itemType) return true;
-      const a = roomType.toLowerCase().split(" ")[0];
-      const b = itemType.toLowerCase().split(" ")[0];
-      return a && b && a === b;
-    };
+    const conflictsAt = (rid: string, slot: any) =>
+      (m.get(rid) ?? []).some((x) => segmentsOverlap(slot, x));
 
-    // 1) Render each booking on every assigned room.
+    // 1) Render each booking only on rooms paired to active stay segments.
     for (const b of visibleBookings) {
-      const roomIds = assignmentsByBooking.get(b.id) ?? [];
-      for (const rid of roomIds) {
+      const { paired } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      for (const { room_id: rid, slot } of paired) {
+        if (!segmentOverlapsRange(slot, rangeStart, rangeEnd)) continue;
         const arr = m.get(rid) ?? [];
-        arr.push(b); m.set(rid, arr);
+        arr.push({ ...b, room_id: rid, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key });
+        m.set(rid, arr);
       }
     }
 
-    // 2) For each booking, compute remaining slots per room_type and place virtual placeholders.
+    // 2) Place virtual placeholders only for unpaired stay segments overlapping this date range.
     for (const b of visibleBookings) {
-      const assigned = assignmentsByBooking.get(b.id) ?? [];
-      const items = itemsByBooking.get(b.id) ?? [];
-
-      // Required by type
-      const required = new Map<string, number>();
-      if (items.length === 0) {
-        required.set("__any__", 1);
-      } else {
-        for (const it of items) {
-          const t = (it.room_type as string) || "__any__";
-          required.set(t, (required.get(t) ?? 0) + Math.max(1, Number(it.rooms ?? 1)));
-        }
-      }
-      // Assigned by type
-      const assignedByType = new Map<string, number>();
-      for (const rid of assigned) {
-        const t = roomTypeOf(rid) ?? "__any__";
-        // Find matching required key (exact, else fuzzy)
-        let key: string | null = null;
-        for (const k of required.keys()) {
-          if (k === "__any__") continue;
-          if (typeMatches(t, k)) { key = k; break; }
-        }
-        if (!key) key = t;
-        assignedByType.set(key, (assignedByType.get(key) ?? 0) + 1);
-      }
-
-      // For each required type, place placeholders for the deficit.
-      for (const [type, need] of required) {
-        const have = assignedByType.get(type) ?? 0;
-        let deficit = Math.max(0, need - have);
-        if (deficit === 0) continue;
+      const { paired, unpaired } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      const assignedRoomIds = paired.map((p) => p.room_id);
+      for (const slot of unpaired) {
+        if (!segmentOverlapsRange(slot, rangeStart, rangeEnd)) continue;
         // Candidate rooms: matching type first, then any room as fallback.
         const matching = (rooms as any[]).filter((r) =>
-          type === "__any__" ? true : typeMatches(r.room_type, type),
+          slot.room_type ? stayRoomTypesMatch(r.room_type, slot.room_type) : true,
         );
         const fallback = (rooms as any[]);
         const candidates = matching.length > 0 ? matching : fallback;
 
+        let placed = false;
         for (const r of candidates) {
-          if (deficit === 0) break;
           // Skip rooms already assigned to this same booking (it's the same booking already shown).
-          if (assigned.includes(r.id)) continue;
-          if (conflictsAt(r.id, b)) continue;
+          if (assignedRoomIds.includes(r.id)) continue;
+          if (conflictsAt(r.id, slot)) continue;
           const arr = m.get(r.id) ?? [];
-          arr.push({ ...b, _virtual: true });
+          arr.push({ ...b, room_id: r.id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
           m.set(r.id, arr);
-          deficit--;
+          placed = true;
+          break;
         }
-        // If still deficit, drop into the first matching room regardless (rare overflow).
-        if (deficit > 0 && candidates[0]) {
-          for (let i = 0; i < deficit; i++) {
-            const r = candidates[i % candidates.length];
-            const arr = m.get(r.id) ?? [];
-            arr.push({ ...b, _virtual: true });
-            m.set(r.id, arr);
-          }
+        // If still unplaced, drop into the first matching room regardless (rare overflow).
+        if (!placed && candidates[0]) {
+          const arr = m.get(candidates[0].id) ?? [];
+          arr.push({ ...b, room_id: candidates[0].id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
+          m.set(candidates[0].id, arr);
         }
       }
     }
@@ -240,13 +199,13 @@ function HouseView() {
           other !== b
           && other.status !== "Checked-Out"
           && other.status !== "Stay Completed"
-          && datesOverlap(b.check_in, b.check_out, other.check_in, other.check_out)
+          && segmentsOverlap(b, other)
         );
       });
       m.set(rid, filtered);
     }
     return m;
-  }, [visibleBookings, rooms, allAssignments, allItems]);
+  }, [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd]);
 
   const blocksByRoom = useMemo(() => {
     const m = new Map<string, any[]>();
@@ -262,58 +221,16 @@ function HouseView() {
   const occupiedRooms = new Set<string>();
   const inHouseBookings: any[] = [];
   let arrivalsToday = 0, departuresToday = 0;
-  // Per-booking assigned-rooms lookup (multi-room aware)
-  const roomIdsForBooking = (bookingId: string, fallbackRoomId: string | null): string[] => {
-    const ids = (allAssignments as any[]).filter((a) => a.booking_id === bookingId).map((a) => a.room_id);
-    if (ids.length > 0) return ids;
-    return fallbackRoomId ? [fallbackRoomId] : [];
-  };
-  // Split-stay aware: a booking is active on `date` when ANY of its booking_items
-  // segments covers that date. Falls back to envelope when no items exist.
-  const itemsByBookingForActive = new Map<string, any[]>();
-  for (const it of allItems as any[]) {
-    const arr = itemsByBookingForActive.get(it.booking_id) ?? [];
-    arr.push(it); itemsByBookingForActive.set(it.booking_id, arr);
-  }
-  const activeOnDate = (b: any, date: string) => {
-    const items = itemsByBookingForActive.get(b.id) ?? [];
-    if (items.length === 0) return b.check_in <= date && b.check_out > date;
-    return items.some((it) => (it.check_in ?? b.check_in) <= date && (it.check_out ?? b.check_out) > date);
-  };
-  // Match a room to an active item by normalized room_type prefix (e.g. "Oak" == "Oak Room").
-  const typeMatch = (a?: string, b?: string) => {
-    if (!a || !b) return false;
-    const na = a.toLowerCase().split(" ")[0];
-    const nb = b.toLowerCase().split(" ")[0];
-    return na === nb;
-  };
   for (const b of (bookings as any[])) {
     if (b.status === "Cancelled") continue;
     if (b.check_in === todayKey) arrivalsToday++;
     if (b.check_out === todayKey) departuresToday++;
-    const inHouse = activeOnDate(b, todayKey)
-      && b.status !== "Checked-Out" && b.status !== "Stay Completed";
-    if (inHouse) {
-      inHouseBookings.push(b);
-      const items = itemsByBookingForActive.get(b.id) ?? [];
-      const activeItems = items.filter((it) => (it.check_in ?? b.check_in) <= todayKey && (it.check_out ?? b.check_out) > todayKey);
-      const assignedRoomIds = roomIdsForBooking(b.id, b.room_id);
-      // If we have segment info, only count assigned rooms whose type matches an active segment.
-      if (activeItems.length > 0 && assignedRoomIds.length > 0) {
-        const activeTypes = new Set(activeItems.map((it) => it.room_type));
-        let matched = 0;
-        for (const rid of assignedRoomIds) {
-          const r = (rooms as any[]).find((x) => x.id === rid);
-          if (r && [...activeTypes].some((t) => typeMatch(r.room_type, t))) {
-            occupiedRooms.add(rid);
-            matched++;
-          }
-        }
-        // Fallback when no type match — count all assigned (legacy bookings).
-        if (matched === 0) for (const rid of assignedRoomIds) occupiedRooms.add(rid);
-      } else {
-        for (const rid of assignedRoomIds) occupiedRooms.add(rid);
-      }
+    if (b.status === "Checked-Out" || b.status === "Stay Completed") continue;
+    const { paired, slots } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+    if (!slots.some((slot) => segmentCoversDate(slot, todayKey))) continue;
+    inHouseBookings.push(b);
+    for (const { room_id, slot } of paired) {
+      if (segmentCoversDate(slot, todayKey)) occupiedRooms.add(room_id);
     }
   }
   const totalRooms = rooms.length;
@@ -333,7 +250,9 @@ function HouseView() {
     return r ? r.room_number : null;
   };
   const roomNumbersFor = (b: any): string[] =>
-    roomIdsForBooking(b.id, b.room_id).map((rid) => roomNumber(rid)).filter(Boolean) as string[];
+    pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]).paired
+      .filter(({ slot }) => segmentCoversDate(slot, todayKey))
+      .map(({ room_id }) => roomNumber(room_id)).filter(Boolean) as string[];
   const breakfastRoomNumbers = breakfastBookings.flatMap(roomNumbersFor);
   const inHouseRoomNumbers = inHouseBookings.flatMap(roomNumbersFor);
 
@@ -362,12 +281,12 @@ function HouseView() {
         {isLoading ? (
           <div className="p-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>
         ) : (
-          <div className="luxe-card rounded-xl p-0 overflow-x-auto relative">
+          <div className="luxe-card rounded-xl p-0 overflow-auto relative max-h-[calc(100vh-220px)]">
             <table className="border-separate border-spacing-0 min-w-fit">
               <thead>
                 <tr>
                   <th
-                    className="sticky left-0 z-20 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-left"
+                    className="sticky left-0 top-0 z-40 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-left"
                     style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                   >Room</th>
                   {days.map((d, i) => {
@@ -375,7 +294,7 @@ function HouseView() {
                     const isLast = i === days.length - 1;
                     return (
                       <th key={d.toISOString()}
-                        className={cn("border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
+                        className={cn("sticky top-0 z-30 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
                           isToday ? "text-gold bg-gold-soft/40" : "text-muted-foreground",
                           isLast && "border-r-0")}
                         style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
@@ -424,7 +343,7 @@ function HouseView() {
                             <div className="relative h-full" style={{ minHeight: 56 }}>
                               {/* Vacant action button — visible when no booking/block starts here AND no booking covers this day */}
                               {(() => {
-                                const coveredByBooking = bs.some((b) => b.check_in <= dk && b.check_out > dk);
+                                const coveredByBooking = bs.some((b) => b.check_in <= dk && b.check_out >= dk);
                                 const coveredByBlock = ms.some((m: any) => m.start_date <= dk && m.end_date > dk);
                                 if (coveredByBooking || coveredByBlock) return null;
                                 return (
@@ -441,14 +360,14 @@ function HouseView() {
                               {startingBookings.map((b) => {
                                 const startCol = b.check_in < rangeStart ? 0 : dayKeys.indexOf(b.check_in);
                                 const outIdx = dayKeys.indexOf(b.check_out);
-                                const endCol = outIdx < 0 ? DAY_COUNT : outIdx;
+                                const endCol = outIdx < 0 ? DAY_COUNT : outIdx + 1;
                                 const span = endCol - startCol;
                                 if (span <= 0) return null;
                                 const cellW = CELL_W_MOB;
                                 const hasBreakfast = breakfastByBooking.get(b.id);
                                 const balanceDue = b.status === "Cancelled" ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
                                 return (
-                                  <button key={b.id} onClick={() => setSelected(b)}
+                                  <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={() => setSelected(b)}
                                     className={cn(
                                       "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
                                       blockClasses(b.status),
@@ -605,6 +524,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
+  const issueToken = useServerFn(issueBookingToken);
   const { values: chargeCategories } = useMasterData("in_house_charge", [
     "Food Order","Water Bottles","Laundry","Dental Kit","Shaving Kit","Coffee","Tea",
     "Late Check-out","Early Check-in","Extra Pet","Extra Adult","Transportation","Other",
@@ -694,6 +614,23 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
     t === "blue" ? "bg-blue-600 text-white hover:bg-blue-700" :
     "gold-gradient text-charcoal";
 
+  const sendWhatsApp = () => {
+    if (!b.phone) { toast.error("Customer has no phone number"); return; }
+    window.open(bookingWhatsAppLink(b, paymentReminderMessage(b, balance > 0 ? balance : undefined)), "_blank");
+  };
+
+  const sharePaymentLink = async () => {
+    try {
+      const { token } = await issueToken({ data: { booking_id: b.id } });
+      const url = `${publicOrigin()}/portal/${token}`;
+      const text = [`Hello ${b.guest_name || "Guest"},`, "", "Thank you for choosing Hotel Excella.", "", "To complete your booking, please proceed with the payment here -", "", url, "", `Booking Ref: ${b.booking_reference}`, "", "Regards", "Hotel Excella"].join("\n");
+      try { await navigator.clipboard.writeText(url); toast.success("Payment link copied"); } catch { /* noop */ }
+      if (b.phone) window.open(bookingWhatsAppLink(b, text), "_blank");
+    } catch (e: any) {
+      toast.error(e?.message || "Could not generate payment link");
+    }
+  };
+
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -703,7 +640,17 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
             <h3 className="font-display text-xl">{b.guest_name}</h3>
             <div className="text-xs text-muted-foreground font-mono">{b.booking_reference}</div>
           </div>
-          <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+          <div className="flex items-center gap-1">
+            <button onClick={sendWhatsApp} disabled={!b.phone} title="WhatsApp" aria-label="WhatsApp"
+              className="p-1.5 rounded-md text-green-600 hover:bg-green-600/10 disabled:opacity-40 disabled:pointer-events-none">
+              <MessageCircle className="h-4 w-4" />
+            </button>
+            <button onClick={sharePaymentLink} disabled={balance <= 0 || isCheckedOut} title="Payment Link" aria-label="Payment Link"
+              className="p-1.5 rounded-md text-gold hover:bg-gold-soft/40 disabled:opacity-40 disabled:pointer-events-none">
+              <Link2 className="h-4 w-4" />
+            </button>
+            <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <Field label="Room" value={room ? `Room ${room.room_number}` : "Unassigned"} />
@@ -716,7 +663,14 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
             const arr = smartArrival((b as any).expected_arrival_at);
             return arr ? <Field label="Expected Arrival" value={arr.label.replace(/^Arr: /, "")} /> : null;
           })()}
-          {b.phone && <Field label="Mobile" value={b.phone} icon={<Phone className="h-3 w-3" />} />}
+          {b.phone && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Mobile</div>
+              <a href={`tel:${b.phone}`} className="text-xs inline-flex items-center gap-1 hover:text-gold">
+                <Phone className="h-3 w-3" />{b.phone}
+              </a>
+            </div>
+          )}
         </div>
         {(b as any).special_requests && (
           <div className="rounded-md border border-gold/40 bg-gold-soft/40 px-3 py-2 text-xs">

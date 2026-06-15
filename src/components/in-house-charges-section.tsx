@@ -150,6 +150,9 @@ export function ChargeFormDialog({
     onSuccess: () => {
       toast.success(editing ? "Charge updated" : "Charge added");
       qc.invalidateQueries({ queryKey: ["booking-charges", bookingId] });
+      qc.invalidateQueries({ queryKey: ["all-charge-totals"] });
+      qc.invalidateQueries({ queryKey: ["booking", bookingId] });
+      qc.invalidateQueries({ queryKey: ["bookings"] });
       onOpenChange(false);
     },
     onError: (e: any) => toast.error(e?.message ?? "Save failed"),
