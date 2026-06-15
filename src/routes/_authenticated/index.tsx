@@ -48,10 +48,13 @@ function HomePage() {
     "home-dashboard",
   );
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [roomAction, setRoomAction] = useState<"payment" | "charge" | "checkout" | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [paymentTarget, setPaymentTarget] = useState<InHouseRoomOption | null>(null);
   const [chargeTarget, setChargeTarget] = useState<InHouseRoomOption | null>(null);
+  const [arrivalsOpen, setArrivalsOpen] = useState(false);
+  const [checkInBookingId, setCheckInBookingId] = useState<string | null>(null);
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: complaints = [] } = useQuery({ queryKey: ["complaints"], queryFn: () => listComplaints() });
@@ -150,11 +153,31 @@ function HomePage() {
     { label: "House View",         emoji: "🏠", icon: Building2,           onClick: () => navigate({ to: "/house-view" }) },
     { label: "Collect Payment",    emoji: "💰", icon: Wallet,              onClick: () => setRoomAction("payment") },
     { label: "Add In-House Charge",emoji: "🧾", icon: Tag,                 onClick: () => setRoomAction("charge") },
-    { label: "Check-In Guest",     emoji: "🚪", icon: LogIn,               onClick: () => navigate({ to: "/house-view" }) },
+    { label: "Check-In Guest",     emoji: "🚪", icon: LogIn,               onClick: () => setArrivalsOpen(true) },
     { label: "Check-Out Guest",    emoji: "🚶", icon: LogOut,              onClick: () => setRoomAction("checkout") },
-    { label: "Raise Complaint",    emoji: "🛎", icon: MessageSquareWarning,onClick: () => navigate({ to: "/complaints" }) },
-    { label: "Reporting",          emoji: "📊", icon: FileBarChart,        onClick: () => navigate({ to: "/reporting" }) },
+    { label: "Raise Complaint",    emoji: "🛎", icon: MessageSquareWarning,onClick: () => navigate({ to: "/complaints", search: { new: "1" } as any }) },
+    { label: "Add Expense",        emoji: "💸", icon: Receipt,             onClick: () => navigate({ to: "/cash", search: { new: "expense" } as any }) },
   ];
+
+  // Today's arrivals — bookings checking in today that aren't yet in-house.
+  const todaysArrivals = useMemo(
+    () => bookings.filter((b: any) =>
+      b.check_in === today && b.status !== "Cancelled" && b.status !== "Checked-In" && b.status !== "Checked-Out" && b.status !== "Stay Completed"
+    ),
+    [bookings, today],
+  );
+
+  const copyTodaysCashReport = async () => {
+    try {
+      const day = new Date(); day.setHours(0,0,0,0);
+      const opening = computeOpeningBalance(tx as any, day);
+      const report = buildDailyCashReport(tx as any, day, opening);
+      await navigator.clipboard.writeText(report);
+      toast.success("Today's cash report copied");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not copy report");
+    }
+  };
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
