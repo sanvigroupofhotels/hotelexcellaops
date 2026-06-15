@@ -66,9 +66,23 @@ export async function deleteMaintenance(id: string) {
   if (error) throw error;
 }
 
-/** Date overlap: [aIn, aOut) overlaps [bIn, bOut)  ↔  aIn < bOut && bIn < aOut */
+/**
+ * Date overlap on the half-open interval [aIn, aOut).
+ * Day-use stays (check_in === check_out) are treated as occupying that single
+ * day, i.e. their effective end is check_in + 1 day. This keeps same-day
+ * Check-In / Check-Out bookings visible to occupancy / conflict checks.
+ */
+function effectiveEnd(d_in: string, d_out: string) {
+  if (d_in !== d_out) return d_out;
+  const d = new Date(d_in + "T00:00:00");
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 export function datesOverlap(aIn: string, aOut: string, bIn: string, bOut: string) {
-  return aIn < bOut && bIn < aOut;
+  const aEnd = effectiveEnd(aIn, aOut);
+  const bEnd = effectiveEnd(bIn, bOut);
+  return aIn < bEnd && bIn < aEnd;
 }
 
 export interface RoomConflict {
@@ -116,7 +130,7 @@ export async function listOccupiedRoomIds(
   check_out: string,
   excludeBookingId?: string,
 ): Promise<Set<string>> {
-  if (!check_in || !check_out || check_out <= check_in) return new Set();
+  if (!check_in || !check_out || check_out < check_in) return new Set();
   const { data, error } = await supabase
     .from("bookings" as any)
     .select("id,room_id,check_in,check_out,status")

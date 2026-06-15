@@ -24,10 +24,10 @@ export function useResolvedRate(
   const { data: overrides = [] } = useQuery({
     queryKey: ["rate-overrides", check_in, check_out],
     queryFn: () => listRateOverrides({ from: check_in, to: check_out }),
-    enabled: !!(check_in && check_out && check_out > check_in),
+    enabled: !!(check_in && check_out && check_out >= check_in),
     staleTime: 30_000,
   });
-  if (!check_in || !check_out || check_out <= check_in) return getRoomRate(room_type, breakfast_included);
+  if (!check_in || !check_out || check_out < check_in) return getRoomRate(room_type, breakfast_included);
   const resolved = resolveAverageRate(room_type, check_in, check_out, rates, overrides);
   return resolved ?? getRoomRate(room_type, breakfast_included);
 }

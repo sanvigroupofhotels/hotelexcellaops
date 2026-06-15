@@ -30,7 +30,7 @@ export function RoomAssignmentField({ value, onChange, check_in, check_out, excl
   const { data: occupied = new Set<string>() } = useQuery({
     queryKey: ["rooms-occupied", check_in, check_out, excludeBookingId ?? ""],
     queryFn: () => listOccupiedRoomIds(check_in, check_out, excludeBookingId),
-    enabled: !!(check_in && check_out && check_out > check_in),
+    enabled: !!(check_in && check_out && check_out >= check_in),
   });
   const [conflicts, setConflicts] = useState<RoomConflict[]>([]);
 

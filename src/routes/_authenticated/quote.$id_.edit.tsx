@@ -136,8 +136,8 @@ function EditQuote() {
     mutationFn: async () => {
       if (!form.guest_name.trim()) throw new Error("Guest name is required");
       if (!form.phone.trim()) throw new Error("Phone is required");
-      if (new Date(form.check_out) <= new Date(form.check_in))
-        throw new Error("Check-out must be after check-in");
+      if (new Date(form.check_out) < new Date(form.check_in))
+        throw new Error("Check-out cannot be before check-in");
       if (form.discount < 0) throw new Error("Discount cannot be negative");
       const primary: LineItem = {
         room_type: form.room_type, rooms: form.rooms,
