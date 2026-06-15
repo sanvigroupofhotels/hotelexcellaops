@@ -6,7 +6,7 @@ import { Topbar } from "@/components/topbar";
 import { listBookings } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listComplaints } from "@/lib/complaints-api";
-import { listCashTx } from "@/lib/cash-api";
+import { getCurrentCashBalance, listCashTx } from "@/lib/cash-api";
 import { listRooms } from "@/lib/rooms-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
@@ -50,6 +50,7 @@ function HomePage() {
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: complaints = [] } = useQuery({ queryKey: ["complaints"], queryFn: () => listComplaints() });
   const { data: tx = [] } = useQuery({ queryKey: ["cash-tx-home"], queryFn: () => listCashTx({}) });
+  const { data: counterCash = 0 } = useQuery({ queryKey: ["cash-current-balance-home"], queryFn: getCurrentCashBalance });
   const { data: rooms = [] } = useQuery({ queryKey: ["rooms-home"], queryFn: () => listRooms() });
   const { values: chargeCategories } = useMasterData("in_house_charge", [
     "Food Order","Water Bottles","Laundry","Dental Kit","Shaving Kit","Coffee","Tea",
@@ -110,7 +111,6 @@ function HomePage() {
       const due = Math.max(0, Number(b.amount) + charges - Number(b.advance_paid ?? 0));
       return sum + due;
     }, 0);
-  const counterCash = tx.reduce((sum, t) => sum + (t.kind === "collection" ? Number(t.amount) : -Number(t.amount)), 0);
   const dueByBooking = new Map<string, number>();
   for (const row of inHouseRooms) if (row.due > 0) dueByBooking.set(row.booking.id, row.due);
   const dueTodayAmount = [...dueByBooking.values()].reduce((sum, due) => sum + due, 0);
