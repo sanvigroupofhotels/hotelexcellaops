@@ -62,10 +62,6 @@ function blockClasses(status: string): string {
   }
 }
 
-function datesOverlap(aIn: string, aOut: string, bIn: string, bOut: string) {
-  return aIn < bOut && bIn < aOut;
-}
-
 function HouseView() {
   const [anchor, setAnchor] = useState(() => { const t = new Date(); t.setHours(0,0,0,0); return t; });
   const [selected, setSelected] = useState<any | null>(null);
