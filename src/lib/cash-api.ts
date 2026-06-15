@@ -98,6 +98,24 @@ export async function listCashTx(opts?: { from?: string; to?: string; includeIna
   return (data ?? []) as unknown as CashTxRow[];
 }
 
+export async function getCurrentCashBalance() {
+  let from = 0;
+  let balance = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("cash_transactions" as any)
+      .select("kind, amount")
+      .eq("active", true)
+      .range(from, from + 999);
+    if (error) throw error;
+    const rows = (data ?? []) as Array<{ kind: "collection" | "expense"; amount: number }>;
+    balance += rows.reduce((sum, t) => sum + (t.kind === "collection" ? Number(t.amount) : -Number(t.amount)), 0);
+    if (rows.length < 1000) break;
+    from += 1000;
+  }
+  return balance;
+}
+
 export async function getCashTx(id: string) {
   const { data, error } = await supabase.from("cash_transactions" as any).select("*").eq("id", id).single();
   if (error) throw error;
