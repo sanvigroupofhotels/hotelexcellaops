@@ -26,6 +26,15 @@ export const Route = createFileRoute("/_authenticated/")({
   component: HomePage,
 });
 
+type InHouseRoomOption = {
+  roomId: string;
+  roomNumber: string;
+  booking: any;
+  total: number;
+  paid: number;
+  due: number;
+};
+
 function HomePage() {
   useRealtimeInvalidate(
     ["bookings", "complaints", "booking_charges", "booking_payments", "booking_items", "booking_room_assignments", "cash_transactions", "rooms"],
@@ -162,10 +171,6 @@ function HomePage() {
               <span className="tabular-nums font-medium">₹{revenueCollectedToday.toLocaleString("en-IN")}</span> Cash Today
             </p>
           </div>
-          <Link to="/reporting" className="group inline-flex items-center gap-2 self-start md:self-auto rounded-full gold-gradient px-4 py-2 text-sm font-medium text-charcoal hover:shadow-[0_0_30px_oklch(0.82_0.13_82/0.35)] transition">
-            Open Reporting
-            <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-          </Link>
         </motion.section>
 
         {/* Quick actions */}
