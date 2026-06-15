@@ -224,6 +224,25 @@ function HomePage() {
           </div>
         </section>
 
+        {/* Reporting */}
+        <section>
+          <h3 className="font-display text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3 text-center">
+            Reporting
+          </h3>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 max-w-xl mx-auto">
+            <button
+              onClick={() => navigate({ to: "/reporting" })}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <FileBarChart className="h-4 w-4 text-gold" /> Reporting
+            </button>
+            <button
+              onClick={copyTodaysCashReport}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-2.5 text-sm hover:bg-gold-soft/50">
+              <ClipboardCopy className="h-4 w-4" /> Today's Cash Report
+            </button>
+          </div>
+        </section>
+
         {/* Stats */}
         <section>
           <h3 className="font-display text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3 text-center">
