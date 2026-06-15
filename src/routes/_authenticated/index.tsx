@@ -101,7 +101,7 @@ function HomePage() {
 
   const active = bookings.filter((b) => b.status !== "Cancelled");
   const occupied = active.filter((b) => b.status === "Checked-In").length;
-  const arrivalsToday = active.filter((b) => b.check_in === today && b.status !== "Checked-In" && b.status !== "Checked-Out").length;
+  const arrivalsToday = active.filter((b) => b.check_in === today).length;
   const pendingCheckins = active.filter((b) => b.check_in <= today && !["Checked-In","Checked-Out"].includes(b.status as string)).length;
   const dueCollection = active
     .filter((b) => b.status !== "Checked-Out")
