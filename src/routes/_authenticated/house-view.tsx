@@ -116,9 +116,16 @@ function HouseView() {
     return m;
   }, [allItems]);
 
+  const itemsByBooking = useMemo(() => groupStayItems(allItems as any[]), [allItems]);
+  const assignmentsByBooking = useMemo(() => groupStayAssignments(allAssignments as any[]), [allAssignments]);
+
   const visibleBookings = useMemo(
-    () => (bookings as any[]).filter((b) => b.status !== "Cancelled" && b.check_in < rangeEnd && b.check_out > rangeStart),
-    [bookings, rangeStart, rangeEnd],
+    () => (bookings as any[]).filter((b) => {
+      if (b.status === "Cancelled") return false;
+      const { slots } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      return slots.some((slot) => segmentOverlapsRange(slot, rangeStart, rangeEnd));
+    }),
+    [bookings, itemsByBooking, assignmentsByBooking, rooms, rangeStart, rangeEnd],
   );
 
   // Blocks (maintenance) visible in range
