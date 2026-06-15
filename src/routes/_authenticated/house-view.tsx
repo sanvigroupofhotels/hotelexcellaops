@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
@@ -6,16 +7,23 @@ import { listRooms, listMaintenance } from "@/lib/rooms-api";
 import { listBookings } from "@/lib/bookings-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2 } from "lucide-react";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
 import { toast } from "sonner";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { InvoiceDialog } from "@/components/invoice-dialog";
 import { listBookingPayments } from "@/lib/booking-payments-api";
+import { bookingWhatsAppLink, paymentReminderMessage } from "@/lib/booking-messages";
+import { issueBookingToken } from "@/lib/portal.functions";
+import { publicOrigin } from "@/lib/public-url";
 import { BlockRoomDialog } from "@/components/block-room-dialog";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useMasterData } from "@/hooks/use-master-data";
+import {
+  groupStayAssignments, groupStayItems, pairStaySlotsToRooms,
+  segmentCoversDate, segmentOverlapsRange, segmentsOverlap, stayRoomTypesMatch,
+} from "@/lib/stay-segments";
 
 export const Route = createFileRoute("/_authenticated/house-view")({
   component: HouseView,
@@ -78,7 +86,7 @@ function HouseView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("booking_items" as any)
-        .select("booking_id,breakfast_included,room_type,rooms");
+        .select("booking_id,position,breakfast_included,room_type,rooms,check_in,check_out");
       if (error) throw error;
       return (data ?? []) as any[];
     },
