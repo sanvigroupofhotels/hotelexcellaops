@@ -108,7 +108,7 @@ export async function getCurrentCashBalance() {
       .eq("active", true)
       .range(from, from + 999);
     if (error) throw error;
-    const rows = (data ?? []) as Array<{ kind: "collection" | "expense"; amount: number }>;
+    const rows = (data ?? []) as unknown as Array<{ kind: "collection" | "expense"; amount: number }>;
     balance += rows.reduce((sum, t) => sum + (t.kind === "collection" ? Number(t.amount) : -Number(t.amount)), 0);
     if (rows.length < 1000) break;
     from += 1000;
