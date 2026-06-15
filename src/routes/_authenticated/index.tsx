@@ -1,25 +1,31 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Topbar } from "@/components/topbar";
-import { listBookings } from "@/lib/bookings-api";
+import { listBookings, setBookingStatus } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listComplaints } from "@/lib/complaints-api";
 import { getCurrentCashBalance, listCashTx } from "@/lib/cash-api";
 import { listRooms } from "@/lib/rooms-api";
+import { listBookingItems } from "@/lib/booking-items-api";
+import { listAssignments, requiredRoomCount } from "@/lib/booking-room-assignments-api";
+import { logBookingActivity } from "@/lib/booking-activities-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
+import { buildDailyCashReport, computeOpeningBalance } from "@/lib/cash-report";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
+import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { useMasterData } from "@/hooks/use-master-data";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { groupStayAssignments, groupStayItems, pairStaySlotsToRooms, segmentCoversDate } from "@/lib/stay-segments";
 import {
   BedDouble, Sunrise, LogIn, IndianRupee, MessageSquareWarning, Brush,
   Plus, Wallet, Tag, Building2, LogOut, FileBarChart,
-  TrendingUp, CalendarPlus, PieChart,
+  TrendingUp, CalendarPlus, PieChart, ClipboardCopy, Receipt, Phone,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -42,10 +48,13 @@ function HomePage() {
     "home-dashboard",
   );
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [roomAction, setRoomAction] = useState<"payment" | "charge" | "checkout" | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [paymentTarget, setPaymentTarget] = useState<InHouseRoomOption | null>(null);
   const [chargeTarget, setChargeTarget] = useState<InHouseRoomOption | null>(null);
+  const [arrivalsOpen, setArrivalsOpen] = useState(false);
+  const [checkInBookingId, setCheckInBookingId] = useState<string | null>(null);
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: complaints = [] } = useQuery({ queryKey: ["complaints"], queryFn: () => listComplaints() });
@@ -144,11 +153,31 @@ function HomePage() {
     { label: "House View",         emoji: "🏠", icon: Building2,           onClick: () => navigate({ to: "/house-view" }) },
     { label: "Collect Payment",    emoji: "💰", icon: Wallet,              onClick: () => setRoomAction("payment") },
     { label: "Add In-House Charge",emoji: "🧾", icon: Tag,                 onClick: () => setRoomAction("charge") },
-    { label: "Check-In Guest",     emoji: "🚪", icon: LogIn,               onClick: () => navigate({ to: "/house-view" }) },
+    { label: "Check-In Guest",     emoji: "🚪", icon: LogIn,               onClick: () => setArrivalsOpen(true) },
     { label: "Check-Out Guest",    emoji: "🚶", icon: LogOut,              onClick: () => setRoomAction("checkout") },
-    { label: "Raise Complaint",    emoji: "🛎", icon: MessageSquareWarning,onClick: () => navigate({ to: "/complaints" }) },
-    { label: "Reporting",          emoji: "📊", icon: FileBarChart,        onClick: () => navigate({ to: "/reporting" }) },
+    { label: "Raise Complaint",    emoji: "🛎", icon: MessageSquareWarning,onClick: () => navigate({ to: "/complaints", search: { new: "1" } as any }) },
+    { label: "Add Expense",        emoji: "💸", icon: Receipt,             onClick: () => navigate({ to: "/cash", search: { new: "expense" } as any }) },
   ];
+
+  // Today's arrivals — bookings checking in today that aren't yet in-house.
+  const todaysArrivals = useMemo(
+    () => bookings.filter((b: any) =>
+      b.check_in === today && b.status !== "Cancelled" && b.status !== "Checked-In" && b.status !== "Checked-Out" && b.status !== "Stay Completed"
+    ),
+    [bookings, today],
+  );
+
+  const copyTodaysCashReport = async () => {
+    try {
+      const day = new Date(); day.setHours(0,0,0,0);
+      const opening = computeOpeningBalance(tx as any, day);
+      const report = buildDailyCashReport(tx as any, day, opening);
+      await navigator.clipboard.writeText(report);
+      toast.success("Today's cash report copied");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not copy report");
+    }
+  };
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
@@ -192,6 +221,25 @@ function HomePage() {
                 <div className="text-[12px] sm:text-sm font-medium leading-tight break-words">{a.label}</div>
               </motion.button>
             ))}
+          </div>
+        </section>
+
+        {/* Reporting */}
+        <section>
+          <h3 className="font-display text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3 text-center">
+            Reporting
+          </h3>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 max-w-xl mx-auto">
+            <button
+              onClick={() => navigate({ to: "/reporting" })}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
+              <FileBarChart className="h-4 w-4 text-gold" /> Reporting
+            </button>
+            <button
+              onClick={copyTodaysCashReport}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-2.5 text-sm hover:bg-gold-soft/50">
+              <ClipboardCopy className="h-4 w-4" /> Today's Cash Report
+            </button>
           </div>
         </section>
 
@@ -252,6 +300,87 @@ function HomePage() {
         categories={chargeCategories}
         editing={null}
       />
+
+      {/* Today's Arrivals — Check-In flow */}
+      <Dialog open={arrivalsOpen} onOpenChange={(o) => { if (!o) setArrivalsOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Check-In Guest · Today's Arrivals</DialogTitle>
+          </DialogHeader>
+          {todaysArrivals.length === 0 ? (
+            <div className="rounded-md border border-border bg-secondary/30 p-4 text-sm text-muted-foreground text-center">
+              No arrivals scheduled for today.
+            </div>
+          ) : (
+            <div className="divide-y divide-border max-h-[60vh] overflow-y-auto">
+              {todaysArrivals.map((b: any) => (
+                <button
+                  key={b.id}
+                  onClick={async () => {
+                    setArrivalsOpen(false);
+                    // Decide: open assignment dialog OR check-in directly if all rooms already assigned.
+                    try {
+                      const [items, assigns] = await Promise.all([listBookingItems(b.id), listAssignments(b.id)]);
+                      const required = requiredRoomCount(items as any);
+                      if (assigns.length >= required && required > 0) {
+                        await setBookingStatus(b.id, "Checked-In" as any);
+                        await logBookingActivity({
+                          booking_id: b.id, action: "check_in",
+                          from_status: b.status ?? null, to_status: "Checked-In",
+                        });
+                        toast.success(`Checked In: ${b.guest_name}`);
+                        qc.invalidateQueries({ queryKey: ["bookings"] });
+                      } else {
+                        setCheckInBookingId(b.id);
+                      }
+                    } catch (e: any) {
+                      toast.error(e?.message ?? "Could not start check-in");
+                    }
+                  }}
+                  className="w-full text-left px-3 py-3 hover:bg-secondary/40 flex items-center justify-between gap-3"
+                >
+                  <div>
+                    <div className="font-medium text-sm">{b.guest_name}</div>
+                    {b.phone && (
+                      <div className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                        <Phone className="h-3 w-3" /> {b.phone}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wider text-gold">{b.status}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {checkInBookingId && (
+        <RoomAssignmentDialog
+          bookingId={checkInBookingId}
+          open={!!checkInBookingId}
+          mode="checkin-flow"
+          onClose={() => setCheckInBookingId(null)}
+          onAllAssigned={async () => {
+            const bid = checkInBookingId;
+            setCheckInBookingId(null);
+            if (!bid) return;
+            try {
+              const b = bookings.find((x: any) => x.id === bid);
+              await setBookingStatus(bid, "Checked-In" as any);
+              await logBookingActivity({
+                booking_id: bid, action: "check_in",
+                from_status: b?.status ?? null, to_status: "Checked-In",
+              });
+              toast.success("Checked-In Successfully");
+              qc.invalidateQueries({ queryKey: ["bookings"] });
+              qc.invalidateQueries({ queryKey: ["booking-room-assignments-all-home"] });
+            } catch (e: any) {
+              toast.error(e?.message ?? "Check-in failed");
+            }
+          }}
+        />
+      )}
     </>
   );
 }

@@ -24,6 +24,9 @@ import { downloadCSV } from "@/lib/csv";
 import { NumField } from "@/components/num-field";
 
 export const Route = createFileRoute("/_authenticated/cash")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    new: s.new === "expense" || s.new === "collection" ? (s.new as "expense" | "collection") : undefined,
+  }),
   component: CashPage,
 });
 
@@ -106,8 +109,11 @@ import { buildDailyCashReport, computeOpeningBalance } from "@/lib/cash-report";
 
 function CashPage() {
   const { isAdmin, canManage } = useUserRole();
+  const routeSearch = Route.useSearch();
   const [tab, setTab] = useState<"dashboard" | "staff" | "etypes">("dashboard");
-  const [openForm, setOpenForm] = useState<null | { kind: "collection" | "expense"; tx?: CashTxRow }>(null);
+  const [openForm, setOpenForm] = useState<null | { kind: "collection" | "expense"; tx?: CashTxRow }>(
+    routeSearch.new ? { kind: routeSearch.new } : null,
+  );
   const [detailTx, setDetailTx] = useState<CashTxRow | null>(null);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [search, setSearch] = useState("");

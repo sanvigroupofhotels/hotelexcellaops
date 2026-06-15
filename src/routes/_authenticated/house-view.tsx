@@ -22,7 +22,7 @@ import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useMasterData } from "@/hooks/use-master-data";
 import {
   groupStayAssignments, groupStayItems, pairStaySlotsToRooms,
-  segmentCoversDate, segmentOverlapsRange, segmentsOverlap, stayRoomTypesMatch,
+  segmentCoversDate, segmentOverlapsRange, segmentsOverlap, stayRoomTypesMatch, slotEndExclusive,
 } from "@/lib/stay-segments";
 
 export const Route = createFileRoute("/_authenticated/house-view")({
@@ -341,9 +341,9 @@ function HouseView() {
                             )}
                             style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
                             <div className="relative h-full" style={{ minHeight: 56 }}>
-                              {/* Vacant action button — visible when no booking/block starts here AND no booking covers this day */}
+                              {/* Vacant action button — visible when no booking/block covers this day */}
                               {(() => {
-                                const coveredByBooking = bs.some((b) => b.check_in <= dk && b.check_out >= dk);
+                                const coveredByBooking = bs.some((b) => segmentCoversDate(b, dk));
                                 const coveredByBlock = ms.some((m: any) => m.start_date <= dk && m.end_date > dk);
                                 if (coveredByBooking || coveredByBlock) return null;
                                 return (
@@ -359,9 +359,10 @@ function HouseView() {
                               })()}
                               {startingBookings.map((b) => {
                                 const startCol = b.check_in < rangeStart ? 0 : dayKeys.indexOf(b.check_in);
-                                const outIdx = dayKeys.indexOf(b.check_out);
-                                const endCol = outIdx < 0 ? DAY_COUNT : outIdx + 1;
-                                const span = endCol - startCol;
+                                const endExclusive = slotEndExclusive(b);
+                                const endIdx = dayKeys.indexOf(endExclusive);
+                                const endCol = endIdx < 0 ? DAY_COUNT : endIdx;
+                                const span = Math.max(1, endCol - startCol);
                                 if (span <= 0) return null;
                                 const cellW = CELL_W_MOB;
                                 const hasBreakfast = breakfastByBooking.get(b.id);

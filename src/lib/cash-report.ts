@@ -29,9 +29,16 @@ export function buildDailyCashReport(tx: CashTxRow[], day: Date, openingBalance:
   lines.push("");
   lines.push("---");
   lines.push("");
+  // Line label priority: guest_name → notes → description → type_name.
+  const labelFor = (t: CashTxRow) => {
+    const guest = (t.guest_name ?? "").trim();
+    const notes = (t.notes ?? "").trim();
+    const desc = (t.description ?? "").trim();
+    return guest || notes || desc || t.type_name;
+  };
   lines.push("Income Today:");
   if (income.length === 0) lines.push("(none)");
-  else for (const t of income) lines.push(`${fmt(Number(t.amount))} - ${t.type_name}${t.description ? ` (${t.description})` : ""}`);
+  else for (const t of income) lines.push(`${fmt(Number(t.amount))} - ${labelFor(t)}`);
   lines.push("");
   lines.push(`Total Income:`);
   lines.push(fmt(totalIn));
@@ -40,7 +47,7 @@ export function buildDailyCashReport(tx: CashTxRow[], day: Date, openingBalance:
   lines.push("");
   lines.push("Expenses Today:");
   if (expense.length === 0) lines.push("(none)");
-  else for (const t of expense) lines.push(`${fmt(Number(t.amount))} - ${t.type_name}${t.description ? ` (${t.description})` : ""}`);
+  else for (const t of expense) lines.push(`${fmt(Number(t.amount))} - ${labelFor(t)}`);
   lines.push("");
   lines.push(`Total Expenses:`);
   lines.push(fmt(totalOut));

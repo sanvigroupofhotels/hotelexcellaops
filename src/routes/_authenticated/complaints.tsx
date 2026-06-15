@@ -27,12 +27,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_authenticated/complaints")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    new: s.new === "1" || s.new === 1 ? "1" : undefined,
+  }),
   component: ComplaintsPage,
 });
 
 function ComplaintsPage() {
   const qc = useQueryClient();
   const { isAdmin, canManage } = useUserRole();
+  const routeSearch = Route.useSearch();
+
 
   const [filters, setFilters] = useState<{
     status: ComplaintStatus | "all" | "active";
@@ -71,7 +76,7 @@ function ComplaintsPage() {
   });
   const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
 
-  const [newOpen, setNewOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(routeSearch.new === "1");
   const [catMgrOpen, setCatMgrOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
 

@@ -48,16 +48,31 @@ export function stayRoomTypesMatch(roomType?: string | null, itemType?: string |
   return !!a && !!b && a === b;
 }
 
+/**
+ * Stays end at noon on check_out — the room is vacant FROM check_out onwards.
+ * For day-use stays (check_in === check_out) we treat the room as occupied for
+ * that single day. `slotEndExclusive` returns the first vacant date.
+ */
+export function slotEndExclusive(slot: Pick<StaySlot, "check_in" | "check_out">) {
+  if (slot.check_in === slot.check_out) {
+    const d = new Date(slot.check_in + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  return slot.check_out;
+}
+
 export function segmentCoversDate(slot: Pick<StaySlot, "check_in" | "check_out">, date: string) {
-  return slot.check_in <= date && slot.check_out >= date;
+  return slot.check_in <= date && date < slotEndExclusive(slot);
 }
 
 export function segmentOverlapsRange(slot: Pick<StaySlot, "check_in" | "check_out">, rangeStart: string, rangeEndExclusive: string) {
-  return slot.check_in < rangeEndExclusive && slot.check_out >= rangeStart;
+  return slot.check_in < rangeEndExclusive && rangeStart < slotEndExclusive(slot);
 }
 
 export function segmentsOverlap(a: Pick<StaySlot, "check_in" | "check_out">, b: Pick<StaySlot, "check_in" | "check_out">) {
-  return a.check_in <= b.check_out && b.check_in <= a.check_out;
+  return a.check_in < slotEndExclusive(b) && b.check_in < slotEndExclusive(a);
 }
 
 export function groupStayItems(items: StayItemLike[]) {
