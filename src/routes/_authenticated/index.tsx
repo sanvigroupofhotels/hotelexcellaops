@@ -7,11 +7,17 @@ import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listComplaints } from "@/lib/complaints-api";
 import { listCashTx } from "@/lib/cash-api";
 import { listRooms } from "@/lib/rooms-api";
+import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
+import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
+import { ChargeFormDialog } from "@/components/in-house-charges-section";
+import { useMasterData } from "@/hooks/use-master-data";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { groupStayAssignments, groupStayItems, pairStaySlotsToRooms, segmentCoversDate } from "@/lib/stay-segments";
 import {
   BedDouble, Sunrise, LogIn, IndianRupee, MessageSquareWarning, Brush,
-  Plus, Wallet, Tag, Building2, LogOut, FileBarChart, ArrowUpRight,
+  Plus, Wallet, Tag, Building2, LogOut, FileBarChart,
   TrendingUp, CalendarPlus, PieChart,
 } from "lucide-react";
 
