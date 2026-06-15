@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
@@ -27,19 +28,67 @@ export const Route = createFileRoute("/_authenticated/")({
 
 function HomePage() {
   useRealtimeInvalidate(
-    ["bookings", "complaints", "booking_charges", "cash_transactions", "rooms"],
-    ["bookings", "complaints", "all-charge-totals", "cash-tx-home", "rooms-home"],
+    ["bookings", "complaints", "booking_charges", "booking_payments", "booking_items", "booking_room_assignments", "cash_transactions", "rooms"],
+    ["bookings", "complaints", "all-charge-totals", "cash-tx-home", "rooms-home", "booking-items-all-home", "booking-room-assignments-all-home"],
     "home-dashboard",
   );
   const navigate = useNavigate();
+  const [roomAction, setRoomAction] = useState<"payment" | "charge" | "checkout" | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [paymentTarget, setPaymentTarget] = useState<InHouseRoomOption | null>(null);
+  const [chargeTarget, setChargeTarget] = useState<InHouseRoomOption | null>(null);
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: complaints = [] } = useQuery({ queryKey: ["complaints"], queryFn: () => listComplaints() });
   const { data: tx = [] } = useQuery({ queryKey: ["cash-tx-home"], queryFn: () => listCashTx({}) });
   const { data: rooms = [] } = useQuery({ queryKey: ["rooms-home"], queryFn: () => listRooms() });
+  const { values: chargeCategories } = useMasterData("in_house_charge", [
+    "Food Order","Water Bottles","Laundry","Dental Kit","Shaving Kit","Coffee","Tea",
+    "Late Check-out","Early Check-in","Extra Pet","Extra Adult","Transportation","Other",
+  ]);
+  const { data: allItems = [] } = useQuery({
+    queryKey: ["booking-items-all-home"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("booking_items" as any)
+        .select("booking_id,position,room_type,rooms,check_in,check_out");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const { data: allAssignments = [] } = useQuery({
+    queryKey: ["booking-room-assignments-all-home"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("booking_room_assignments" as any)
+        .select("booking_id,room_id,created_at");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
 
   const today = toLocalYMD();
   const todayKey = today;
+  const itemsByBooking = useMemo(() => groupStayItems(allItems as any[]), [allItems]);
+  const assignmentsByBooking = useMemo(() => groupStayAssignments(allAssignments as any[]), [allAssignments]);
+  const inHouseRooms = useMemo<InHouseRoomOption[]>(() => {
+    return bookings
+      .filter((b) => b.status === "Checked-In")
+      .flatMap((booking) => {
+        const { paired } = pairStaySlotsToRooms(booking as any, itemsByBooking, assignmentsByBooking, rooms as any[]);
+        return paired
+          .filter(({ slot }) => segmentCoversDate(slot, todayKey))
+          .map(({ room_id }) => {
+            const room = (rooms as any[]).find((r) => r.id === room_id);
+            const charges = Number((chargeTotals as any)[booking.id] ?? 0);
+            const total = Number(booking.amount) + charges;
+            const paid = Number(booking.advance_paid ?? 0);
+            const due = Math.max(0, total - paid);
+            return { roomId: room_id, roomNumber: room?.room_number ?? "—", booking, total, paid, due };
+          });
+      })
+      .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true }));
+  }, [bookings, itemsByBooking, assignmentsByBooking, rooms, chargeTotals, todayKey]);
 
   const active = bookings.filter((b) => b.status !== "Cancelled");
   const occupied = active.filter((b) => b.status === "Checked-In").length;
@@ -52,6 +101,11 @@ function HomePage() {
       const due = Math.max(0, Number(b.amount) + charges - Number(b.advance_paid ?? 0));
       return sum + due;
     }, 0);
+  const counterCash = tx.reduce((sum, t) => sum + (t.kind === "collection" ? Number(t.amount) : -Number(t.amount)), 0);
+  const dueByBooking = new Map<string, number>();
+  for (const row of inHouseRooms) if (row.due > 0) dueByBooking.set(row.booking.id, row.due);
+  const dueTodayAmount = [...dueByBooking.values()].reduce((sum, due) => sum + due, 0);
+  const dueRoomNumbers = inHouseRooms.filter((row) => row.due > 0).map((row) => row.roomNumber);
   const complaintsOpen = complaints.filter((c) => c.status === "Open" || c.status === "In Progress").length;
   const roomsToClean = active.filter((b) => b.status === "Checked-Out" && b.check_out === today).length;
 
@@ -78,17 +132,18 @@ function HomePage() {
 
   const quickActions: Array<{ label: string; icon: any; onClick: () => void; emoji: string }> = [
     { label: "New Booking",        emoji: "➕", icon: Plus,                onClick: () => navigate({ to: "/bookings/new" }) },
-    { label: "Collect Payment",    emoji: "💰", icon: Wallet,              onClick: () => navigate({ to: "/cash", search: { action: "collect" } as any }) },
-    { label: "Add In-House Charge",emoji: "🧾", icon: Tag,                 onClick: () => navigate({ to: "/bookings" }) },
     { label: "House View",         emoji: "🏠", icon: Building2,           onClick: () => navigate({ to: "/house-view" }) },
-    { label: "Check-In Guest",     emoji: "🚪", icon: LogIn,               onClick: () => navigate({ to: "/bookings" }) },
-    { label: "Check-Out Guest",    emoji: "🚶", icon: LogOut,              onClick: () => navigate({ to: "/bookings" }) },
+    { label: "Collect Payment",    emoji: "💰", icon: Wallet,              onClick: () => setRoomAction("payment") },
+    { label: "Add In-House Charge",emoji: "🧾", icon: Tag,                 onClick: () => setRoomAction("charge") },
+    { label: "Check-In Guest",     emoji: "🚪", icon: LogIn,               onClick: () => navigate({ to: "/house-view" }) },
+    { label: "Check-Out Guest",    emoji: "🚶", icon: LogOut,              onClick: () => setRoomAction("checkout") },
     { label: "Raise Complaint",    emoji: "🛎", icon: MessageSquareWarning,onClick: () => navigate({ to: "/complaints" }) },
     { label: "Reporting",          emoji: "📊", icon: FileBarChart,        onClick: () => navigate({ to: "/reporting" }) },
   ];
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+  const selectedInHouseRoom = inHouseRooms.find((row) => row.roomId === selectedRoomId) ?? null;
 
   return (
     <>
