@@ -1,25 +1,31 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Topbar } from "@/components/topbar";
-import { listBookings } from "@/lib/bookings-api";
+import { listBookings, setBookingStatus } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listComplaints } from "@/lib/complaints-api";
 import { getCurrentCashBalance, listCashTx } from "@/lib/cash-api";
 import { listRooms } from "@/lib/rooms-api";
+import { listBookingItems } from "@/lib/booking-items-api";
+import { listAssignments, requiredRoomCount } from "@/lib/booking-room-assignments-api";
+import { logBookingActivity } from "@/lib/booking-activities-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
+import { buildDailyCashReport, computeOpeningBalance } from "@/lib/cash-report";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
+import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { useMasterData } from "@/hooks/use-master-data";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { groupStayAssignments, groupStayItems, pairStaySlotsToRooms, segmentCoversDate } from "@/lib/stay-segments";
 import {
   BedDouble, Sunrise, LogIn, IndianRupee, MessageSquareWarning, Brush,
   Plus, Wallet, Tag, Building2, LogOut, FileBarChart,
-  TrendingUp, CalendarPlus, PieChart,
+  TrendingUp, CalendarPlus, PieChart, ClipboardCopy, Receipt, Phone,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
