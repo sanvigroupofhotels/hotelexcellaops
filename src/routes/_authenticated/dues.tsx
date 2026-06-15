@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils";
 import { phoneToWaDigits } from "@/lib/phone";
 
 export const Route = createFileRoute("/_authenticated/dues")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    filter: typeof search.filter === "string" ? search.filter : undefined,
+  }),
   component: DuesPage,
 });
 
@@ -37,7 +40,9 @@ function DuesPage() {
     ["bookings", "all-charge-totals"],
     "dues-page",
   );
-  const [filter, setFilter] = useState<FilterKey>("today");
+  const searchParams = Route.useSearch();
+  const initialFilter = FILTERS.some((f) => f.key === searchParams.filter) ? searchParams.filter as FilterKey : "today";
+  const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [search, setSearch] = useState("");
   const [payFor, setPayFor] = useState<BookingRow | null>(null);
 
