@@ -145,101 +145,49 @@ function HouseView() {
    */
   const byRoom = useMemo(() => {
     const m = new Map<string, any[]>();
-    const assignmentsByBooking = new Map<string, string[]>();
-    for (const a of allAssignments as any[]) {
-      const arr = assignmentsByBooking.get(a.booking_id) ?? [];
-      arr.push(a.room_id);
-      assignmentsByBooking.set(a.booking_id, arr);
-    }
-    // Legacy fallback: pre-2026 bookings may have bookings.room_id but no assignment row.
-    for (const b of visibleBookings) {
-      if (!assignmentsByBooking.has(b.id) && b.room_id) {
-        assignmentsByBooking.set(b.id, [b.room_id]);
-      }
-    }
-    const itemsByBooking = new Map<string, any[]>();
-    for (const it of allItems as any[]) {
-      const arr = itemsByBooking.get(it.booking_id) ?? [];
-      arr.push(it); itemsByBooking.set(it.booking_id, arr);
-    }
-    const roomTypeOf = (rid: string) => (rooms as any[]).find((r) => r.id === rid)?.room_type as string | undefined;
-    const conflictsAt = (rid: string, b: any) =>
-      (m.get(rid) ?? []).some((x) => datesOverlap(b.check_in, b.check_out, x.check_in, x.check_out));
-    const typeMatches = (roomType: string, itemType: string) => {
-      if (roomType === itemType) return true;
-      const a = roomType.toLowerCase().split(" ")[0];
-      const b = itemType.toLowerCase().split(" ")[0];
-      return a && b && a === b;
-    };
+    const conflictsAt = (rid: string, slot: any) =>
+      (m.get(rid) ?? []).some((x) => segmentsOverlap(slot, x));
 
-    // 1) Render each booking on every assigned room.
+    // 1) Render each booking only on rooms paired to active stay segments.
     for (const b of visibleBookings) {
-      const roomIds = assignmentsByBooking.get(b.id) ?? [];
-      for (const rid of roomIds) {
+      const { paired } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      for (const { room_id: rid, slot } of paired) {
+        if (!segmentOverlapsRange(slot, rangeStart, rangeEnd)) continue;
         const arr = m.get(rid) ?? [];
-        arr.push(b); m.set(rid, arr);
+        arr.push({ ...b, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key });
+        m.set(rid, arr);
       }
     }
 
-    // 2) For each booking, compute remaining slots per room_type and place virtual placeholders.
+    // 2) Place virtual placeholders only for unpaired stay segments overlapping this date range.
     for (const b of visibleBookings) {
-      const assigned = assignmentsByBooking.get(b.id) ?? [];
-      const items = itemsByBooking.get(b.id) ?? [];
-
-      // Required by type
-      const required = new Map<string, number>();
-      if (items.length === 0) {
-        required.set("__any__", 1);
-      } else {
-        for (const it of items) {
-          const t = (it.room_type as string) || "__any__";
-          required.set(t, (required.get(t) ?? 0) + Math.max(1, Number(it.rooms ?? 1)));
-        }
-      }
-      // Assigned by type
-      const assignedByType = new Map<string, number>();
-      for (const rid of assigned) {
-        const t = roomTypeOf(rid) ?? "__any__";
-        // Find matching required key (exact, else fuzzy)
-        let key: string | null = null;
-        for (const k of required.keys()) {
-          if (k === "__any__") continue;
-          if (typeMatches(t, k)) { key = k; break; }
-        }
-        if (!key) key = t;
-        assignedByType.set(key, (assignedByType.get(key) ?? 0) + 1);
-      }
-
-      // For each required type, place placeholders for the deficit.
-      for (const [type, need] of required) {
-        const have = assignedByType.get(type) ?? 0;
-        let deficit = Math.max(0, need - have);
-        if (deficit === 0) continue;
+      const { paired, unpaired } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      const assignedRoomIds = paired.map((p) => p.room_id);
+      for (const slot of unpaired) {
+        if (!segmentOverlapsRange(slot, rangeStart, rangeEnd)) continue;
         // Candidate rooms: matching type first, then any room as fallback.
         const matching = (rooms as any[]).filter((r) =>
-          type === "__any__" ? true : typeMatches(r.room_type, type),
+          slot.room_type ? stayRoomTypesMatch(r.room_type, slot.room_type) : true,
         );
         const fallback = (rooms as any[]);
         const candidates = matching.length > 0 ? matching : fallback;
 
+        let placed = false;
         for (const r of candidates) {
-          if (deficit === 0) break;
           // Skip rooms already assigned to this same booking (it's the same booking already shown).
-          if (assigned.includes(r.id)) continue;
-          if (conflictsAt(r.id, b)) continue;
+          if (assignedRoomIds.includes(r.id)) continue;
+          if (conflictsAt(r.id, slot)) continue;
           const arr = m.get(r.id) ?? [];
-          arr.push({ ...b, _virtual: true });
+          arr.push({ ...b, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
           m.set(r.id, arr);
-          deficit--;
+          placed = true;
+          break;
         }
-        // If still deficit, drop into the first matching room regardless (rare overflow).
-        if (deficit > 0 && candidates[0]) {
-          for (let i = 0; i < deficit; i++) {
-            const r = candidates[i % candidates.length];
-            const arr = m.get(r.id) ?? [];
-            arr.push({ ...b, _virtual: true });
-            m.set(r.id, arr);
-          }
+        // If still unplaced, drop into the first matching room regardless (rare overflow).
+        if (!placed && candidates[0]) {
+          const arr = m.get(candidates[0].id) ?? [];
+          arr.push({ ...b, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
+          m.set(candidates[0].id, arr);
         }
       }
     }
@@ -255,13 +203,13 @@ function HouseView() {
           other !== b
           && other.status !== "Checked-Out"
           && other.status !== "Stay Completed"
-          && datesOverlap(b.check_in, b.check_out, other.check_in, other.check_out)
+          && segmentsOverlap(b, other)
         );
       });
       m.set(rid, filtered);
     }
     return m;
-  }, [visibleBookings, rooms, allAssignments, allItems]);
+  }, [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd]);
 
   const blocksByRoom = useMemo(() => {
     const m = new Map<string, any[]>();
