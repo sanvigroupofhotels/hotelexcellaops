@@ -58,6 +58,21 @@ function Content({ id }: { id: string }) {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const runSync = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/public/hotelzify-poll", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `Sync failed (${res.status})`);
+      return data as { scanned: number; created: number; updated: number };
+    },
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ["integration", id] });
+      qc.invalidateQueries({ queryKey: ["integration-runs", id] });
+      toast.success(`Sync done · scanned ${d.scanned} · created ${d.created} · updated ${d.updated}`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   if (isLoading || !row) return <div className="p-8"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>;
 
   return (
@@ -90,7 +105,13 @@ function Content({ id }: { id: string }) {
           <ConfigHint type={row.type} />
         </Field>
 
-        <div className="flex justify-end pt-2">
+        <div className="flex flex-wrap gap-2 justify-end pt-2">
+          {row.provider === "hotelzify" && (
+            <button onClick={() => runSync.mutate()} disabled={runSync.isPending}
+              className="inline-flex items-center gap-1.5 border border-border rounded-md px-4 py-2 text-xs font-medium hover:bg-muted/40 disabled:opacity-60">
+              {runSync.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Run sync now
+            </button>
+          )}
           <button onClick={() => save.mutate()} disabled={save.isPending}
             className="inline-flex items-center gap-1.5 gold-gradient text-charcoal rounded-md px-5 py-2 text-xs font-medium disabled:opacity-60">
             {save.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save

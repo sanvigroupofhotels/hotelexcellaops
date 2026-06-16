@@ -39,6 +39,7 @@ import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAccessSettingsRouteImport } from './routes/_authenticated/access-settings'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
+import { Route as ApiPublicHotelzifyPollRouteImport } from './routes/api/public/hotelzify-poll'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
 import { Route as AuthenticatedComplaintsIdRouteImport } from './routes/_authenticated/complaints_.$id'
@@ -201,6 +202,11 @@ const ApiPublicRazorpayWebhookRoute =
     path: '/api/public/razorpay-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHotelzifyPollRoute = ApiPublicHotelzifyPollRouteImport.update({
+  id: '/api/public/hotelzify-poll',
+  path: '/api/public/hotelzify-poll',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedQuoteIdRoute = AuthenticatedQuoteIdRouteImport.update({
   id: '/quote/$id',
   path: '/quote/$id',
@@ -288,6 +294,7 @@ export interface FileRoutesByFullPath {
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -328,6 +335,7 @@ export interface FileRoutesByTo {
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -370,6 +378,7 @@ export interface FileRoutesById {
   '/_authenticated/complaints_/$id': typeof AuthenticatedComplaintsIdRoute
   '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -412,6 +421,7 @@ export interface FileRouteTypes {
     | '/complaints/$id'
     | '/customers/$id'
     | '/quote/$id'
+    | '/api/public/hotelzify-poll'
     | '/api/public/razorpay-webhook'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
@@ -452,6 +462,7 @@ export interface FileRouteTypes {
     | '/complaints/$id'
     | '/customers/$id'
     | '/quote/$id'
+    | '/api/public/hotelzify-poll'
     | '/api/public/razorpay-webhook'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
@@ -493,6 +504,7 @@ export interface FileRouteTypes {
     | '/_authenticated/complaints_/$id'
     | '/_authenticated/customers_/$id'
     | '/_authenticated/quote/$id'
+    | '/api/public/hotelzify-poll'
     | '/api/public/razorpay-webhook'
     | '/_authenticated/bookings_/$id_/edit'
     | '/_authenticated/quote/$id_/edit'
@@ -504,6 +516,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   PortalTokenRoute: typeof PortalTokenRoute
+  ApiPublicHotelzifyPollRoute: typeof ApiPublicHotelzifyPollRoute
   ApiPublicRazorpayWebhookRoute: typeof ApiPublicRazorpayWebhookRoute
 }
 
@@ -719,6 +732,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicRazorpayWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hotelzify-poll': {
+      id: '/api/public/hotelzify-poll'
+      path: '/api/public/hotelzify-poll'
+      fullPath: '/api/public/hotelzify-poll'
+      preLoaderRoute: typeof ApiPublicHotelzifyPollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/quote/$id': {
       id: '/_authenticated/quote/$id'
       path: '/quote/$id'
@@ -870,6 +890,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   PortalTokenRoute: PortalTokenRoute,
+  ApiPublicHotelzifyPollRoute: ApiPublicHotelzifyPollRoute,
   ApiPublicRazorpayWebhookRoute: ApiPublicRazorpayWebhookRoute,
 }
 export const routeTree = rootRouteImport
