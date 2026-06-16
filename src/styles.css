@@ -175,11 +175,49 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Global readability: every numeric cell in a table renders with
+     tabular-nums so digits align across rows (Bookings, Cashbook,
+     Payment Reports, Dues, Reports, Staff, Salary, Ledger, etc.). */
+  table td, table th { font-variant-numeric: tabular-nums; }
+
   .font-display {
     font-family: var(--font-display);
     letter-spacing: -0.01em;
   }
 }
+
+/* Shared operational-number typography.
+   Apply .stat-num to any prominent metric (rupee totals, counts,
+   percentages) across Dashboard, Bookings, House View, Cashbook,
+   Payment Reports, Dues, Reports, Staff, Salary, Ledger, Issues,
+   Customer List, Guest Portal. Bigger, bolder, sans-serif, tabular. */
+@utility stat-num {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.015em;
+  color: var(--color-foreground);
+  line-height: 1.05;
+}
+@utility stat-num-lg {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--color-foreground);
+  line-height: 1;
+  font-size: 1.875rem; /* 30px */
+}
+@utility stat-num-xl {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+  color: var(--color-foreground);
+  line-height: 1;
+  font-size: 2.25rem; /* 36px */
+}
+@utility tabular { font-variant-numeric: tabular-nums; }
 
 @layer utilities {
   .text-gold { color: var(--gold); }
