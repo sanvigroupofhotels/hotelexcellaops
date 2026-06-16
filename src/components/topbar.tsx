@@ -18,7 +18,7 @@ export function Topbar({ title, subtitle, action }: { title: string; subtitle?: 
         <div className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-md bg-card border border-border w-64">
           <Search className="h-4 w-4 text-muted-foreground" />
           <input
-            placeholder="Search quotes, guests…"
+            placeholder="Search bookings, guests…"
             className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground/60"
           />
           <kbd className="text-[10px] text-muted-foreground border border-border rounded px-1.5 py-0.5">⌘K</kbd>
