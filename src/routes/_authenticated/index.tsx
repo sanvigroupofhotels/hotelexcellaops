@@ -44,7 +44,7 @@ type InHouseRoomOption = {
 function HomePage() {
   useRealtimeInvalidate(
     ["bookings", "complaints", "booking_charges", "booking_payments", "booking_items", "booking_room_assignments", "cash_transactions", "rooms"],
-    ["bookings", "complaints", "all-charge-totals", "cash-tx-home", "cash-current-balance-home", "rooms-home", "booking-items-all-home", "booking-room-assignments-all-home"],
+    ["bookings", "complaints", "all-charge-totals", "cash-tx-home", "cash-current-balance-home", "rooms-home", "booking-items-all-home", "booking-room-assignments-all-home", "booking-payments-today-home"],
     "home-dashboard",
   );
   const navigate = useNavigate();
