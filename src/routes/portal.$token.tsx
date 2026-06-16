@@ -130,20 +130,14 @@ function GuestPortal() {
     } finally { setBusy(false); }
   };
 
-  // ---- Profile completion ----
+  // ---- Profile completion (only Guest Name, Mobile, Email) ----
   const score = (() => {
-    let pts = 0; const checks = [
-      !!b.guestName?.trim(), !!b.phone?.trim(), !!b.email?.trim(),
-      !!b.expectedArrivalAt, !!b.emergencyContactName?.trim(), !!b.emergencyContactPhone?.trim(),
-    ];
-    checks.forEach((c) => { if (c) pts++; });
+    const checks = [!!b.guestName?.trim(), !!b.phone?.trim(), !!b.email?.trim()];
+    const pts = checks.filter(Boolean).length;
     return { pct: Math.round((pts / checks.length) * 100), missing: [
       ...(!b.guestName?.trim() ? ["Guest Name"] : []),
       ...(!b.phone?.trim() ? ["Mobile Number"] : []),
       ...(!b.email?.trim() ? ["Email Address"] : []),
-      ...(!b.expectedArrivalAt ? ["Expected Arrival Date & Time"] : []),
-      ...(!b.emergencyContactName?.trim() ? ["Emergency Contact Name"] : []),
-      ...(!b.emergencyContactPhone?.trim() ? ["Emergency Contact Mobile"] : []),
     ]};
   })();
 
