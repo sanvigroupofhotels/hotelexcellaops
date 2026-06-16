@@ -243,22 +243,40 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
         let parsedCount = 0;
         let created = 0;
         let updated = 0;
-        let skippedDuplicate = 0;
         const errors: string[] = [];
-        const sampleSubjects: string[] = [];
+        const parserErrors: string[] = [];
+        const headerSamples: HeaderSample[] = [];
+        const diagnosticSearches: DiagnosticSearch[] = [];
+        let accountEmail: string | null = null;
 
         try {
+          accountEmail = await getGmailProfile(gatewayKey, connectionKey);
           const q = encodeURIComponent(gmailQuery);
           const list = await gmailFetch(`/users/me/messages?maxResults=50&q=${q}`, gatewayKey, connectionKey);
           const messages: { id: string }[] = list.messages ?? [];
           scanned = messages.length;
 
+          if (messages.length === 0) {
+            const diagnosticQueries = Array.from(new Set([
+              gmailQuery,
+              `in:anywhere from:${sender} newer_than:${days}d`,
+              `in:anywhere ${sender} newer_than:365d`,
+              `in:anywhere hotelzify newer_than:365d`,
+              `in:anywhere "Your Booking with Hotel Excella" newer_than:365d`,
+              `newer_than:30d`,
+            ]));
+            for (const query of diagnosticQueries) {
+              diagnosticSearches.push(await runDiagnosticSearch(query, gatewayKey, connectionKey));
+            }
+          }
+
           for (const m of messages) {
             try {
               const msg = await gmailFetch(`/users/me/messages/${m.id}?format=full`, gatewayKey, connectionKey);
-              const headers: { name: string; value: string }[] = msg.payload?.headers ?? [];
-              const subject = headers.find((h) => h.name.toLowerCase() === "subject")?.value ?? "";
-              if (sampleSubjects.length < 5) sampleSubjects.push(subject);
+              const headers = headersMap(msg);
+              const subject = headers.subject ?? "";
+              const from = headers.from ?? "";
+              if (headerSamples.length < 5) headerSamples.push({ id: m.id, date: headers.date ?? "", from, subject });
 
               if (subjectFilters.length > 0) {
                 const subjLc = subject.toLowerCase();
@@ -268,11 +286,14 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
               matched++;
 
               const text = extractTextFromPayload(msg.payload);
-              const parsed = parseHotelzifyEmail(text, subject);
-              if (!parsed) {
-                errors.push(`msg ${m.id} ("${subject.slice(0, 60)}"): parse failed`);
+              const parsedResult = parseHotelzifyEmail(text, subject);
+              if (!parsedResult.booking) {
+                const reason = parsedResult.errors.join("; ") || "parse failed";
+                parserErrors.push(`msg ${m.id} ("${subject.slice(0, 60)}"): ${reason}`);
+                errors.push(`msg ${m.id}: ${reason}`);
                 continue;
               }
+              const parsed = parsedResult.booking;
               parsedCount++;
 
               let customerId: string | null = null;
