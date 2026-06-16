@@ -18,7 +18,12 @@ import {
   Plus, Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Search, X,
   Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download,
   Pencil, PowerOff, Power, Clock, User as UserIcon, ClipboardCopy,
+  Lock, Unlock, ShieldCheck,
 } from "lucide-react";
+import {
+  listCashAuditCloses, getActiveAuditClose, createCashAuditClose, reopenCashAuditClose,
+  listCashAuditActivities, isTxLocked, type CashAuditClose,
+} from "@/lib/cash-audit-api";
 import { cn, toLocalYMD, smartDateTime } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
 import { NumField } from "@/components/num-field";
@@ -110,7 +115,7 @@ import { buildDailyCashReport, computeOpeningBalance } from "@/lib/cash-report";
 function CashPage() {
   const { isAdmin, canManage } = useUserRole();
   const routeSearch = Route.useSearch();
-  const [tab, setTab] = useState<"dashboard" | "staff" | "etypes">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "staff" | "etypes" | "audit">("dashboard");
   const [openForm, setOpenForm] = useState<null | { kind: "collection" | "expense"; tx?: CashTxRow }>(
     routeSearch.new ? { kind: routeSearch.new } : null,
   );
@@ -159,6 +164,7 @@ function CashPage() {
             <TabBtn active={tab==="dashboard"} onClick={() => setTab("dashboard")} icon={HistoryIcon}>Dashboard</TabBtn>
             <TabBtn active={tab==="staff"} onClick={() => setTab("staff")} icon={UsersIcon}>Staff Master</TabBtn>
             <TabBtn active={tab==="etypes"} onClick={() => setTab("etypes")} icon={ListChecks}>Expense Types</TabBtn>
+            <TabBtn active={tab==="audit"} onClick={() => setTab("audit")} icon={ShieldCheck}>Audit Close</TabBtn>
           </div>
         )}
 
@@ -240,6 +246,7 @@ function CashPage() {
 
         {tab === "staff" && isAdmin && <StaffMaster />}
         {tab === "etypes" && isAdmin && <ExpenseTypeMaster />}
+        {tab === "audit" && isAdmin && <AuditClosePanel />}
       </div>
 
       {openForm && (
