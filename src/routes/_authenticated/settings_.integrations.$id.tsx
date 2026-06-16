@@ -19,6 +19,46 @@ export const Route = createFileRoute("/_authenticated/settings_/integrations/$id
 const inputCls = "w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40";
 const labelCls = "text-[11px] uppercase tracking-wider text-muted-foreground";
 
+type SyncDebugResponse = {
+  gmail_account?: string | null;
+  query: string;
+  scanned: number;
+  matched: number;
+  parsed: number;
+  created: number;
+  updated: number;
+  errors?: string[];
+  parser_errors?: string[];
+  first_5_email_subjects_seen?: { date?: string; from: string; subject: string }[];
+  diagnostic_searches?: { query: string; count: number; resultSizeEstimate: number; samples: { from: string; subject: string }[]; error?: string }[];
+};
+
+function extractMetric(text: string, label: string): number {
+  const re = new RegExp(`${label}\\s+(\\d+)`, "i");
+  const m = text.match(re);
+  return m ? Number(m[1]) : 0;
+}
+
+function latestRunDebug(runs: any[]): Partial<SyncDebugResponse> | null {
+  const latest = runs[0];
+  if (!latest) return null;
+  const body = `${latest.message ?? ""}\n${latest.payload_excerpt ?? ""}`;
+  const query = body.match(/Query:\s*([^\n]+)/i)?.[1] ?? body.match(/query="([^"]+)"/i)?.[1] ?? "—";
+  const samplesBlock = body.match(/First 5 email subjects\/senders seen:\n([\s\S]*?)(?:\nParser errors:|\nErrors:|\nDiagnostic Gmail searches:|$)/i)?.[1] ?? "";
+  const errorsBlock = body.match(/(?:Parser errors|Errors):\n([\s\S]*?)(?:\nDiagnostic Gmail searches:|$)/i)?.[1] ?? "";
+  return {
+    gmail_account: body.match(/Gmail account:\s*([^\n]+)/i)?.[1] ?? undefined,
+    query,
+    scanned: extractMetric(body, "scanned") || extractMetric(body, "Emails Scanned:"),
+    matched: extractMetric(body, "matched") || extractMetric(body, "Emails Matched:"),
+    parsed: extractMetric(body, "parsed") || extractMetric(body, "Emails Parsed:"),
+    created: latest.created_count ?? (extractMetric(body, "created") || extractMetric(body, "Bookings Created:")),
+    updated: latest.updated_count ?? (extractMetric(body, "updated") || extractMetric(body, "Bookings Updated:")),
+    errors: errorsBlock ? errorsBlock.split("\n").filter(Boolean) : [],
+    first_5_email_subjects_seen: samplesBlock.split("\n").filter(Boolean).map((line: string) => ({ from: line.replace(/^-\s*From:\s*/i, "").split(" | Subject:")[0] ?? "", subject: line.split(" | Subject:")[1] ?? line })),
+  };
+}
+
 function IntegrationDetailPage() {
   const { id } = useParams({ from: "/_authenticated/settings_/integrations/$id" });
   return (
@@ -60,10 +100,10 @@ function Content({ id }: { id: string }) {
 
   const runSync = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/public/hotelzify-poll", { method: "POST" });
+      const res = await fetch("/api/public/hotelzify-poll?debug=1", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error(data.error || `Sync failed (${res.status})`);
-      return data as { scanned: number; created: number; updated: number };
+      return data as SyncDebugResponse;
     },
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ["integration", id] });
@@ -74,6 +114,7 @@ function Content({ id }: { id: string }) {
   });
 
   if (isLoading || !row) return <div className="p-8"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>;
+  const debugInfo = runSync.data ?? latestRunDebug(runs);
 
   return (
     <div className="px-4 md:px-6 py-5 md:py-8 max-w-[1100px] space-y-5">
@@ -118,6 +159,42 @@ function Content({ id }: { id: string }) {
           </button>
         </div>
       </div>
+
+      {row.provider === "hotelzify" && debugInfo && (
+        <div className="luxe-card rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h3 className="font-display text-lg">Hotelzify Sync Diagnostics</h3>
+            <span className="text-[11px] text-muted-foreground">Connected Gmail: {debugInfo.gmail_account ?? "—"}</span>
+          </div>
+          <div className="text-[11px] text-muted-foreground bg-muted/30 rounded px-3 py-2 break-all">
+            Gmail Query Used: <span className="text-foreground">{debugInfo.query ?? "—"}</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+            <Metric label="Emails Scanned" value={debugInfo.scanned ?? 0} />
+            <Metric label="Emails Matched" value={debugInfo.matched ?? 0} />
+            <Metric label="Emails Parsed" value={debugInfo.parsed ?? 0} />
+            <Metric label="Bookings Created" value={debugInfo.created ?? 0} />
+            <Metric label="Bookings Updated" value={debugInfo.updated ?? 0} />
+            <Metric label="Errors" value={(debugInfo.errors ?? []).length + (debugInfo.parser_errors ?? []).length} />
+          </div>
+          <DebugList title="First 5 email subjects seen" empty="No emails returned for the main query." items={(debugInfo.first_5_email_subjects_seen ?? []).map((s) => `${s.from || "—"} — ${s.subject || "—"}`)} />
+          <DebugList title="Errors / parser errors" empty="No errors recorded." items={[...(debugInfo.parser_errors ?? []), ...(debugInfo.errors ?? [])]} />
+          {!!debugInfo.diagnostic_searches?.length && (
+            <div className="space-y-1.5">
+              <div className={labelCls}>Fallback Gmail search checks</div>
+              <div className="space-y-2 text-[11px] text-muted-foreground">
+                {debugInfo.diagnostic_searches.map((d) => (
+                  <div key={d.query} className="bg-muted/25 rounded px-3 py-2">
+                    <div className="break-all text-foreground">{d.query}</div>
+                    <div>Returned {d.count} · Estimate {d.resultSizeEstimate}{d.error ? ` · Error: ${d.error}` : ""}</div>
+                    {d.samples?.slice(0, 5).map((s, idx) => <div key={idx}>• {s.from || "—"} — {s.subject || "—"}</div>)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="luxe-card rounded-xl p-5 space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -169,12 +246,32 @@ function Content({ id }: { id: string }) {
 
 function ConfigHint({ type }: { type: IntegrationRow["type"] }) {
   const hints: Record<typeof type, string> = {
-    email_parser: `{"inbox_email":"hotelexcellaoperations@gmail.com","poll_interval_minutes":5,"subject_filter":"FabHotels"}`,
+    email_parser: `{"inbox_email":"sanvigroupofhotels@gmail.com","poll_interval_minutes":5,"sender_email":"support@hotelzify.com"}`,
     api: `{"base_url":"https://api.provider.com","api_key_secret":"PROVIDER_API_KEY"}`,
     webhook: `{"path":"/api/public/provider-webhook","signing_secret_name":"PROVIDER_SECRET"}`,
     csv_import: `{"format":"booking_com_v1"}`,
   };
   return <div className="text-[10px] text-muted-foreground mt-1">Example: <code className="bg-muted/40 px-1 rounded">{hints[type]}</code></div>;
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-muted/25 rounded-lg px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-lg font-semibold tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+function DebugList({ title, items, empty }: { title: string; items: string[]; empty: string }) {
+  return (
+    <div className="space-y-1.5">
+      <div className={labelCls}>{title}</div>
+      <div className="bg-muted/25 rounded px-3 py-2 text-[11px] text-muted-foreground space-y-1">
+        {items.length === 0 ? <div>{empty}</div> : items.slice(0, 8).map((item, idx) => <div key={`${item}-${idx}`}>• {item}</div>)}
+      </div>
+    </div>
+  );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
