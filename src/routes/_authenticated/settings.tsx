@@ -13,7 +13,7 @@ import {
   PROVIDER_LABELS, TYPE_LABELS, STATUS_STYLES,
   type IntegrationProvider, type IntegrationType, type IntegrationRow,
 } from "@/lib/integrations-api";
-import { Loader2, Plus, Pencil, Trash2, RefreshCw, Power, PowerOff, ChevronRight } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 

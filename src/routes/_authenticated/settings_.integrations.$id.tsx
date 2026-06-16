@@ -8,7 +8,7 @@ import {
   PROVIDER_LABELS, TYPE_LABELS, STATUS_STYLES,
   type IntegrationRow, type IntegrationStatus,
 } from "@/lib/integrations-api";
-import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
