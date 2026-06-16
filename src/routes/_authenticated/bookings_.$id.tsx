@@ -232,6 +232,9 @@ function BookingDetail() {
   const [changingAssignmentId, setChangingAssignmentId] = useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [cancelRefundAmount, setCancelRefundAmount] = useState<number>(0);
+  const [cancelRefundMode, setCancelRefundMode] = useState<string>("Cash");
+  const [cancelRefundBy, setCancelRefundBy] = useState<string>("");
 
   const { data: assignments = [], refetch: refetchAssignments } = useQuery({
     queryKey: ["booking-room-assignments", id],
