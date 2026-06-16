@@ -44,7 +44,7 @@ type InHouseRoomOption = {
 function HomePage() {
   useRealtimeInvalidate(
     ["bookings", "complaints", "booking_charges", "booking_payments", "booking_items", "booking_room_assignments", "cash_transactions", "rooms"],
-    ["bookings", "complaints", "all-charge-totals", "cash-tx-home", "cash-current-balance-home", "rooms-home", "booking-items-all-home", "booking-room-assignments-all-home"],
+    ["bookings", "complaints", "all-charge-totals", "cash-tx-home", "cash-current-balance-home", "rooms-home", "booking-items-all-home", "booking-room-assignments-all-home", "booking-payments-today-home"],
     "home-dashboard",
   );
   const navigate = useNavigate();
@@ -81,6 +81,18 @@ function HomePage() {
       const { data, error } = await supabase
         .from("booking_room_assignments" as any)
         .select("booking_id,room_id,created_at");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  // Revenue / Today's Collection / Payment-mode breakdown source from booking_payments (Payment Reports),
+  // NOT from cash_transactions. Cashbook is reserved for counter cash + cash report only.
+  const { data: bookingPaymentsToday = [] } = useQuery({
+    queryKey: ["booking-payments-today-home"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("booking_payments" as any)
+        .select("amount,occurred_at,payment_mode");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -129,9 +141,10 @@ function HomePage() {
 
   // New stats
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  const revenueCollectedToday = tx
-    .filter((t) => t.active && t.kind === "collection" && ymd(new Date(t.occurred_at)) === todayKey)
-    .reduce((s, t) => s + Number(t.amount), 0);
+  // Revenue Today is sourced from booking_payments (Payment Reports) — NOT cashbook.
+  const revenueCollectedToday = (bookingPaymentsToday as any[])
+    .filter((p) => ymd(new Date(p.occurred_at)) === todayKey)
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
   const newBookingsToday = bookings.filter((b) => ymd(new Date(b.created_at)) === todayKey).length;
   const totalRooms = rooms.filter((r: any) => r.active !== false).length;
   const occupancyPct = totalRooms > 0 ? Math.round((occupied / totalRooms) * 100) : 0;
@@ -141,7 +154,7 @@ function HomePage() {
     { label: "Arrivals Today",   value: arrivalsToday,    icon: Sunrise,              emoji: "🟢", to: "/bookings" },
     { label: "Pending Check-ins",value: pendingCheckins,  icon: LogIn,                emoji: "🔴", to: "/bookings" },
     { label: "Due Collection",   value: `₹${dueCollection.toLocaleString("en-IN")}`, icon: IndianRupee, emoji: "💰", to: "/bookings" },
-    { label: "Revenue Today",    value: `₹${revenueCollectedToday.toLocaleString("en-IN")}`, icon: TrendingUp, emoji: "📈", to: "/cash" },
+    { label: "Revenue Today",    value: `₹${revenueCollectedToday.toLocaleString("en-IN")}`, icon: TrendingUp, emoji: "📈", to: "/payments-reports" },
     { label: "New Bookings Today", value: newBookingsToday, icon: CalendarPlus,       emoji: "🆕", to: "/bookings" },
     { label: "Occupancy %",      value: `${occupancyPct}%`, icon: PieChart,            emoji: "📊", to: "/house-view" },
     { label: "Complaints Open",  value: complaintsOpen,   icon: MessageSquareWarning, emoji: "🛎", to: "/complaints" },
@@ -260,8 +273,8 @@ function HomePage() {
                   <span className="text-lg leading-none">{s.emoji}</span>
                   <s.icon className="h-4 w-4 text-gold" />
                 </div>
-                <div className="mt-3 font-display text-2xl text-foreground tabular-nums">{s.value}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5 tracking-wide">{s.label}</div>
+                <div className="mt-3 text-3xl md:text-4xl font-semibold text-foreground tabular-nums leading-tight">{s.value}</div>
+                <div className="text-xs text-muted-foreground mt-1 tracking-wide">{s.label}</div>
               </motion.button>
             ))}
           </div>

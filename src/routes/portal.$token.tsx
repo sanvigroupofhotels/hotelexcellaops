@@ -130,20 +130,14 @@ function GuestPortal() {
     } finally { setBusy(false); }
   };
 
-  // ---- Profile completion ----
+  // ---- Profile completion (only Guest Name, Mobile, Email) ----
   const score = (() => {
-    let pts = 0; const checks = [
-      !!b.guestName?.trim(), !!b.phone?.trim(), !!b.email?.trim(),
-      !!b.expectedArrivalAt, !!b.emergencyContactName?.trim(), !!b.emergencyContactPhone?.trim(),
-    ];
-    checks.forEach((c) => { if (c) pts++; });
+    const checks = [!!b.guestName?.trim(), !!b.phone?.trim(), !!b.email?.trim()];
+    const pts = checks.filter(Boolean).length;
     return { pct: Math.round((pts / checks.length) * 100), missing: [
       ...(!b.guestName?.trim() ? ["Guest Name"] : []),
       ...(!b.phone?.trim() ? ["Mobile Number"] : []),
       ...(!b.email?.trim() ? ["Email Address"] : []),
-      ...(!b.expectedArrivalAt ? ["Expected Arrival Date & Time"] : []),
-      ...(!b.emergencyContactName?.trim() ? ["Emergency Contact Name"] : []),
-      ...(!b.emergencyContactPhone?.trim() ? ["Emergency Contact Mobile"] : []),
     ]};
   })();
 
@@ -218,15 +212,15 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 function ProfileCompletion({ pct, missing }: { pct: number; missing: string[] }) {
-  const color = pct >= 100 ? "bg-emerald-500" : pct >= 60 ? "bg-gold" : "bg-warning";
+  // Single-line indicator with quarter-circle glyph — no progress bar.
+  const glyph = pct >= 100 ? "●" : pct >= 75 ? "◕" : pct >= 50 ? "◑" : pct >= 25 ? "◔" : "○";
   return (
-    <div className="luxe-card rounded-xl p-5 space-y-3">
+    <div className="luxe-card rounded-xl p-4 space-y-2">
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium">Booking Profile</div>
-        <div className="text-sm text-gold font-medium">{pct}% Complete</div>
-      </div>
-      <div className="h-2 rounded-full bg-secondary overflow-hidden">
-        <div className={`h-full ${color} transition-all`} style={{ width: `${pct}%` }} />
+        <div className="text-sm text-gold font-medium tabular-nums">
+          <span className="mr-1.5">{glyph}</span>{pct}% Complete
+        </div>
       </div>
       {missing.length > 0 && (
         <div className="text-xs text-muted-foreground">
@@ -242,14 +236,19 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
   const [name, setName] = useState(initial.guestName ?? "");
   const [phone, setPhone] = useState(initial.phone ?? "");
   const [email, setEmail] = useState(initial.email ?? "");
-  const [arrival, setArrival] = useState<string>(
-    initial.expectedArrivalAt
-      ? new Date(initial.expectedArrivalAt).toISOString().slice(0, 16)
-      : `${initial.checkIn}T14:00`,
-  );
+  // Expected arrival split into date (auto-populated from check-in) and time (optional, empty by default).
+  const initialArrivalDate = initial.expectedArrivalAt
+    ? new Date(initial.expectedArrivalAt).toISOString().slice(0, 10)
+    : initial.checkIn;
+  const initialArrivalTime = initial.expectedArrivalAt
+    ? new Date(initial.expectedArrivalAt).toISOString().slice(11, 16)
+    : "";
+  const [arrivalDate, setArrivalDate] = useState<string>(initialArrivalDate);
+  const [arrivalTime, setArrivalTime] = useState<string>(initialArrivalTime);
   const [eName, setEName] = useState(initial.emergencyContactName ?? "");
   const [ePhone, setEPhone] = useState(initial.emergencyContactPhone ?? "");
   const [requests, setRequests] = useState(initial.specialRequests ?? "");
+  const [optionalOpen, setOptionalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Re-init if refetch changes the source
@@ -257,9 +256,12 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
     setName(initial.guestName ?? "");
     setPhone(initial.phone ?? "");
     setEmail(initial.email ?? "");
-    setArrival(initial.expectedArrivalAt
-      ? new Date(initial.expectedArrivalAt).toISOString().slice(0, 16)
-      : `${initial.checkIn}T14:00`);
+    setArrivalDate(initial.expectedArrivalAt
+      ? new Date(initial.expectedArrivalAt).toISOString().slice(0, 10)
+      : initial.checkIn);
+    setArrivalTime(initial.expectedArrivalAt
+      ? new Date(initial.expectedArrivalAt).toISOString().slice(11, 16)
+      : "");
     setEName(initial.emergencyContactName ?? "");
     setEPhone(initial.emergencyContactPhone ?? "");
     setRequests(initial.specialRequests ?? "");
@@ -268,16 +270,19 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
   const save = async () => {
     if (!name.trim()) return toast.error("Name is required");
     if (!phone.trim() || !validatePhoneNumber(phone)) return toast.error("Please enter a valid mobile number.");
-    if (!arrival) return toast.error("Please provide your expected arrival date and time.");
+    if (!arrivalDate) return toast.error("Please provide your expected arrival date.");
     setSaving(true);
     try {
+      // Time is optional — default to 14:00 (standard check-in) when blank.
+      const timePart = arrivalTime || "14:00";
+      const arrivalIso = new Date(`${arrivalDate}T${timePart}`).toISOString();
       await update({
         data: {
           token,
           guest_name: name.trim(),
           phone: normalizePhoneNumber(phone),
           email: email.trim() || "",
-          expected_arrival_at: arrival ? new Date(arrival).toISOString() : "",
+          expected_arrival_at: arrivalIso,
           emergency_contact_name: eName.trim(),
           emergency_contact_phone: ePhone.trim() ? normalizePhoneNumber(ePhone) : "",
           special_requests: requests.trim(),
@@ -300,32 +305,51 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
         <Input label="Email Address" icon={<Mail className="h-3.5 w-3.5" />} value={email} onChange={setEmail} type="email" />
       </div>
 
-      <div className="border-t border-border/40 pt-4 space-y-2">
-        <h4 className="text-xs font-medium flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-gold" /> Expected Arrival *</h4>
-        <input
-          type="datetime-local" value={arrival} onChange={(e) => setArrival(e.target.value)}
-          required
-          className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-        />
-        <p className="text-[10px] text-muted-foreground">Please provide your expected arrival date and time.</p>
-      </div>
-
-      <div className="border-t border-border/40 pt-4 space-y-2">
-        <h4 className="text-xs font-medium flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5 text-gold" /> Emergency Contact (optional)</h4>
-        <div className="grid grid-cols-1 gap-2">
-          <Input label="Name" value={eName} onChange={setEName} />
-          <Input label="Mobile" value={ePhone} onChange={setEPhone} />
+      <div className="border-t border-border/40 pt-4 space-y-3">
+        <h4 className="text-xs font-medium flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-gold" /> Expected Arrival</h4>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Date *</span>
+            <input type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} required
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+          </label>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Time</span>
+            <input type="time" value={arrivalTime} onChange={(e) => setArrivalTime(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+            <span className="block text-[10px] text-muted-foreground mt-1">(Approximate time is sufficient)</span>
+          </label>
         </div>
       </div>
 
-      <div className="border-t border-border/40 pt-4 space-y-2">
-        <h4 className="text-xs font-medium flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5 text-gold" /> Special Requests</h4>
-        <textarea
-          value={requests} onChange={(e) => setRequests(e.target.value)}
-          rows={3}
-          placeholder="e.g. Airport pickup, extra pillows, late arrival, ground-floor room"
-          className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-        />
+      <div className="border-t border-border/40 pt-4">
+        <button
+          type="button"
+          onClick={() => setOptionalOpen((v) => !v)}
+          className="flex w-full items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ChevronDown className={`h-3.5 w-3.5 transition ${optionalOpen ? "rotate-0" : "-rotate-90"}`} /> Optional
+        </button>
+        {optionalOpen && (
+          <div className="mt-3 space-y-4">
+            <div className="space-y-2">
+              <h4 className="text-xs font-medium flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5 text-gold" /> Emergency Contact</h4>
+              <div className="grid grid-cols-1 gap-2">
+                <Input label="Name" value={eName} onChange={setEName} />
+                <Input label="Mobile" value={ePhone} onChange={setEPhone} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-xs font-medium flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5 text-gold" /> Special Request (Optional)</h4>
+              <textarea
+                value={requests} onChange={(e) => setRequests(e.target.value)}
+                rows={3}
+                placeholder="e.g. Airport pickup, extra pillows, late arrival, ground-floor room"
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <button
