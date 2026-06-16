@@ -4,7 +4,7 @@ import {
   History, Bell, Calendar, BarChart3,
   Users, ListChecks, Menu, X, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
   MessageSquareWarning, Building2, DoorOpen, IndianRupee, Tag, Database, KeyRound,
-  Home, FileBarChart, UserCog,
+  Home, FileBarChart, UserCog, Settings as SettingsIcon,
 } from "lucide-react";
 
 import { useState } from "react";
@@ -39,6 +39,7 @@ const nav: NavItem[] = [
   { to: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: true },
   { to: "/users", label: "User Management", icon: ShieldCheck, adminOnly: true },
   { to: "/access-settings", label: "Access Settings", icon: KeyRound, adminOnly: true },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, adminOnly: true },
 ];
 
 function Logo() {

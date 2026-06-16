@@ -78,7 +78,9 @@ export function UserMenu() {
         <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/60 transition">
           <HelpCircle className="h-4 w-4 text-gold" /> Help & Support
         </button>
-        <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/60 transition">
+        <button
+          onClick={() => navigate({ to: "/settings" })}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/60 transition">
           <Settings className="h-4 w-4 text-gold" /> Settings
         </button>
         <div className="h-px bg-border my-1" />
