@@ -356,7 +356,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
                     guest_name: parsed.guest_name,
                     phone: parsed.phone,
                     email: parsed.email,
-                    lead_source: "Hotelzify",
+                    lead_source: leadSource,
                   } as any)
                   .select("id").single();
                 if (custErr) throw custErr;
@@ -385,7 +385,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
                 subtotal: parsed.total_amount,
                 advance_paid: parsed.amount_paid,
                 status: mapStatus(parsed.booking_status),
-                lead_source: "Hotelzify",
+                lead_source: leadSource,
                 integration_id: intg.id,
                 external_ref: parsed.external_ref,
                 special_requests: parsed.special_requests,
