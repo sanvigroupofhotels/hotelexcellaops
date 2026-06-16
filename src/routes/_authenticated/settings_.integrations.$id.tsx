@@ -119,35 +119,43 @@ function Content({ id }: { id: string }) {
         </div>
       </div>
 
-      <div className="luxe-card rounded-xl p-5">
-        <div className="flex items-center justify-between mb-3">
+      <div className="luxe-card rounded-xl p-5 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-display text-lg">Sync History</h3>
-          <span className="text-[11px] text-muted-foreground">{runs.length} runs</span>
+          <span className="text-[11px] text-muted-foreground">
+            Last sync: {row.last_sync_at ? new Date(row.last_sync_at).toLocaleString("en-IN") : "—"} · Imported total: {row.bookings_imported ?? 0}
+          </span>
         </div>
+        {row.last_sync_message && (
+          <div className="text-[11px] text-muted-foreground bg-muted/30 rounded px-3 py-2">{row.last_sync_message}</div>
+        )}
         {runs.length === 0 ? (
-          <div className="p-6 text-center text-xs text-muted-foreground">
-            No sync runs yet. Provider-specific sync logic ships in the next phase.
-          </div>
+          <div className="p-6 text-center text-xs text-muted-foreground">No sync runs yet.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm min-w-[720px]">
               <thead className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
                 <tr>
                   <th className="px-2 py-2">Started</th>
                   <th className="px-2 py-2">Status</th>
                   <th className="px-2 py-2 text-right">Created</th>
                   <th className="px-2 py-2 text-right">Updated</th>
-                  <th className="px-2 py-2">Message</th>
+                  <th className="px-2 py-2">Details</th>
                 </tr>
               </thead>
               <tbody>
                 {runs.map((r) => (
-                  <tr key={r.id} className="border-b border-border/60">
-                    <td className="px-2 py-2 text-muted-foreground">{new Date(r.started_at).toLocaleString("en-IN")}</td>
+                  <tr key={r.id} className="border-b border-border/60 align-top">
+                    <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">{new Date(r.started_at).toLocaleString("en-IN")}</td>
                     <td className="px-2 py-2"><span className="text-[10px] uppercase">{r.status}</span></td>
                     <td className="px-2 py-2 text-right tabular-nums">{r.created_count}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{r.updated_count}</td>
-                    <td className="px-2 py-2 text-[11px] text-muted-foreground">{r.message ?? "—"}</td>
+                    <td className="px-2 py-2 text-[11px] text-muted-foreground">
+                      <div>{r.message ?? "—"}</div>
+                      {r.payload_excerpt && (
+                        <pre className="mt-1 whitespace-pre-wrap text-[10px] opacity-70">{r.payload_excerpt}</pre>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
