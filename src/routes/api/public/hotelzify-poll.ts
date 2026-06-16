@@ -326,7 +326,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
               matched++;
 
               const text = extractTextFromPayload(msg.payload);
-              const parsedResult = parseHotelzifyEmail(text, subject);
+              const parsedResult = parseHotelzifyEmail(text, subject, fieldLabels);
               if (!parsedResult.booking) {
                 const reason = parsedResult.errors.join("; ") || "parse failed";
                 parserErrors.push(`msg ${m.id} ("${subject.slice(0, 60)}"): ${reason}`);
