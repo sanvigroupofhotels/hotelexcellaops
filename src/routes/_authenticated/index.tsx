@@ -85,6 +85,18 @@ function HomePage() {
       return (data ?? []) as any[];
     },
   });
+  // Revenue / Today's Collection / Payment-mode breakdown source from booking_payments (Payment Reports),
+  // NOT from cash_transactions. Cashbook is reserved for counter cash + cash report only.
+  const { data: bookingPaymentsToday = [] } = useQuery({
+    queryKey: ["booking-payments-today-home"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("booking_payments" as any)
+        .select("amount,occurred_at,payment_mode");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
 
   const today = toLocalYMD();
   const todayKey = today;
