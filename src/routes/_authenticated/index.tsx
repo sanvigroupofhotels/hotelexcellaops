@@ -141,9 +141,10 @@ function HomePage() {
 
   // New stats
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  const revenueCollectedToday = tx
-    .filter((t) => t.active && t.kind === "collection" && ymd(new Date(t.occurred_at)) === todayKey)
-    .reduce((s, t) => s + Number(t.amount), 0);
+  // Revenue Today is sourced from booking_payments (Payment Reports) — NOT cashbook.
+  const revenueCollectedToday = (bookingPaymentsToday as any[])
+    .filter((p) => ymd(new Date(p.occurred_at)) === todayKey)
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
   const newBookingsToday = bookings.filter((b) => ymd(new Date(b.created_at)) === todayKey).length;
   const totalRooms = rooms.filter((r: any) => r.active !== false).length;
   const occupancyPct = totalRooms > 0 ? Math.round((occupied / totalRooms) * 100) : 0;
@@ -153,7 +154,7 @@ function HomePage() {
     { label: "Arrivals Today",   value: arrivalsToday,    icon: Sunrise,              emoji: "🟢", to: "/bookings" },
     { label: "Pending Check-ins",value: pendingCheckins,  icon: LogIn,                emoji: "🔴", to: "/bookings" },
     { label: "Due Collection",   value: `₹${dueCollection.toLocaleString("en-IN")}`, icon: IndianRupee, emoji: "💰", to: "/bookings" },
-    { label: "Revenue Today",    value: `₹${revenueCollectedToday.toLocaleString("en-IN")}`, icon: TrendingUp, emoji: "📈", to: "/cash" },
+    { label: "Revenue Today",    value: `₹${revenueCollectedToday.toLocaleString("en-IN")}`, icon: TrendingUp, emoji: "📈", to: "/payments-reports" },
     { label: "New Bookings Today", value: newBookingsToday, icon: CalendarPlus,       emoji: "🆕", to: "/bookings" },
     { label: "Occupancy %",      value: `${occupancyPct}%`, icon: PieChart,            emoji: "📊", to: "/house-view" },
     { label: "Complaints Open",  value: complaintsOpen,   icon: MessageSquareWarning, emoji: "🛎", to: "/complaints" },
