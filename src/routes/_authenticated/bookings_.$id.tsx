@@ -165,16 +165,50 @@ function BookingDetail() {
   });
 
   const cancelBooking = useMutation({
-    mutationFn: async (reason: string) => {
+    mutationFn: async (input: { reason: string; refundAmount: number; refundMode: string; refundCollectedBy: string }) => {
+      const { reason, refundAmount, refundMode, refundCollectedBy } = input;
       const from = b?.status as string | undefined;
+      // 1) If refund > 0, write a booking_payment with is_refund=true (trigger handles cashbook for Cash)
+      if (refundAmount > 0) {
+        const { createBookingPayment } = await import("@/lib/booking-payments-api");
+        await createBookingPayment({
+          booking_id: id,
+          customer_id: b?.customer_id ?? null,
+          amount: refundAmount,
+          payment_mode: refundMode,
+          collected_by: refundCollectedBy || "—",
+          is_refund: true,
+          refund_reason: reason,
+          notes: `Refund on cancellation · ${reason}`,
+        });
+        // 2) Stamp summary on bookings
+        await supabase.from("bookings" as any).update({
+          cancel_refund_amount: refundAmount,
+          cancel_refund_mode: refundMode,
+          cancel_refund_at: new Date().toISOString(),
+          cancel_reason: reason,
+        } as any).eq("id", id);
+      } else {
+        await supabase.from("bookings" as any).update({ cancel_reason: reason } as any).eq("id", id);
+      }
+      // 3) Status -> Cancelled
       await setBookingStatus(id, "Cancelled" as any);
+      // 4) Activity log
       await logBookingActivity({
         booking_id: id, action: "cancelled",
         from_status: from ?? null, to_status: "Cancelled",
-        notes: reason,
+        notes: refundAmount > 0
+          ? `Reason: ${reason} · Refunded ₹${refundAmount.toLocaleString("en-IN")} via ${refundMode} · by ${refundCollectedBy || "—"}`
+          : `Reason: ${reason}`,
       });
     },
-    onSuccess: () => { invalidateAll(); toast.success("Booking cancelled"); },
+    onSuccess: (_, vars) => {
+      invalidateAll();
+      qc.invalidateQueries({ queryKey: ["booking-payments", id] });
+      qc.invalidateQueries({ queryKey: ["cash"] });
+      qc.invalidateQueries({ queryKey: ["cash-tx-home"] });
+      toast.success(vars.refundAmount > 0 ? `Booking cancelled · Refund ₹${vars.refundAmount.toLocaleString("en-IN")} recorded` : "Booking cancelled");
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
