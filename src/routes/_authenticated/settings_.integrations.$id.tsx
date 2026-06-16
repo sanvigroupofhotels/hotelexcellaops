@@ -100,7 +100,7 @@ function Content({ id }: { id: string }) {
 
   const runSync = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/public/hotelzify-poll", { method: "POST" });
+      const res = await fetch("/api/public/hotelzify-poll?debug=1", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error(data.error || `Sync failed (${res.status})`);
       return data as SyncDebugResponse;
@@ -246,7 +246,7 @@ function Content({ id }: { id: string }) {
 
 function ConfigHint({ type }: { type: IntegrationRow["type"] }) {
   const hints: Record<typeof type, string> = {
-    email_parser: `{"inbox_email":"hotelexcellaoperations@gmail.com","poll_interval_minutes":5,"subject_filter":"FabHotels"}`,
+    email_parser: `{"inbox_email":"sanvigroupofhotels@gmail.com","poll_interval_minutes":5,"sender_email":"support@hotelzify.com"}`,
     api: `{"base_url":"https://api.provider.com","api_key_secret":"PROVIDER_API_KEY"}`,
     webhook: `{"path":"/api/public/provider-webhook","signing_secret_name":"PROVIDER_SECRET"}`,
     csv_import: `{"format":"booking_com_v1"}`,
