@@ -1076,23 +1076,30 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
         </button>
       </div>
       <div className="space-y-1 text-sm">
-        <div className="flex justify-between"><span className="text-muted-foreground">Room &amp; Stay Total</span><span className="tabular-nums">₹{bookingAmount.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Room &amp; Stay Total</span><span className="tabular">₹{bookingAmount.toLocaleString("en-IN")}</span></div>
         {chargesTotal > 0 && (
-          <div className="flex justify-between"><span className="text-muted-foreground">In-House Charges</span><span className="tabular-nums">₹{chargesTotal.toLocaleString("en-IN")}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">In-House Charges</span><span className="tabular">₹{chargesTotal.toLocaleString("en-IN")}</span></div>
         )}
-        <div className="flex justify-between"><span className="text-muted-foreground">Total Payable</span><span className="tabular-nums">₹{(bookingAmount + chargesTotal).toLocaleString("en-IN")}</span></div>
-        <div className="flex justify-between"><span className="text-muted-foreground">Total Advance Paid</span><span className="tabular-nums">₹{advance.toLocaleString("en-IN")}</span></div>
-        <div className="flex justify-between border-t border-border pt-2"><span className="font-medium">Balance Due</span><span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Total Payable</span><span className="tabular">₹{(bookingAmount + chargesTotal).toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Total Advance Paid (net of refunds)</span><span className="tabular">₹{advance.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between border-t border-border pt-2 items-center"><span className="font-medium">Balance Due</span><span className="stat-num-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
       </div>
 
       {payments.length > 0 && (
         <div className="mt-4 space-y-2">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Payment History</div>
-          {payments.map((p) => (
-            <div key={p.id} className="text-xs rounded-md border border-border bg-secondary/40 px-3 py-2 flex items-start justify-between gap-2">
+          {payments.map((p) => {
+            const isRefund = (p as any).is_refund === true;
+            return (
+            <div key={p.id} className={cn("text-xs rounded-md border px-3 py-2 flex items-start justify-between gap-2",
+              isRefund ? "border-destructive/40 bg-destructive/5" : "border-border bg-secondary/40")}>
               <div className="min-w-0">
-                <div className="font-medium tabular-nums">₹{Number(p.amount).toLocaleString("en-IN")} <span className="text-muted-foreground">· {p.payment_mode}</span></div>
-                <div className="text-[10px] text-muted-foreground">Collected By: {p.collected_by} · {new Date(p.occurred_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</div>
+                <div className="font-medium tabular">
+                  {isRefund && <span className="text-destructive mr-1">REFUND</span>}
+                  <span className={isRefund ? "text-destructive" : ""}>{isRefund ? "−" : ""}₹{Number(p.amount).toLocaleString("en-IN")}</span>
+                  <span className="text-muted-foreground"> · {p.payment_mode}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground">{isRefund ? "Refunded By" : "Collected By"}: {p.collected_by} · {new Date(p.occurred_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</div>
                 {p.notes && <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{p.notes}</div>}
               </div>
               <div className="flex items-center gap-0.5 shrink-0">
@@ -1108,7 +1115,8 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
