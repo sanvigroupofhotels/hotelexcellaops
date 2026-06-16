@@ -170,7 +170,7 @@ function IntegrationsTab() {
   );
 }
 
-function IntegrationCard({ row, onToggle, onDelete }: { row: IntegrationRow; onToggle: () => void; onDelete: () => void }) {
+function IntegrationCard({ row, onActivate, onToggle, onDelete }: { row: IntegrationRow; onActivate: () => void; onToggle: () => void; onDelete: () => void }) {
   return (
     <div className="luxe-card rounded-xl p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -186,6 +186,11 @@ function IntegrationCard({ row, onToggle, onDelete }: { row: IntegrationRow; onT
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {(row.status === "draft" || row.status === "disabled") && (
+            <button onClick={onActivate} className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider gold-gradient text-charcoal rounded-md px-2.5 py-1 font-medium" title="Activate">
+              <CheckCircle2 className="h-3 w-3" /> Activate
+            </button>
+          )}
           <Link to="/settings/integrations/$id" params={{ id: row.id }} className="p-1.5 rounded hover:bg-accent" title="Edit">
             <Pencil className="h-4 w-4" />
           </Link>
