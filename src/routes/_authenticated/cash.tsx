@@ -1244,3 +1244,152 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
     </div>
   );
 }
+
+// ============================== AUDIT CLOSE ==============================
+function AuditClosePanel() {
+  const qc = useQueryClient();
+  const { data: active } = useQuery({ queryKey: ["cash-audit-active"], queryFn: getActiveAuditClose });
+  const { data: history = [] } = useQuery({ queryKey: ["cash-audit-history"], queryFn: listCashAuditCloses });
+  const { data: activities = [] } = useQuery({ queryKey: ["cash-audit-activities"], queryFn: listCashAuditActivities });
+
+  const [closeDate, setCloseDate] = useState<string>(toLocalYMD());
+  const [reopenId, setReopenId] = useState<string | null>(null);
+  const [reopenReason, setReopenReason] = useState("");
+
+  const closeMut = useMutation({
+    mutationFn: () => createCashAuditClose(closeDate),
+    onSuccess: () => {
+      toast.success("Audit closed");
+      qc.invalidateQueries({ queryKey: ["cash-audit-active"] });
+      qc.invalidateQueries({ queryKey: ["cash-audit-history"] });
+      qc.invalidateQueries({ queryKey: ["cash-audit-activities"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const reopenMut = useMutation({
+    mutationFn: () => reopenCashAuditClose(reopenId!, reopenReason),
+    onSuccess: () => {
+      toast.success("Audit reopened");
+      setReopenId(null); setReopenReason("");
+      qc.invalidateQueries({ queryKey: ["cash-audit-active"] });
+      qc.invalidateQueries({ queryKey: ["cash-audit-history"] });
+      qc.invalidateQueries({ queryKey: ["cash-audit-activities"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-5">
+      <div className="luxe-card rounded-xl p-5 space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="font-display text-lg">Audit Close</h3>
+            <p className="text-xs text-muted-foreground">Lock cashbook transactions on or before a chosen date. Staff and Owner cannot edit or delete locked rows. Admin can reopen with a mandatory reason.</p>
+          </div>
+        </div>
+        {active ? (
+          <div className="flex items-center justify-between gap-3 flex-wrap rounded-md border border-warning/40 bg-warning/10 px-3 py-3">
+            <div className="flex items-center gap-2">
+              <Lock className="h-4 w-4 text-warning" />
+              <span className="text-sm">Locked through <strong>{active.closed_through_date}</strong> · by {active.closed_by_name ?? "—"} on {new Date(active.closed_at).toLocaleString("en-IN")}</span>
+            </div>
+            <button onClick={() => setReopenId(active.id)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-3 py-1.5 text-xs">
+              <Unlock className="h-3.5 w-3.5" /> Unlock
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap rounded-md border border-border bg-card px-3 py-3">
+            <span className="text-xs text-muted-foreground">Close through:</span>
+            <input type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)}
+              className="bg-input/60 border border-border rounded-md px-3 py-1.5 text-sm" />
+            <button onClick={() => { if (confirm(`Audit close all transactions on or before ${closeDate}?`)) closeMut.mutate(); }}
+              disabled={closeMut.isPending}
+              className="inline-flex items-center gap-1.5 gold-gradient text-charcoal rounded-md px-4 py-1.5 text-xs font-medium disabled:opacity-60">
+              <Lock className="h-3.5 w-3.5" /> Audit Close
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="luxe-card rounded-xl p-5">
+        <h4 className="font-display text-base mb-3">Close History</h4>
+        {history.length === 0 ? (
+          <div className="p-4 text-xs text-muted-foreground text-center">No audit closes yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                <tr>
+                  <th className="px-2 py-2">Through</th>
+                  <th className="px-2 py-2">State</th>
+                  <th className="px-2 py-2">Closed By</th>
+                  <th className="px-2 py-2">Closed At</th>
+                  <th className="px-2 py-2">Reopened</th>
+                  <th className="px-2 py-2">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h) => (
+                  <tr key={h.id} className="border-b border-border/60">
+                    <td className="px-2 py-2">{h.closed_through_date}</td>
+                    <td className="px-2 py-2">
+                      {h.active ? (
+                        <span className="text-[10px] uppercase rounded-full px-2 py-0.5 bg-warning/15 text-warning border border-warning/40">🔒 Audited</span>
+                      ) : (
+                        <span className="text-[10px] uppercase rounded-full px-2 py-0.5 bg-muted/60 text-muted-foreground border border-border">🔓 Reopened</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-[11px]">{h.closed_by_name ?? "—"}</td>
+                    <td className="px-2 py-2 text-[11px] text-muted-foreground">{new Date(h.closed_at).toLocaleString("en-IN")}</td>
+                    <td className="px-2 py-2 text-[11px] text-muted-foreground">
+                      {h.reopened_at ? `${h.reopened_by_name ?? "—"} · ${new Date(h.reopened_at).toLocaleString("en-IN")}` : "—"}
+                    </td>
+                    <td className="px-2 py-2 text-[11px] text-muted-foreground">{h.reopen_reason ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="luxe-card rounded-xl p-5">
+        <h4 className="font-display text-base mb-3">Activity Log</h4>
+        {activities.length === 0 ? (
+          <div className="p-4 text-xs text-muted-foreground text-center">No activity yet.</div>
+        ) : (
+          <div className="space-y-2">
+            {activities.map((a) => (
+              <div key={a.id} className="flex items-start gap-3 text-xs border-b border-border/60 pb-2">
+                <div className="text-muted-foreground whitespace-nowrap">{new Date(a.created_at).toLocaleString("en-IN")}</div>
+                <div className="flex-1">
+                  <div>{a.summary}</div>
+                  <div className="text-[10px] text-muted-foreground">{a.actor_name ?? "—"} ({a.actor_role ?? "—"})</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {reopenId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setReopenId(null)}>
+          <div className="luxe-card rounded-xl p-5 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display text-lg">Reopen Audit</h3>
+            <p className="text-xs text-muted-foreground">Provide a reason — this is logged in the activity history.</p>
+            <textarea className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm min-h-[100px]"
+              value={reopenReason} onChange={(e) => setReopenReason(e.target.value)} placeholder="e.g. Correction for misposted expense on 12-Jun" />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setReopenId(null)} className="px-4 py-2 text-xs text-muted-foreground">Cancel</button>
+              <button onClick={() => reopenMut.mutate()} disabled={!reopenReason.trim() || reopenMut.isPending}
+                className="inline-flex items-center gap-1.5 rounded-md bg-destructive/15 text-destructive border border-destructive/40 px-4 py-2 text-xs font-medium disabled:opacity-60">
+                <Unlock className="h-3.5 w-3.5" /> Reopen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
