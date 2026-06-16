@@ -75,6 +75,21 @@ function pick(text: string, re: RegExp): string | null {
   return m ? m[1].trim() : null;
 }
 
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function labelRegex(labels: string[]): RegExp | null {
+  if (!labels.length) return null;
+  const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
+  return new RegExp(`(?:${alt})\\s*[:\\-]?\\s*([^\\n]+?)(?=\\n|$)`, "i");
+}
+
+function pickByLabels(text: string, labels: string[]): string | null {
+  const re = labelRegex(labels);
+  return re ? pick(text, re) : null;
+}
+
 function normalizeDate(input: string | null): string | null {
   if (!input) return null;
   const s = input.trim().replace(/,/g, "");
@@ -95,52 +110,67 @@ function parseMoney(input: string | null): number {
   return cleaned ? parseFloat(cleaned) : 0;
 }
 
-function parseHotelzifyEmail(text: string, subject: string): { booking: ParsedBooking | null; errors: string[] } {
+const DEFAULT_LABELS: Record<string, string[]> = {
+  booking_id: ["Booking ID", "Booking Id", "Booking Reference", "Booking Ref", "Booking No", "Booking Number"],
+  guest_name: ["Guest Name", "Name"],
+  mobile: ["Mobile", "Phone", "Contact", "Mobile No", "Phone No"],
+  email: ["Email"],
+  check_in: ["Check In", "Check-In", "Check in", "Arrival", "Arrival Date"],
+  check_out: ["Check Out", "Check-Out", "Check out", "Departure", "Departure Date"],
+  guests: ["Guests", "Adults", "Guest Count"],
+  room_details: ["Room Name", "Room Type", "Room Details", "Room"],
+  total_amount: ["Total Amount", "Total Price", "Total"],
+  amount_paid: ["Amount Paid", "Paid"],
+  balance_due: ["Balance Due", "Balance"],
+  booking_status: ["Booking Status", "Status"],
+  special_requests: ["Special Requests", "Special Request", "Guest Requests", "Notes"],
+};
+
+function parseHotelzifyEmail(
+  text: string,
+  subject: string,
+  fieldLabels: Record<string, string[]>,
+): { booking: ParsedBooking | null; errors: string[] } {
+  const lbl = (k: string) => (fieldLabels[k]?.length ? fieldLabels[k] : DEFAULT_LABELS[k]);
+
   const bookingId =
-    pick(text, /Booking\s*(?:Id|ID|Reference|Ref|Number|No)\.?\s*[:#-]?\s*([A-Z0-9-]+)/i) ??
+    pickByLabels(text, lbl("booking_id")) ??
     pick(subject, /Booking[^A-Z0-9]*([A-Z0-9-]*\d[A-Z0-9-]*)/i);
-  const name =
-    pick(text, /(?:Guest\s*)?Name\s*[:\-]\s*([^\n]+?)(?=\s*(?:Mobile|Phone|Email|Check[-\s]*in)|\n|$)/i) ??
-    pick(text, /Guest\s*Details?\s*[:\-]?\s*([^\n]+)/i);
-  const mobile = pick(text, /(?:Mobile|Phone|Contact)(?:\s*No\.?)?\s*[:\-]\s*([+\d\s\-()]{7,})/i);
-  const email = pick(text, /Email\s*[:\-]\s*([\w.+-]+@[\w.-]+)/i);
-  const checkInRaw =
-    pick(text, /Check[-\s]*in(?:\s*Date)?\s*[:\-]\s*([^\n]+?)(?=\s*(?:Check[-\s]*out|Checkout|Guest|Room)|\n|$)/i) ??
-    pick(text, /Arrival(?:\s*Date)?\s*[:\-]\s*([^\n]+)/i);
-  const checkOutRaw =
-    pick(text, /Check[-\s]*out(?:\s*Date)?\s*[:\-]\s*([^\n]+?)(?=\s*(?:Guest|Room|Payment|Total)|\n|$)/i) ??
-    pick(text, /Departure(?:\s*Date)?\s*[:\-]\s*([^\n]+)/i);
+  const name = pickByLabels(text, lbl("guest_name"));
+  const mobile = pickByLabels(text, lbl("mobile"));
+  const emailVal = pickByLabels(text, lbl("email"));
+  const checkInRaw = pickByLabels(text, lbl("check_in"));
+  const checkOutRaw = pickByLabels(text, lbl("check_out"));
   const checkIn = normalizeDate(checkInRaw);
   const checkOut = normalizeDate(checkOutRaw);
-  const guestCount = pick(text, /(?:Guest\s*Count|Guests?|Adults?)\s*[:\-]\s*([0-9]+)/i);
+  const guestCount = pickByLabels(text, lbl("guests"));
   const paymentMode = pick(text, /Payment\s*Mode\s*[:\-]\s*([^\n]+?)(?=\n|$)/i);
-  const bookingStatus = pick(text, /Booking\s*Status\s*[:\-]\s*([^\n]+?)(?=\n|Guest|Room|$)/i) ?? (subject.toLowerCase().includes("confirmed") ? "Confirmed" : "Pending Confirmation");
-  const totalAmount =
-    pick(text, /Total\s*Amount[^:\n]*[:\-]\s*((?:INR|₹|Rs\.?)?\s*[\d,]+(?:\.\d+)?)/i) ??
-    pick(text, /Total\s*Price[^:\n]*[:\-]\s*((?:INR|₹|Rs\.?)?\s*[\d,]+(?:\.\d+)?)/i);
-  const amountPaid = pick(text, /Amount\s*Paid[^:\n]*[:\-]\s*((?:INR|₹|Rs\.?)?\s*[\d,]+(?:\.\d+)?)/i);
-  const specialReq = pick(text, /(?:Guest\s*Requests?|Special\s*Requests?)\s*[:\-]?\s*([^\n]+)/i);
-
-  let roomDetails = pick(text, /Room\s*(?:Name|Type|Details?)\s*[:\-]\s*([^\n]+?)(?=\s*(?:Quantity|Adults|Guests|Total)|\n|$)/i) ?? "";
-  const roomMatch = text.match(/Room\s*Name\s+Quantity\s+Total\s*Price\s*\n?\s*([^\n]+?)\s+(?:Adults?|Rooms?|Guests?)/i);
-  if (!roomDetails && roomMatch) roomDetails = roomMatch[1].trim();
+  const bookingStatus =
+    pickByLabels(text, lbl("booking_status")) ??
+    (subject.toLowerCase().includes("confirmed") ? "Confirmed" : "Pending Confirmation");
+  const totalAmount = pickByLabels(text, lbl("total_amount"));
+  const amountPaid = pickByLabels(text, lbl("amount_paid"));
+  const specialReq = pickByLabels(text, lbl("special_requests"));
+  const roomDetails = pickByLabels(text, lbl("room_details")) ?? "";
 
   const errors: string[] = [];
-  if (!bookingId) errors.push("missing booking id / external reference");
+  if (!bookingId) errors.push("missing booking id");
   if (!name) errors.push("missing guest name");
-  if (!checkIn) errors.push(`missing or invalid check-in date${checkInRaw ? ` (${checkInRaw})` : ""}`);
-  if (!checkOut) errors.push(`missing or invalid check-out date${checkOutRaw ? ` (${checkOutRaw})` : ""}`);
-  if (errors.length > 0 || !bookingId || !name || !checkIn || !checkOut) return { booking: null, errors };
+  if (!checkIn) errors.push(`missing/invalid check-in${checkInRaw ? ` (${checkInRaw})` : ""}`);
+  if (!checkOut) errors.push(`missing/invalid check-out${checkOutRaw ? ` (${checkOutRaw})` : ""}`);
+  if (!bookingId || !name || !checkIn || !checkOut) return { booking: null, errors };
+
+  const emailMatch = emailVal?.match(/[\w.+-]+@[\w.-]+\.\w+/);
 
   return {
     booking: {
       external_ref: bookingId,
       guest_name: name.replace(/\s*\([^)]*\)\s*$/, "").trim(),
       phone: mobile ? mobile.replace(/[\s\-()]/g, "") : null,
-      email: email?.toLowerCase() ?? null,
+      email: emailMatch ? emailMatch[0].toLowerCase() : null,
       check_in: checkIn,
       check_out: checkOut,
-      guests: guestCount ? parseInt(guestCount, 10) : 1,
+      guests: guestCount ? parseInt(guestCount, 10) || 1 : 1,
       room_details: roomDetails,
       total_amount: parseMoney(totalAmount),
       amount_paid: parseMoney(amountPaid),
