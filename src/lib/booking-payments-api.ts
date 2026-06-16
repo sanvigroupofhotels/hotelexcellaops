@@ -13,6 +13,8 @@ export interface BookingPaymentRow {
   collected_by: string;
   occurred_at: string;
   notes: string | null;
+  is_refund?: boolean;
+  refund_reason?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,6 +27,8 @@ export interface BookingPaymentInput {
   collected_by: string;
   occurred_at?: string;
   notes?: string | null;
+  is_refund?: boolean;
+  refund_reason?: string | null;
 }
 
 export async function listBookingPayments(booking_id: string) {
@@ -51,6 +55,8 @@ export async function createBookingPayment(input: BookingPaymentInput) {
     collected_by: input.collected_by.trim(),
     occurred_at: input.occurred_at ?? new Date().toISOString(),
     notes: input.notes ?? null,
+    is_refund: input.is_refund ?? false,
+    refund_reason: input.refund_reason ?? null,
     user_id: user.id,
   };
   const { data, error } = await supabase.from("booking_payments" as any).insert(row).select().single();

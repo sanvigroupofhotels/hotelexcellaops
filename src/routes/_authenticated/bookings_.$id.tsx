@@ -165,16 +165,50 @@ function BookingDetail() {
   });
 
   const cancelBooking = useMutation({
-    mutationFn: async (reason: string) => {
+    mutationFn: async (input: { reason: string; refundAmount: number; refundMode: string; refundCollectedBy: string }) => {
+      const { reason, refundAmount, refundMode, refundCollectedBy } = input;
       const from = b?.status as string | undefined;
+      // 1) If refund > 0, write a booking_payment with is_refund=true (trigger handles cashbook for Cash)
+      if (refundAmount > 0) {
+        const { createBookingPayment } = await import("@/lib/booking-payments-api");
+        await createBookingPayment({
+          booking_id: id,
+          customer_id: b?.customer_id ?? null,
+          amount: refundAmount,
+          payment_mode: refundMode,
+          collected_by: refundCollectedBy || "—",
+          is_refund: true,
+          refund_reason: reason,
+          notes: `Refund on cancellation · ${reason}`,
+        });
+        // 2) Stamp summary on bookings
+        await supabase.from("bookings" as any).update({
+          cancel_refund_amount: refundAmount,
+          cancel_refund_mode: refundMode,
+          cancel_refund_at: new Date().toISOString(),
+          cancel_reason: reason,
+        } as any).eq("id", id);
+      } else {
+        await supabase.from("bookings" as any).update({ cancel_reason: reason } as any).eq("id", id);
+      }
+      // 3) Status -> Cancelled
       await setBookingStatus(id, "Cancelled" as any);
+      // 4) Activity log
       await logBookingActivity({
         booking_id: id, action: "cancelled",
         from_status: from ?? null, to_status: "Cancelled",
-        notes: reason,
+        notes: refundAmount > 0
+          ? `Reason: ${reason} · Refunded ₹${refundAmount.toLocaleString("en-IN")} via ${refundMode} · by ${refundCollectedBy || "—"}`
+          : `Reason: ${reason}`,
       });
     },
-    onSuccess: () => { invalidateAll(); toast.success("Booking cancelled"); },
+    onSuccess: (_, vars) => {
+      invalidateAll();
+      qc.invalidateQueries({ queryKey: ["booking-payments", id] });
+      qc.invalidateQueries({ queryKey: ["cash"] });
+      qc.invalidateQueries({ queryKey: ["cash-tx-home"] });
+      toast.success(vars.refundAmount > 0 ? `Booking cancelled · Refund ₹${vars.refundAmount.toLocaleString("en-IN")} recorded` : "Booking cancelled");
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -198,6 +232,9 @@ function BookingDetail() {
   const [changingAssignmentId, setChangingAssignmentId] = useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [cancelRefundAmount, setCancelRefundAmount] = useState<number>(0);
+  const [cancelRefundMode, setCancelRefundMode] = useState<string>("Cash");
+  const [cancelRefundBy, setCancelRefundBy] = useState<string>("");
 
   const { data: assignments = [], refetch: refetchAssignments } = useQuery({
     queryKey: ["booking-room-assignments", id],
@@ -664,47 +701,104 @@ function BookingDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Cancel Booking with mandatory reason */}
-      <AlertDialog open={cancelOpen} onOpenChange={(o) => { setCancelOpen(o); if (!o) setCancelReason(""); }}>
-        <AlertDialogContent>
+      {/* Cancel Booking with mandatory reason + optional refund */}
+      <AlertDialog open={cancelOpen} onOpenChange={(o) => { setCancelOpen(o); if (!o) { setCancelReason(""); setCancelRefundAmount(0); } }}>
+        <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Booking?</AlertDialogTitle>
             <AlertDialogDescription>
-              The booking will be marked <span className="font-medium text-foreground">Cancelled</span>, assigned rooms become vacant and Due is set to ₹0. This is recorded with your name and time.
+              The booking will be marked <span className="font-medium text-foreground">Cancelled</span>, assigned rooms become vacant and Due is set to ₹0.
+              {Number(b.advance_paid || 0) > 0 && (
+                <> Total paid so far: <span className="stat-num text-foreground">₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</span>. Record a refund below if applicable.</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="px-1 space-y-2">
-            <label className="block text-[11px] uppercase tracking-wider text-muted-foreground">Reason for cancellation <span className="text-destructive">*</span></label>
-            <div className="flex flex-wrap gap-1.5">
-              {["Guest cancelled", "Duplicate booking", "Guest no-show", "Wrong dates booked", "OTA cancelled", "Other"].map((r) => (
-                <button key={r} type="button" onClick={() => setCancelReason(r)}
-                  className={cn("rounded-full border px-2.5 py-1 text-[11px]",
-                    cancelReason === r ? "border-gold bg-gold-soft/40" : "border-border bg-card hover:border-gold/40")}>
-                  {r}
-                </button>
-              ))}
+          <div className="px-1 space-y-3">
+            <div>
+              <label className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Reason for cancellation <span className="text-destructive">*</span></label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {["Guest cancelled", "Duplicate booking", "Guest no-show", "Wrong dates booked", "OTA cancelled", "Other"].map((r) => (
+                  <button key={r} type="button" onClick={() => setCancelReason(r)}
+                    className={cn("rounded-full border px-2.5 py-1 text-[11px]",
+                      cancelReason === r ? "border-gold bg-gold-soft/40" : "border-border bg-card hover:border-gold/40")}>
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={2}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+                placeholder="Add details (required)" />
             </div>
-            <textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={3}
-              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-              placeholder="Add details (required)" />
+
+            {Number(b.advance_paid || 0) > 0 && (
+              <div className="rounded-md border border-border bg-card/40 p-3 space-y-2">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Refund (optional)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block text-xs">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Amount (₹)</span>
+                    <input type="number" min={0} max={Number(b.advance_paid || 0)} step="0.01"
+                      value={cancelRefundAmount || ""}
+                      onChange={(e) => setCancelRefundAmount(Math.max(0, Math.min(Number(b.advance_paid || 0), Number(e.target.value) || 0)))}
+                      className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm stat-num"
+                      placeholder="0" />
+                  </label>
+                  <label className="block text-xs">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Mode</span>
+                    <select value={cancelRefundMode} onChange={(e) => setCancelRefundMode(e.target.value)}
+                      className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
+                      <option>Cash</option>
+                      <option>UPI</option>
+                      <option>Card</option>
+                      <option>Bank Transfer</option>
+                    </select>
+                  </label>
+                  <label className="col-span-2 block text-xs">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Refunded By</span>
+                    <input value={cancelRefundBy} onChange={(e) => setCancelRefundBy(e.target.value)}
+                      className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+                      placeholder="Staff name" />
+                  </label>
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  <button type="button" onClick={() => setCancelRefundAmount(Number(b.advance_paid || 0))}
+                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[10px] hover:border-gold/40">Full ₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</button>
+                  <button type="button" onClick={() => setCancelRefundAmount(Math.round(Number(b.advance_paid || 0) / 2))}
+                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[10px] hover:border-gold/40">Half</button>
+                  <button type="button" onClick={() => setCancelRefundAmount(0)}
+                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[10px] hover:border-gold/40">No refund</button>
+                </div>
+                {cancelRefundMode === "Cash" && cancelRefundAmount > 0 && (
+                  <p className="text-[10px] text-warning">A matching <b>cashbook expense</b> of ₹{cancelRefundAmount.toLocaleString("en-IN")} will be created automatically.</p>
+                )}
+              </div>
+            )}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Close</AlertDialogCancel>
             <AlertDialogAction
-              disabled={!cancelReason.trim() || cancelBooking.isPending}
+              disabled={!cancelReason.trim() || cancelBooking.isPending || (cancelRefundAmount > 0 && !cancelRefundBy.trim())}
               onClick={(e) => {
                 const r = cancelReason.trim();
                 if (!r) { e.preventDefault(); toast.error("Please enter a reason"); return; }
+                if (cancelRefundAmount > 0 && !cancelRefundBy.trim()) { e.preventDefault(); toast.error("Enter staff name for refund"); return; }
                 setCancelOpen(false);
-                cancelBooking.mutate(r);
+                cancelBooking.mutate({
+                  reason: r,
+                  refundAmount: cancelRefundAmount,
+                  refundMode: cancelRefundMode,
+                  refundCollectedBy: cancelRefundBy.trim(),
+                });
                 setCancelReason("");
+                setCancelRefundAmount(0);
+                setCancelRefundBy("");
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Cancel Booking
+              {cancelRefundAmount > 0 ? `Cancel & Refund ₹${cancelRefundAmount.toLocaleString("en-IN")}` : "Cancel Booking"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
 
 
       {addPaymentForCheckoutOpen && (
@@ -982,23 +1076,30 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
         </button>
       </div>
       <div className="space-y-1 text-sm">
-        <div className="flex justify-between"><span className="text-muted-foreground">Room &amp; Stay Total</span><span className="tabular-nums">₹{bookingAmount.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Room &amp; Stay Total</span><span className="tabular">₹{bookingAmount.toLocaleString("en-IN")}</span></div>
         {chargesTotal > 0 && (
-          <div className="flex justify-between"><span className="text-muted-foreground">In-House Charges</span><span className="tabular-nums">₹{chargesTotal.toLocaleString("en-IN")}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">In-House Charges</span><span className="tabular">₹{chargesTotal.toLocaleString("en-IN")}</span></div>
         )}
-        <div className="flex justify-between"><span className="text-muted-foreground">Total Payable</span><span className="tabular-nums">₹{(bookingAmount + chargesTotal).toLocaleString("en-IN")}</span></div>
-        <div className="flex justify-between"><span className="text-muted-foreground">Total Advance Paid</span><span className="tabular-nums">₹{advance.toLocaleString("en-IN")}</span></div>
-        <div className="flex justify-between border-t border-border pt-2"><span className="font-medium">Balance Due</span><span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Total Payable</span><span className="tabular">₹{(bookingAmount + chargesTotal).toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Total Advance Paid (net of refunds)</span><span className="tabular">₹{advance.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between border-t border-border pt-2 items-center"><span className="font-medium">Balance Due</span><span className="stat-num-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
       </div>
 
       {payments.length > 0 && (
         <div className="mt-4 space-y-2">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Payment History</div>
-          {payments.map((p) => (
-            <div key={p.id} className="text-xs rounded-md border border-border bg-secondary/40 px-3 py-2 flex items-start justify-between gap-2">
+          {payments.map((p) => {
+            const isRefund = (p as any).is_refund === true;
+            return (
+            <div key={p.id} className={cn("text-xs rounded-md border px-3 py-2 flex items-start justify-between gap-2",
+              isRefund ? "border-destructive/40 bg-destructive/5" : "border-border bg-secondary/40")}>
               <div className="min-w-0">
-                <div className="font-medium tabular-nums">₹{Number(p.amount).toLocaleString("en-IN")} <span className="text-muted-foreground">· {p.payment_mode}</span></div>
-                <div className="text-[10px] text-muted-foreground">Collected By: {p.collected_by} · {new Date(p.occurred_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</div>
+                <div className="font-medium tabular">
+                  {isRefund && <span className="text-destructive mr-1">REFUND</span>}
+                  <span className={isRefund ? "text-destructive" : ""}>{isRefund ? "−" : ""}₹{Number(p.amount).toLocaleString("en-IN")}</span>
+                  <span className="text-muted-foreground"> · {p.payment_mode}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground">{isRefund ? "Refunded By" : "Collected By"}: {p.collected_by} · {new Date(p.occurred_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</div>
                 {p.notes && <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{p.notes}</div>}
               </div>
               <div className="flex items-center gap-0.5 shrink-0">
@@ -1014,7 +1115,8 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
