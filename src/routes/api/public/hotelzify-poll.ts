@@ -176,6 +176,32 @@ async function gmailFetch(path: string, gatewayKey: string, connectionKey: strin
   return res.json();
 }
 
+function headersMap(msg: any): Record<string, string> {
+  const headers: { name: string; value: string }[] = msg.payload?.headers ?? [];
+  return Object.fromEntries(headers.map((h) => [h.name.toLowerCase(), h.value]));
+}
+
+async function getGmailProfile(gatewayKey: string, connectionKey: string): Promise<string | null> {
+  const profile = await gmailFetch("/users/me/profile", gatewayKey, connectionKey);
+  return profile.emailAddress ?? null;
+}
+
+async function runDiagnosticSearch(query: string, gatewayKey: string, connectionKey: string): Promise<DiagnosticSearch> {
+  try {
+    const list = await gmailFetch(`/users/me/messages?maxResults=5&q=${encodeURIComponent(query)}`, gatewayKey, connectionKey);
+    const messages: { id: string }[] = list.messages ?? [];
+    const samples: HeaderSample[] = [];
+    for (const m of messages.slice(0, 5)) {
+      const msg = await gmailFetch(`/users/me/messages/${m.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`, gatewayKey, connectionKey);
+      const h = headersMap(msg);
+      samples.push({ id: m.id, date: h.date ?? "", from: h.from ?? "", subject: h.subject ?? "" });
+    }
+    return { query, count: messages.length, resultSizeEstimate: list.resultSizeEstimate ?? messages.length, samples };
+  } catch (e: any) {
+    return { query, count: 0, resultSizeEstimate: 0, samples: [], error: e.message?.slice(0, 300) ?? String(e) };
+  }
+}
+
 export const Route = createFileRoute("/api/public/hotelzify-poll")({
   server: {
     handlers: {
