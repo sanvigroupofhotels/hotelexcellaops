@@ -266,6 +266,16 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
         const days = cfg.lookback_days ?? 30;
         const customQuery: string | undefined = cfg.search_query;
         const gmailQuery = customQuery ?? `from:${sender} newer_than:${days}d`;
+        const leadSource: string = cfg.lead_source ?? "Hotelzify";
+        const fieldLabels: Record<string, string[]> = (() => {
+          const raw = cfg.field_labels ?? {};
+          const out: Record<string, string[]> = {};
+          for (const [k, v] of Object.entries(raw)) {
+            if (Array.isArray(v)) out[k] = v.filter((x): x is string => typeof x === "string" && !!x.trim());
+            else if (typeof v === "string") out[k] = v.split(",").map((s) => s.trim()).filter(Boolean);
+          }
+          return out;
+        })();
 
         const runStart = new Date().toISOString();
         let scanned = 0;
