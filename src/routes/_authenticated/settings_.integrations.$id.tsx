@@ -58,6 +58,21 @@ function Content({ id }: { id: string }) {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const runSync = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/public/hotelzify-poll", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `Sync failed (${res.status})`);
+      return data as { scanned: number; created: number; updated: number };
+    },
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ["integration", id] });
+      qc.invalidateQueries({ queryKey: ["integration-runs", id] });
+      toast.success(`Sync done · scanned ${d.scanned} · created ${d.created} · updated ${d.updated}`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   if (isLoading || !row) return <div className="p-8"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>;
 
   return (
