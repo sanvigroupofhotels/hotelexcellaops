@@ -455,12 +455,14 @@ function HouseView() {
                                 const balanceDue = b.status === "Cancelled" ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
                                 return (
                                   <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={() => setSelected(b)}
+                                    data-booking-pill={b.id}
                                     className={cn(
                                       "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
                                       blockClasses(b.status),
                                       b._virtual && "border-dashed",
+                                      highlightId === b.id && "ring-4 ring-gold animate-pulse",
                                     )}
-                                    style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: 5 }}
+                                    style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: highlightId === b.id ? 10 : 5 }}
                                     title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}`}>
                                     {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
                                     {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
