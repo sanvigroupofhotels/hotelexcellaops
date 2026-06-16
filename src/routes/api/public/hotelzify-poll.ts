@@ -30,6 +30,21 @@ type ParsedBooking = {
   special_requests: string | null;
 };
 
+type HeaderSample = {
+  id?: string;
+  date: string;
+  from: string;
+  subject: string;
+};
+
+type DiagnosticSearch = {
+  query: string;
+  count: number;
+  resultSizeEstimate: number;
+  samples: HeaderSample[];
+  error?: string;
+};
+
 function decodeB64Url(s: string): string {
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
   return Buffer.from(b64, "base64").toString("utf-8");
@@ -60,42 +75,80 @@ function pick(text: string, re: RegExp): string | null {
   return m ? m[1].trim() : null;
 }
 
-function parseHotelzifyEmail(text: string, subject: string): ParsedBooking | null {
-  const bookingId = pick(text, /Booking\s*Id[:\s]*([0-9]+)/i) ?? pick(text, /Booking\s*(?:Reference|Ref|Number|No)\.?[:\s#]*([A-Z0-9-]+)/i);
-  if (!bookingId) return null;
+function normalizeDate(input: string | null): string | null {
+  if (!input) return null;
+  const s = input.trim().replace(/,/g, "");
+  let m = s.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  m = s.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+  if (m) {
+    const y = m[3].length === 2 ? `20${m[3]}` : m[3];
+    return `${y}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  }
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
 
-  const name = pick(text, /Name[:\s]*([^\n]+?)(?=\s*Mobile|\n)/i) ?? "";
-  const mobile = pick(text, /Mobile[:\s]*([+\d\s\-()]+)/i);
-  const email = pick(text, /Email[:\s]*([\w.+-]+@[\w.-]+)/i);
-  const checkIn = pick(text, /Check[-\s]*in[:\s]*([0-9]{4}-[0-9]{2}-[0-9]{2})/i) ?? pick(text, /Check[-\s]*in[:\s]*([0-9]{1,2}[-\/][0-9]{1,2}[-\/][0-9]{2,4})/i);
-  const checkOut = pick(text, /Check[-\s]*out[:\s]*([0-9]{4}-[0-9]{2}-[0-9]{2})/i) ?? pick(text, /Check[-\s]*out[:\s]*([0-9]{1,2}[-\/][0-9]{1,2}[-\/][0-9]{2,4})/i);
-  const guestCount = pick(text, /Guest\s*Count[:\s]*([0-9]+)/i);
-  const paymentMode = pick(text, /Payment\s*Mode[:\s]*([^\n]+?)(?=\n|$)/i);
-  const bookingStatus = pick(text, /Booking\s*Status[:\s]*([^\n]+?)(?=\n|Guest|Room|$)/i) ?? (subject.toLowerCase().includes("confirmed") ? "Confirmed" : "Pending Confirmation");
-  const totalAmount = pick(text, /Total\s*Amount[^:]*:\s*(?:INR|₹|Rs\.?)?\s*([\d,]+(?:\.\d+)?)/i);
-  const amountPaid = pick(text, /Amount\s*Paid[^:]*:\s*(?:INR|₹|Rs\.?)?\s*([\d,]+(?:\.\d+)?)/i);
-  const specialReq = pick(text, /Guest\s*Requests\s*\n?([^\n]+)/i);
+function parseMoney(input: string | null): number {
+  if (!input) return 0;
+  const cleaned = input.replace(/[^0-9.]/g, "");
+  return cleaned ? parseFloat(cleaned) : 0;
+}
 
-  let roomDetails = "";
-  const roomMatch = text.match(/Room\s*Name\s+Quantity\s+Total\s*Price\s*\n?\s*([^\n]+?)\s+(?:Adults?|Rooms?)/i);
-  if (roomMatch) roomDetails = roomMatch[1].trim();
+function parseHotelzifyEmail(text: string, subject: string): { booking: ParsedBooking | null; errors: string[] } {
+  const bookingId =
+    pick(text, /Booking\s*(?:Id|ID|Reference|Ref|Number|No)\.?\s*[:#-]?\s*([A-Z0-9-]+)/i) ??
+    pick(subject, /Booking[^A-Z0-9]*([A-Z0-9-]*\d[A-Z0-9-]*)/i);
+  const name =
+    pick(text, /(?:Guest\s*)?Name\s*[:\-]\s*([^\n]+?)(?=\s*(?:Mobile|Phone|Email|Check[-\s]*in)|\n|$)/i) ??
+    pick(text, /Guest\s*Details?\s*[:\-]?\s*([^\n]+)/i);
+  const mobile = pick(text, /(?:Mobile|Phone|Contact)(?:\s*No\.?)?\s*[:\-]\s*([+\d\s\-()]{7,})/i);
+  const email = pick(text, /Email\s*[:\-]\s*([\w.+-]+@[\w.-]+)/i);
+  const checkInRaw =
+    pick(text, /Check[-\s]*in(?:\s*Date)?\s*[:\-]\s*([^\n]+?)(?=\s*(?:Check[-\s]*out|Checkout|Guest|Room)|\n|$)/i) ??
+    pick(text, /Arrival(?:\s*Date)?\s*[:\-]\s*([^\n]+)/i);
+  const checkOutRaw =
+    pick(text, /Check[-\s]*out(?:\s*Date)?\s*[:\-]\s*([^\n]+?)(?=\s*(?:Guest|Room|Payment|Total)|\n|$)/i) ??
+    pick(text, /Departure(?:\s*Date)?\s*[:\-]\s*([^\n]+)/i);
+  const checkIn = normalizeDate(checkInRaw);
+  const checkOut = normalizeDate(checkOutRaw);
+  const guestCount = pick(text, /(?:Guest\s*Count|Guests?|Adults?)\s*[:\-]\s*([0-9]+)/i);
+  const paymentMode = pick(text, /Payment\s*Mode\s*[:\-]\s*([^\n]+?)(?=\n|$)/i);
+  const bookingStatus = pick(text, /Booking\s*Status\s*[:\-]\s*([^\n]+?)(?=\n|Guest|Room|$)/i) ?? (subject.toLowerCase().includes("confirmed") ? "Confirmed" : "Pending Confirmation");
+  const totalAmount =
+    pick(text, /Total\s*Amount[^:\n]*[:\-]\s*((?:INR|₹|Rs\.?)?\s*[\d,]+(?:\.\d+)?)/i) ??
+    pick(text, /Total\s*Price[^:\n]*[:\-]\s*((?:INR|₹|Rs\.?)?\s*[\d,]+(?:\.\d+)?)/i);
+  const amountPaid = pick(text, /Amount\s*Paid[^:\n]*[:\-]\s*((?:INR|₹|Rs\.?)?\s*[\d,]+(?:\.\d+)?)/i);
+  const specialReq = pick(text, /(?:Guest\s*Requests?|Special\s*Requests?)\s*[:\-]?\s*([^\n]+)/i);
 
-  if (!checkIn || !checkOut || !name) return null;
+  let roomDetails = pick(text, /Room\s*(?:Name|Type|Details?)\s*[:\-]\s*([^\n]+?)(?=\s*(?:Quantity|Adults|Guests|Total)|\n|$)/i) ?? "";
+  const roomMatch = text.match(/Room\s*Name\s+Quantity\s+Total\s*Price\s*\n?\s*([^\n]+?)\s+(?:Adults?|Rooms?|Guests?)/i);
+  if (!roomDetails && roomMatch) roomDetails = roomMatch[1].trim();
+
+  const errors: string[] = [];
+  if (!bookingId) errors.push("missing booking id / external reference");
+  if (!name) errors.push("missing guest name");
+  if (!checkIn) errors.push(`missing or invalid check-in date${checkInRaw ? ` (${checkInRaw})` : ""}`);
+  if (!checkOut) errors.push(`missing or invalid check-out date${checkOutRaw ? ` (${checkOutRaw})` : ""}`);
+  if (errors.length > 0 || !bookingId || !name || !checkIn || !checkOut) return { booking: null, errors };
 
   return {
-    external_ref: bookingId,
-    guest_name: name.replace(/\s*\([^)]*\)\s*$/, "").trim(),
-    phone: mobile ? mobile.replace(/[\s\-()]/g, "") : null,
-    email: email?.toLowerCase() ?? null,
-    check_in: checkIn,
-    check_out: checkOut,
-    guests: guestCount ? parseInt(guestCount, 10) : 1,
-    room_details: roomDetails,
-    total_amount: totalAmount ? parseFloat(totalAmount.replace(/,/g, "")) : 0,
-    amount_paid: amountPaid ? parseFloat(amountPaid.replace(/,/g, "")) : 0,
-    payment_mode: paymentMode?.trim() ?? null,
-    booking_status: bookingStatus.trim(),
-    special_requests: specialReq && !/^none$/i.test(specialReq) ? specialReq.trim() : null,
+    booking: {
+      external_ref: bookingId,
+      guest_name: name.replace(/\s*\([^)]*\)\s*$/, "").trim(),
+      phone: mobile ? mobile.replace(/[\s\-()]/g, "") : null,
+      email: email?.toLowerCase() ?? null,
+      check_in: checkIn,
+      check_out: checkOut,
+      guests: guestCount ? parseInt(guestCount, 10) : 1,
+      room_details: roomDetails,
+      total_amount: parseMoney(totalAmount),
+      amount_paid: parseMoney(amountPaid),
+      payment_mode: paymentMode?.trim() ?? null,
+      booking_status: bookingStatus.trim(),
+      special_requests: specialReq && !/^none$/i.test(specialReq) ? specialReq.trim() : null,
+    },
+    errors: [],
   };
 }
 
