@@ -392,10 +392,18 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
 
           const summary = `query="${gmailQuery}" · scanned ${scanned} · matched ${matched} · parsed ${parsedCount} · created ${created} · updated ${updated}${errors.length ? ` · ${errors.length} errors` : ""}`;
           const excerpt = [
+            `Gmail account: ${accountEmail ?? "unknown"}`,
             `Query: ${gmailQuery}`,
-            `Subjects seen: ${sampleSubjects.map((s) => `"${s}"`).join(" | ") || "(none)"}`,
-            errors.length ? `Errors:\n${errors.slice(0, 5).join("\n")}` : "",
-          ].filter(Boolean).join("\n").slice(0, 1000);
+            `Emails Scanned: ${scanned}`,
+            `Emails Matched: ${matched}`,
+            `Emails Parsed: ${parsedCount}`,
+            `Bookings Created: ${created}`,
+            `Bookings Updated: ${updated}`,
+            `First 5 email subjects/senders seen:\n${headerSamples.map((s) => `- From: ${s.from || "—"} | Subject: ${s.subject || "—"}`).join("\n") || "(none)"}`,
+            parserErrors.length ? `Parser errors:\n${parserErrors.slice(0, 8).join("\n")}` : "",
+            errors.length ? `Errors:\n${errors.slice(0, 8).join("\n")}` : "",
+            diagnosticSearches.length ? `Diagnostic Gmail searches:\n${diagnosticSearches.map((d) => `- ${d.query}: ${d.error ? `ERROR ${d.error}` : `${d.count} returned, estimate ${d.resultSizeEstimate}`}${d.samples.length ? `\n  ${d.samples.map((s) => `From: ${s.from || "—"} | Subject: ${s.subject || "—"}`).join("\n  ")}` : ""}`).join("\n")}` : "",
+          ].filter(Boolean).join("\n").slice(0, 5000);
 
           await supabaseAdmin.from("integration_runs").insert({
             integration_id: intg.id,
@@ -410,10 +418,13 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
 
           return Response.json({
             ok: true,
+            gmail_account: accountEmail,
             query: gmailQuery,
             scanned, matched, parsed: parsedCount, created, updated,
             errors,
-            sample_subjects: debug ? sampleSubjects : undefined,
+            parser_errors: parserErrors,
+            first_5_email_subjects_seen: headerSamples,
+            diagnostic_searches: debug || scanned === 0 ? diagnosticSearches : undefined,
           });
         } catch (e: any) {
           await supabaseAdmin.from("integration_runs").insert({
