@@ -19,6 +19,46 @@ export const Route = createFileRoute("/_authenticated/settings_/integrations/$id
 const inputCls = "w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40";
 const labelCls = "text-[11px] uppercase tracking-wider text-muted-foreground";
 
+type SyncDebugResponse = {
+  gmail_account?: string | null;
+  query: string;
+  scanned: number;
+  matched: number;
+  parsed: number;
+  created: number;
+  updated: number;
+  errors?: string[];
+  parser_errors?: string[];
+  first_5_email_subjects_seen?: { date?: string; from: string; subject: string }[];
+  diagnostic_searches?: { query: string; count: number; resultSizeEstimate: number; samples: { from: string; subject: string }[]; error?: string }[];
+};
+
+function extractMetric(text: string, label: string): number {
+  const re = new RegExp(`${label}\\s+(\\d+)`, "i");
+  const m = text.match(re);
+  return m ? Number(m[1]) : 0;
+}
+
+function latestRunDebug(runs: any[]): Partial<SyncDebugResponse> | null {
+  const latest = runs[0];
+  if (!latest) return null;
+  const body = `${latest.message ?? ""}\n${latest.payload_excerpt ?? ""}`;
+  const query = body.match(/Query:\s*([^\n]+)/i)?.[1] ?? body.match(/query="([^"]+)"/i)?.[1] ?? "—";
+  const samplesBlock = body.match(/First 5 email subjects\/senders seen:\n([\s\S]*?)(?:\nParser errors:|\nErrors:|\nDiagnostic Gmail searches:|$)/i)?.[1] ?? "";
+  const errorsBlock = body.match(/(?:Parser errors|Errors):\n([\s\S]*?)(?:\nDiagnostic Gmail searches:|$)/i)?.[1] ?? "";
+  return {
+    gmail_account: body.match(/Gmail account:\s*([^\n]+)/i)?.[1] ?? undefined,
+    query,
+    scanned: extractMetric(body, "scanned") || extractMetric(body, "Emails Scanned:"),
+    matched: extractMetric(body, "matched") || extractMetric(body, "Emails Matched:"),
+    parsed: extractMetric(body, "parsed") || extractMetric(body, "Emails Parsed:"),
+    created: latest.created_count ?? extractMetric(body, "created") || extractMetric(body, "Bookings Created:"),
+    updated: latest.updated_count ?? extractMetric(body, "updated") || extractMetric(body, "Bookings Updated:"),
+    errors: errorsBlock ? errorsBlock.split("\n").filter(Boolean) : [],
+    first_5_email_subjects_seen: samplesBlock.split("\n").filter(Boolean).map((line: string) => ({ from: line.replace(/^-\s*From:\s*/i, "").split(" | Subject:")[0] ?? "", subject: line.split(" | Subject:")[1] ?? line })),
+  };
+}
+
 function IntegrationDetailPage() {
   const { id } = useParams({ from: "/_authenticated/settings_/integrations/$id" });
   return (
