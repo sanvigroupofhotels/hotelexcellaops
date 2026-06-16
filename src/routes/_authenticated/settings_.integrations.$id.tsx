@@ -254,6 +254,26 @@ function ConfigHint({ type }: { type: IntegrationRow["type"] }) {
   return <div className="text-[10px] text-muted-foreground mt-1">Example: <code className="bg-muted/40 px-1 rounded">{hints[type]}</code></div>;
 }
 
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-muted/25 rounded-lg px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-lg font-semibold tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+function DebugList({ title, items, empty }: { title: string; items: string[]; empty: string }) {
+  return (
+    <div className="space-y-1.5">
+      <div className={labelCls}>{title}</div>
+      <div className="bg-muted/25 rounded px-3 py-2 text-[11px] text-muted-foreground space-y-1">
+        {items.length === 0 ? <div>{empty}</div> : items.slice(0, 8).map((item, idx) => <div key={`${item}-${idx}`}>• {item}</div>)}
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (<div className="space-y-1.5"><div className={labelCls}>{label}</div>{children}</div>);
 }
