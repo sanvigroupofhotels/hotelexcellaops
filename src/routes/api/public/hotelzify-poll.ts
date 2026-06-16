@@ -278,7 +278,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
                     integration_id: intg.id,
                     external_ref: parsed.external_ref,
                     raw_payload: { subject, parsed, gmail_message_id: m.id },
-                    status: "processed",
+                    state: "processed",
                   } as any,
                   { onConflict: "integration_id,external_ref" },
                 );
