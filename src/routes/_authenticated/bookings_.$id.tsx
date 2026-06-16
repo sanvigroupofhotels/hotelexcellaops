@@ -701,47 +701,104 @@ function BookingDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Cancel Booking with mandatory reason */}
-      <AlertDialog open={cancelOpen} onOpenChange={(o) => { setCancelOpen(o); if (!o) setCancelReason(""); }}>
-        <AlertDialogContent>
+      {/* Cancel Booking with mandatory reason + optional refund */}
+      <AlertDialog open={cancelOpen} onOpenChange={(o) => { setCancelOpen(o); if (!o) { setCancelReason(""); setCancelRefundAmount(0); } }}>
+        <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Booking?</AlertDialogTitle>
             <AlertDialogDescription>
-              The booking will be marked <span className="font-medium text-foreground">Cancelled</span>, assigned rooms become vacant and Due is set to ₹0. This is recorded with your name and time.
+              The booking will be marked <span className="font-medium text-foreground">Cancelled</span>, assigned rooms become vacant and Due is set to ₹0.
+              {Number(b.advance_paid || 0) > 0 && (
+                <> Total paid so far: <span className="stat-num text-foreground">₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</span>. Record a refund below if applicable.</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="px-1 space-y-2">
-            <label className="block text-[11px] uppercase tracking-wider text-muted-foreground">Reason for cancellation <span className="text-destructive">*</span></label>
-            <div className="flex flex-wrap gap-1.5">
-              {["Guest cancelled", "Duplicate booking", "Guest no-show", "Wrong dates booked", "OTA cancelled", "Other"].map((r) => (
-                <button key={r} type="button" onClick={() => setCancelReason(r)}
-                  className={cn("rounded-full border px-2.5 py-1 text-[11px]",
-                    cancelReason === r ? "border-gold bg-gold-soft/40" : "border-border bg-card hover:border-gold/40")}>
-                  {r}
-                </button>
-              ))}
+          <div className="px-1 space-y-3">
+            <div>
+              <label className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Reason for cancellation <span className="text-destructive">*</span></label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {["Guest cancelled", "Duplicate booking", "Guest no-show", "Wrong dates booked", "OTA cancelled", "Other"].map((r) => (
+                  <button key={r} type="button" onClick={() => setCancelReason(r)}
+                    className={cn("rounded-full border px-2.5 py-1 text-[11px]",
+                      cancelReason === r ? "border-gold bg-gold-soft/40" : "border-border bg-card hover:border-gold/40")}>
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={2}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+                placeholder="Add details (required)" />
             </div>
-            <textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={3}
-              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-              placeholder="Add details (required)" />
+
+            {Number(b.advance_paid || 0) > 0 && (
+              <div className="rounded-md border border-border bg-card/40 p-3 space-y-2">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Refund (optional)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block text-xs">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Amount (₹)</span>
+                    <input type="number" min={0} max={Number(b.advance_paid || 0)} step="0.01"
+                      value={cancelRefundAmount || ""}
+                      onChange={(e) => setCancelRefundAmount(Math.max(0, Math.min(Number(b.advance_paid || 0), Number(e.target.value) || 0)))}
+                      className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm stat-num"
+                      placeholder="0" />
+                  </label>
+                  <label className="block text-xs">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Mode</span>
+                    <select value={cancelRefundMode} onChange={(e) => setCancelRefundMode(e.target.value)}
+                      className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
+                      <option>Cash</option>
+                      <option>UPI</option>
+                      <option>Card</option>
+                      <option>Bank Transfer</option>
+                    </select>
+                  </label>
+                  <label className="col-span-2 block text-xs">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Refunded By</span>
+                    <input value={cancelRefundBy} onChange={(e) => setCancelRefundBy(e.target.value)}
+                      className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+                      placeholder="Staff name" />
+                  </label>
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  <button type="button" onClick={() => setCancelRefundAmount(Number(b.advance_paid || 0))}
+                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[10px] hover:border-gold/40">Full ₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</button>
+                  <button type="button" onClick={() => setCancelRefundAmount(Math.round(Number(b.advance_paid || 0) / 2))}
+                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[10px] hover:border-gold/40">Half</button>
+                  <button type="button" onClick={() => setCancelRefundAmount(0)}
+                    className="rounded-full border border-border bg-card px-2.5 py-1 text-[10px] hover:border-gold/40">No refund</button>
+                </div>
+                {cancelRefundMode === "Cash" && cancelRefundAmount > 0 && (
+                  <p className="text-[10px] text-warning">A matching <b>cashbook expense</b> of ₹{cancelRefundAmount.toLocaleString("en-IN")} will be created automatically.</p>
+                )}
+              </div>
+            )}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Close</AlertDialogCancel>
             <AlertDialogAction
-              disabled={!cancelReason.trim() || cancelBooking.isPending}
+              disabled={!cancelReason.trim() || cancelBooking.isPending || (cancelRefundAmount > 0 && !cancelRefundBy.trim())}
               onClick={(e) => {
                 const r = cancelReason.trim();
                 if (!r) { e.preventDefault(); toast.error("Please enter a reason"); return; }
+                if (cancelRefundAmount > 0 && !cancelRefundBy.trim()) { e.preventDefault(); toast.error("Enter staff name for refund"); return; }
                 setCancelOpen(false);
-                cancelBooking.mutate(r);
+                cancelBooking.mutate({
+                  reason: r,
+                  refundAmount: cancelRefundAmount,
+                  refundMode: cancelRefundMode,
+                  refundCollectedBy: cancelRefundBy.trim(),
+                });
                 setCancelReason("");
+                setCancelRefundAmount(0);
+                setCancelRefundBy("");
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Cancel Booking
+              {cancelRefundAmount > 0 ? `Cancel & Refund ₹${cancelRefundAmount.toLocaleString("en-IN")}` : "Cancel Booking"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
 
 
       {addPaymentForCheckoutOpen && (
