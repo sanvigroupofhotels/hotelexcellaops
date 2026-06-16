@@ -160,6 +160,7 @@ function IntegrationsTab() {
       )}
       {rows.map((r) => (
         <IntegrationCard key={r.id} row={r}
+          onActivate={() => update.mutate({ id: r.id, patch: { status: "connected" } })}
           onToggle={() => update.mutate({ id: r.id, patch: { status: r.status === "disabled" ? "draft" : "disabled" } })}
           onDelete={() => { if (confirm("Remove this integration?")) del.mutate(r.id); }} />
       ))}
