@@ -258,23 +258,107 @@ function HouseView() {
   const breakfastRoomNumbers = breakfastBookings.flatMap(roomNumbersFor);
   const inHouseRoomNumbers = inHouseBookings.flatMap(roomNumbersFor);
 
+  // ---------- Search ----------
+  const normalized = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const normPhone = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "");
+  const searchMatches = useMemo(() => {
+    const q = searchQ.trim();
+    if (!q) return [] as any[];
+    const qNorm = normalized(q);
+    const qDigits = normPhone(q);
+    return (bookings as any[]).filter((b) => {
+      if (b.status === "Cancelled") return false;
+      const nameHit = qNorm.length >= 2 && normalized(b.guest_name).includes(qNorm);
+      const refHit = qNorm.length >= 2 && normalized(b.booking_reference).includes(qNorm);
+      const phoneHit = qDigits.length >= 3 && normPhone(b.phone).includes(qDigits);
+      return nameHit || refHit || phoneHit;
+    }).slice(0, 20);
+  }, [searchQ, bookings]);
+
+  function jumpToBooking(b: any) {
+    // Snap anchor to the booking start (clamped to today if in past) and highlight
+    const today = new Date(); today.setHours(0,0,0,0);
+    const ci = new Date(b.check_in);
+    const target = ci < today ? today : ci;
+    target.setHours(0,0,0,0);
+    setAnchor(target);
+    setHighlightId(b.id);
+    setSearchQ("");
+    // Scroll into view shortly after rerender
+    setTimeout(() => {
+      const el = document.querySelector(`[data-booking-pill="${b.id}"]`) as HTMLElement | null;
+      if (el && typeof el.scrollIntoView === "function") {
+        el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      }
+      setTimeout(() => setHighlightId(null), 2400);
+    }, 80);
+  }
+
+  const todayLabel = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
   return (
     <>
       <Topbar title="House View" subtitle="Room occupancy at a glance" />
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1600px] space-y-6">
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1600px] space-y-4">
 
-        {/* Navigation + House Overview */}
+        {/* Search */}
+        <div className="luxe-card rounded-xl p-3">
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQ}
+              onChange={(e) => setSearchQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && searchMatches.length > 0) jumpToBooking(searchMatches[0]);
+                if (e.key === "Escape") setSearchQ("");
+              }}
+              placeholder="Search bookings, guests, mobile…"
+              className="w-full bg-input/60 border border-border rounded-md pl-9 pr-9 py-2.5 text-sm placeholder:text-muted-foreground/60"
+            />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+            {searchQ && (
+              <button onClick={() => setSearchQ("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+            {searchQ.trim() && searchMatches.length > 0 && (
+              <div className="absolute z-40 left-0 right-0 mt-1 luxe-card rounded-md max-h-80 overflow-auto shadow-xl">
+                {searchMatches.map((m) => {
+                  const roomNums = pairStaySlotsToRooms(m, itemsByBooking, assignmentsByBooking, rooms as any[]).paired
+                    .map(({ room_id }) => (rooms as any[]).find((r) => r.id === room_id)?.room_number).filter(Boolean);
+                  return (
+                    <button key={m.id} onClick={() => jumpToBooking(m)}
+                      className="w-full text-left px-3 py-2 border-b border-border last:border-b-0 hover:bg-gold-soft/20">
+                      <div className="text-sm font-medium">{m.guest_name} <span className="text-[11px] text-muted-foreground">· {m.booking_reference}</span></div>
+                      <div className="text-[11px] text-muted-foreground tabular">
+                        {m.phone ? `+${normPhone(m.phone).replace(/^91/, "91 ")}` : "—"} · {fmtFull(m.check_in)} → {fmtFull(m.check_out)}
+                        {roomNums.length > 0 ? ` · Room ${roomNums.join(", ")}` : ""}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {searchQ.trim() && searchMatches.length === 0 && (
+              <div className="absolute z-40 left-0 right-0 mt-1 luxe-card rounded-md p-3 text-xs text-muted-foreground">No matching bookings.</div>
+            )}
+          </div>
+        </div>
+
+        {/* Navigation + House Overview header row */}
         <div className="luxe-card rounded-xl p-4 flex items-center justify-between gap-3">
           <button onClick={() => setAnchor((d) => addDays(d, -1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronLeft className="h-4 w-4" /></button>
           <div className="flex items-center gap-2 flex-wrap justify-center">
+            <span className="hidden md:inline text-sm font-medium">House Overview</span>
             <input type="date" value={dateKey(anchor)} onChange={(e) => { const d = new Date(e.target.value); if (!isNaN(d.getTime())) setAnchor(d); }}
               className="bg-input/60 border border-border rounded-md px-3 py-1.5 text-sm" />
             <button onClick={() => { const t = new Date(); t.setHours(0,0,0,0); setAnchor(t); }}
               className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
             <button onClick={() => setStatsOpen(true)}
               className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5">
-              <Hotel className="h-3.5 w-3.5" /> House Overview
+              <Hotel className="h-3.5 w-3.5" /> Stats
             </button>
+            <span className="text-[11px] text-muted-foreground tabular hidden md:inline">Today · {todayLabel}</span>
           </div>
           <button onClick={() => setAnchor((d) => addDays(d, 1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronRight className="h-4 w-4" /></button>
         </div>
