@@ -13,6 +13,8 @@ export interface BookingPaymentRow {
   collected_by: string;
   occurred_at: string;
   notes: string | null;
+  is_refund?: boolean;
+  refund_reason?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,6 +27,8 @@ export interface BookingPaymentInput {
   collected_by: string;
   occurred_at?: string;
   notes?: string | null;
+  is_refund?: boolean;
+  refund_reason?: string | null;
 }
 
 export async function listBookingPayments(booking_id: string) {
