@@ -16,6 +16,7 @@ import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedStaffRouteImport } from './routes/_authenticated/staff'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSalaryRouteImport } from './routes/_authenticated/salary'
 import { Route as AuthenticatedRoomsRouteImport } from './routes/_authenticated/rooms'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
@@ -44,6 +45,7 @@ import { Route as AuthenticatedComplaintsIdRouteImport } from './routes/_authent
 import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenticated/bookings_.new'
 import { Route as AuthenticatedBookingsIdRouteImport } from './routes/_authenticated/bookings_.$id'
 import { Route as AuthenticatedStaffIdLedgerRouteImport } from './routes/_authenticated/staff_.$id.ledger'
+import { Route as AuthenticatedSettingsIntegrationsIdRouteImport } from './routes/_authenticated/settings_.integrations.$id'
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
 import { Route as AuthenticatedBookingsIdEditRouteImport } from './routes/_authenticated/bookings_.$id_.edit'
 
@@ -79,6 +81,11 @@ const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
 const AuthenticatedStaffRoute = AuthenticatedStaffRouteImport.update({
   id: '/staff',
   path: '/staff',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedSalaryRoute = AuthenticatedSalaryRouteImport.update({
@@ -228,6 +235,12 @@ const AuthenticatedStaffIdLedgerRoute =
     path: '/staff/$id/ledger',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsIntegrationsIdRoute =
+  AuthenticatedSettingsIntegrationsIdRouteImport.update({
+    id: '/settings_/integrations/$id',
+    path: '/settings/integrations/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedQuoteIdEditRoute =
   AuthenticatedQuoteIdEditRouteImport.update({
     id: '/quote/$id_/edit',
@@ -265,6 +278,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/salary': typeof AuthenticatedSalaryRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/staff': typeof AuthenticatedStaffRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
@@ -277,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
+  '/settings/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
   '/staff/$id/ledger': typeof AuthenticatedStaffIdLedgerRoute
 }
 export interface FileRoutesByTo {
@@ -302,6 +317,7 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/salary': typeof AuthenticatedSalaryRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/staff': typeof AuthenticatedStaffRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRoute
@@ -315,6 +331,7 @@ export interface FileRoutesByTo {
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
+  '/settings/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
   '/staff/$id/ledger': typeof AuthenticatedStaffIdLedgerRoute
 }
 export interface FileRoutesById {
@@ -342,6 +359,7 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rooms': typeof AuthenticatedRoomsRoute
   '/_authenticated/salary': typeof AuthenticatedSalaryRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/staff': typeof AuthenticatedStaffRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
@@ -355,6 +373,7 @@ export interface FileRoutesById {
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
+  '/_authenticated/settings_/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
   '/_authenticated/staff_/$id/ledger': typeof AuthenticatedStaffIdLedgerRoute
 }
 export interface FileRouteTypes {
@@ -383,6 +402,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/rooms'
     | '/salary'
+    | '/settings'
     | '/staff'
     | '/tasks'
     | '/users'
@@ -395,6 +415,7 @@ export interface FileRouteTypes {
     | '/api/public/razorpay-webhook'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
+    | '/settings/integrations/$id'
     | '/staff/$id/ledger'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -420,6 +441,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/rooms'
     | '/salary'
+    | '/settings'
     | '/staff'
     | '/tasks'
     | '/users'
@@ -433,6 +455,7 @@ export interface FileRouteTypes {
     | '/api/public/razorpay-webhook'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
+    | '/settings/integrations/$id'
     | '/staff/$id/ledger'
   id:
     | '__root__'
@@ -459,6 +482,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/_authenticated/rooms'
     | '/_authenticated/salary'
+    | '/_authenticated/settings'
     | '/_authenticated/staff'
     | '/_authenticated/tasks'
     | '/_authenticated/users'
@@ -472,6 +496,7 @@ export interface FileRouteTypes {
     | '/api/public/razorpay-webhook'
     | '/_authenticated/bookings_/$id_/edit'
     | '/_authenticated/quote/$id_/edit'
+    | '/_authenticated/settings_/integrations/$id'
     | '/_authenticated/staff_/$id/ledger'
   fileRoutesById: FileRoutesById
 }
@@ -531,6 +556,13 @@ declare module '@tanstack/react-router' {
       path: '/staff'
       fullPath: '/staff'
       preLoaderRoute: typeof AuthenticatedStaffRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/salary': {
@@ -729,6 +761,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStaffIdLedgerRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings_/integrations/$id': {
+      id: '/_authenticated/settings_/integrations/$id'
+      path: '/settings/integrations/$id'
+      fullPath: '/settings/integrations/$id'
+      preLoaderRoute: typeof AuthenticatedSettingsIntegrationsIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/quote/$id_/edit': {
       id: '/_authenticated/quote/$id_/edit'
       path: '/quote/$id/edit'
@@ -768,6 +807,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRoomsRoute: typeof AuthenticatedRoomsRoute
   AuthenticatedSalaryRoute: typeof AuthenticatedSalaryRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStaffRoute: typeof AuthenticatedStaffRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
@@ -779,6 +819,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
   AuthenticatedBookingsIdEditRoute: typeof AuthenticatedBookingsIdEditRoute
   AuthenticatedQuoteIdEditRoute: typeof AuthenticatedQuoteIdEditRoute
+  AuthenticatedSettingsIntegrationsIdRoute: typeof AuthenticatedSettingsIntegrationsIdRoute
   AuthenticatedStaffIdLedgerRoute: typeof AuthenticatedStaffIdLedgerRoute
 }
 
@@ -804,6 +845,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRoomsRoute: AuthenticatedRoomsRoute,
   AuthenticatedSalaryRoute: AuthenticatedSalaryRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStaffRoute: AuthenticatedStaffRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
@@ -815,6 +857,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
   AuthenticatedBookingsIdEditRoute: AuthenticatedBookingsIdEditRoute,
   AuthenticatedQuoteIdEditRoute: AuthenticatedQuoteIdEditRoute,
+  AuthenticatedSettingsIntegrationsIdRoute:
+    AuthenticatedSettingsIntegrationsIdRoute,
   AuthenticatedStaffIdLedgerRoute: AuthenticatedStaffIdLedgerRoute,
 }
 
@@ -831,13 +875,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

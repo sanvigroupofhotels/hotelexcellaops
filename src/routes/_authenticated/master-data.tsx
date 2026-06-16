@@ -34,38 +34,49 @@ type GroupDef = { label: string; categories: CategoryDef[]; deepLinks?: { label:
 
 const GROUPS: GroupDef[] = [
   {
-    label: "Customers",
+    label: "General",
     categories: [
       { kind: "lookup", key: "lead_source", label: "Lead Sources", placeholder: "e.g. Agoda" },
       { kind: "lookup", key: "tag", label: "Customer Tags", placeholder: "e.g. VIP" },
     ],
   },
   {
-    label: "Bookings / Quotes",
+    label: "Rooms",
     categories: [
-      { kind: "lookup", key: "payment_method", label: "Payment Methods", placeholder: "e.g. Wallet" },
-      { kind: "lookup", key: "in_house_charge", label: "In-House Charge Categories", placeholder: "e.g. Spa" },
+      { kind: "lookup", key: "room_category", label: "Room Categories", placeholder: "e.g. Suite" },
+      { kind: "lookup", key: "room_status", label: "Room Statuses", placeholder: "e.g. Available" },
+      { kind: "lookup", key: "block_reason", label: "Block Reasons", placeholder: "e.g. Maintenance" },
     ],
-  },
-  {
-    label: "Booking Settings",
-    categories: [
-      { kind: "settings", key: "payment_settings", label: "Payment Settings" },
-    ],
-  },
-  {
-    label: "Rooms & Rates",
-    categories: [],
     deepLinks: [
       { label: "Manage Rooms & Inventory", to: "/rooms" },
       { label: "Rates & Inventory Calendar", to: "/rates" },
     ],
   },
   {
-    label: "CashBook",
+    label: "Finance",
+    categories: [
+      { kind: "lookup", key: "payment_mode", label: "Payment Modes", placeholder: "e.g. UPI" },
+      { kind: "lookup", key: "charge_category", label: "Charge Categories", placeholder: "e.g. Spa" },
+      { kind: "lookup", key: "expense_category", label: "Expense Categories", placeholder: "e.g. Utilities" },
+      { kind: "lookup", key: "tax", label: "GST / Taxes", placeholder: "e.g. GST 18%" },
+      { kind: "settings", key: "payment_settings", label: "Payment Settings" },
+    ],
+  },
+  {
+    label: "Operations",
+    categories: [
+      { kind: "lookup", key: "issue_type", label: "Issue Types", placeholder: "e.g. Plumbing" },
+      { kind: "lookup", key: "issue_priority", label: "Priorities", placeholder: "e.g. High" },
+      { kind: "lookup", key: "cancellation_reason", label: "Cancellation Reasons", placeholder: "e.g. No Show" },
+      { kind: "lookup", key: "override_reason", label: "Override Reasons", placeholder: "e.g. VIP Guest" },
+      { kind: "lookup", key: "complaint_status", label: "Complaint Statuses", placeholder: "e.g. In Progress" },
+    ],
+  },
+  {
+    label: "CashBook Masters",
     categories: [
       { kind: "name", key: "staff", label: "Staff", placeholder: "e.g. Ravi Kumar" },
-      { kind: "name", key: "expense_types", label: "Expense Types", placeholder: "e.g. Laundry" },
+      { kind: "name", key: "expense_types", label: "Expense Types (Legacy)", placeholder: "e.g. Laundry" },
       { kind: "lookup", key: "income_category", label: "Income Categories", placeholder: "e.g. Donation" },
     ],
   },
@@ -73,6 +84,13 @@ const GROUPS: GroupDef[] = [
     label: "Complaints",
     categories: [
       { kind: "name", key: "complaint_categories", label: "Complaint Categories", placeholder: "e.g. Plumbing" },
+    ],
+  },
+  {
+    label: "Templates",
+    categories: [
+      { kind: "lookup", key: "whatsapp_template", label: "WhatsApp Templates", placeholder: "Template content" },
+      { kind: "lookup", key: "message_template", label: "Message Templates", placeholder: "Template content" },
     ],
   },
 ];
