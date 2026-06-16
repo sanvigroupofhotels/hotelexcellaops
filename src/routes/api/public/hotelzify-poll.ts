@@ -3,12 +3,12 @@
  *
  * URL: /api/public/hotelzify-poll  (called by pg_cron every 5 minutes)
  *
- * Flow:
- *   1. Load active 'hotelzify' integration row
- *   2. Search Gmail (via connector gateway) for new mails from support@hotelzify.com
- *   3. Parse each message → upsert into bookings + external_bookings (dedupe via booking_id)
- *   4. Mark messages as read so they aren't re-imported
- *   5. Record an integration_runs row
+ * Behavior:
+ *   - Default Gmail query: `from:<sender> newer_than:30d` (no is:unread, no subject filter).
+ *   - Optional config.subject_filters: applied AFTER fetching; counted as "matched".
+ *   - Optional config.search_query: overrides the Gmail query entirely (debug).
+ *   - Dedupe via external_bookings (integration_id, external_ref) — emails are NOT marked read,
+ *     so re-runs are safe.
  */
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -41,14 +41,12 @@ function extractTextFromPayload(payload: any): string {
   const walk = (p: any) => {
     if (p.body?.data) {
       const decoded = decodeB64Url(p.body.data);
-      if (p.mimeType === "text/plain") parts.push(decoded);
-      else if (p.mimeType === "text/html") parts.push(decoded);
+      if (p.mimeType === "text/plain" || p.mimeType === "text/html") parts.push(decoded);
     }
     if (Array.isArray(p.parts)) p.parts.forEach(walk);
   };
   walk(payload);
   let text = parts.join("\n");
-  // strip HTML if present
   text = text.replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<script[\s\S]*?<\/script>/gi, " ");
   text = text.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|tr|li|h\d)>/gi, "\n");
   text = text.replace(/<[^>]+>/g, " ");
@@ -63,22 +61,21 @@ function pick(text: string, re: RegExp): string | null {
 }
 
 function parseHotelzifyEmail(text: string, subject: string): ParsedBooking | null {
-  const bookingId = pick(text, /Booking\s*Id[:\s]*([0-9]+)/i);
+  const bookingId = pick(text, /Booking\s*Id[:\s]*([0-9]+)/i) ?? pick(text, /Booking\s*(?:Reference|Ref|Number|No)\.?[:\s#]*([A-Z0-9-]+)/i);
   if (!bookingId) return null;
 
   const name = pick(text, /Name[:\s]*([^\n]+?)(?=\s*Mobile|\n)/i) ?? "";
   const mobile = pick(text, /Mobile[:\s]*([+\d\s\-()]+)/i);
   const email = pick(text, /Email[:\s]*([\w.+-]+@[\w.-]+)/i);
-  const checkIn = pick(text, /Check[-\s]*in[:\s]*([0-9]{4}-[0-9]{2}-[0-9]{2})/i);
-  const checkOut = pick(text, /Check[-\s]*out[:\s]*([0-9]{4}-[0-9]{2}-[0-9]{2})/i);
+  const checkIn = pick(text, /Check[-\s]*in[:\s]*([0-9]{4}-[0-9]{2}-[0-9]{2})/i) ?? pick(text, /Check[-\s]*in[:\s]*([0-9]{1,2}[-\/][0-9]{1,2}[-\/][0-9]{2,4})/i);
+  const checkOut = pick(text, /Check[-\s]*out[:\s]*([0-9]{4}-[0-9]{2}-[0-9]{2})/i) ?? pick(text, /Check[-\s]*out[:\s]*([0-9]{1,2}[-\/][0-9]{1,2}[-\/][0-9]{2,4})/i);
   const guestCount = pick(text, /Guest\s*Count[:\s]*([0-9]+)/i);
   const paymentMode = pick(text, /Payment\s*Mode[:\s]*([^\n]+?)(?=\n|$)/i);
   const bookingStatus = pick(text, /Booking\s*Status[:\s]*([^\n]+?)(?=\n|Guest|Room|$)/i) ?? (subject.toLowerCase().includes("confirmed") ? "Confirmed" : "Pending Confirmation");
-  const totalAmount = pick(text, /Total\s*Amount[^:]*:\s*INR\s*([\d,]+(?:\.\d+)?)/i);
-  const amountPaid = pick(text, /Amount\s*Paid[^:]*:\s*INR\s*([\d,]+(?:\.\d+)?)/i);
+  const totalAmount = pick(text, /Total\s*Amount[^:]*:\s*(?:INR|₹|Rs\.?)?\s*([\d,]+(?:\.\d+)?)/i);
+  const amountPaid = pick(text, /Amount\s*Paid[^:]*:\s*(?:INR|₹|Rs\.?)?\s*([\d,]+(?:\.\d+)?)/i);
   const specialReq = pick(text, /Guest\s*Requests\s*\n?([^\n]+)/i);
 
-  // Try to find a room name from the table row before "Adults:" or "INR"
   let roomDetails = "";
   const roomMatch = text.match(/Room\s*Name\s+Quantity\s+Total\s*Price\s*\n?\s*([^\n]+?)\s+(?:Adults?|Rooms?)/i);
   if (roomMatch) roomDetails = roomMatch[1].trim();
@@ -129,7 +126,7 @@ async function gmailFetch(path: string, gatewayKey: string, connectionKey: strin
 export const Route = createFileRoute("/api/public/hotelzify-poll")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
         const gatewayKey = process.env.LOVABLE_API_KEY;
         const connectionKey = process.env.GOOGLE_MAIL_API_KEY;
         if (!gatewayKey || !connectionKey) {
@@ -138,7 +135,9 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        // 1. Get active Hotelzify integration
+        const url = new URL(request.url);
+        const debug = url.searchParams.get("debug") === "1";
+
         const { data: intg, error: intgErr } = await supabaseAdmin
           .from("integrations")
           .select("*")
@@ -154,17 +153,24 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
 
         const cfg = (intg.config ?? {}) as any;
         const sender = cfg.sender_email ?? "support@hotelzify.com";
+        const subjectFilters: string[] = Array.isArray(cfg.subject_filters) ? cfg.subject_filters : [];
+        const days = cfg.lookback_days ?? 30;
+        const customQuery: string | undefined = cfg.search_query;
+        const gmailQuery = customQuery ?? `from:${sender} newer_than:${days}d`;
 
         const runStart = new Date().toISOString();
+        let scanned = 0;
+        let matched = 0;
+        let parsedCount = 0;
         let created = 0;
         let updated = 0;
-        let scanned = 0;
+        let skippedDuplicate = 0;
         const errors: string[] = [];
+        const sampleSubjects: string[] = [];
 
         try {
-          // 2. Search unread mail from sender (last 7 days, max 25 per run)
-          const query = encodeURIComponent(`from:${sender} is:unread newer_than:7d`);
-          const list = await gmailFetch(`/users/me/messages?maxResults=25&q=${query}`, gatewayKey, connectionKey);
+          const q = encodeURIComponent(gmailQuery);
+          const list = await gmailFetch(`/users/me/messages?maxResults=50&q=${q}`, gatewayKey, connectionKey);
           const messages: { id: string }[] = list.messages ?? [];
           scanned = messages.length;
 
@@ -173,32 +179,32 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
               const msg = await gmailFetch(`/users/me/messages/${m.id}?format=full`, gatewayKey, connectionKey);
               const headers: { name: string; value: string }[] = msg.payload?.headers ?? [];
               const subject = headers.find((h) => h.name.toLowerCase() === "subject")?.value ?? "";
+              if (sampleSubjects.length < 5) sampleSubjects.push(subject);
+
+              if (subjectFilters.length > 0) {
+                const subjLc = subject.toLowerCase();
+                const hit = subjectFilters.some((f) => subjLc.includes(f.toLowerCase()));
+                if (!hit) continue;
+              }
+              matched++;
+
               const text = extractTextFromPayload(msg.payload);
               const parsed = parseHotelzifyEmail(text, subject);
               if (!parsed) {
-                errors.push(`msg ${m.id}: parse failed`);
+                errors.push(`msg ${m.id} ("${subject.slice(0, 60)}"): parse failed`);
                 continue;
               }
+              parsedCount++;
 
-              // Find or create customer
               let customerId: string | null = null;
               if (parsed.phone) {
                 const { data: cust } = await supabaseAdmin
-                  .from("customers")
-                  .select("id, user_id")
-                  .eq("phone", parsed.phone)
-                  .limit(1)
-                  .maybeSingle();
+                  .from("customers").select("id").eq("phone", parsed.phone).limit(1).maybeSingle();
                 if (cust) customerId = cust.id;
               }
 
-              // Resolve a user_id (system user — first admin)
               const { data: anyUser } = await supabaseAdmin
-                .from("user_roles")
-                .select("user_id")
-                .eq("role", "admin")
-                .limit(1)
-                .maybeSingle();
+                .from("user_roles").select("user_id").eq("role", "admin").limit(1).maybeSingle();
               const systemUserId = anyUser?.user_id;
               if (!systemUserId) throw new Error("No admin user to attribute booking");
 
@@ -212,13 +218,11 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
                     email: parsed.email,
                     lead_source: "Hotelzify",
                   } as any)
-                  .select("id")
-                  .single();
+                  .select("id").single();
                 if (custErr) throw custErr;
                 customerId = newCust!.id;
               }
 
-              // Upsert booking by (integration_id, external_ref)
               const { data: existing } = await supabaseAdmin
                 .from("bookings")
                 .select("id")
@@ -249,94 +253,85 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
               };
 
               if (existing) {
-                await supabaseAdmin
-                  .from("bookings")
-                  .update({
-                    guest_name: bookingPayload.guest_name,
-                    phone: bookingPayload.phone,
-                    email: bookingPayload.email,
-                    check_in: bookingPayload.check_in,
-                    check_out: bookingPayload.check_out,
-                    guests: bookingPayload.guests,
-                    room_details: bookingPayload.room_details,
-                    amount: bookingPayload.amount,
-                    status: bookingPayload.status,
-                    special_requests: bookingPayload.special_requests,
-                  } as any)
-                  .eq("id", existing.id);
+                await supabaseAdmin.from("bookings").update({
+                  guest_name: bookingPayload.guest_name,
+                  phone: bookingPayload.phone,
+                  email: bookingPayload.email,
+                  check_in: bookingPayload.check_in,
+                  check_out: bookingPayload.check_out,
+                  guests: bookingPayload.guests,
+                  room_details: bookingPayload.room_details,
+                  amount: bookingPayload.amount,
+                  status: bookingPayload.status,
+                  special_requests: bookingPayload.special_requests,
+                } as any).eq("id", existing.id);
                 updated++;
               } else {
                 await supabaseAdmin.from("bookings").insert(bookingPayload as any);
                 created++;
               }
 
-              // Track in external_bookings (raw payload)
-              await supabaseAdmin
-                .from("external_bookings")
-                .upsert(
-                  {
-                    integration_id: intg.id,
-                    external_ref: parsed.external_ref,
-                    raw_payload: { subject, parsed, gmail_message_id: m.id },
-                    state: "processed",
-                  } as any,
-                  { onConflict: "integration_id,external_ref" },
-                );
-
-              // Mark message as read
-              await gmailFetch(`/users/me/messages/${m.id}/modify`, gatewayKey, connectionKey, {
-                method: "POST",
-                body: JSON.stringify({ removeLabelIds: ["UNREAD"] }),
-              });
+              await supabaseAdmin.from("external_bookings").upsert({
+                integration_id: intg.id,
+                external_ref: parsed.external_ref,
+                raw_payload: { subject, parsed, gmail_message_id: m.id },
+                state: "processed",
+              } as any, { onConflict: "integration_id,external_ref" });
             } catch (e: any) {
-              errors.push(`msg ${m.id}: ${e.message}`);
+              errors.push(`msg ${m.id}: ${e.message?.slice(0, 200)}`);
             }
           }
 
-          // 3. Update integration row
-          await supabaseAdmin
-            .from("integrations")
-            .update({
-              status: "connected",
-              last_sync_at: new Date().toISOString(),
-              last_sync_status: errors.length === 0 ? "success" : "partial",
-              last_sync_message: `Scanned ${scanned}, created ${created}, updated ${updated}${errors.length ? `, ${errors.length} errors` : ""}`,
-              bookings_imported: (intg.bookings_imported ?? 0) + created,
-            } as any)
-            .eq("id", intg.id);
+          await supabaseAdmin.from("integrations").update({
+            status: "connected",
+            last_sync_at: new Date().toISOString(),
+            last_sync_status: errors.length === 0 ? "success" : "partial",
+            last_sync_message: `Scanned ${scanned} · matched ${matched} · parsed ${parsedCount} · created ${created} · updated ${updated}${errors.length ? ` · ${errors.length} err` : ""}`,
+            bookings_imported: (intg.bookings_imported ?? 0) + created,
+          } as any).eq("id", intg.id);
 
-          // 4. Record run
+          const summary = `query="${gmailQuery}" · scanned ${scanned} · matched ${matched} · parsed ${parsedCount} · created ${created} · updated ${updated}${errors.length ? ` · ${errors.length} errors` : ""}`;
+          const excerpt = [
+            `Query: ${gmailQuery}`,
+            `Subjects seen: ${sampleSubjects.map((s) => `"${s}"`).join(" | ") || "(none)"}`,
+            errors.length ? `Errors:\n${errors.slice(0, 5).join("\n")}` : "",
+          ].filter(Boolean).join("\n").slice(0, 1000);
+
           await supabaseAdmin.from("integration_runs").insert({
             integration_id: intg.id,
             started_at: runStart,
             finished_at: new Date().toISOString(),
             status: errors.length === 0 ? "success" : created + updated > 0 ? "partial" : "error",
-            message: errors.slice(0, 5).join(" | ") || `Scanned ${scanned}`,
+            message: summary,
             created_count: created,
             updated_count: updated,
-            payload_excerpt: errors.length ? errors.slice(0, 3).join("\n").slice(0, 500) : null,
+            payload_excerpt: excerpt,
           } as any);
 
-          return Response.json({ ok: true, scanned, created, updated, errors });
+          return Response.json({
+            ok: true,
+            query: gmailQuery,
+            scanned, matched, parsed: parsedCount, created, updated,
+            errors,
+            sample_subjects: debug ? sampleSubjects : undefined,
+          });
         } catch (e: any) {
           await supabaseAdmin.from("integration_runs").insert({
             integration_id: intg.id,
             started_at: runStart,
             finished_at: new Date().toISOString(),
             status: "error",
-            message: e.message?.slice(0, 500) ?? "Unknown error",
+            message: `query="${gmailQuery}" · ${e.message?.slice(0, 300)}`,
             created_count: created,
             updated_count: updated,
+            payload_excerpt: `Query: ${gmailQuery}\n${e.message?.slice(0, 500) ?? ""}`,
           } as any);
-          await supabaseAdmin
-            .from("integrations")
-            .update({
-              last_sync_at: new Date().toISOString(),
-              last_sync_status: "error",
-              last_sync_message: e.message?.slice(0, 300),
-            } as any)
-            .eq("id", intg.id);
-          return Response.json({ ok: false, error: e.message }, { status: 500 });
+          await supabaseAdmin.from("integrations").update({
+            last_sync_at: new Date().toISOString(),
+            last_sync_status: "error",
+            last_sync_message: e.message?.slice(0, 300),
+          } as any).eq("id", intg.id);
+          return Response.json({ ok: false, error: e.message, query: gmailQuery }, { status: 500 });
         }
       },
     },
