@@ -280,9 +280,11 @@ export type Database = {
           created_at: string
           customer_id: string | null
           id: string
+          is_refund: boolean
           notes: string | null
           occurred_at: string
           payment_mode: string
+          refund_reason: string | null
           updated_at: string
           user_id: string
         }
@@ -293,9 +295,11 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           id?: string
+          is_refund?: boolean
           notes?: string | null
           occurred_at?: string
           payment_mode: string
+          refund_reason?: string | null
           updated_at?: string
           user_id: string
         }
@@ -306,9 +310,11 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           id?: string
+          is_refund?: boolean
           notes?: string | null
           occurred_at?: string
           payment_mode?: string
+          refund_reason?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -424,6 +430,10 @@ export type Database = {
           allow_pay_at_hotel: boolean
           amount: number
           booking_reference: string
+          cancel_reason: string | null
+          cancel_refund_amount: number | null
+          cancel_refund_at: string | null
+          cancel_refund_mode: string | null
           check_in: string
           check_out: string
           checkout_override_at: string | null
@@ -470,6 +480,10 @@ export type Database = {
           allow_pay_at_hotel?: boolean
           amount?: number
           booking_reference?: string
+          cancel_reason?: string | null
+          cancel_refund_amount?: number | null
+          cancel_refund_at?: string | null
+          cancel_refund_mode?: string | null
           check_in: string
           check_out: string
           checkout_override_at?: string | null
@@ -516,6 +530,10 @@ export type Database = {
           allow_pay_at_hotel?: boolean
           amount?: number
           booking_reference?: string
+          cancel_reason?: string | null
+          cancel_refund_amount?: number | null
+          cancel_refund_at?: string | null
+          cancel_refund_mode?: string | null
           check_in?: string
           check_out?: string
           checkout_override_at?: string | null
