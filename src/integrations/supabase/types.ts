@@ -448,9 +448,11 @@ export type Database = {
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           expected_arrival_at: string | null
+          external_ref: string | null
           guest_name: string
           guests: number
           id: string
+          integration_id: string | null
           internal_notes: string | null
           lead_source: string | null
           nights: number | null
@@ -498,9 +500,11 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           expected_arrival_at?: string | null
+          external_ref?: string | null
           guest_name: string
           guests?: number
           id?: string
+          integration_id?: string | null
           internal_notes?: string | null
           lead_source?: string | null
           nights?: number | null
@@ -548,9 +552,11 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           expected_arrival_at?: string | null
+          external_ref?: string | null
           guest_name?: string
           guests?: number
           id?: string
+          integration_id?: string | null
           internal_notes?: string | null
           lead_source?: string | null
           nights?: number | null
@@ -581,6 +587,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bookings_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bookings_room_id_fkey"
             columns: ["room_id"]
             isOneToOne: false
@@ -595,6 +608,98 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      cash_audit_activities: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          audit_close_id: string | null
+          closed_through_date: string | null
+          created_at: string
+          id: string
+          reason: string | null
+          summary: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          audit_close_id?: string | null
+          closed_through_date?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          summary?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          audit_close_id?: string | null
+          closed_through_date?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_audit_activities_audit_close_id_fkey"
+            columns: ["audit_close_id"]
+            isOneToOne: false
+            referencedRelation: "cash_audit_closes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_audit_closes: {
+        Row: {
+          active: boolean
+          closed_at: string
+          closed_by: string | null
+          closed_by_name: string | null
+          closed_through_date: string
+          created_at: string
+          id: string
+          reopen_reason: string | null
+          reopened_at: string | null
+          reopened_by: string | null
+          reopened_by_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          closed_at?: string
+          closed_by?: string | null
+          closed_by_name?: string | null
+          closed_through_date: string
+          created_at?: string
+          id?: string
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
+          reopened_by_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          closed_at?: string
+          closed_by?: string | null
+          closed_by_name?: string | null
+          closed_through_date?: string
+          created_at?: string
+          id?: string
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
+          reopened_by_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       cash_transactions: {
         Row: {
@@ -1012,6 +1117,60 @@ export type Database = {
         }
         Relationships: []
       }
+      external_bookings: {
+        Row: {
+          booking_id: string | null
+          created_at: string
+          error_message: string | null
+          external_ref: string
+          id: string
+          integration_id: string
+          parsed: Json | null
+          raw_payload: Json | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          booking_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          external_ref: string
+          id?: string
+          integration_id: string
+          parsed?: Json | null
+          raw_payload?: Json | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          booking_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          external_ref?: string
+          id?: string
+          integration_id?: string
+          parsed?: Json | null
+          raw_payload?: Json | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_bookings_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_bookings_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       followups: {
         Row: {
           completed: boolean
@@ -1052,6 +1211,95 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      integration_runs: {
+        Row: {
+          created_count: number
+          finished_at: string | null
+          id: string
+          integration_id: string
+          message: string | null
+          payload_excerpt: string | null
+          started_at: string
+          status: string
+          updated_count: number
+        }
+        Insert: {
+          created_count?: number
+          finished_at?: string | null
+          id?: string
+          integration_id: string
+          message?: string | null
+          payload_excerpt?: string | null
+          started_at?: string
+          status?: string
+          updated_count?: number
+        }
+        Update: {
+          created_count?: number
+          finished_at?: string | null
+          id?: string
+          integration_id?: string
+          message?: string | null
+          payload_excerpt?: string | null
+          started_at?: string
+          status?: string
+          updated_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_runs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integrations: {
+        Row: {
+          bookings_imported: number
+          config: Json
+          created_at: string
+          id: string
+          last_sync_at: string | null
+          last_sync_message: string | null
+          last_sync_status: string | null
+          name: string
+          provider: string
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          bookings_imported?: number
+          config?: Json
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          last_sync_message?: string | null
+          last_sync_status?: string | null
+          name: string
+          provider: string
+          status?: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          bookings_imported?: number
+          config?: Json
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          last_sync_message?: string | null
+          last_sync_status?: string | null
+          name?: string
+          provider?: string
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       master_data: {
         Row: {
@@ -1977,6 +2225,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_cash_tx_locked: { Args: { p_occurred_at: string }; Returns: boolean }
       my_permissions: { Args: never; Returns: string[] }
       recompute_booking_advance: {
         Args: { p_booking_id: string }
