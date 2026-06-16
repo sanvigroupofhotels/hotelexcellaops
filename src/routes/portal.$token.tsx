@@ -212,15 +212,15 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 function ProfileCompletion({ pct, missing }: { pct: number; missing: string[] }) {
-  const color = pct >= 100 ? "bg-emerald-500" : pct >= 60 ? "bg-gold" : "bg-warning";
+  // Single-line indicator with quarter-circle glyph — no progress bar.
+  const glyph = pct >= 100 ? "●" : pct >= 75 ? "◕" : pct >= 50 ? "◑" : pct >= 25 ? "◔" : "○";
   return (
-    <div className="luxe-card rounded-xl p-5 space-y-3">
+    <div className="luxe-card rounded-xl p-4 space-y-2">
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium">Booking Profile</div>
-        <div className="text-sm text-gold font-medium">{pct}% Complete</div>
-      </div>
-      <div className="h-2 rounded-full bg-secondary overflow-hidden">
-        <div className={`h-full ${color} transition-all`} style={{ width: `${pct}%` }} />
+        <div className="text-sm text-gold font-medium tabular-nums">
+          <span className="mr-1.5">{glyph}</span>{pct}% Complete
+        </div>
       </div>
       {missing.length > 0 && (
         <div className="text-xs text-muted-foreground">
