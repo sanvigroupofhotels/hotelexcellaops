@@ -69,6 +69,8 @@ function HouseView() {
   const [editBlock, setEditBlock] = useState<any | null>(null);
   const [vacantAction, setVacantAction] = useState<{ room: any; date: string } | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
