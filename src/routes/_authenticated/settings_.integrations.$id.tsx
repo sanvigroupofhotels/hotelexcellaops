@@ -1,14 +1,14 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { AdminOnly } from "@/components/admin-only";
 import {
   getIntegration, updateIntegration, listIntegrationRuns,
-  PROVIDER_LABELS, TYPE_LABELS, STATUS_STYLES,
-  type IntegrationRow, type IntegrationStatus,
+  PROVIDER_LABELS, TYPE_LABELS,
+  type IntegrationStatus,
 } from "@/lib/integrations-api";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -33,31 +33,22 @@ type SyncDebugResponse = {
   diagnostic_searches?: { query: string; count: number; resultSizeEstimate: number; samples: { from: string; subject: string }[]; error?: string }[];
 };
 
-function extractMetric(text: string, label: string): number {
-  const re = new RegExp(`${label}\\s+(\\d+)`, "i");
-  const m = text.match(re);
-  return m ? Number(m[1]) : 0;
-}
-
-function latestRunDebug(runs: any[]): Partial<SyncDebugResponse> | null {
-  const latest = runs[0];
-  if (!latest) return null;
-  const body = `${latest.message ?? ""}\n${latest.payload_excerpt ?? ""}`;
-  const query = body.match(/Query:\s*([^\n]+)/i)?.[1] ?? body.match(/query="([^"]+)"/i)?.[1] ?? "—";
-  const samplesBlock = body.match(/First 5 email subjects\/senders seen:\n([\s\S]*?)(?:\nParser errors:|\nErrors:|\nDiagnostic Gmail searches:|$)/i)?.[1] ?? "";
-  const errorsBlock = body.match(/(?:Parser errors|Errors):\n([\s\S]*?)(?:\nDiagnostic Gmail searches:|$)/i)?.[1] ?? "";
-  return {
-    gmail_account: body.match(/Gmail account:\s*([^\n]+)/i)?.[1] ?? undefined,
-    query,
-    scanned: extractMetric(body, "scanned") || extractMetric(body, "Emails Scanned:"),
-    matched: extractMetric(body, "matched") || extractMetric(body, "Emails Matched:"),
-    parsed: extractMetric(body, "parsed") || extractMetric(body, "Emails Parsed:"),
-    created: latest.created_count ?? (extractMetric(body, "created") || extractMetric(body, "Bookings Created:")),
-    updated: latest.updated_count ?? (extractMetric(body, "updated") || extractMetric(body, "Bookings Updated:")),
-    errors: errorsBlock ? errorsBlock.split("\n").filter(Boolean) : [],
-    first_5_email_subjects_seen: samplesBlock.split("\n").filter(Boolean).map((line: string) => ({ from: line.replace(/^-\s*From:\s*/i, "").split(" | Subject:")[0] ?? "", subject: line.split(" | Subject:")[1] ?? line })),
-  };
-}
+// Advanced field mapping keys → friendly label
+const FIELD_KEYS: { key: string; label: string; defaults: string }[] = [
+  { key: "booking_id", label: "Booking ID", defaults: "Booking ID, Booking Reference, Booking No, Booking Number" },
+  { key: "guest_name", label: "Guest Name", defaults: "Guest Name, Name" },
+  { key: "mobile", label: "Mobile", defaults: "Mobile, Phone, Contact" },
+  { key: "email", label: "Email", defaults: "Email" },
+  { key: "check_in", label: "Check-In", defaults: "Check In, Check-In, Arrival, Arrival Date" },
+  { key: "check_out", label: "Check-Out", defaults: "Check Out, Check-Out, Departure, Departure Date" },
+  { key: "guests", label: "Guest Count", defaults: "Guests, Adults, Guest Count" },
+  { key: "room_details", label: "Room Name", defaults: "Room Name, Room Type, Room Details" },
+  { key: "total_amount", label: "Total Amount", defaults: "Total Amount, Total Price, Total" },
+  { key: "amount_paid", label: "Amount Paid", defaults: "Amount Paid, Paid" },
+  { key: "balance_due", label: "Balance Due", defaults: "Balance Due, Balance" },
+  { key: "booking_status", label: "Booking Status", defaults: "Booking Status, Status" },
+  { key: "special_requests", label: "Special Request", defaults: "Special Requests, Guest Requests, Notes" },
+];
 
 function IntegrationDetailPage() {
   const { id } = useParams({ from: "/_authenticated/settings_/integrations/$id" });
@@ -73,27 +64,57 @@ function Content({ id }: { id: string }) {
   const qc = useQueryClient();
   const { data: row, isLoading } = useQuery({ queryKey: ["integration", id], queryFn: () => getIntegration(id) });
   const { data: runs = [] } = useQuery({ queryKey: ["integration-runs", id], queryFn: () => listIntegrationRuns(id) });
+
   const [name, setName] = useState("");
   const [status, setStatus] = useState<IntegrationStatus>("draft");
-  const [configText, setConfigText] = useState("{}");
-  const [configErr, setConfigErr] = useState<string | null>(null);
+  const [senderEmail, setSenderEmail] = useState("");
+  const [inboxEmail, setInboxEmail] = useState("");
+  const [lookbackDays, setLookbackDays] = useState<number>(7);
+  const [subjectFilters, setSubjectFilters] = useState("");
+  const [leadSource, setLeadSource] = useState("");
+  const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [rawOpen, setRawOpen] = useState(false);
+  const [rawConfig, setRawConfig] = useState("{}");
 
   useEffect(() => {
-    if (row) {
-      setName(row.name);
-      setStatus(row.status);
-      setConfigText(JSON.stringify(row.config ?? {}, null, 2));
+    if (!row) return;
+    const cfg = (row.config ?? {}) as any;
+    setName(row.name);
+    setStatus(row.status);
+    setSenderEmail(cfg.sender_email ?? "");
+    setInboxEmail(cfg.inbox_email ?? "");
+    setLookbackDays(typeof cfg.lookback_days === "number" ? cfg.lookback_days : 7);
+    setSubjectFilters(Array.isArray(cfg.subject_filters) ? cfg.subject_filters.join(", ") : "");
+    setLeadSource(cfg.lead_source ?? PROVIDER_LABELS[row.provider] ?? "");
+    const fl = (cfg.field_labels ?? {}) as Record<string, string | string[]>;
+    const normalized: Record<string, string> = {};
+    for (const f of FIELD_KEYS) {
+      const v = fl[f.key];
+      normalized[f.key] = Array.isArray(v) ? v.join(", ") : (typeof v === "string" ? v : "");
     }
+    setFieldLabels(normalized);
+    setRawConfig(JSON.stringify(cfg, null, 2));
   }, [row]);
 
+  const buildConfig = () => {
+    const fl: Record<string, string[]> = {};
+    for (const f of FIELD_KEYS) {
+      const arr = (fieldLabels[f.key] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+      if (arr.length) fl[f.key] = arr;
+    }
+    return {
+      sender_email: senderEmail.trim() || undefined,
+      inbox_email: inboxEmail.trim() || undefined,
+      lookback_days: lookbackDays,
+      subject_filters: subjectFilters.split(",").map((s) => s.trim()).filter(Boolean),
+      lead_source: leadSource.trim() || undefined,
+      field_labels: fl,
+    };
+  };
+
   const save = useMutation({
-    mutationFn: () => {
-      let cfg: any = {};
-      try { cfg = JSON.parse(configText || "{}"); }
-      catch (e: any) { setConfigErr(e.message); throw new Error("Config JSON is invalid"); }
-      setConfigErr(null);
-      return updateIntegration(id, { name, status, config: cfg });
-    },
+    mutationFn: () => updateIntegration(id, { name, status, config: buildConfig() }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["integration", id] }); toast.success("Saved"); },
     onError: (e: any) => toast.error(e.message),
   });
@@ -113,8 +134,12 @@ function Content({ id }: { id: string }) {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const debugInfo = useMemo<Partial<SyncDebugResponse> | null>(() => {
+    if (runSync.data) return runSync.data;
+    return null;
+  }, [runSync.data]);
+
   if (isLoading || !row) return <div className="p-8"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>;
-  const debugInfo = runSync.data ?? latestRunDebug(runs);
 
   return (
     <div className="px-4 md:px-6 py-5 md:py-8 max-w-[1100px] space-y-5">
@@ -128,23 +153,64 @@ function Content({ id }: { id: string }) {
           <span className="text-[11px] text-muted-foreground">{TYPE_LABELS[row.type]}</span>
         </div>
 
-        <Field label="Name"><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="Name"><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} /></Field>
+          <Field label="Status">
+            <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as IntegrationStatus)}>
+              <option value="draft">Draft</option>
+              <option value="connected">Connected</option>
+              <option value="disabled">Disabled</option>
+              <option value="error">Error</option>
+            </select>
+          </Field>
+          <Field label="Sender Email"><input className={inputCls} value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} placeholder="support@hotelzify.com" /></Field>
+          <Field label="Inbox Email (connected Gmail)"><input className={inputCls} value={inboxEmail} onChange={(e) => setInboxEmail(e.target.value)} placeholder="hotel@gmail.com" /></Field>
+          <Field label="Lookback Days"><input type="number" min={1} max={365} className={inputCls} value={lookbackDays} onChange={(e) => setLookbackDays(Number(e.target.value) || 7)} /></Field>
+          <Field label="Lead Source"><input className={inputCls} value={leadSource} onChange={(e) => setLeadSource(e.target.value)} placeholder="Hotelzify" /></Field>
+        </div>
 
-        <Field label="Status">
-          <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as IntegrationStatus)}>
-            <option value="draft">Draft</option>
-            <option value="connected">Connected</option>
-            <option value="disabled">Disabled</option>
-            <option value="error">Error</option>
-          </select>
+        <Field label="Subject Filters (comma separated)">
+          <textarea className={cn(inputCls, "min-h-[60px]")} value={subjectFilters} onChange={(e) => setSubjectFilters(e.target.value)}
+            placeholder="Your Booking with Hotel Excella confirmed, Your Booking with Hotel Excella is received" />
+          <div className="text-[10px] text-muted-foreground mt-1">Only emails whose subject contains one of these will be parsed. Other emails (reports, marketing, invoices) are skipped silently.</div>
         </Field>
 
-        <Field label="Configuration (JSON)">
-          <textarea className={cn(inputCls, "font-mono text-[11px] min-h-[200px]")} value={configText}
-            onChange={(e) => setConfigText(e.target.value)} spellCheck={false} />
-          {configErr && <div className="text-[11px] text-destructive">{configErr}</div>}
-          <ConfigHint type={row.type} />
-        </Field>
+        {/* Advanced */}
+        <div>
+          <button type="button" onClick={() => setAdvancedOpen((v) => !v)}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            {advancedOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            Advanced Settings — Field Mappings
+          </button>
+          {advancedOpen && (
+            <div className="mt-3 space-y-3 border-l-2 border-gold/30 pl-4">
+              <p className="text-[11px] text-muted-foreground">
+                Each field accepts a comma-separated list of label aliases the parser will look for in the email body. Example for Check-In: <code className="bg-muted/40 px-1 rounded">Check In, Check-In, Arrival Date</code>. Leave blank to use built-in defaults.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {FIELD_KEYS.map((f) => (
+                  <Field key={f.key} label={f.label}>
+                    <input className={inputCls} value={fieldLabels[f.key] ?? ""}
+                      onChange={(e) => setFieldLabels((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                      placeholder={f.defaults} />
+                  </Field>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Raw JSON (power users) */}
+        <div>
+          <button type="button" onClick={() => setRawOpen((v) => !v)}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            {rawOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            Raw config (read-only preview)
+          </button>
+          {rawOpen && (
+            <pre className="mt-2 bg-muted/30 rounded p-3 text-[10px] overflow-auto max-h-[280px]">{JSON.stringify(buildConfig(), null, 2)}</pre>
+          )}
+        </div>
 
         <div className="flex flex-wrap gap-2 justify-end pt-2">
           {row.provider === "hotelzify" && (
@@ -178,21 +244,8 @@ function Content({ id }: { id: string }) {
             <Metric label="Errors" value={(debugInfo.errors ?? []).length + (debugInfo.parser_errors ?? []).length} />
           </div>
           <DebugList title="First 5 email subjects seen" empty="No emails returned for the main query." items={(debugInfo.first_5_email_subjects_seen ?? []).map((s) => `${s.from || "—"} — ${s.subject || "—"}`)} />
-          <DebugList title="Errors / parser errors" empty="No errors recorded." items={[...(debugInfo.parser_errors ?? []), ...(debugInfo.errors ?? [])]} />
-          {!!debugInfo.diagnostic_searches?.length && (
-            <div className="space-y-1.5">
-              <div className={labelCls}>Fallback Gmail search checks</div>
-              <div className="space-y-2 text-[11px] text-muted-foreground">
-                {debugInfo.diagnostic_searches.map((d) => (
-                  <div key={d.query} className="bg-muted/25 rounded px-3 py-2">
-                    <div className="break-all text-foreground">{d.query}</div>
-                    <div>Returned {d.count} · Estimate {d.resultSizeEstimate}{d.error ? ` · Error: ${d.error}` : ""}</div>
-                    {d.samples?.slice(0, 5).map((s, idx) => <div key={idx}>• {s.from || "—"} — {s.subject || "—"}</div>)}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <DebugList title="Parser errors" empty="No parser errors." items={debugInfo.parser_errors ?? []} />
+          <DebugList title="Other errors" empty="No errors recorded." items={debugInfo.errors ?? []} />
         </div>
       )}
 
@@ -200,7 +253,7 @@ function Content({ id }: { id: string }) {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-display text-lg">Sync History</h3>
           <span className="text-[11px] text-muted-foreground">
-            Last sync: {row.last_sync_at ? new Date(row.last_sync_at).toLocaleString("en-IN") : "—"} · Imported total: {row.bookings_imported ?? 0}
+            Last sync: {row.last_sync_at ? new Date(row.last_sync_at).toLocaleString("en-IN") : "—"} · Imported total: <span className="tabular-nums">{row.bookings_imported ?? 0}</span>
           </span>
         </div>
         {row.last_sync_message && (
@@ -244,21 +297,11 @@ function Content({ id }: { id: string }) {
   );
 }
 
-function ConfigHint({ type }: { type: IntegrationRow["type"] }) {
-  const hints: Record<typeof type, string> = {
-    email_parser: `{"inbox_email":"sanvigroupofhotels@gmail.com","poll_interval_minutes":5,"sender_email":"support@hotelzify.com"}`,
-    api: `{"base_url":"https://api.provider.com","api_key_secret":"PROVIDER_API_KEY"}`,
-    webhook: `{"path":"/api/public/provider-webhook","signing_secret_name":"PROVIDER_SECRET"}`,
-    csv_import: `{"format":"booking_com_v1"}`,
-  };
-  return <div className="text-[10px] text-muted-foreground mt-1">Example: <code className="bg-muted/40 px-1 rounded">{hints[type]}</code></div>;
-}
-
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="bg-muted/25 rounded-lg px-3 py-2">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="text-lg font-semibold tabular-nums">{value}</div>
+      <div className="text-xl font-semibold tabular-nums">{value}</div>
     </div>
   );
 }
