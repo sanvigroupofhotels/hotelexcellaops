@@ -55,6 +55,8 @@ export async function createBookingPayment(input: BookingPaymentInput) {
     collected_by: input.collected_by.trim(),
     occurred_at: input.occurred_at ?? new Date().toISOString(),
     notes: input.notes ?? null,
+    is_refund: input.is_refund ?? false,
+    refund_reason: input.refund_reason ?? null,
     user_id: user.id,
   };
   const { data, error } = await supabase.from("booking_payments" as any).insert(row).select().single();
