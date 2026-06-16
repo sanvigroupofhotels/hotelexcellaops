@@ -13,7 +13,7 @@ import {
   PROVIDER_LABELS, TYPE_LABELS, STATUS_STYLES,
   type IntegrationProvider, type IntegrationType, type IntegrationRow,
 } from "@/lib/integrations-api";
-import { Loader2, Plus, Pencil, Trash2, Power, PowerOff } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Power, PowerOff, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -160,6 +160,7 @@ function IntegrationsTab() {
       )}
       {rows.map((r) => (
         <IntegrationCard key={r.id} row={r}
+          onActivate={() => update.mutate({ id: r.id, patch: { status: "connected" } })}
           onToggle={() => update.mutate({ id: r.id, patch: { status: r.status === "disabled" ? "draft" : "disabled" } })}
           onDelete={() => { if (confirm("Remove this integration?")) del.mutate(r.id); }} />
       ))}
@@ -169,7 +170,7 @@ function IntegrationsTab() {
   );
 }
 
-function IntegrationCard({ row, onToggle, onDelete }: { row: IntegrationRow; onToggle: () => void; onDelete: () => void }) {
+function IntegrationCard({ row, onActivate, onToggle, onDelete }: { row: IntegrationRow; onActivate: () => void; onToggle: () => void; onDelete: () => void }) {
   return (
     <div className="luxe-card rounded-xl p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -185,6 +186,11 @@ function IntegrationCard({ row, onToggle, onDelete }: { row: IntegrationRow; onT
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {(row.status === "draft" || row.status === "disabled") && (
+            <button onClick={onActivate} className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider gold-gradient text-charcoal rounded-md px-2.5 py-1 font-medium" title="Activate">
+              <CheckCircle2 className="h-3 w-3" /> Activate
+            </button>
+          )}
           <Link to="/settings/integrations/$id" params={{ id: row.id }} className="p-1.5 rounded hover:bg-accent" title="Edit">
             <Pencil className="h-4 w-4" />
           </Link>
