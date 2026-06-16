@@ -273,8 +273,8 @@ function HomePage() {
                   <span className="text-lg leading-none">{s.emoji}</span>
                   <s.icon className="h-4 w-4 text-gold" />
                 </div>
-                <div className="mt-3 font-display text-2xl text-foreground tabular-nums">{s.value}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5 tracking-wide">{s.label}</div>
+                <div className="mt-3 text-3xl md:text-4xl font-semibold text-foreground tabular-nums leading-tight">{s.value}</div>
+                <div className="text-xs text-muted-foreground mt-1 tracking-wide">{s.label}</div>
               </motion.button>
             ))}
           </div>
