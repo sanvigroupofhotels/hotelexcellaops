@@ -49,6 +49,8 @@ import {
   listAssignments, removeAssignment, requiredRoomCount,
 } from "@/lib/booking-room-assignments-api";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
+import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
+import { listGuestDocuments } from "@/lib/guest-documents-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
@@ -227,6 +229,8 @@ function BookingDetail() {
   const [revertOutReason, setRevertOutReason] = useState("");
   const [addPaymentForCheckoutOpen, setAddPaymentForCheckoutOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [guestDocsOpen, setGuestDocsOpen] = useState(false);
+  const [guestDocsMode, setGuestDocsMode] = useState<"checkin" | "manage">("manage");
   const [assignRoomOpen, setAssignRoomOpen] = useState(false);
   const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   // When set, the Assign dialog acts as a "Change" — confirming swaps the named assignment.
@@ -509,7 +513,8 @@ function BookingDetail() {
                           setCheckinFlowOpen(true);
                           return;
                         }
-                        status.mutate("Checked-In" as any);
+                        setGuestDocsMode("checkin");
+                        setGuestDocsOpen(true);
                       }}
                         className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal">
                         <LogIn className="h-3.5 w-3.5" /> Check-In
@@ -554,6 +559,8 @@ function BookingDetail() {
             <InHouseChargesSection bookingId={id} />
 
             <PaymentsLedger bookingId={id} bookingAmount={Number(b.amount)} chargesTotal={chargesTotal} advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id} />
+
+            <GuestDocumentsSummary bookingId={id} onOpen={() => { setGuestDocsMode("manage"); setGuestDocsOpen(true); }} />
 
 
             {b.source_quote_id && (
@@ -823,7 +830,15 @@ function BookingDetail() {
         open={checkinFlowOpen}
         onClose={() => setCheckinFlowOpen(false)}
         mode="checkin-flow"
-        onAllAssigned={() => status.mutate("Checked-In" as any)}
+        onAllAssigned={() => { setCheckinFlowOpen(false); setGuestDocsMode("checkin"); setGuestDocsOpen(true); }}
+      />
+
+      <GuestDocumentsDialog
+        bookingId={id}
+        open={guestDocsOpen}
+        onClose={() => setGuestDocsOpen(false)}
+        mode={guestDocsMode}
+        onComplete={guestDocsMode === "checkin" ? () => status.mutate("Checked-In" as any) : undefined}
       />
     </>
   );
@@ -1202,4 +1217,45 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
     </div>
   );
 }
+
+function GuestDocumentsSummary({ bookingId, onOpen }: { bookingId: string; onOpen: () => void }) {
+  const { data: docs = [] } = useQuery({
+    queryKey: ["guest-documents", bookingId],
+    queryFn: () => listGuestDocuments(bookingId),
+  });
+  const count = docs.length;
+  return (
+    <div className="luxe-card rounded-xl p-5 print:hidden">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-display text-lg flex items-center gap-2">
+          <FileText className="h-4 w-4 text-gold" /> Guest Documents
+        </h4>
+        <span className={cn(
+          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] uppercase tracking-wider",
+          count > 0 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500" : "border-warning/40 bg-warning/10 text-warning",
+        )}>
+          {count > 0 ? `Uploaded · ${count}` : "Pending"}
+        </span>
+      </div>
+      {count === 0 ? (
+        <p className="text-xs text-muted-foreground mb-3">No documents on file. Aadhaar, PAN, Passport, Driving License or Other accepted. Auto-deleted after 60 days.</p>
+      ) : (
+        <ul className="text-xs space-y-1 mb-3">
+          {docs.slice(0, 3).map((d: any) => (
+            <li key={d.id} className="flex items-center justify-between text-muted-foreground">
+              <span>{d.doc_type}</span>
+              <span className="text-[10px]">{new Date(d.uploaded_at).toLocaleDateString("en-IN")}</span>
+            </li>
+          ))}
+          {count > 3 && <li className="text-[10px] text-muted-foreground italic">+{count - 3} more…</li>}
+        </ul>
+      )}
+      <button onClick={onOpen}
+        className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs hover:border-gold/40">
+        <FileText className="h-3.5 w-3.5" /> Manage Documents
+      </button>
+    </div>
+  );
+}
+
 
