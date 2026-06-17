@@ -46,6 +46,7 @@ import { Route as ApiPublicCleanupGuestDocumentsRouteImport } from './routes/api
 import { Route as AuthenticatedStaffManagementSalaryRouteImport } from './routes/_authenticated/staff-management.salary'
 import { Route as AuthenticatedStaffManagementMasterRouteImport } from './routes/_authenticated/staff-management.master'
 import { Route as AuthenticatedStaffManagementAttendanceRouteImport } from './routes/_authenticated/staff-management.attendance'
+import { Route as AuthenticatedSettingsOperationsRouteImport } from './routes/_authenticated/settings.operations'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings.general'
 import { Route as AuthenticatedReportingStaffRouteImport } from './routes/_authenticated/reporting.staff'
 import { Route as AuthenticatedReportingPaymentsRouteImport } from './routes/_authenticated/reporting.payments'
@@ -253,6 +254,12 @@ const AuthenticatedStaffManagementAttendanceRoute =
     path: '/attendance',
     getParentRoute: () => AuthenticatedStaffManagementRoute,
   } as any)
+const AuthenticatedSettingsOperationsRoute =
+  AuthenticatedSettingsOperationsRouteImport.update({
+    id: '/operations',
+    path: '/operations',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsGeneralRoute =
   AuthenticatedSettingsGeneralRouteImport.update({
     id: '/general',
@@ -369,6 +376,7 @@ export interface FileRoutesByFullPath {
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
@@ -419,6 +427,7 @@ export interface FileRoutesByTo {
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
@@ -472,6 +481,7 @@ export interface FileRoutesById {
   '/_authenticated/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/_authenticated/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/_authenticated/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/_authenticated/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/_authenticated/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/_authenticated/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
@@ -525,6 +535,7 @@ export interface FileRouteTypes {
     | '/reporting/payments'
     | '/reporting/staff'
     | '/settings/general'
+    | '/settings/operations'
     | '/staff-management/attendance'
     | '/staff-management/master'
     | '/staff-management/salary'
@@ -575,6 +586,7 @@ export interface FileRouteTypes {
     | '/reporting/payments'
     | '/reporting/staff'
     | '/settings/general'
+    | '/settings/operations'
     | '/staff-management/attendance'
     | '/staff-management/master'
     | '/staff-management/salary'
@@ -627,6 +639,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reporting/payments'
     | '/_authenticated/reporting/staff'
     | '/_authenticated/settings/general'
+    | '/_authenticated/settings/operations'
     | '/_authenticated/staff-management/attendance'
     | '/_authenticated/staff-management/master'
     | '/_authenticated/staff-management/salary'
@@ -910,6 +923,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStaffManagementAttendanceRouteImport
       parentRoute: typeof AuthenticatedStaffManagementRoute
     }
+    '/_authenticated/settings/operations': {
+      id: '/_authenticated/settings/operations'
+      path: '/operations'
+      fullPath: '/settings/operations'
+      preLoaderRoute: typeof AuthenticatedSettingsOperationsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/general': {
       id: '/_authenticated/settings/general'
       path: '/general'
@@ -1024,11 +1044,13 @@ const AuthenticatedReportingRouteWithChildren =
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
+  AuthenticatedSettingsOperationsRoute: typeof AuthenticatedSettingsOperationsRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
+  AuthenticatedSettingsOperationsRoute: AuthenticatedSettingsOperationsRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
 
