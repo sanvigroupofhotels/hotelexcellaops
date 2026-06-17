@@ -506,13 +506,8 @@ function BookingDetail() {
                   <div className="space-y-2">
                     {canCheckIn && (
                       <button onClick={() => {
-                        const required = requiredRoomCount(items as any);
-                        if (assignments.length < required) {
-                          toast.error("Please assign all rooms before Check-In.");
-                          setChangingAssignmentId(null);
-                          setCheckinFlowOpen(true);
-                          return;
-                        }
+                        // New order: Guest Documents FIRST, then Room Assignment (if needed),
+                        // then auto Check-In on completion.
                         setGuestDocsMode("checkin");
                         setGuestDocsOpen(true);
                       }}
@@ -830,7 +825,10 @@ function BookingDetail() {
         open={checkinFlowOpen}
         onClose={() => setCheckinFlowOpen(false)}
         mode="checkin-flow"
-        onAllAssigned={() => { setCheckinFlowOpen(false); setGuestDocsMode("checkin"); setGuestDocsOpen(true); }}
+        onAllAssigned={() => {
+          setCheckinFlowOpen(false);
+          status.mutate("Checked-In" as any);
+        }}
       />
 
       <GuestDocumentsDialog
@@ -838,7 +836,20 @@ function BookingDetail() {
         open={guestDocsOpen}
         onClose={() => setGuestDocsOpen(false)}
         mode={guestDocsMode}
-        onComplete={guestDocsMode === "checkin" ? () => status.mutate("Checked-In" as any) : undefined}
+        onComplete={
+          guestDocsMode === "checkin"
+            ? () => {
+                // After documents step, decide whether room assignment is still needed.
+                const required = requiredRoomCount(items as any);
+                if (assignments.length < required) {
+                  setChangingAssignmentId(null);
+                  setCheckinFlowOpen(true);
+                } else {
+                  status.mutate("Checked-In" as any);
+                }
+              }
+            : undefined
+        }
       />
     </>
   );

@@ -39,12 +39,18 @@ import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAccessSettingsRouteImport } from './routes/_authenticated/access-settings'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
 import { Route as ApiPublicHotelzifyPollRouteImport } from './routes/api/public/hotelzify-poll'
 import { Route as ApiPublicCleanupGuestDocumentsRouteImport } from './routes/api/public/cleanup-guest-documents'
 import { Route as AuthenticatedStaffManagementSalaryRouteImport } from './routes/_authenticated/staff-management.salary'
 import { Route as AuthenticatedStaffManagementMasterRouteImport } from './routes/_authenticated/staff-management.master'
 import { Route as AuthenticatedStaffManagementAttendanceRouteImport } from './routes/_authenticated/staff-management.attendance'
+import { Route as AuthenticatedSettingsOperationsRouteImport } from './routes/_authenticated/settings.operations'
+import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
+import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings.general'
+import { Route as AuthenticatedSettingsDocumentsRouteImport } from './routes/_authenticated/settings.documents'
+import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_authenticated/settings.branding'
 import { Route as AuthenticatedReportingStaffRouteImport } from './routes/_authenticated/reporting.staff'
 import { Route as AuthenticatedReportingPaymentsRouteImport } from './routes/_authenticated/reporting.payments'
 import { Route as AuthenticatedReportingAnalyticsRouteImport } from './routes/_authenticated/reporting.analytics'
@@ -210,6 +216,12 @@ const AuthenticatedAccessSettingsRoute =
     path: '/access-settings',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsIndexRoute =
+  AuthenticatedSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const ApiPublicRazorpayWebhookRoute =
   ApiPublicRazorpayWebhookRouteImport.update({
     id: '/api/public/razorpay-webhook',
@@ -244,6 +256,36 @@ const AuthenticatedStaffManagementAttendanceRoute =
     id: '/attendance',
     path: '/attendance',
     getParentRoute: () => AuthenticatedStaffManagementRoute,
+  } as any)
+const AuthenticatedSettingsOperationsRoute =
+  AuthenticatedSettingsOperationsRouteImport.update({
+    id: '/operations',
+    path: '/operations',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsIntegrationsRoute =
+  AuthenticatedSettingsIntegrationsRouteImport.update({
+    id: '/integrations',
+    path: '/integrations',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsGeneralRoute =
+  AuthenticatedSettingsGeneralRouteImport.update({
+    id: '/general',
+    path: '/general',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsDocumentsRoute =
+  AuthenticatedSettingsDocumentsRouteImport.update({
+    id: '/documents',
+    path: '/documents',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsBrandingRoute =
+  AuthenticatedSettingsBrandingRouteImport.update({
+    id: '/branding',
+    path: '/branding',
+    getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedReportingStaffRoute =
   AuthenticatedReportingStaffRouteImport.update({
@@ -340,7 +382,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/salary': typeof AuthenticatedSalaryRoute
-  '/settings': typeof AuthenticatedSettingsRoute
+  '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/staff': typeof AuthenticatedStaffRoute
   '/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
@@ -354,12 +396,18 @@ export interface FileRoutesByFullPath {
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
+  '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
+  '/settings/documents': typeof AuthenticatedSettingsDocumentsRoute
+  '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
+  '/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
+  '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
   '/settings/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
@@ -388,7 +436,6 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/rooms': typeof AuthenticatedRoomsRoute
   '/salary': typeof AuthenticatedSalaryRoute
-  '/settings': typeof AuthenticatedSettingsRoute
   '/staff': typeof AuthenticatedStaffRoute
   '/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
@@ -403,12 +450,18 @@ export interface FileRoutesByTo {
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
+  '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
+  '/settings/documents': typeof AuthenticatedSettingsDocumentsRoute
+  '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
+  '/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
   '/settings/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
@@ -439,7 +492,7 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rooms': typeof AuthenticatedRoomsRoute
   '/_authenticated/salary': typeof AuthenticatedSalaryRoute
-  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/staff': typeof AuthenticatedStaffRoute
   '/_authenticated/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
@@ -454,12 +507,18 @@ export interface FileRoutesById {
   '/_authenticated/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/_authenticated/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/_authenticated/reporting/staff': typeof AuthenticatedReportingStaffRoute
+  '/_authenticated/settings/branding': typeof AuthenticatedSettingsBrandingRoute
+  '/_authenticated/settings/documents': typeof AuthenticatedSettingsDocumentsRoute
+  '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/_authenticated/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
+  '/_authenticated/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/_authenticated/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/_authenticated/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/_authenticated/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
+  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
   '/_authenticated/settings_/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
@@ -505,12 +564,18 @@ export interface FileRouteTypes {
     | '/reporting/analytics'
     | '/reporting/payments'
     | '/reporting/staff'
+    | '/settings/branding'
+    | '/settings/documents'
+    | '/settings/general'
+    | '/settings/integrations'
+    | '/settings/operations'
     | '/staff-management/attendance'
     | '/staff-management/master'
     | '/staff-management/salary'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/razorpay-webhook'
+    | '/settings/'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
     | '/settings/integrations/$id'
@@ -539,7 +604,6 @@ export interface FileRouteTypes {
     | '/reports'
     | '/rooms'
     | '/salary'
-    | '/settings'
     | '/staff'
     | '/staff-management'
     | '/tasks'
@@ -554,12 +618,18 @@ export interface FileRouteTypes {
     | '/reporting/analytics'
     | '/reporting/payments'
     | '/reporting/staff'
+    | '/settings/branding'
+    | '/settings/documents'
+    | '/settings/general'
+    | '/settings/integrations'
+    | '/settings/operations'
     | '/staff-management/attendance'
     | '/staff-management/master'
     | '/staff-management/salary'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/razorpay-webhook'
+    | '/settings'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
     | '/settings/integrations/$id'
@@ -604,12 +674,18 @@ export interface FileRouteTypes {
     | '/_authenticated/reporting/analytics'
     | '/_authenticated/reporting/payments'
     | '/_authenticated/reporting/staff'
+    | '/_authenticated/settings/branding'
+    | '/_authenticated/settings/documents'
+    | '/_authenticated/settings/general'
+    | '/_authenticated/settings/integrations'
+    | '/_authenticated/settings/operations'
     | '/_authenticated/staff-management/attendance'
     | '/_authenticated/staff-management/master'
     | '/_authenticated/staff-management/salary'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/razorpay-webhook'
+    | '/_authenticated/settings/'
     | '/_authenticated/bookings_/$id_/edit'
     | '/_authenticated/quote/$id_/edit'
     | '/_authenticated/settings_/integrations/$id'
@@ -837,6 +913,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccessSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/api/public/razorpay-webhook': {
       id: '/api/public/razorpay-webhook'
       path: '/api/public/razorpay-webhook'
@@ -878,6 +961,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/staff-management/attendance'
       preLoaderRoute: typeof AuthenticatedStaffManagementAttendanceRouteImport
       parentRoute: typeof AuthenticatedStaffManagementRoute
+    }
+    '/_authenticated/settings/operations': {
+      id: '/_authenticated/settings/operations'
+      path: '/operations'
+      fullPath: '/settings/operations'
+      preLoaderRoute: typeof AuthenticatedSettingsOperationsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/integrations': {
+      id: '/_authenticated/settings/integrations'
+      path: '/integrations'
+      fullPath: '/settings/integrations'
+      preLoaderRoute: typeof AuthenticatedSettingsIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/general': {
+      id: '/_authenticated/settings/general'
+      path: '/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/documents': {
+      id: '/_authenticated/settings/documents'
+      path: '/documents'
+      fullPath: '/settings/documents'
+      preLoaderRoute: typeof AuthenticatedSettingsDocumentsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/branding': {
+      id: '/_authenticated/settings/branding'
+      path: '/branding'
+      fullPath: '/settings/branding'
+      preLoaderRoute: typeof AuthenticatedSettingsBrandingRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/reporting/staff': {
       id: '/_authenticated/reporting/staff'
@@ -984,6 +1102,30 @@ const AuthenticatedReportingRouteWithChildren =
     AuthenticatedReportingRouteChildren,
   )
 
+interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsBrandingRoute: typeof AuthenticatedSettingsBrandingRoute
+  AuthenticatedSettingsDocumentsRoute: typeof AuthenticatedSettingsDocumentsRoute
+  AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
+  AuthenticatedSettingsIntegrationsRoute: typeof AuthenticatedSettingsIntegrationsRoute
+  AuthenticatedSettingsOperationsRoute: typeof AuthenticatedSettingsOperationsRoute
+  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
+}
+
+const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsBrandingRoute: AuthenticatedSettingsBrandingRoute,
+  AuthenticatedSettingsDocumentsRoute: AuthenticatedSettingsDocumentsRoute,
+  AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
+  AuthenticatedSettingsIntegrationsRoute:
+    AuthenticatedSettingsIntegrationsRoute,
+  AuthenticatedSettingsOperationsRoute: AuthenticatedSettingsOperationsRoute,
+  AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
+}
+
+const AuthenticatedSettingsRouteWithChildren =
+  AuthenticatedSettingsRoute._addFileChildren(
+    AuthenticatedSettingsRouteChildren,
+  )
+
 interface AuthenticatedStaffManagementRouteChildren {
   AuthenticatedStaffManagementAttendanceRoute: typeof AuthenticatedStaffManagementAttendanceRoute
   AuthenticatedStaffManagementMasterRoute: typeof AuthenticatedStaffManagementMasterRoute
@@ -1027,7 +1169,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRoomsRoute: typeof AuthenticatedRoomsRoute
   AuthenticatedSalaryRoute: typeof AuthenticatedSalaryRoute
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedStaffRoute: typeof AuthenticatedStaffRoute
   AuthenticatedStaffManagementRoute: typeof AuthenticatedStaffManagementRouteWithChildren
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
@@ -1066,7 +1208,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRoomsRoute: AuthenticatedRoomsRoute,
   AuthenticatedSalaryRoute: AuthenticatedSalaryRoute,
-  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedStaffRoute: AuthenticatedStaffRoute,
   AuthenticatedStaffManagementRoute:
     AuthenticatedStaffManagementRouteWithChildren,
