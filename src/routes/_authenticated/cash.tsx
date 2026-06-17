@@ -27,6 +27,7 @@ import {
 import { cn, toLocalYMD, smartDateTime } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
 import { NumField } from "@/components/num-field";
+import { MetricCard, Money } from "@/components/money";
 
 export const Route = createFileRoute("/_authenticated/cash")({
   validateSearch: (s: Record<string, unknown>) => ({
