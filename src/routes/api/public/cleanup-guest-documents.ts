@@ -5,15 +5,17 @@
 // Schedule via pg_cron to hit:
 //   POST /api/public/cleanup-guest-documents
 //   header: x-cleanup-secret: <CLEANUP_SECRET or RAZORPAY_WEBHOOK_SECRET>
+// Public endpoint to purge expired guest documents.
+// Auth: anon/publishable key via `apikey` header (canonical pg_cron pattern).
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/api/public/cleanup-guest-documents")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secret = request.headers.get("x-cleanup-secret");
-        const expected = process.env.CLEANUP_SECRET || process.env.RAZORPAY_WEBHOOK_SECRET;
-        if (!expected || secret !== expected) {
+        const apikey = request.headers.get("apikey");
+        const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
+        if (!expected || apikey !== expected) {
           return new Response("Unauthorized", { status: 401 });
         }
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
