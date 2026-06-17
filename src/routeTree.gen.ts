@@ -48,6 +48,7 @@ import { Route as AuthenticatedStaffManagementMasterRouteImport } from './routes
 import { Route as AuthenticatedStaffManagementAttendanceRouteImport } from './routes/_authenticated/staff-management.attendance'
 import { Route as AuthenticatedSettingsOperationsRouteImport } from './routes/_authenticated/settings.operations'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings.general'
+import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_authenticated/settings.branding'
 import { Route as AuthenticatedReportingStaffRouteImport } from './routes/_authenticated/reporting.staff'
 import { Route as AuthenticatedReportingPaymentsRouteImport } from './routes/_authenticated/reporting.payments'
 import { Route as AuthenticatedReportingAnalyticsRouteImport } from './routes/_authenticated/reporting.analytics'
@@ -266,6 +267,12 @@ const AuthenticatedSettingsGeneralRoute =
     path: '/general',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsBrandingRoute =
+  AuthenticatedSettingsBrandingRouteImport.update({
+    id: '/branding',
+    path: '/branding',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedReportingStaffRoute =
   AuthenticatedReportingStaffRouteImport.update({
     id: '/staff',
@@ -375,6 +382,7 @@ export interface FileRoutesByFullPath {
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
+  '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
@@ -426,6 +434,7 @@ export interface FileRoutesByTo {
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
+  '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
@@ -480,6 +489,7 @@ export interface FileRoutesById {
   '/_authenticated/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/_authenticated/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/_authenticated/reporting/staff': typeof AuthenticatedReportingStaffRoute
+  '/_authenticated/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/_authenticated/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
@@ -534,6 +544,7 @@ export interface FileRouteTypes {
     | '/reporting/analytics'
     | '/reporting/payments'
     | '/reporting/staff'
+    | '/settings/branding'
     | '/settings/general'
     | '/settings/operations'
     | '/staff-management/attendance'
@@ -585,6 +596,7 @@ export interface FileRouteTypes {
     | '/reporting/analytics'
     | '/reporting/payments'
     | '/reporting/staff'
+    | '/settings/branding'
     | '/settings/general'
     | '/settings/operations'
     | '/staff-management/attendance'
@@ -638,6 +650,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reporting/analytics'
     | '/_authenticated/reporting/payments'
     | '/_authenticated/reporting/staff'
+    | '/_authenticated/settings/branding'
     | '/_authenticated/settings/general'
     | '/_authenticated/settings/operations'
     | '/_authenticated/staff-management/attendance'
@@ -937,6 +950,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/branding': {
+      id: '/_authenticated/settings/branding'
+      path: '/branding'
+      fullPath: '/settings/branding'
+      preLoaderRoute: typeof AuthenticatedSettingsBrandingRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/reporting/staff': {
       id: '/_authenticated/reporting/staff'
       path: '/staff'
@@ -1043,12 +1063,14 @@ const AuthenticatedReportingRouteWithChildren =
   )
 
 interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsBrandingRoute: typeof AuthenticatedSettingsBrandingRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSettingsOperationsRoute: typeof AuthenticatedSettingsOperationsRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsBrandingRoute: AuthenticatedSettingsBrandingRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
   AuthenticatedSettingsOperationsRoute: AuthenticatedSettingsOperationsRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
