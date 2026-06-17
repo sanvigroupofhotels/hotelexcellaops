@@ -390,17 +390,16 @@ function TabBtn({ active, onClick, icon: Icon, children }: any) {
   );
 }
 
-function StatCard({ label, value, icon: Icon, tone, centered }: { label: string; value: number; icon: any; tone: "success"|"danger"|"gold"; centered?: boolean }) {
-  const toneCls = tone==="success" ? "text-success" : tone==="danger" ? "text-destructive" : "gold-text-gradient";
+function StatCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone: "success"|"danger"|"gold"; centered?: boolean }) {
+  const mappedTone = tone === "danger" ? "destructive" : tone;
   return (
-    <motion.div initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} className="luxe-card rounded-xl p-5">
-      <div className={cn("flex items-center", centered ? "justify-center gap-2" : "justify-between")}>
-        <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</span>
-        <Icon className={cn("h-4 w-4", toneCls)} />
-      </div>
-      <div className={cn("font-display text-3xl mt-2", toneCls, centered && "text-center")}>₹{Math.abs(value).toLocaleString("en-IN")}</div>
-      {tone==="gold" && value < 0 && <div className={cn("text-[10px] text-destructive mt-1", centered && "text-center")}>Negative — review entries</div>}
-    </motion.div>
+    <MetricCard
+      label={label}
+      value={Math.abs(value)}
+      icon={<Icon className="h-4 w-4" />}
+      tone={mappedTone as any}
+      sublabel={tone==="gold" && value < 0 ? <span className="text-destructive">Negative — review entries</span> : undefined}
+    />
   );
 }
 
