@@ -606,7 +606,17 @@ function Legend({ cls, label }: { cls: string; label: string }) {
 function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean }) {
   const qc = useQueryClient();
   const room = rooms.find((r: any) => r.id === b.room_id);
-  const balance = b.status === "Cancelled" ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+  const { data: chargesForBooking = [] } = useQuery({
+    queryKey: ["booking-charges", b.id],
+    queryFn: async () => {
+      const { listBookingCharges } = await import("@/lib/booking-charges-api");
+      return listBookingCharges(b.id);
+    },
+  });
+  const additionalCharges = (chargesForBooking as any[]).reduce((s, c) => s + Number(c.amount || 0), 0);
+  const roomCharges = Number(b.amount) || 0;
+  const totalCharges = roomCharges + additionalCharges;
+  const balance = b.status === "Cancelled" ? 0 : Math.max(0, totalCharges - Number(b.advance_paid || 0));
   const today = dateKey(new Date());
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
