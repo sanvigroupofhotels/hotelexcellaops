@@ -1217,3 +1217,44 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
   );
 }
 
+function GuestDocumentsSummary({ bookingId, onOpen }: { bookingId: string; onOpen: () => void }) {
+  const { data: docs = [] } = useQuery({
+    queryKey: ["guest-documents", bookingId],
+    queryFn: () => import("@/lib/guest-documents-api").then((m) => m.listGuestDocuments(bookingId)),
+  });
+  const count = docs.length;
+  return (
+    <div className="luxe-card rounded-xl p-5 print:hidden">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-display text-lg flex items-center gap-2">
+          <FileText className="h-4 w-4 text-gold" /> Guest Documents
+        </h4>
+        <span className={cn(
+          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] uppercase tracking-wider",
+          count > 0 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500" : "border-warning/40 bg-warning/10 text-warning",
+        )}>
+          {count > 0 ? `Uploaded · ${count}` : "Pending"}
+        </span>
+      </div>
+      {count === 0 ? (
+        <p className="text-xs text-muted-foreground mb-3">No documents on file. Aadhaar, PAN, Passport, Driving License or Other accepted. Auto-deleted after 60 days.</p>
+      ) : (
+        <ul className="text-xs space-y-1 mb-3">
+          {docs.slice(0, 3).map((d: any) => (
+            <li key={d.id} className="flex items-center justify-between text-muted-foreground">
+              <span>{d.doc_type}</span>
+              <span className="text-[10px]">{new Date(d.uploaded_at).toLocaleDateString("en-IN")}</span>
+            </li>
+          ))}
+          {count > 3 && <li className="text-[10px] text-muted-foreground italic">+{count - 3} more…</li>}
+        </ul>
+      )}
+      <button onClick={onOpen}
+        className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs hover:border-gold/40">
+        <FileText className="h-3.5 w-3.5" /> Manage Documents
+      </button>
+    </div>
+  );
+}
+
+
