@@ -64,7 +64,7 @@ function ComplaintDetail() {
   const { data: booking } = useQuery({
     queryKey: ["booking", c?.booking_id], queryFn: () => getBooking(c!.booking_id!), enabled: !!c?.booking_id,
   });
-  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
+  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active", "complaints"], queryFn: () => listStaff(true, { availability: "complaints" }) });
   const { data: categories = [] } = useQuery({ queryKey: ["complaint-categories"], queryFn: () => listComplaintCategories(true) });
 
   const [resolveOpen, setResolveOpen] = useState(false);

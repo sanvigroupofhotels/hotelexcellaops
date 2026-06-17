@@ -120,7 +120,7 @@ export function ChargeFormDialog({
   bookingId: string; categories: string[]; editing: BookingChargeRow | null;
 }) {
   const qc = useQueryClient();
-  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
+  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active", "cashbook"], queryFn: () => listStaff(true, { availability: "cashbook" }) });
   const [category, setCategory] = useState(editing?.category ?? categories[0] ?? "Food Order");
   const [otherDesc, setOtherDesc] = useState(editing?.other_description ?? "");
   const [quantity, setQuantity] = useState<number>(editing?.quantity ?? 1);

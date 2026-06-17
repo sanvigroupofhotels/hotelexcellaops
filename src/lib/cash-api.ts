@@ -9,7 +9,7 @@ export const COLLECTION_TYPES = [
   "Other",
 ] as const;
 
-export interface StaffRow { id: string; user_id: string; name: string; mobile: string | null; active: boolean; created_at: string; updated_at: string; }
+export interface StaffRow { id: string; user_id: string; name: string; mobile: string | null; active: boolean; available_in_cashbook: boolean; available_in_dues: boolean; available_in_complaints: boolean; created_at: string; updated_at: string; }
 export interface ExpenseTypeRow { id: string; user_id: string; name: string; active: boolean; created_at: string; updated_at: string; }
 export interface CashTxRow {
   id: string; user_id: string;
@@ -32,9 +32,12 @@ export interface CashTxActivity {
 }
 
 // ---------- Staff ----------
-export async function listStaff(activeOnly = false) {
+export async function listStaff(activeOnly = false, opts?: { availability?: "cashbook" | "dues" | "complaints" }) {
   let q = supabase.from("staff" as any).select("*").order("name");
   if (activeOnly) q = q.eq("active", true);
+  if (opts?.availability === "cashbook") q = q.eq("available_in_cashbook", true);
+  if (opts?.availability === "dues") q = q.eq("available_in_dues", true);
+  if (opts?.availability === "complaints") q = q.eq("available_in_complaints", true);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as unknown as StaffRow[];
@@ -46,7 +49,7 @@ export async function createStaff(name: string, mobile?: string) {
     .insert({ user_id: user.id, name, mobile: mobile ?? null } as any).select().single();
   if (error) throw error; return data as unknown as StaffRow;
 }
-export async function updateStaff(id: string, patch: Partial<Pick<StaffRow, "name" | "mobile" | "active">>) {
+export async function updateStaff(id: string, patch: Partial<Pick<StaffRow, "name" | "mobile" | "active" | "available_in_cashbook" | "available_in_dues" | "available_in_complaints">>) {
   const { error } = await supabase.from("staff" as any).update(patch as any).eq("id", id);
   if (error) throw error;
 }

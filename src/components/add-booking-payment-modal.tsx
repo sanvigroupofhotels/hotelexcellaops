@@ -22,7 +22,7 @@ export function AddBookingPaymentModal({
 }) {
   const qc = useQueryClient();
   const isEdit = !!payment;
-  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
+  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active", "cashbook"], queryFn: () => listStaff(true, { availability: "cashbook" }) });
   const { values: paymentModes } = useMasterData("payment_method", [...PAYMENT_MODES]);
   const [amount, setAmount] = useState<number>(payment ? Number(payment.amount) : Math.max(0, maxAmount));
   const [mode, setMode] = useState<string>(payment?.payment_mode ?? paymentModes[0] ?? PAYMENT_MODES[0]);
