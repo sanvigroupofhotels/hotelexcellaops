@@ -121,11 +121,18 @@ function Content({ id }: { id: string }) {
 
   const runSync = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/public/hotelzify-poll?debug=1", { method: "POST" });
+      const res = await fetch(`/api/public/hotelzify-poll?debug=1&integration_id=${id}`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error(data.error || `Sync failed (${res.status})`);
       return data as SyncDebugResponse;
     },
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ["integration", id] });
+      qc.invalidateQueries({ queryKey: ["integration-runs", id] });
+      toast.success(`Sync done · scanned ${d.scanned} · created ${d.created} · updated ${d.updated}`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ["integration", id] });
       qc.invalidateQueries({ queryKey: ["integration-runs", id] });
