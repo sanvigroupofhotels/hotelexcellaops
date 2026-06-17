@@ -506,13 +506,8 @@ function BookingDetail() {
                   <div className="space-y-2">
                     {canCheckIn && (
                       <button onClick={() => {
-                        const required = requiredRoomCount(items as any);
-                        if (assignments.length < required) {
-                          toast.error("Please assign all rooms before Check-In.");
-                          setChangingAssignmentId(null);
-                          setCheckinFlowOpen(true);
-                          return;
-                        }
+                        // New order: Guest Documents FIRST, then Room Assignment (if needed),
+                        // then auto Check-In on completion.
                         setGuestDocsMode("checkin");
                         setGuestDocsOpen(true);
                       }}
