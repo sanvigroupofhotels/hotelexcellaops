@@ -1,12 +1,13 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Menu, X, BedDouble, Wallet,
   MessageSquareWarning, Building2, Database,
-  Home, FileBarChart, UserCog, Settings as SettingsIcon,
+  Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
+  Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
 } from "lucide-react";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
 import { UserMenu } from "@/components/user-menu";
@@ -23,8 +24,15 @@ const nav: NavItem[] = [
   { to: "/staff-management", label: "Staff Management", icon: UserCog },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
   { to: "/master-data", label: "Master Data", icon: Database, adminOnly: true },
-  { to: "/settings", label: "Settings", icon: SettingsIcon, adminOnly: true },
 ];
+
+const settingsChildren = [
+  { to: "/settings/general",      label: "General",             icon: Building2Alt },
+  { to: "/settings/operations",   label: "Operations",          icon: Cog },
+  { to: "/settings/branding",     label: "Branding",            icon: Palette },
+  { to: "/settings/documents",    label: "Documents Retention", icon: ShieldCheck },
+  { to: "/settings/integrations", label: "Integrations",        icon: Plug },
+] as const;
 
 function Logo() {
   return (
@@ -37,6 +45,58 @@ function Logo() {
         <div className="text-[10px] tracking-[0.25em] text-gold/80 uppercase">Boutique · Luxury</div>
       </div>
     </Link>
+  );
+}
+
+function SettingsGroup({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+  const sectionActive = pathname.startsWith("/settings");
+  const [open, setOpen] = useState(sectionActive);
+  useEffect(() => { if (sectionActive) setOpen(true); }, [sectionActive]);
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "relative w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-200",
+          sectionActive ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60",
+        )}
+        aria-expanded={open}
+      >
+        {sectionActive && (
+          <motion.div layoutId="sidebar-active" className="absolute inset-0 rounded-md bg-gold-soft border border-gold/30"
+            transition={{ type: "spring", stiffness: 380, damping: 30 }} />
+        )}
+        <SettingsIcon className={cn("relative h-4 w-4 shrink-0", sectionActive && "text-gold")} />
+        <span className="relative flex-1 text-left">Settings</span>
+        <ChevronDown className={cn("relative h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }} className="overflow-hidden"
+          >
+            <div className="pl-7 mt-1 space-y-0.5">
+              {settingsChildren.map((c) => {
+                const active = pathname === c.to || pathname.startsWith(c.to + "/");
+                const Icon = c.icon;
+                return (
+                  <Link key={c.to} to={c.to} onClick={onNavigate}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-3 py-1.5 text-[12px] transition",
+                      active ? "text-gold bg-gold-soft/60 border border-gold/30" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/40",
+                    )}>
+                    <Icon className="h-3.5 w-3.5" /> {c.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -81,6 +141,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           </motion.div>
         );
       })}
+      {isAdmin && <SettingsGroup pathname={pathname} onNavigate={onNavigate} />}
     </nav>
   );
 }

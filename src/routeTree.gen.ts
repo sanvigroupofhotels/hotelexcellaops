@@ -47,6 +47,7 @@ import { Route as AuthenticatedStaffManagementSalaryRouteImport } from './routes
 import { Route as AuthenticatedStaffManagementMasterRouteImport } from './routes/_authenticated/staff-management.master'
 import { Route as AuthenticatedStaffManagementAttendanceRouteImport } from './routes/_authenticated/staff-management.attendance'
 import { Route as AuthenticatedSettingsOperationsRouteImport } from './routes/_authenticated/settings.operations'
+import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings.general'
 import { Route as AuthenticatedSettingsDocumentsRouteImport } from './routes/_authenticated/settings.documents'
 import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_authenticated/settings.branding'
@@ -262,6 +263,12 @@ const AuthenticatedSettingsOperationsRoute =
     path: '/operations',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsIntegrationsRoute =
+  AuthenticatedSettingsIntegrationsRouteImport.update({
+    id: '/integrations',
+    path: '/integrations',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsGeneralRoute =
   AuthenticatedSettingsGeneralRouteImport.update({
     id: '/general',
@@ -392,6 +399,7 @@ export interface FileRoutesByFullPath {
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/settings/documents': typeof AuthenticatedSettingsDocumentsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
@@ -445,6 +453,7 @@ export interface FileRoutesByTo {
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/settings/documents': typeof AuthenticatedSettingsDocumentsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
@@ -501,6 +510,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/_authenticated/settings/documents': typeof AuthenticatedSettingsDocumentsRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/_authenticated/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/_authenticated/settings/operations': typeof AuthenticatedSettingsOperationsRoute
   '/_authenticated/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/_authenticated/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
@@ -557,6 +567,7 @@ export interface FileRouteTypes {
     | '/settings/branding'
     | '/settings/documents'
     | '/settings/general'
+    | '/settings/integrations'
     | '/settings/operations'
     | '/staff-management/attendance'
     | '/staff-management/master'
@@ -610,6 +621,7 @@ export interface FileRouteTypes {
     | '/settings/branding'
     | '/settings/documents'
     | '/settings/general'
+    | '/settings/integrations'
     | '/settings/operations'
     | '/staff-management/attendance'
     | '/staff-management/master'
@@ -665,6 +677,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/branding'
     | '/_authenticated/settings/documents'
     | '/_authenticated/settings/general'
+    | '/_authenticated/settings/integrations'
     | '/_authenticated/settings/operations'
     | '/_authenticated/staff-management/attendance'
     | '/_authenticated/staff-management/master'
@@ -956,6 +969,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsOperationsRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/integrations': {
+      id: '/_authenticated/settings/integrations'
+      path: '/integrations'
+      fullPath: '/settings/integrations'
+      preLoaderRoute: typeof AuthenticatedSettingsIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/general': {
       id: '/_authenticated/settings/general'
       path: '/general'
@@ -1086,6 +1106,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsBrandingRoute: typeof AuthenticatedSettingsBrandingRoute
   AuthenticatedSettingsDocumentsRoute: typeof AuthenticatedSettingsDocumentsRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
+  AuthenticatedSettingsIntegrationsRoute: typeof AuthenticatedSettingsIntegrationsRoute
   AuthenticatedSettingsOperationsRoute: typeof AuthenticatedSettingsOperationsRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
@@ -1094,6 +1115,8 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsBrandingRoute: AuthenticatedSettingsBrandingRoute,
   AuthenticatedSettingsDocumentsRoute: AuthenticatedSettingsDocumentsRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
+  AuthenticatedSettingsIntegrationsRoute:
+    AuthenticatedSettingsIntegrationsRoute,
   AuthenticatedSettingsOperationsRoute: AuthenticatedSettingsOperationsRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
