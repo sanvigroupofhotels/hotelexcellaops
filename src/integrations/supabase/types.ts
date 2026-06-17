@@ -1212,6 +1212,74 @@ export type Database = {
           },
         ]
       }
+      guest_documents: {
+        Row: {
+          back_path: string | null
+          booking_id: string
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_by_name: string | null
+          doc_type: string
+          expires_at: string
+          front_path: string | null
+          id: string
+          notes: string | null
+          selfie_path: string | null
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+          uploaded_by_name: string | null
+          user_id: string
+        }
+        Insert: {
+          back_path?: string | null
+          booking_id: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
+          doc_type: string
+          expires_at?: string
+          front_path?: string | null
+          id?: string
+          notes?: string | null
+          selfie_path?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+          user_id?: string
+        }
+        Update: {
+          back_path?: string | null
+          booking_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
+          doc_type?: string
+          expires_at?: string
+          front_path?: string | null
+          id?: string
+          notes?: string | null
+          selfie_path?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_documents_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_runs: {
         Row: {
           created_count: number
@@ -2214,6 +2282,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_guest_documents: { Args: never; Returns: number }
       current_actor: {
         Args: never
         Returns: {
