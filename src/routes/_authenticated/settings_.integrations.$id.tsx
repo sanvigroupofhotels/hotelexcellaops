@@ -133,13 +133,6 @@ function Content({ id }: { id: string }) {
     },
     onError: (e: any) => toast.error(e.message),
   });
-    onSuccess: (d) => {
-      qc.invalidateQueries({ queryKey: ["integration", id] });
-      qc.invalidateQueries({ queryKey: ["integration-runs", id] });
-      toast.success(`Sync done · scanned ${d.scanned} · created ${d.created} · updated ${d.updated}`);
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
 
   const debugInfo = useMemo<Partial<SyncDebugResponse> | null>(() => {
     if (runSync.data) return runSync.data;
