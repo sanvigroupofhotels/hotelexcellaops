@@ -50,6 +50,7 @@ import {
 } from "@/lib/booking-room-assignments-api";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
+import { listGuestDocuments } from "@/lib/guest-documents-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
@@ -1220,7 +1221,7 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
 function GuestDocumentsSummary({ bookingId, onOpen }: { bookingId: string; onOpen: () => void }) {
   const { data: docs = [] } = useQuery({
     queryKey: ["guest-documents", bookingId],
-    queryFn: () => import("@/lib/guest-documents-api").then((m) => m.listGuestDocuments(bookingId)),
+    queryFn: () => listGuestDocuments(bookingId),
   });
   const count = docs.length;
   return (
