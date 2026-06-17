@@ -512,7 +512,8 @@ function BookingDetail() {
                           setCheckinFlowOpen(true);
                           return;
                         }
-                        status.mutate("Checked-In" as any);
+                        setGuestDocsMode("checkin");
+                        setGuestDocsOpen(true);
                       }}
                         className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal">
                         <LogIn className="h-3.5 w-3.5" /> Check-In
@@ -826,7 +827,15 @@ function BookingDetail() {
         open={checkinFlowOpen}
         onClose={() => setCheckinFlowOpen(false)}
         mode="checkin-flow"
-        onAllAssigned={() => status.mutate("Checked-In" as any)}
+        onAllAssigned={() => { setCheckinFlowOpen(false); setGuestDocsMode("checkin"); setGuestDocsOpen(true); }}
+      />
+
+      <GuestDocumentsDialog
+        bookingId={id}
+        open={guestDocsOpen}
+        onClose={() => setGuestDocsOpen(false)}
+        mode={guestDocsMode}
+        onComplete={guestDocsMode === "checkin" ? () => status.mutate("Checked-In" as any) : undefined}
       />
     </>
   );
