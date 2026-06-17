@@ -15,6 +15,7 @@ import {
 import { Loader2, Download, Search, IndianRupee, Wallet, CreditCard, Globe, Banknote, Pencil, Trash2 } from "lucide-react";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
+import { MetricCard, Money } from "@/components/money";
 
 export const Route = createFileRoute("/_authenticated/payments-reports")({
   component: PaymentsReportsPage,
