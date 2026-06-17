@@ -32,7 +32,7 @@ export async function setPaymentSettings(value: PaymentSettings): Promise<void> 
   if (error) throw error;
 }
 
-// ===== Generic app settings (hotel info, ops, branding) =====
+// ===== Generic app settings (hotel info, ops, branding, documents retention) =====
 
 export interface HotelSettings {
   name: string;
@@ -43,8 +43,8 @@ export interface HotelSettings {
   email: string;
 }
 export interface OpsSettings {
-  check_in_time: string;   // "13:00"
-  check_out_time: string;  // "11:00"
+  check_in_time: string;
+  check_out_time: string;
   currency: string;
   timezone: string;
 }
@@ -52,6 +52,13 @@ export interface BrandingSettings {
   portal_title: string;
   welcome_message: string;
   invoice_footer: string;
+}
+/**
+ * Documents Retention setting.
+ * retention_days = 0 means "Never Delete" — cleanup job is a no-op.
+ */
+export interface DocumentsRetentionSettings {
+  retention_days: number;
 }
 
 export const DEFAULT_HOTEL: HotelSettings = {
@@ -73,6 +80,17 @@ export const DEFAULT_BRANDING: BrandingSettings = {
   welcome_message: "Thank you for choosing us. We look forward to hosting you.",
   invoice_footer: "Thank you for staying with us.",
 };
+export const DEFAULT_DOCUMENTS_RETENTION: DocumentsRetentionSettings = {
+  retention_days: 60,
+};
+
+export const DOCUMENTS_RETENTION_OPTIONS: { label: string; days: number }[] = [
+  { label: "30 days", days: 30 },
+  { label: "60 days", days: 60 },
+  { label: "90 days", days: 90 },
+  { label: "180 days", days: 180 },
+  { label: "Never delete", days: 0 },
+];
 
 async function readSetting<T>(key: string, fallback: T): Promise<T> {
   const { data, error } = await supabase
@@ -99,3 +117,8 @@ export const setOpsSettings = (v: OpsSettings) => writeSetting("ops", v);
 
 export const getBrandingSettings = () => readSetting("branding", DEFAULT_BRANDING);
 export const setBrandingSettings = (v: BrandingSettings) => writeSetting("branding", v);
+
+export const getDocumentsRetention = () =>
+  readSetting("documents_retention", DEFAULT_DOCUMENTS_RETENTION);
+export const setDocumentsRetention = (v: DocumentsRetentionSettings) =>
+  writeSetting("documents_retention", v);
