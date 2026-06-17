@@ -115,7 +115,7 @@ import { buildDailyCashReport, computeOpeningBalance } from "@/lib/cash-report";
 function CashPage() {
   const { isAdmin, canManage } = useUserRole();
   const routeSearch = Route.useSearch();
-  const [tab, setTab] = useState<"dashboard" | "staff" | "etypes" | "audit">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "audit">("dashboard");
   const [openForm, setOpenForm] = useState<null | { kind: "collection" | "expense"; tx?: CashTxRow }>(
     routeSearch.new ? { kind: routeSearch.new } : null,
   );
@@ -158,12 +158,10 @@ function CashPage() {
     <>
       <Topbar title="CashBook" subtitle={isAdmin ? "All-time cash collections, expenses & balance" : "Current cash balance"} />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-32 lg:pb-8 space-y-6">
-        {/* Tabs — admins only see master data tabs */}
+        {/* Tabs — admins see Audit Close, staff masters live in Master Data */}
         {isAdmin && (
           <div className="flex items-center gap-2 border-b border-border overflow-x-auto">
             <TabBtn active={tab==="dashboard"} onClick={() => setTab("dashboard")} icon={HistoryIcon}>Dashboard</TabBtn>
-            <TabBtn active={tab==="staff"} onClick={() => setTab("staff")} icon={UsersIcon}>Staff Master</TabBtn>
-            <TabBtn active={tab==="etypes"} onClick={() => setTab("etypes")} icon={ListChecks}>Expense Types</TabBtn>
             <TabBtn active={tab==="audit"} onClick={() => setTab("audit")} icon={ShieldCheck}>Audit Close</TabBtn>
           </div>
         )}
@@ -244,8 +242,6 @@ function CashPage() {
           </>
         )}
 
-        {tab === "staff" && isAdmin && <StaffMaster />}
-        {tab === "etypes" && isAdmin && <ExpenseTypeMaster />}
         {tab === "audit" && isAdmin && <AuditClosePanel />}
       </div>
 
@@ -670,7 +666,7 @@ function DetailRow({ label, value, full }: { label: string; value: React.ReactNo
 // ---------- Tx Form Modal (Create + Edit) ----------
 function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; edit?: CashTxRow; onClose: ()=>void }) {
   const qc = useQueryClient();
-  const { data: staff = [] } = useQuery({ queryKey: ["staff","active"], queryFn: () => listStaff(true) });
+  const { data: staff = [] } = useQuery({ queryKey: ["staff","active","cashbook"], queryFn: () => listStaff(true, { availability: "cashbook" }) });
   const { data: etypes = [] } = useQuery({ queryKey: ["etypes","active"], queryFn: () => listExpenseTypes(true) });
   const { values: incomeTypes } = useMasterData("income_category", [...COLLECTION_TYPES]);
   const { data: bookings = [] } = useQuery({

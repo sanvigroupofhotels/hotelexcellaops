@@ -15,6 +15,9 @@ export interface StaffHrRow {
   monthly_salary: number | null;
   food_provided: boolean;
   accommodation_provided: boolean;
+  available_in_cashbook: boolean;
+  available_in_dues: boolean;
+  available_in_complaints: boolean;
   created_at: string;
   updated_at: string;
 }

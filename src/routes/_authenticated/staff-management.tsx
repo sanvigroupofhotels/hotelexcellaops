@@ -1,27 +1,27 @@
 import { createFileRoute, Link, Outlet, Navigate, useRouterState } from "@tanstack/react-router";
-import { BarChart3, IndianRupee, FileBarChart } from "lucide-react";
+import { UserCog, ClipboardCheck, IndianRupee } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated/reporting")({
-  component: ReportingLayout,
+export const Route = createFileRoute("/_authenticated/staff-management")({
+  component: StaffManagementLayout,
 });
 
 const TABS = [
-  { to: "/reporting/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/reporting/payments", label: "Payment Reporting", icon: IndianRupee },
-  { to: "/reporting/staff", label: "Staff Reporting", icon: FileBarChart },
+  { to: "/staff-management/master", label: "Staff Master", icon: UserCog },
+  { to: "/staff-management/attendance", label: "Attendance", icon: ClipboardCheck },
+  { to: "/staff-management/salary", label: "Salary", icon: IndianRupee },
 ] as const;
 
-function ReportingLayout() {
+function StaffManagementLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  if (pathname === "/reporting" || pathname === "/reporting/") {
-    return <Navigate to="/reporting/analytics" replace />;
+  if (pathname === "/staff-management" || pathname === "/staff-management/") {
+    return <Navigate to="/staff-management/master" replace />;
   }
   return (
     <div className="min-h-screen">
       <div className="border-b border-border bg-card/40 sticky top-0 z-20 backdrop-blur">
         <div className="px-4 md:px-6 py-3 flex items-center gap-2 overflow-x-auto max-w-[1400px]">
-          <div className="font-display text-sm text-muted-foreground tracking-wider uppercase mr-3 shrink-0">Reporting</div>
+          <div className="font-display text-sm text-muted-foreground tracking-wider uppercase mr-3 shrink-0">Staff Management</div>
           {TABS.map((t) => {
             const active = pathname.startsWith(t.to);
             const Icon = t.icon;

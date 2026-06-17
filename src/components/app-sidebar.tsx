@@ -1,9 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
-  History, Bell, Calendar, BarChart3,
-  Users, ListChecks, Menu, X, ShieldCheck, BedDouble, ClipboardCheck, Wallet,
-  MessageSquareWarning, Building2, DoorOpen, IndianRupee, Tag, Database, KeyRound,
+  Users, Menu, X, BedDouble, Wallet,
+  MessageSquareWarning, Building2, Database,
   Home, FileBarChart, UserCog, Settings as SettingsIcon,
 } from "lucide-react";
 
@@ -15,30 +14,15 @@ import { UserMenu } from "@/components/user-menu";
 type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; hideForStaff?: boolean };
 
 const nav: NavItem[] = [
-  { to: "/", label: "Home", icon: Home },
-  { to: "/customers", label: "Customers", icon: Users },
-  { to: "/history", label: "Quotes", icon: History, hideForStaff: true },
+  { to: "/", label: "Dashboard", icon: Home },
   { to: "/bookings", label: "Bookings", icon: BedDouble },
   { to: "/house-view", label: "House View", icon: Building2 },
+  { to: "/customers", label: "Customers", icon: Users },
   { to: "/cash", label: "CashBook", icon: Wallet },
-  { to: "/dues", label: "Due Collection", icon: IndianRupee },
   { to: "/reporting", label: "Reporting", icon: FileBarChart },
-  { to: "/payments-reports", label: "Payments Reports", icon: IndianRupee, adminOnly: true },
-  { to: "/complaints", label: "Issues", icon: MessageSquareWarning },
-  { to: "/tasks", label: "Tasks", icon: ListChecks },
-  { to: "/follow-ups", label: "Follow-ups", icon: Bell },
-  { to: "/calendar", label: "Calendar", icon: Calendar },
-  { to: "/staff", label: "Staff Master", icon: UserCog, adminOnly: true },
-  { to: "/attendance", label: "Attendance", icon: ClipboardCheck },
-  { to: "/salary", label: "Salary", icon: IndianRupee, adminOnly: true },
-  { to: "/rates", label: "Rates & Inventory", icon: Tag, adminOnly: true },
-  { to: "/rooms", label: "Room Master", icon: DoorOpen, adminOnly: true },
-
+  { to: "/staff-management", label: "Staff Management", icon: UserCog },
+  { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
   { to: "/master-data", label: "Master Data", icon: Database, adminOnly: true },
-  { to: "/audit", label: "Audit", icon: ClipboardCheck, adminOnly: true },
-  { to: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: true },
-  { to: "/users", label: "User Management", icon: ShieldCheck, adminOnly: true },
-  { to: "/access-settings", label: "Access Settings", icon: KeyRound, adminOnly: true },
   { to: "/settings", label: "Settings", icon: SettingsIcon, adminOnly: true },
 ];
 

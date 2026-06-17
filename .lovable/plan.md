@@ -1,126 +1,84 @@
-# Next Foundational Shipment
+# Architecture Cleanup & FabHotels Integration
 
-Four items, all building toward SaaS-readiness. Implemented in this order so each layer supports the next.
+Big refactor — confirming the scope and approach before I touch code so we don't churn.
 
----
+## Target Navigation (final)
 
-## 1. Cashbook Audit Close (Admin only)
+```
+Dashboard · Bookings · House View · Customers · Cashbook · Reporting · Staff Management · Complaints · Master Data · Settings
+```
 
-**Database (new migration)**
-- `cash_audit_closes` table:
-  - `closed_through_date` (date) — all transactions on/before this date are locked
-  - `closed_by`, `closed_by_name`, `closed_at`
-  - `reopened_by`, `reopened_at`, `reopen_reason`, `active` (boolean)
-- Helper: `is_cash_tx_locked(occurred_at)` SECURITY DEFINER — returns true if an active audit close covers that date.
-- Modify `cash_transactions` UPDATE/DELETE RLS:
-  - Admin: always allowed (after providing reopen flow at app layer)
-  - Staff/Owner: blocked when `is_cash_tx_locked(occurred_at)` is true
-- Activity logging through existing `cash_tx_activities` style: new table `cash_audit_activities` for: `audit_closed`, `audit_reopened`, `audit_closed_again`. Transaction edits on locked-then-reopened tx already log via existing `cashtx_audit` trigger.
+Removed from sidebar: Rooms, Rates & Inventory, Staff, Attendance, Salary, Audit, Payment Reports, Analytics (all reachable via parent modules below).
 
-**UI**
-- `src/routes/_authenticated/cash.tsx`:
-  - New "Audit Close" button (admin only) → dialog: pick date → confirm
-  - "Audit History" panel showing closes with 🔒 / 🔓 chips and reopen reason
-  - Each transaction row shows 🔒 Audited badge when locked; 🔓 Reopened when in a reopened window
-  - Edit/Delete buttons disabled for non-admin on locked rows (tooltip: "Locked by audit close")
-  - Admin Unlock dialog: mandatory reason → reopens (deactivates current close, logs `audit_reopened`)
+## 1. Cashbook
+- Remove the in-page master tabs (Payment Modes, Expense Types, etc.) — they already exist in `master_data`.
+- Keep just two tabs: **Dashboard** and **Audit Close** (admin only).
+- Any master UI that's nicer than the Master Data version gets ported into Master Data, not duplicated.
 
----
+## 2 & 3. Staff Management
+- New top-level route `/staff-management` with tabs: **Staff Master**, **Attendance**, **Salary** (existing pages, rehoused as tabs).
+- Single `staff` table remains the only source. Add columns:
+  - `available_in_cashbook boolean default true`
+  - `available_in_dues boolean default true`
+  - `available_in_complaints boolean default true`
+- All staff dropdowns app-wide filter by the relevant flag.
+- Staff Master is NOT under Master Data.
 
-## 2. Complete Master Data Reorganization
+## 4 & 5. Rooms & Rates under Master Data
+- Move existing Rooms page and Rates & Inventory page under Master Data tabs.
+- Remove standalone nav entries.
 
-**Database**
-- Existing `master_data` table already has `category` + `value` + `label` + `sort_order` + `active`. Reuse it.
-- Seed migration: insert canonical entries for new categories — `room_category`, `room_status`, `block_reason`, `payment_mode`, `charge_category`, `expense_category`, `tax`, `issue_type`, `issue_priority`, `cancellation_reason`, `override_reason`, `complaint_status`, `whatsapp_template`, `invoice_footer`, `message_template`. (Templates use longer `label` content.)
-- Migrate existing hardcoded values from `mock-data.ts` constants and `complaint_categories` / `expense_types` rows into `master_data` (keep originals for now; mark deprecated in next shipment).
+## 6. Master Data layout
+Sectioned tabs:
+- **General → Rooms**: Room Master, Room Categories, Room Statuses, Block Reasons
+- **Finance**: Payment Modes, Taxes, Charge Categories, Expense Categories
+- **Operations**: Cancellation Reasons, Override Reasons
+- **Complaints**: Issue Types, Priorities, Complaint Statuses
+- **Rates & Inventory** (embedded existing page)
 
-**UI**
-- Rebuild `src/routes/_authenticated/master-data.tsx` as a single tabbed module:
-  - **General**: Lead Sources · Tags
-  - **Rooms**: Room Categories · Room Statuses · Block Reasons
-  - **Finance**: Payment Modes · Charge Categories · Expense Categories · GST/Taxes
-  - **Operations**: Issue Types · Priorities · Cancellation Reasons · Override Reasons · Complaint Statuses
-  - **Templates**: WhatsApp Templates · Invoice Footer · Message Templates
-- Each tab: list with inline add/edit/toggle-active/reorder.
-- Remove "Master Data" sub-tabs from Complaints/Issues, Cash (Expense Types), Rooms — those modules now consume `useMasterData(category)`.
-- Replace hardcoded `LEAD_SOURCES`, `PET_RATES` labels, complaint categories list, expense type list reads with `useMasterData()` (falling back to current hardcoded as defaults).
+Backed by `master_data.category` values seeded for any new categories that don't exist.
 
----
+## 7. Reporting reorg
+Single `/reporting` route with tabs in order:
+1. **Analytics** (current Analytics page)
+2. **Payment Reporting** (current payments-reports)
+3. **Staff Reporting** (current Reporting page)
 
-## 3. Settings Page (Admin only)
+Old standalone routes redirect to the tabbed view.
 
-**Database**
-- Extend `app_settings` (key/value JSONB store already exists) — no schema change, just new keys:
-  - `hotel.name`, `hotel.logo_url`, `hotel.address`, `hotel.gstin`, `hotel.phone`, `hotel.email`
-  - `ops.check_in_time`, `ops.check_out_time`, `ops.currency`, `ops.timezone`
-  - `branding.portal_title`, `branding.welcome_message`, `branding.invoice_footer`
-- RLS: admin-only write; authenticated read.
+## 8. Audit removed
+Delete `/audit` route, sidebar entry, and `audit.tsx`. No data migration needed.
 
-**UI**
-- New route `src/routes/_authenticated/settings.tsx` with tabs: General · Operations · Branding · Integrations.
-- Wire existing "Settings" item in `user-menu.tsx` (currently inert) → `/settings`.
-- Admin-only guard via `useRole`.
+## 9. FabHotels email integration
+- Add `fabhotels` as a first-class provider in the polling route — reuses the same configurable `field_labels`, `subject_filters`, `sender_email`, `inbox_email` UI already built for Hotelzify.
+- **Sender/inbox emails come from the UI config only** — no hardcoded defaults in the backend.
+- New FabHotels parser tuned for the attached email format:
+  - Booking ID: from subject `Booking ID: KPZYPT` (regex on subject) + body fallback
+  - Table-style fields: `NAME OF GUEST`, `CHECKIN DATE`, `CHECKOUT DATE`, `TYPE OF ROOM`, `NUMBER OF ROOMS`, `TOTAL GUESTS`, `PAYMENT MODE`, `INCLUSIONS`, `SPECIAL REQUEST`, `TOTAL BOOKING AMOUNT`
+  - Date format: `15 JUN 26` → normalized
+  - Lead source defaults to "FabHotels" (configurable in UI)
+- Rename `/api/public/hotelzify-poll` → `/api/public/integrations-poll` that loops over all `connected` email integrations and dispatches to the right parser by `provider`. Keep old URL as alias for safety.
+- Diagnostics UI on integration detail page works for both providers (already provider-agnostic, just needs the provider check broadened).
 
----
+## Technical notes
 
-## 4. External Integrations Framework (foundation)
+- DB migrations:
+  1. Add `available_in_cashbook`, `available_in_dues`, `available_in_complaints` to `staff`.
+  2. Seed any missing `master_data` categories: `room_category`, `room_status`, `block_reason`, `cancellation_reason`, `override_reason`, `issue_type`, `complaint_priority`, `complaint_status`, `charge_category`. (Payment modes & expense types already have dedicated tables — keep those as-is, surface via Master Data UI.)
+- Route changes (TanStack file routes):
+  - New: `_authenticated/staff-management.tsx` (+ tab children or in-page tabs)
+  - New: `_authenticated/reporting.tsx` becomes tabs container (current file is Staff Reporting — rename internals)
+  - Delete: `_authenticated/audit.tsx`, `_authenticated/rooms.tsx` (move content), `_authenticated/rates.tsx` (move content), `_authenticated/attendance.tsx`, `_authenticated/salary.tsx`, `_authenticated/staff.tsx`, `_authenticated/analytics.tsx`, `_authenticated/payments-reports.tsx` (or convert to redirects)
+  - Update: `master-data.tsx` to render sectioned tabs incl. Rooms, Rates
+  - Update: `cash.tsx` to drop master tabs
+  - Update: `app-sidebar.tsx` to new nav set
+- FabHotels parser lives next to Hotelzify parser in `hotelzify-poll.ts` (renamed to `integrations-poll.ts`); registry pattern: `{ hotelzify: parseHotelzify, fabhotels: parseFabhotels }`.
 
-**Database**
-- `integrations` table:
-  - `name`, `provider` ("fabhotels" | "hotelzify" | "booking_com" | "agoda" | "razorpay" | "whatsapp" | custom)
-  - `type` ("email_parser" | "api" | "webhook" | "csv_import")
-  - `status` ("draft" | "connected" | "disabled" | "error")
-  - `config` JSONB (provider-specific: email address, endpoint, secret ref, polling interval)
-  - `last_sync_at`, `last_sync_status`, `last_sync_message`, `bookings_imported` (int)
-- `integration_runs` table — one row per sync attempt: `integration_id`, `started_at`, `finished_at`, `status`, `message`, `created_count`, `updated_count`, `payload_excerpt`.
-- `external_bookings` staging table — normalized inbound payloads before resolution: `integration_id`, `external_ref` (unique with integration_id), `raw_payload`, `parsed`, `booking_id` (nullable, set after match/create), `state` ("pending" | "linked" | "ignored" | "failed").
-- Add `external_ref` and `integration_id` to `bookings` (already partially present as `external_booking_id` from prior backlog discussion — confirm and add if missing) for dedupe.
+## Scope check before I start
 
-**Server endpoints (framework, no provider logic yet)**
-- `createServerFn` group `src/lib/integrations.functions.ts`:
-  - `listIntegrations`, `getIntegration`, `createIntegration`, `updateIntegration`, `disableIntegration`, `listIntegrationRuns`, `triggerSync(id)` (no-op dispatch stub).
-- Generic dispatcher `src/lib/integrations/dispatch.server.ts` with a provider registry: `register(provider, { parse, fetchPending, normalize })`. Empty registry shipped now; FabHotels registers in next shipment.
-- Normalization contract documented in code: `NormalizedBooking { external_ref, guest_name, phone, email, check_in, check_out, room_category, amount, advance_paid, source_status, raw }`. Common `upsertExternalBooking()` writes to `external_bookings` and creates/updates `bookings` via existing `bookings-api`.
+This is ~15-20 file changes plus 1-2 migrations. I'll do it in one pass without intermediate check-ins unless you want a different sequencing. **Two quick confirmations:**
 
-**UI**
-- `src/routes/_authenticated/settings.tsx` → Integrations tab:
-  - List card per integration: name, type chip, status pill, last sync, bookings imported, Edit · Disable · Sync Now.
-  - `+ Add Integration` dialog: Name → Type radio (Email Parser / API / Webhook / CSV Import) → Provider select → type-specific config form → Save (status=draft).
-- Sub-route `src/routes/_authenticated/settings.integrations.$id.tsx`: config edit + recent runs table.
+1. For Cashbook master tabs that look nicer than current Master Data UI — port the nicer UI into Master Data (replacing current), or just delete and use what's there?
+2. Staff Management — single page with in-page tabs (simpler), or separate routes per tab `/staff-management/master`, `/staff-management/attendance`, `/staff-management/salary`?
 
-**Out of scope this shipment** (deferred to FabHotels shipment): Gmail OAuth, parser logic, pg_cron polling, webhook public route handlers. The framework's job here is the data model, server-fn surface, and admin UI.
-
----
-
-## Technical Details
-
-**Order of migrations**
-1. `cash_audit_closes` + helper fn + RLS tightening
-2. `master_data` seed for new categories
-3. `integrations`, `integration_runs`, `external_bookings`, `bookings.external_ref/integration_id` (if absent)
-
-All migrations include `GRANT` blocks per the public-schema rule; all new tables RLS-enabled (admin-write for `integrations`/`cash_audit_closes`; authenticated-read).
-
-**Files (new)**
-- `src/lib/cash-audit-api.ts`
-- `src/lib/integrations-api.ts` + `src/lib/integrations.functions.ts` + `src/lib/integrations/dispatch.server.ts` + `src/lib/integrations/types.ts`
-- `src/lib/app-settings-api.ts` (extend existing) for new setting keys
-- `src/routes/_authenticated/settings.tsx`, `src/routes/_authenticated/settings.integrations.$id.tsx`
-- `src/hooks/use-app-setting.ts`
-
-**Files (modified)**
-- `src/routes/_authenticated/master-data.tsx` (tabbed rebuild)
-- `src/routes/_authenticated/cash.tsx` (audit close UI + locked badges + edit guard)
-- `src/routes/_authenticated/complaints.tsx`, `complaints_.$id.tsx` (remove inline masters)
-- `src/components/user-menu.tsx` (wire Settings link)
-- `src/components/app-sidebar.tsx` (Settings entry, admin-only)
-- Various consumers swap hardcoded arrays → `useMasterData()`
-
-**Backlog after this shipment**
-- FabHotels: Gmail OAuth + parser registered against the framework
-- Quote Module Deprecation (Phase 2/3)
-- Hotelzify provider on the same framework
-
----
-
-Given the size, I'll ship in this order in a single batch but split into clearly-labeled commits so UAT can validate each piece independently. Shall I proceed?
+Reply with answers (or "your call on both") and I'll ship it all.

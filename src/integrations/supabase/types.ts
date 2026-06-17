@@ -2019,6 +2019,9 @@ export type Database = {
         Row: {
           accommodation_provided: boolean
           active: boolean
+          available_in_cashbook: boolean
+          available_in_complaints: boolean
+          available_in_dues: boolean
           basic_salary: number | null
           created_at: string
           date_of_joining: string | null
@@ -2036,6 +2039,9 @@ export type Database = {
         Insert: {
           accommodation_provided?: boolean
           active?: boolean
+          available_in_cashbook?: boolean
+          available_in_complaints?: boolean
+          available_in_dues?: boolean
           basic_salary?: number | null
           created_at?: string
           date_of_joining?: string | null
@@ -2053,6 +2059,9 @@ export type Database = {
         Update: {
           accommodation_provided?: boolean
           active?: boolean
+          available_in_cashbook?: boolean
+          available_in_complaints?: boolean
+          available_in_dues?: boolean
           basic_salary?: number | null
           created_at?: string
           date_of_joining?: string | null

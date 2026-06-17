@@ -74,7 +74,7 @@ function ComplaintsPage() {
     queryKey: ["complaint-categories"],
     queryFn: () => listComplaintCategories(),
   });
-  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
+  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active", "complaints"], queryFn: () => listStaff(true, { availability: "complaints" }) });
 
   const [newOpen, setNewOpen] = useState(routeSearch.new === "1");
   const [catMgrOpen, setCatMgrOpen] = useState(false);

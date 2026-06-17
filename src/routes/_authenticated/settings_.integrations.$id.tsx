@@ -121,7 +121,7 @@ function Content({ id }: { id: string }) {
 
   const runSync = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/public/hotelzify-poll?debug=1", { method: "POST" });
+      const res = await fetch(`/api/public/hotelzify-poll?debug=1&integration_id=${id}`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error(data.error || `Sync failed (${res.status})`);
       return data as SyncDebugResponse;
@@ -163,7 +163,7 @@ function Content({ id }: { id: string }) {
               <option value="error">Error</option>
             </select>
           </Field>
-          <Field label="Sender Email"><input className={inputCls} value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} placeholder="support@hotelzify.com" /></Field>
+          <Field label="Sender Email"><input className={inputCls} value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} placeholder="e.g. bookings@fabhotels.com" /></Field>
           <Field label="Inbox Email (connected Gmail)"><input className={inputCls} value={inboxEmail} onChange={(e) => setInboxEmail(e.target.value)} placeholder="hotel@gmail.com" /></Field>
           <Field label="Lookback Days"><input type="number" min={1} max={365} className={inputCls} value={lookbackDays} onChange={(e) => setLookbackDays(Number(e.target.value) || 7)} /></Field>
           <Field label="Lead Source"><input className={inputCls} value={leadSource} onChange={(e) => setLeadSource(e.target.value)} placeholder="Hotelzify" /></Field>
@@ -213,7 +213,7 @@ function Content({ id }: { id: string }) {
         </div>
 
         <div className="flex flex-wrap gap-2 justify-end pt-2">
-          {row.provider === "hotelzify" && (
+          {row.type === "email_parser" && (
             <button onClick={() => runSync.mutate()} disabled={runSync.isPending}
               className="inline-flex items-center gap-1.5 border border-border rounded-md px-4 py-2 text-xs font-medium hover:bg-muted/40 disabled:opacity-60">
               {runSync.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Run sync now
@@ -226,10 +226,10 @@ function Content({ id }: { id: string }) {
         </div>
       </div>
 
-      {row.provider === "hotelzify" && debugInfo && (
+      {row.type === "email_parser" && debugInfo && (
         <div className="luxe-card rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h3 className="font-display text-lg">Hotelzify Sync Diagnostics</h3>
+            <h3 className="font-display text-lg">{PROVIDER_LABELS[row.provider]} Sync Diagnostics</h3>
             <span className="text-[11px] text-muted-foreground">Connected Gmail: {debugInfo.gmail_account ?? "—"}</span>
           </div>
           <div className="text-[11px] text-muted-foreground bg-muted/30 rounded px-3 py-2 break-all">

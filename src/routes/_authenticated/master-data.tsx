@@ -5,7 +5,7 @@ import { Topbar } from "@/components/topbar";
 import { AdminOnly } from "@/components/admin-only";
 import { listMasterData, createMasterData, updateMasterData, deleteMasterData, type MasterDataRow } from "@/lib/master-data-api";
 import { getPaymentSettings, setPaymentSettings, DEFAULT_PAYMENT_SETTINGS, type PaymentSettings } from "@/lib/app-settings-api";
-import { listStaff, createStaff, updateStaff, listExpenseTypes, createExpenseType, updateExpenseType } from "@/lib/cash-api";
+import { listExpenseTypes, createExpenseType, updateExpenseType } from "@/lib/cash-api";
 import { listComplaintCategories, createComplaintCategory, updateComplaintCategory } from "@/lib/complaints-api";
 import { Plus, Trash2, Loader2, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/master-data")({ component:
  * full CRUD (Rooms, Rates) so users have a single entry point.
  */
 type LookupDef = { kind: "lookup"; key: string; label: string; placeholder?: string };
-type NameMasterKey = "staff" | "expense_types" | "complaint_categories";
+type NameMasterKey = "expense_types" | "complaint_categories";
 type NameDef = { kind: "name"; key: NameMasterKey; label: string; placeholder?: string };
 type SettingsKey = "payment_settings";
 type SettingsDef = { kind: "settings"; key: SettingsKey; label: string };
@@ -75,7 +75,6 @@ const GROUPS: GroupDef[] = [
   {
     label: "CashBook Masters",
     categories: [
-      { kind: "name", key: "staff", label: "Staff", placeholder: "e.g. Ravi Kumar" },
       { kind: "name", key: "expense_types", label: "Expense Types (Legacy)", placeholder: "e.g. Laundry" },
       { kind: "lookup", key: "income_category", label: "Income Categories", placeholder: "e.g. Donation" },
     ],
@@ -242,17 +241,14 @@ function NameMasterEditor({ masterKey, title, placeholder }: { masterKey: NameMa
   const queryKey = ["name-master", masterKey];
 
   const list = async () => {
-    if (masterKey === "staff") return (await listStaff(false)).map((r) => ({ id: r.id, name: r.name, active: r.active, mobile: (r as any).mobile ?? null }));
     if (masterKey === "expense_types") return (await listExpenseTypes(false)).map((r) => ({ id: r.id, name: r.name, active: r.active, mobile: null }));
     return (await listComplaintCategories(false)).map((r) => ({ id: r.id, name: r.name, active: r.active, mobile: null }));
   };
-  const create = async (name: string, mobile?: string) => {
-    if (masterKey === "staff") return createStaff(name, mobile);
+  const create = async (name: string, _mobile?: string) => {
     if (masterKey === "expense_types") return createExpenseType(name);
     return createComplaintCategory(name);
   };
   const update = async (id: string, patch: { name?: string; active?: boolean; mobile?: string | null }) => {
-    if (masterKey === "staff") return updateStaff(id, patch as any);
     if (masterKey === "expense_types") return updateExpenseType(id, { name: patch.name, active: patch.active });
     return updateComplaintCategory(id, { name: patch.name, active: patch.active });
   };
@@ -262,7 +258,7 @@ function NameMasterEditor({ masterKey, title, placeholder }: { masterKey: NameMa
   const [newMobile, setNewMobile] = useState("");
 
   const createMut = useMutation({
-    mutationFn: () => create(newName.trim(), masterKey === "staff" && newMobile.trim() ? newMobile.trim() : undefined),
+    mutationFn: () => create(newName.trim(), newMobile.trim() ? newMobile.trim() : undefined),
     onSuccess: () => { setNewName(""); setNewMobile(""); qc.invalidateQueries({ queryKey }); toast.success("Added"); },
     onError: (e: any) => toast.error(e.message),
   });
@@ -283,10 +279,6 @@ function NameMasterEditor({ masterKey, title, placeholder }: { masterKey: NameMa
         <input className={inputCls} placeholder={placeholder ?? "New entry"} value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) createMut.mutate(); }} />
-        {masterKey === "staff" && (
-          <input className={cn(inputCls, "sm:w-44")} placeholder="Mobile (optional)" value={newMobile}
-            onChange={(e) => setNewMobile(e.target.value)} />
-        )}
         <button onClick={() => createMut.mutate()} disabled={!newName.trim() || createMut.isPending}
           className="shrink-0 inline-flex items-center justify-center gap-1.5 gold-gradient text-charcoal rounded-md px-4 py-2 text-xs font-medium disabled:opacity-60">
           <Plus className="h-3.5 w-3.5" /> Add
@@ -302,10 +294,6 @@ function NameMasterEditor({ masterKey, title, placeholder }: { masterKey: NameMa
             <div key={r.id} className="p-2.5 flex flex-wrap items-center gap-2">
               <input className="flex-1 min-w-[180px] bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm" defaultValue={r.name}
                 onBlur={(e) => { if (e.target.value !== r.name && e.target.value.trim()) updateMut.mutate({ id: r.id, patch: { name: e.target.value.trim() } }); }} />
-              {masterKey === "staff" && (
-                <input className="w-36 bg-input/60 border border-border rounded-md px-2 py-1.5 text-xs" defaultValue={r.mobile ?? ""} placeholder="Mobile"
-                  onBlur={(e) => { const v = e.target.value.trim(); if ((r.mobile ?? "") !== v) updateMut.mutate({ id: r.id, patch: { mobile: v || null } }); }} />
-              )}
               <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <input type="checkbox" className="h-4 w-4 accent-gold" checked={r.active}
                   onChange={(e) => updateMut.mutate({ id: r.id, patch: { active: e.target.checked } })} />
