@@ -19,7 +19,7 @@ const OPEN = ["Draft", "Pending", "Sent", "Negotiation", "Negotiating"];
 const LOST_SET = ["Lost", "Failed", "No Response", "Cancelled", "Expired"];
 const isBooked = (s: string) => (BOOKED_STATUSES as string[]).includes(s);
 
-function Analytics() {
+export function Analytics() {
   useRealtimeInvalidate(["quotes", "customers"], ["quotes", "customers"], "analytics");
   const { data: quotes = [], isLoading } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
   const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });

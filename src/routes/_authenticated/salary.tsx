@@ -22,7 +22,7 @@ const inputCls = "w-full bg-input/60 border border-border rounded-md px-3 py-2 t
 
 function inr(n: number) { return `₹${(Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`; }
 
-function SalaryPage() {
+export function SalaryPage() {
   const { isAdmin } = useUserRole();
   const [monthDate, setMonthDate] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const month = monthKey(monthDate);

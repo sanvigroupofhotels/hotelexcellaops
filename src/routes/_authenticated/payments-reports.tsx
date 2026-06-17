@@ -29,7 +29,7 @@ async function listAllBookingPayments() {
   return (data ?? []) as any[];
 }
 
-function PaymentsReportsPage() {
+export function PaymentsReportsPage() {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const qc = useQueryClient();
 
