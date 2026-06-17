@@ -23,7 +23,7 @@ const STATUS_COLOR: Record<AttendanceStatus, string> = {
   Leave: "bg-sky-500/20 text-sky-300 border-sky-500/40",
 };
 
-function AttendancePage() {
+export function AttendancePage() {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
   const [monthDate, setMonthDate] = useState(() => { const d = new Date(); d.setDate(1); return d; });

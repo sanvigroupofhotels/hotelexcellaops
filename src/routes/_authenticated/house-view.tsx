@@ -606,7 +606,17 @@ function Legend({ cls, label }: { cls: string; label: string }) {
 function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean }) {
   const qc = useQueryClient();
   const room = rooms.find((r: any) => r.id === b.room_id);
-  const balance = b.status === "Cancelled" ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+  const { data: chargesForBooking = [] } = useQuery({
+    queryKey: ["booking-charges", b.id],
+    queryFn: async () => {
+      const { listBookingCharges } = await import("@/lib/booking-charges-api");
+      return listBookingCharges(b.id);
+    },
+  });
+  const additionalCharges = (chargesForBooking as any[]).reduce((s, c) => s + Number(c.amount || 0), 0);
+  const roomCharges = Number(b.amount) || 0;
+  const totalCharges = roomCharges + additionalCharges;
+  const balance = b.status === "Cancelled" ? 0 : Math.max(0, totalCharges - Number(b.advance_paid || 0));
   const today = dateKey(new Date());
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
@@ -768,9 +778,13 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
           </div>
         )}
         <div className="rounded-md bg-secondary/40 border border-border px-3 py-2 text-xs space-y-1">
-          <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="tabular-nums">₹{Number(b.amount).toLocaleString("en-IN")}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Advance Paid</span><span className="tabular-nums">₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</span></div>
-          <div className="flex justify-between border-t border-border/50 pt-1"><span className="font-medium">Balance Due</span><span className="font-display text-base gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Room Charges</span><span className="stat-num text-sm">₹{roomCharges.toLocaleString("en-IN")}</span></div>
+          {additionalCharges > 0 && (
+            <div className="flex justify-between"><span className="text-muted-foreground">Additional Charges</span><span className="stat-num text-sm">₹{additionalCharges.toLocaleString("en-IN")}</span></div>
+          )}
+          <div className="flex justify-between"><span className="text-muted-foreground">Total Charges</span><span className="stat-num text-sm">₹{totalCharges.toLocaleString("en-IN")}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Advance Paid</span><span className="stat-num text-sm">₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</span></div>
+          <div className="flex justify-between border-t border-border/50 pt-1"><span className="font-medium">Balance Due</span><span className="stat-num-lg gold-text-gradient text-lg">₹{balance.toLocaleString("en-IN")}</span></div>
         </div>
         {canTransact && (
           <div className="grid grid-cols-2 gap-2 pt-1">

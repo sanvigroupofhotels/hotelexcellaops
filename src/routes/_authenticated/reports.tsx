@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_authenticated/reports")({
 });
 
 
-function Reports() {
+export function Reports() {
   const { data: quotes = [], isLoading } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
 
   const total = quotes.length;

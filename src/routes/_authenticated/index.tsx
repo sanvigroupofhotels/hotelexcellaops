@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { MetricCard } from "@/components/money";
 import { Topbar } from "@/components/topbar";
 import { listBookings, setBookingStatus } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
@@ -263,19 +264,18 @@ function HomePage() {
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {stats.map((s, i) => (
-              <motion.button
+              <motion.div
                 key={s.label}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 * i, duration: 0.3 }}
-                onClick={() => navigate({ to: s.to as any })}
-                className="luxe-card rounded-xl p-4 text-left hover:border-gold/40 hover:bg-secondary/40 transition-all"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-lg leading-none">{s.emoji}</span>
-                  <s.icon className="h-4 w-4 text-gold" />
-                </div>
-                <div className="mt-3 text-3xl md:text-4xl font-semibold text-foreground tabular-nums leading-tight">{s.value}</div>
-                <div className="text-xs text-muted-foreground mt-1 tracking-wide">{s.label}</div>
-              </motion.button>
+                <MetricCard
+                  label={s.label}
+                  value={s.value}
+                  icon={<s.icon className="h-4 w-4" />}
+                  emoji={s.emoji}
+                  onClick={() => navigate({ to: s.to as any })}
+                />
+              </motion.div>
             ))}
           </div>
         </section>
