@@ -1,9 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
-  Bell, BarChart3,
-  Users, Menu, X, ShieldCheck, BedDouble, Wallet,
-  MessageSquareWarning, Building2, Database, KeyRound,
+  Users, Menu, X, BedDouble, Wallet,
+  MessageSquareWarning, Building2, Database,
   Home, FileBarChart, UserCog, Settings as SettingsIcon,
 } from "lucide-react";
 
@@ -23,10 +22,7 @@ const nav: NavItem[] = [
   { to: "/reporting", label: "Reporting", icon: FileBarChart },
   { to: "/staff-management", label: "Staff Management", icon: UserCog },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
-  { to: "/follow-ups", label: "Follow-ups", icon: Bell },
   { to: "/master-data", label: "Master Data", icon: Database, adminOnly: true },
-  { to: "/users", label: "User Management", icon: ShieldCheck, adminOnly: true },
-  { to: "/access-settings", label: "Access Settings", icon: KeyRound, adminOnly: true },
   { to: "/settings", label: "Settings", icon: SettingsIcon, adminOnly: true },
 ];
 
