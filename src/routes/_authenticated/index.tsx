@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { MetricCard } from "@/components/money";
+import { MetricCard, Money } from "@/components/money";
 import { Topbar } from "@/components/topbar";
 import { listBookings, setBookingStatus } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
@@ -432,10 +432,10 @@ function RoomActionDialog({
 
           {selected ? (
             <div className="rounded-md bg-secondary/40 border border-border px-3 py-2 text-xs space-y-1">
-              <div className="flex justify-between"><span className="text-muted-foreground">Guest Name</span><span className="font-medium">{selected.booking.guest_name}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Booking Total</span><span className="tabular-nums">₹{selected.total.toLocaleString("en-IN")}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="tabular-nums">₹{selected.paid.toLocaleString("en-IN")}</span></div>
-              <div className="flex justify-between border-t border-border/50 pt-1"><span className="font-medium">Due</span><span className="font-display text-base gold-text-gradient">₹{selected.due.toLocaleString("en-IN")}</span></div>
+              <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Guest Name</span><span className="font-medium truncate">{selected.booking.guest_name}</span></div>
+              <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Booking Total</span><Money value={selected.total} size="sm" /></div>
+              <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Paid</span><Money value={selected.paid} size="sm" /></div>
+              <div className="flex justify-between items-baseline gap-3 border-t border-border/50 pt-1"><span className="font-medium">Due</span><Money value={selected.due} size="md" className="gold-text-gradient" /></div>
             </div>
           ) : rooms.length === 0 ? (
             <div className="rounded-md border border-border bg-secondary/30 p-3 text-sm text-muted-foreground text-center">No in-house rooms right now.</div>

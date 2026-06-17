@@ -9,6 +9,7 @@ import { listRooms } from "@/lib/rooms-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
+import { MetricCard, Money } from "@/components/money";
 import {
   IndianRupee, Phone, MessageCircle, ExternalLink, Plus, Search, Loader2, AlertCircle,
 } from "lucide-react";
@@ -243,19 +244,14 @@ function DuesPage() {
 }
 
 function SummaryCard({ label, value, tone }: { label: string; value: number; tone: "danger" | "gold" | "info" }) {
-  const accent =
-    tone === "danger" ? "text-destructive" :
-    tone === "gold" ? "gold-text-gradient" :
-    "text-foreground";
+  const mapped = tone === "danger" ? "destructive" : tone === "gold" ? "gold" : "default";
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-      className="luxe-card rounded-xl p-5 flex flex-col items-center text-center gap-1">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <IndianRupee className="h-4 w-4" />
-        <span className="text-[11px] uppercase tracking-wider">{label}</span>
-      </div>
-      <div className={cn("font-display text-2xl tabular-nums mt-1", accent)}>{inr(value)}</div>
-    </motion.div>
+    <MetricCard
+      label={label}
+      value={value}
+      icon={<IndianRupee className="h-4 w-4" />}
+      tone={mapped as any}
+    />
   );
 }
 

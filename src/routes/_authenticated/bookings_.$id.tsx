@@ -15,6 +15,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { Money } from "@/components/money";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
@@ -1076,13 +1077,13 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
         </button>
       </div>
       <div className="space-y-1 text-sm">
-        <div className="flex justify-between"><span className="text-muted-foreground">Room &amp; Stay Total</span><span className="tabular">₹{bookingAmount.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Room &amp; Stay Total</span><Money value={bookingAmount} size="sm" /></div>
         {chargesTotal > 0 && (
-          <div className="flex justify-between"><span className="text-muted-foreground">In-House Charges</span><span className="tabular">₹{chargesTotal.toLocaleString("en-IN")}</span></div>
+          <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">In-House Charges</span><Money value={chargesTotal} size="sm" /></div>
         )}
-        <div className="flex justify-between"><span className="text-muted-foreground">Total Payable</span><span className="tabular">₹{(bookingAmount + chargesTotal).toLocaleString("en-IN")}</span></div>
-        <div className="flex justify-between"><span className="text-muted-foreground">Total Advance Paid (net of refunds)</span><span className="tabular">₹{advance.toLocaleString("en-IN")}</span></div>
-        <div className="flex justify-between border-t border-border pt-2 items-center"><span className="font-medium">Balance Due</span><span className="stat-num-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span></div>
+        <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Total Payable</span><Money value={bookingAmount + chargesTotal} size="sm" /></div>
+        <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Total Advance Paid (net of refunds)</span><Money value={advance} size="sm" /></div>
+        <div className="flex justify-between items-baseline gap-3 border-t border-border pt-2"><span className="font-medium">Balance Due</span><Money value={balance} size="lg" className="gold-text-gradient" /></div>
       </div>
 
       {payments.length > 0 && (

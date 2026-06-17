@@ -15,6 +15,7 @@ import {
 import { Loader2, Download, Search, IndianRupee, Wallet, CreditCard, Globe, Banknote, Pencil, Trash2 } from "lucide-react";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
+import { MetricCard, Money } from "@/components/money";
 
 export const Route = createFileRoute("/_authenticated/payments-reports")({
   component: PaymentsReportsPage,
@@ -298,14 +299,12 @@ export function PaymentsReportsPage() {
 function SummaryCard({ label, value, icon: Icon, tone }: {
   label: string; value: number; icon: any; tone: "gold" | "success" | "warning";
 }) {
-  const toneClass = tone === "warning" ? "text-warning" : tone === "success" ? "text-success" : "text-gold";
   return (
-    <div className="luxe-card rounded-xl p-3">
-      <div className="flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-        <Icon className={cn("h-4 w-4", toneClass)} />
-      </div>
-      <div className="font-display text-xl mt-1 tabular-nums">₹{Number(value).toLocaleString("en-IN")}</div>
-    </div>
+    <MetricCard
+      label={label}
+      value={value}
+      icon={<Icon className="h-4 w-4" />}
+      tone={tone}
+    />
   );
 }
