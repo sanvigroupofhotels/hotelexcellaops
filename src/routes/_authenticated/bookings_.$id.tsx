@@ -49,6 +49,7 @@ import {
   listAssignments, removeAssignment, requiredRoomCount,
 } from "@/lib/booking-room-assignments-api";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
+import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
@@ -227,6 +228,8 @@ function BookingDetail() {
   const [revertOutReason, setRevertOutReason] = useState("");
   const [addPaymentForCheckoutOpen, setAddPaymentForCheckoutOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [guestDocsOpen, setGuestDocsOpen] = useState(false);
+  const [guestDocsMode, setGuestDocsMode] = useState<"checkin" | "manage">("manage");
   const [assignRoomOpen, setAssignRoomOpen] = useState(false);
   const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   // When set, the Assign dialog acts as a "Change" — confirming swaps the named assignment.
