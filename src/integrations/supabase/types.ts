@@ -283,6 +283,10 @@ export type Database = {
           is_refund: boolean
           notes: string | null
           occurred_at: string
+          ocr_corrections: Json | null
+          ocr_data: Json | null
+          ocr_extracted_text: string | null
+          ocr_image_path: string | null
           payment_mode: string
           refund_reason: string | null
           updated_at: string
@@ -298,6 +302,10 @@ export type Database = {
           is_refund?: boolean
           notes?: string | null
           occurred_at?: string
+          ocr_corrections?: Json | null
+          ocr_data?: Json | null
+          ocr_extracted_text?: string | null
+          ocr_image_path?: string | null
           payment_mode: string
           refund_reason?: string | null
           updated_at?: string
@@ -313,6 +321,10 @@ export type Database = {
           is_refund?: boolean
           notes?: string | null
           occurred_at?: string
+          ocr_corrections?: Json | null
+          ocr_data?: Json | null
+          ocr_extracted_text?: string | null
+          ocr_image_path?: string | null
           payment_mode?: string
           refund_reason?: string | null
           updated_at?: string
@@ -2290,6 +2302,10 @@ export type Database = {
           role: string
           uid: string
         }[]
+      }
+      expire_guest_documents_for_booking: {
+        Args: { p_booking_id: string }
+        Returns: undefined
       }
       has_permission: {
         Args: { _permission_key: string; _user_id: string }
