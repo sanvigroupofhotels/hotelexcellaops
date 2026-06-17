@@ -20,6 +20,7 @@ import { BlockRoomDialog } from "@/components/block-room-dialog";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useMasterData } from "@/hooks/use-master-data";
+import { MetricCard, Money } from "@/components/money";
 import {
   groupStayAssignments, groupStayItems, pairStaySlotsToRooms,
   segmentCoversDate, segmentOverlapsRange, segmentsOverlap, stayRoomTypesMatch, slotEndExclusive,
@@ -556,22 +557,19 @@ function HouseView() {
               <Stat label="Occupancy" value={`${occPct}%`} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="luxe-card rounded-xl p-4">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Guests In-House</div>
-                <div className="font-display text-2xl gold-text-gradient">{adultsInHouse}A, {childrenInHouse}C</div>
-                {inHouseRoomNumbers.length > 0 && (
-                  <div className="text-[11px] text-muted-foreground mt-1">Rooms: {inHouseRoomNumbers.join(", ")}</div>
-                )}
-              </div>
-              <div className="luxe-card rounded-xl p-4">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">
-                  <UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast Count
-                </div>
-                <div className="font-display text-2xl gold-text-gradient">{adultsBreakfast}A, {childrenBreakfast}C</div>
-                {breakfastRoomNumbers.length > 0 && (
-                  <div className="text-[11px] text-muted-foreground mt-1">Rooms: {breakfastRoomNumbers.join(", ")}</div>
-                )}
-              </div>
+              <MetricCard
+                label="Guests In-House"
+                value={`${adultsInHouse}A, ${childrenInHouse}C`}
+                tone="gold"
+                sublabel={inHouseRoomNumbers.length > 0 ? `Rooms: ${inHouseRoomNumbers.join(", ")}` : undefined}
+              />
+              <MetricCard
+                label="Breakfast Count"
+                value={`${adultsBreakfast}A, ${childrenBreakfast}C`}
+                tone="gold"
+                icon={<UtensilsCrossed className="h-3.5 w-3.5" />}
+                sublabel={breakfastRoomNumbers.length > 0 ? `Rooms: ${breakfastRoomNumbers.join(", ")}` : undefined}
+              />
             </div>
           </div>
         </div>
@@ -592,12 +590,7 @@ function HouseView() {
 }
 
 function Stat({ label, value }: { label: string; value: any }) {
-  return (
-    <div className="luxe-card rounded-xl p-4">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="font-display text-2xl gold-text-gradient">{value}</div>
-    </div>
-  );
+  return <MetricCard label={label} value={value} tone="gold" />;
 }
 function Legend({ cls, label }: { cls: string; label: string }) {
   return <div className="flex items-center gap-1.5"><span className={cn("inline-block h-3 w-6 rounded-full border-2", cls)} />{label}</div>;
@@ -778,13 +771,13 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
           </div>
         )}
         <div className="rounded-md bg-secondary/40 border border-border px-3 py-2 text-xs space-y-1">
-          <div className="flex justify-between"><span className="text-muted-foreground">Room Charges</span><span className="stat-num text-sm">₹{roomCharges.toLocaleString("en-IN")}</span></div>
+          <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Room Charges</span><Money value={roomCharges} size="sm" /></div>
           {additionalCharges > 0 && (
-            <div className="flex justify-between"><span className="text-muted-foreground">Additional Charges</span><span className="stat-num text-sm">₹{additionalCharges.toLocaleString("en-IN")}</span></div>
+            <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Additional Charges</span><Money value={additionalCharges} size="sm" /></div>
           )}
-          <div className="flex justify-between"><span className="text-muted-foreground">Total Charges</span><span className="stat-num text-sm">₹{totalCharges.toLocaleString("en-IN")}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Advance Paid</span><span className="stat-num text-sm">₹{Number(b.advance_paid || 0).toLocaleString("en-IN")}</span></div>
-          <div className="flex justify-between border-t border-border/50 pt-1"><span className="font-medium">Balance Due</span><span className="stat-num-lg gold-text-gradient text-lg">₹{balance.toLocaleString("en-IN")}</span></div>
+          <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Total Charges</span><Money value={totalCharges} size="sm" /></div>
+          <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Advance Paid</span><Money value={Number(b.advance_paid || 0)} size="sm" /></div>
+          <div className="flex justify-between items-baseline gap-3 border-t border-border/50 pt-1"><span className="font-medium">Balance Due</span><Money value={balance} size="lg" className="gold-text-gradient" /></div>
         </div>
         {canTransact && (
           <div className="grid grid-cols-2 gap-2 pt-1">
