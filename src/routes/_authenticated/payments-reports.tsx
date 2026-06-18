@@ -36,8 +36,10 @@ export function PaymentsReportsPage() {
   const qc = useQueryClient();
 
   const today = toLocalYMD();
-  const monthStart = new Date(); monthStart.setDate(1);
-  const [from, setFrom] = useState(toLocalYMD(monthStart));
+  // Default range is wide (last 12 months) so payments dated via OCR / back-dated
+  // entries are never silently hidden. Payment History is the source of truth.
+  const yearStart = new Date(); yearStart.setMonth(yearStart.getMonth() - 12);
+  const [from, setFrom] = useState(toLocalYMD(yearStart));
   const [to, setTo] = useState(today);
   const [guest, setGuest] = useState("");
   const [bookingRef, setBookingRef] = useState("");
