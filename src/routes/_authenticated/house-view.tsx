@@ -304,6 +304,8 @@ function HouseView() {
       <Topbar title="House View" subtitle="Room occupancy at a glance" />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1600px] space-y-4">
 
+        <NightAuditPendingBanner onOpen={() => setAuditOpen(true)} />
+
         {/* Search */}
         <div className="luxe-card rounded-xl p-3">
           <div className="relative">
