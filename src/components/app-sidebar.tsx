@@ -5,6 +5,7 @@ import {
   MessageSquareWarning, Building2, Database,
   Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
   Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
+  BarChart3, IndianRupee,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -20,11 +21,17 @@ const nav: NavItem[] = [
   { to: "/house-view", label: "House View", icon: Building2 },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/cash", label: "CashBook", icon: Wallet },
-  { to: "/reporting", label: "Reporting", icon: FileBarChart },
+  // Reporting is rendered separately as an expandable group below.
   { to: "/staff-management", label: "Staff Management", icon: UserCog },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
   { to: "/master-data", label: "Master Data", icon: Database, adminOnly: true },
 ];
+
+const reportingChildren = [
+  { to: "/reporting/analytics", label: "Analytics",          icon: BarChart3 },
+  { to: "/reporting/payments",  label: "Payment Reports",    icon: IndianRupee },
+  { to: "/reporting/staff",     label: "Staff Reporting",    icon: FileBarChart, adminOnly: true },
+] as const;
 
 const settingsChildren = [
   { to: "/settings/general",      label: "General",             icon: Building2Alt },
@@ -48,10 +55,27 @@ function Logo() {
   );
 }
 
-function SettingsGroup({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
-  const sectionActive = pathname.startsWith("/settings");
+/**
+ * Generic expandable group used for Reporting and Settings.
+ * Both subsections follow the same pattern: clicking opens an inline list of
+ * child routes; the parent has no page of its own.
+ */
+function ExpandableGroup({
+  label, icon: Icon, prefix, children, onNavigate, pathname,
+}: {
+  label: string;
+  icon: any;
+  prefix: string;
+  children: ReadonlyArray<{ to: string; label: string; icon: any; adminOnly?: boolean }>;
+  onNavigate?: () => void;
+  pathname: string;
+}) {
+  const { isAdmin } = useUserRole();
+  const sectionActive = pathname.startsWith(prefix);
   const [open, setOpen] = useState(sectionActive);
   useEffect(() => { if (sectionActive) setOpen(true); }, [sectionActive]);
+
+  const visible = children.filter((c) => !c.adminOnly || isAdmin);
 
   return (
     <div>
@@ -67,8 +91,8 @@ function SettingsGroup({ pathname, onNavigate }: { pathname: string; onNavigate?
           <motion.div layoutId="sidebar-active" className="absolute inset-0 rounded-md bg-gold-soft border border-gold/30"
             transition={{ type: "spring", stiffness: 380, damping: 30 }} />
         )}
-        <SettingsIcon className={cn("relative h-4 w-4 shrink-0", sectionActive && "text-gold")} />
-        <span className="relative flex-1 text-left">Settings</span>
+        <Icon className={cn("relative h-4 w-4 shrink-0", sectionActive && "text-gold")} />
+        <span className="relative flex-1 text-left">{label}</span>
         <ChevronDown className={cn("relative h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
       </button>
 
@@ -79,16 +103,16 @@ function SettingsGroup({ pathname, onNavigate }: { pathname: string; onNavigate?
             transition={{ duration: 0.2 }} className="overflow-hidden"
           >
             <div className="pl-7 mt-1 space-y-0.5">
-              {settingsChildren.map((c) => {
+              {visible.map((c) => {
                 const active = pathname === c.to || pathname.startsWith(c.to + "/");
-                const Icon = c.icon;
+                const ChildIcon = c.icon;
                 return (
                   <Link key={c.to} to={c.to} onClick={onNavigate}
                     className={cn(
                       "flex items-center gap-2 rounded-md px-3 py-1.5 text-[12px] transition",
                       active ? "text-gold bg-gold-soft/60 border border-gold/30" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/40",
                     )}>
-                    <Icon className="h-3.5 w-3.5" /> {c.label}
+                    <ChildIcon className="h-3.5 w-3.5" /> {c.label}
                   </Link>
                 );
               })}
@@ -141,7 +165,18 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           </motion.div>
         );
       })}
-      {isAdmin && <SettingsGroup pathname={pathname} onNavigate={onNavigate} />}
+      {/* Reporting group — visible to all signed-in staff (admin-only children are filtered inside) */}
+      <ExpandableGroup
+        label="Reporting" icon={FileBarChart} prefix="/reporting"
+        children={reportingChildren} onNavigate={onNavigate} pathname={pathname}
+      />
+      {/* Settings group — admin only */}
+      {isAdmin && (
+        <ExpandableGroup
+          label="Settings" icon={SettingsIcon} prefix="/settings"
+          children={settingsChildren} onNavigate={onNavigate} pathname={pathname}
+        />
+      )}
     </nav>
   );
 }
