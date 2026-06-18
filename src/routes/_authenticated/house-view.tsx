@@ -73,6 +73,7 @@ function HouseView() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [searchQ, setSearchQ] = useState("");
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
@@ -360,10 +361,16 @@ function HouseView() {
               className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5">
               <Hotel className="h-3.5 w-3.5" /> Stats
             </button>
+            <button onClick={() => setAuditOpen(true)}
+              className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5"
+              title="Perform Night Audit">
+              <ShieldCheck className="h-3.5 w-3.5" /> Night Audit
+            </button>
             <span className="text-[11px] text-muted-foreground tabular hidden md:inline">Today · {todayLabel}</span>
           </div>
           <button onClick={() => setAnchor((d) => addDays(d, 1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronRight className="h-4 w-4" /></button>
         </div>
+        <NightAuditDialog open={auditOpen} onClose={() => setAuditOpen(false)} />
 
         {/* Grid */}
         {isLoading ? (
