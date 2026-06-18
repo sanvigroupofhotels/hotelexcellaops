@@ -542,7 +542,7 @@ function HouseView() {
       </div>
 
       {selected && <BookingPopover b={selected} onClose={() => setSelected(null)} rooms={rooms}
-        hasBreakfast={!!breakfastByBooking.get(selected.id)} />}
+        hasBreakfast={!!breakfastByBooking.get(selected.id)} businessDate={todayKey} />}
       {selectedBlock && <BlockPopover m={selectedBlock} onClose={() => setSelectedBlock(null)} rooms={rooms}
         onEdit={() => { setEditBlock(selectedBlock); setSelectedBlock(null); }} />}
       {editBlock && (() => {
