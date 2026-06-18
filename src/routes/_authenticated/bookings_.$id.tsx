@@ -210,6 +210,7 @@ function BookingDetail() {
     onSuccess: (_, vars) => {
       invalidateAll();
       qc.invalidateQueries({ queryKey: ["booking-payments", id] });
+      qc.invalidateQueries({ queryKey: ["all-booking-payments"] });
       qc.invalidateQueries({ queryKey: ["cash"] });
       qc.invalidateQueries({ queryKey: ["cash-tx-home"] });
       toast.success(vars.refundAmount > 0 ? `Booking cancelled · Refund ₹${vars.refundAmount.toLocaleString("en-IN")} recorded` : "Booking cancelled");
