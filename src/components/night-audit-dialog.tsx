@@ -4,9 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { Loader2, ShieldCheck, LogIn, LogOut, AlertTriangle, X, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { setBookingStatus } from "@/lib/bookings-api";
-import { logBookingActivity } from "@/lib/booking-activities-api";
-import { getPendingForAudit, performNightAudit } from "@/lib/night-audit-api";
+import { getPendingForAudit, performNightAudit, bulkSetStatus } from "@/lib/night-audit-api";
 
 /**
  * Night Audit dialog.
