@@ -185,8 +185,31 @@ export function PaymentsReportsPage() {
           </label>
         </div>
 
-        <div className="flex justify-between items-center">
-          <div className="text-xs text-muted-foreground inline-flex items-center gap-1.5"><Search className="h-3 w-3" /> {filtered.length} payment{filtered.length === 1 ? "" : "s"}</div>
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+            <span className="text-muted-foreground">Quick:</span>
+            {[
+              { label: "Today", days: 0 },
+              { label: "7d", days: 7 },
+              { label: "30d", days: 30 },
+              { label: "90d", days: 90 },
+              { label: "1y", days: 365 },
+            ].map((q) => (
+              <button key={q.label} type="button"
+                onClick={() => {
+                  const d = new Date(); d.setDate(d.getDate() - q.days);
+                  setFrom(toLocalYMD(d)); setTo(today);
+                }}
+                className="rounded-full border border-border bg-card px-2 py-0.5 hover:border-gold/40">
+                {q.label}
+              </button>
+            ))}
+            <button type="button" onClick={() => { setFrom(""); setTo(""); }}
+              className="rounded-full border border-border bg-card px-2 py-0.5 hover:border-gold/40">
+              All time
+            </button>
+            <span className="text-muted-foreground inline-flex items-center gap-1.5"><Search className="h-3 w-3" /> {filtered.length} payment{filtered.length === 1 ? "" : "s"}</span>
+          </div>
           <button onClick={onExport} className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal">
             <Download className="h-4 w-4" /> Export Excel (CSV)
           </button>
