@@ -239,7 +239,7 @@ function HouseView() {
   }, [visibleBlocks]);
 
   // -------- House Overview stats (for selected date = today) --------
-  const todayKey = dateKey(new Date());
+  const todayKey = businessDate ?? dateKey(new Date());
   const occupiedRooms = new Set<string>();
   const inHouseBookings: any[] = [];
   let arrivalsToday = 0, departuresToday = 0;
