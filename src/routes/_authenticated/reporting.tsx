@@ -1,43 +1,19 @@
-import { createFileRoute, Link, Outlet, Navigate, useRouterState } from "@tanstack/react-router";
-import { BarChart3, IndianRupee, FileBarChart } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { createFileRoute, Outlet, Navigate, useRouterState } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/reporting")({
   component: ReportingLayout,
 });
 
-const TABS = [
-  { to: "/reporting/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/reporting/payments", label: "Payment Reporting", icon: IndianRupee },
-  { to: "/reporting/staff", label: "Staff Reporting", icon: FileBarChart },
-] as const;
-
+/**
+ * Reporting is a sidebar-driven group like Settings. Sub-pages
+ * (Analytics, Payment Reports, Staff Reporting, and future reports such as
+ * Occupancy, Revenue, OTA, Cancellation, GST, Cash Flow, Daily Closing)
+ * are independent routes — no horizontal tab strip here on purpose.
+ */
 function ReportingLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   if (pathname === "/reporting" || pathname === "/reporting/") {
     return <Navigate to="/reporting/analytics" replace />;
   }
-  return (
-    <div className="min-h-screen">
-      <div className="border-b border-border bg-card/40 sticky top-0 z-20 backdrop-blur">
-        <div className="px-4 md:px-6 py-3 flex items-center gap-2 overflow-x-auto max-w-[1400px]">
-          <div className="font-display text-sm text-muted-foreground tracking-wider uppercase mr-3 shrink-0">Reporting</div>
-          {TABS.map((t) => {
-            const active = pathname.startsWith(t.to);
-            const Icon = t.icon;
-            return (
-              <Link key={t.to} to={t.to}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs whitespace-nowrap border",
-                  active ? "bg-gold-soft border-gold/40 text-gold" : "border-border text-muted-foreground hover:text-foreground",
-                )}>
-                <Icon className="h-3.5 w-3.5" /> {t.label}
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-      <Outlet />
-    </div>
-  );
+  return <Outlet />;
 }

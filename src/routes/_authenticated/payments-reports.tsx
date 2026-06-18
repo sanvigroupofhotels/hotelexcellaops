@@ -12,10 +12,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Download, Search, IndianRupee, Wallet, CreditCard, Globe, Banknote, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Download, Search, IndianRupee, Wallet, CreditCard, Globe, Banknote, Pencil, Trash2, Paperclip } from "lucide-react";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 import { MetricCard, Money } from "@/components/money";
+import { signedAttachmentUrl } from "@/lib/booking-payments-api";
 
 export const Route = createFileRoute("/_authenticated/payments-reports")({
   component: PaymentsReportsPage,
@@ -118,6 +119,8 @@ export function PaymentsReportsPage() {
           Guest: p._guestName,
           Amount: Number(p.amount),
           "Payment Mode": p.payment_mode,
+          "UTR": p.utr ?? "",
+          "Paid To": p.paid_to ?? "",
           "Collected By": p.collected_by,
           Notes: p.notes ?? "",
           "Booking Total": p._amount,
@@ -126,6 +129,12 @@ export function PaymentsReportsPage() {
         })));
       toast.success(`Exported ${filtered.length} payment${filtered.length === 1 ? "" : "s"}`);
     } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
+
+  const openAttachment = async (path: string | null | undefined) => {
+    const url = await signedAttachmentUrl(path);
+    if (url) window.open(url, "_blank");
+    else toast.error("Could not open attachment");
   };
 
   return (
@@ -192,6 +201,8 @@ export function PaymentsReportsPage() {
                   <th className="text-left px-4 py-2.5">Guest</th>
                   <th className="text-right px-4 py-2.5">Amount</th>
                   <th className="text-left px-4 py-2.5">Mode</th>
+                  <th className="text-left px-4 py-2.5">UTR</th>
+                  <th className="text-left px-4 py-2.5">Paid To</th>
                   <th className="text-left px-4 py-2.5">Collected By</th>
                   <th className="text-left px-4 py-2.5">Notes</th>
                   <th className="text-right px-4 py-2.5">Balance</th>
@@ -200,10 +211,10 @@ export function PaymentsReportsPage() {
               </thead>
               <tbody>
                 {isLoading && (
-                  <tr><td colSpan={9} className="p-12 text-center"><Loader2 className="h-5 w-5 animate-spin text-gold mx-auto" /></td></tr>
+                  <tr><td colSpan={11} className="p-12 text-center"><Loader2 className="h-5 w-5 animate-spin text-gold mx-auto" /></td></tr>
                 )}
                 {!isLoading && filtered.length === 0 && (
-                  <tr><td colSpan={9} className="p-12 text-center text-muted-foreground">No payments match these filters.</td></tr>
+                  <tr><td colSpan={11} className="p-12 text-center text-muted-foreground">No payments match these filters.</td></tr>
                 )}
                 {filtered.map((p) => (
                   <tr key={p.id} className="border-t border-border/60 hover:bg-secondary/30">
@@ -216,6 +227,8 @@ export function PaymentsReportsPage() {
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[11px]">{p.payment_mode}</span>
                     </td>
+                    <td className="px-4 py-2.5 text-xs font-mono text-muted-foreground max-w-[140px] truncate" title={p.utr ?? ""}>{p.utr ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[140px] truncate" title={p.paid_to ?? ""}>{p.paid_to ?? "—"}</td>
                     <td className="px-4 py-2.5 text-xs">{p.collected_by}</td>
                     <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-xs truncate">{p.notes}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-xs">
@@ -223,6 +236,12 @@ export function PaymentsReportsPage() {
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="inline-flex items-center gap-0.5">
+                        {p.ocr_image_path && (
+                          <button onClick={() => openAttachment(p.ocr_image_path)}
+                            className="p-1 text-muted-foreground hover:text-gold" title="View attachment">
+                            <Paperclip className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button onClick={() => setEditPayment(p as any)}
                           className="p-1 text-muted-foreground hover:text-gold" title="Edit payment">
                           <Pencil className="h-3.5 w-3.5" />

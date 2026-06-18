@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { HelpCircle, Settings, LogOut, Sun, Moon } from "lucide-react";
+import { HelpCircle, LogOut, Sun, Moon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,11 @@ function ThemeRow() {
   );
 }
 
+/**
+ * User menu. Settings has been removed from here intentionally — there is
+ * exactly one Settings navigation model in the PMS (the expandable Settings
+ * group in the sidebar). See architecture note in app-sidebar.tsx.
+ */
 export function UserMenu() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -77,11 +82,6 @@ export function UserMenu() {
         <InstallAppButton />
         <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/60 transition">
           <HelpCircle className="h-4 w-4 text-gold" /> Help & Support
-        </button>
-        <button
-          onClick={() => navigate({ to: "/settings" })}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/60 transition">
-          <Settings className="h-4 w-4 text-gold" /> Settings
         </button>
         <div className="h-px bg-border my-1" />
         <button

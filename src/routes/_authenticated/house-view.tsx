@@ -7,7 +7,8 @@ import { listRooms, listMaintenance } from "@/lib/rooms-api";
 import { listBookings } from "@/lib/bookings-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck } from "lucide-react";
+import { NightAuditDialog } from "@/components/night-audit-dialog";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
 import { toast } from "sonner";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
@@ -72,6 +73,7 @@ function HouseView() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [searchQ, setSearchQ] = useState("");
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
@@ -302,6 +304,8 @@ function HouseView() {
       <Topbar title="House View" subtitle="Room occupancy at a glance" />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1600px] space-y-4">
 
+        <NightAuditPendingBanner onOpen={() => setAuditOpen(true)} />
+
         {/* Search */}
         <div className="luxe-card rounded-xl p-3">
           <div className="relative">
@@ -359,10 +363,16 @@ function HouseView() {
               className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5">
               <Hotel className="h-3.5 w-3.5" /> Stats
             </button>
+            <button onClick={() => setAuditOpen(true)}
+              className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5"
+              title="Perform Night Audit">
+              <ShieldCheck className="h-3.5 w-3.5" /> Night Audit
+            </button>
             <span className="text-[11px] text-muted-foreground tabular hidden md:inline">Today · {todayLabel}</span>
           </div>
           <button onClick={() => setAnchor((d) => addDays(d, 1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronRight className="h-4 w-4" /></button>
         </div>
+        <NightAuditDialog open={auditOpen} onClose={() => setAuditOpen(false)} />
 
         {/* Grid */}
         {isLoading ? (
@@ -908,6 +918,36 @@ function Field({ label, value, icon }: { label: string; value: string; icon?: an
     <div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="text-xs flex items-center gap-1">{icon}{value}</div>
+    </div>
+  );
+}
+
+function NightAuditPendingBanner({ onOpen }: { onOpen: () => void }) {
+  const { data } = useQuery({
+    queryKey: ["night-audit-pending"],
+    queryFn: async () => {
+      const { getPendingForAudit } = await import("@/lib/night-audit-api");
+      return getPendingForAudit();
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const ciN = data?.pendingCheckIns.length ?? 0;
+  const coN = data?.pendingCheckOuts.length ?? 0;
+  if (ciN + coN === 0) return null;
+  return (
+    <div className="luxe-card rounded-xl p-3 border-warning/40 bg-warning/10 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 text-warning text-sm">
+        <AlertTriangle className="h-4 w-4" />
+        <span className="font-medium">Night Audit Pending</span>
+        <span className="text-xs text-warning/80">
+          · Check-Ins: <b className="tabular-nums">{ciN}</b> · Check-Outs: <b className="tabular-nums">{coN}</b>
+        </span>
+      </div>
+      <button onClick={onOpen}
+        className="rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal">
+        Resolve
+      </button>
     </div>
   );
 }

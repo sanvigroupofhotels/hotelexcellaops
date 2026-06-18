@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, setBookingStatus, deleteBooking } from "@/lib/bookings-api";
-import { listBookingPayments, deleteBookingPayment, type BookingPaymentRow } from "@/lib/booking-payments-api";
+import { listBookingPayments, deleteBookingPayment, signedAttachmentUrl, type BookingPaymentRow } from "@/lib/booking-payments-api";
 import { listBookingPaymentActivities } from "@/lib/booking-payment-activities-api";
 import { listBookingActivities, logBookingActivity } from "@/lib/booking-activities-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
@@ -34,6 +34,7 @@ import {
   ArrowLeft, Loader2, Trash2, Phone, Mail, User, Copy,
   Wallet, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
   FileText, History, RotateCcw, AlertTriangle, MoreVertical, MessageCircle, Link2,
+  Paperclip,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -271,6 +272,11 @@ function BookingDetail() {
     queryFn: () => listBookingCharges(id),
     enabled: !!b,
   });
+  const { data: guestDocs = [] } = useQuery({
+    queryKey: ["guest-documents", id],
+    queryFn: () => listGuestDocuments(id),
+    enabled: !!b,
+  });
 
   // IMPORTANT: every hook must be called BEFORE any early return.
   // Previously `useServerFn(issueBookingToken)` lived below the early return,
@@ -282,7 +288,9 @@ function BookingDetail() {
 
   const chargesTotal = sumCharges(charges);
   const payable = Number(b.amount) + chargesTotal;
-  const balance = b.status === "Cancelled" ? 0 : Math.max(0, payable - Number(b.advance_paid || 0));
+  const advance = Number(b.advance_paid || 0);
+  const balance = b.status === "Cancelled" ? 0 : Math.max(0, payable - advance);
+  const overpaid = b.status === "Cancelled" ? 0 : Math.max(0, advance - payable);
   const isCheckedOut = b.status === "Checked-Out";
 
   const sendWa = (template: WhatsAppTemplate) => {
@@ -498,19 +506,31 @@ function BookingDetail() {
                 const canCheckOut = b.status === "Checked-In";
                 const canCancel = !["Checked-In", "Checked-Out", "Cancelled"].includes(b.status as any);
                 const handleCheckOutClick = () => {
+                  // Block overpayment in all cases — staff must refund the excess first.
+                  if (overpaid > 0) {
+                    toast.error(`Overpayment of ₹${overpaid.toLocaleString("en-IN")} — process a refund before check-out`);
+                    return;
+                  }
                   if (balance <= 0) { status.mutate("Checked-Out" as any); return; }
                   if (isAdmin) { setOverrideOpen(true); return; }
                   toast.error("Balance due — collect payment before check-out");
                 };
+                // Optimized check-in flow:
+                //  - If guest documents already on file → skip the documents dialog
+                //  - If rooms already assigned → skip room assignment too (status mutation triggers check-in directly)
+                const handleCheckInClick = () => {
+                  const required = requiredRoomCount(items as any);
+                  const hasDocs = (guestDocs?.length ?? 0) > 0;
+                  const fullyAssigned = (assignments?.length ?? 0) >= required;
+                  if (hasDocs && fullyAssigned) { status.mutate("Checked-In" as any); return; }
+                  if (hasDocs) { setChangingAssignmentId(null); setCheckinFlowOpen(true); return; }
+                  setGuestDocsMode("checkin");
+                  setGuestDocsOpen(true);
+                };
                 return (
                   <div className="space-y-2">
                     {canCheckIn && (
-                      <button onClick={() => {
-                        // New order: Guest Documents FIRST, then Room Assignment (if needed),
-                        // then auto Check-In on completion.
-                        setGuestDocsMode("checkin");
-                        setGuestDocsOpen(true);
-                      }}
+                      <button onClick={handleCheckInClick}
                         className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal">
                         <LogIn className="h-3.5 w-3.5" /> Check-In
                       </button>
@@ -528,6 +548,9 @@ function BookingDetail() {
                         </button>
                         {balance > 0 && !isAdmin && (
                           <p className="text-[10px] text-warning">Balance due ₹{balance.toLocaleString("en-IN")} — collect payment to enable check-out.</p>
+                        )}
+                        {overpaid > 0 && (
+                          <p className="text-[10px] text-warning">Overpayment ₹{overpaid.toLocaleString("en-IN")} — process a refund before check-out.</p>
                         )}
                       </>
                     )}
@@ -1117,6 +1140,12 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Payment History</div>
           {payments.map((p) => {
             const isRefund = (p as any).is_refund === true;
+            const attachment = (p as any).ocr_image_path as string | null | undefined;
+            const openAttachment = async () => {
+              const url = await signedAttachmentUrl(attachment);
+              if (url) window.open(url, "_blank");
+              else toast.error("Could not open attachment");
+            };
             return (
             <div key={p.id} className={cn("text-xs rounded-md border px-3 py-2 flex items-start justify-between gap-2",
               isRefund ? "border-destructive/40 bg-destructive/5" : "border-border bg-secondary/40")}>
@@ -1127,9 +1156,22 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
                   <span className="text-muted-foreground"> · {p.payment_mode}</span>
                 </div>
                 <div className="text-[10px] text-muted-foreground">{isRefund ? "Refunded By" : "Collected By"}: {p.collected_by} · {new Date(p.occurred_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</div>
+                {(p.utr || p.paid_to) && (
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    {p.utr && <>UTR: <span className="font-mono text-foreground/80">{p.utr}</span></>}
+                    {p.utr && p.paid_to && <> · </>}
+                    {p.paid_to && <>Paid To: <span className="text-foreground/80">{p.paid_to}</span></>}
+                  </div>
+                )}
                 {p.notes && <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{p.notes}</div>}
               </div>
               <div className="flex items-center gap-0.5 shrink-0">
+                {attachment && (
+                  <button onClick={openAttachment}
+                    className="p-1 text-muted-foreground hover:text-gold" title="View attachment">
+                    <Paperclip className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <button onClick={() => setEditPayment(p)}
                   className="p-1 text-muted-foreground hover:text-gold" title="Edit">
                   <Pencil className="h-3.5 w-3.5" />
