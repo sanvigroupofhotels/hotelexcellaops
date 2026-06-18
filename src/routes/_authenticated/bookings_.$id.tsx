@@ -776,6 +776,56 @@ function BookingDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Process Refund (overpayment) — opens from Check-Out validation */}
+      {refundOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setRefundOpen(false)}>
+          <div className="luxe-card rounded-xl w-full max-w-md p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display text-lg">Process Refund</h3>
+            <p className="text-xs text-muted-foreground">Refund the overpaid balance, then continue with check-out.</p>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <label className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Amount</div>
+                <input type="number" min={0} value={refundAmount}
+                  onChange={(e) => setRefundAmount(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 tabular-nums" />
+              </label>
+              <label className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Mode</div>
+                <select value={refundMode} onChange={(e) => setRefundMode(e.target.value)}
+                  className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5">
+                  <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
+                </select>
+              </label>
+              <label className="col-span-2 space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Reference (UTR / Txn ID / Notes)</div>
+                <input type="text" value={refundRef} onChange={(e) => setRefundRef(e.target.value)}
+                  className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5" />
+              </label>
+              <label className="col-span-2 space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refunded By (Staff)</div>
+                <input type="text" value={refundBy} onChange={(e) => setRefundBy(e.target.value)}
+                  placeholder="Staff name" className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setRefundOpen(false)} className="rounded-md border border-border bg-card px-3 py-2 text-xs">Cancel</button>
+              <button
+                onClick={() => {
+                  if (refundAmount <= 0) { toast.error("Enter refund amount"); return; }
+                  if (!refundBy.trim()) { toast.error("Enter staff name"); return; }
+                  refundMut.mutate();
+                }}
+                disabled={refundMut.isPending}
+                className="rounded-md gold-gradient text-charcoal px-3 py-2 text-xs font-medium disabled:opacity-50">
+                {refundMut.isPending ? "Working…" : (refundAfterAction === "checkout" ? "Refund & Check-Out" : "Process Refund")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
       {/* Cancel Booking with mandatory reason + optional refund */}
       <AlertDialog open={cancelOpen} onOpenChange={(o) => { setCancelOpen(o); if (!o) { setCancelReason(""); setCancelRefundAmount(0); } }}>
         <AlertDialogContent className="max-w-lg">
