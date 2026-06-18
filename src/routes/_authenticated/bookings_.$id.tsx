@@ -591,7 +591,15 @@ function BookingDetail() {
                           <p className="text-[10px] text-warning">Balance due ₹{balance.toLocaleString("en-IN")} — collect payment to enable check-out.</p>
                         )}
                         {overpaid > 0 && (
-                          <p className="text-[10px] text-warning">Overpayment ₹{overpaid.toLocaleString("en-IN")} — process a refund before check-out.</p>
+                          <div className="rounded-md border border-warning/40 bg-warning/10 p-2 space-y-1.5">
+                            <p className="text-[10px] text-warning">Overpayment ₹{overpaid.toLocaleString("en-IN")} — refund the excess before check-out.</p>
+                            <button onClick={() => {
+                              setRefundAmount(overpaid); setRefundMode("Cash"); setRefundRef(""); setRefundBy("");
+                              setRefundAfterAction("checkout"); setRefundOpen(true);
+                            }} className="w-full rounded-md gold-gradient text-charcoal px-2 py-1 text-[11px] font-medium">
+                              Process Refund
+                            </button>
+                          </div>
                         )}
                       </>
                     )}
