@@ -85,7 +85,7 @@ export function PolicyFields({
           <SlotPicker
             icon="🌅"
             title="Early Check-in"
-            subtitle="Standard 1:00 PM · Subject to availability"
+            subtitle={`Standard ${checkTimes.checkIn} · Subject to availability`}
             options={EARLY_CHECK_IN_SLOTS.map((s) => ({ value: s.value, label: s.label, fee: s.fee }))}
             active={form.early_check_in}
             selectedValue={form.early_check_in_slot}
