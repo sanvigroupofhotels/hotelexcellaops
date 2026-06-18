@@ -159,7 +159,7 @@ function Section({ title, empty, rows, renderActions }: {
   title: string;
   empty: string;
   rows: Array<{ id: string; booking_reference: string; guest_name: string; check_in: string; check_out: string; status: string; room_number?: string | null }>;
-  renderActions: (b: any) => React.ReactNode;
+  renderActions: (b: any) => ReactNode;
 }) {
   return (
     <div>
