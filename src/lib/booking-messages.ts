@@ -11,6 +11,7 @@ function roomSummary(b: BookingRow) {
 }
 
 export function confirmationMessage(b: BookingRow, items?: any[]) {
+  const t = getOpsTimeLabels();
   const multi = items && items.length > 0;
   const stayLines: string[] = [];
   if (multi) {
@@ -21,8 +22,8 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
       stayLines.push(`Room ${i + 1}`);
       stayLines.push(`• Room Type: ${it.room_type}`);
       stayLines.push(`• Guests: ${occ}`);
-      stayLines.push(`• Check-in: ${fmtDate(it.check_in)} | 1:00 PM`);
-      stayLines.push(`• Check-out: ${fmtDate(it.check_out)} | 11:00 AM`);
+      stayLines.push(`• Check-in: ${fmtDate(it.check_in)} | ${t.checkIn}`);
+      stayLines.push(`• Check-out: ${fmtDate(it.check_out)} | ${t.checkOut}`);
       stayLines.push(`• Nights: ${it.nights}`);
       if (it.breakfast_included) stayLines.push(`• Breakfast: Included`);
       stayLines.push(`• Subtotal: ${inr(Number(it.subtotal))}`);
@@ -30,8 +31,8 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
     });
   } else {
     stayLines.push(`🏨 Stay Details`);
-    stayLines.push(`• Check-in: ${fmtDate(b.check_in)} | 1:00 PM`);
-    stayLines.push(`• Check-out: ${fmtDate(b.check_out)} | 11:00 AM`);
+    stayLines.push(`• Check-in: ${fmtDate(b.check_in)} | ${t.checkIn}`);
+    stayLines.push(`• Check-out: ${fmtDate(b.check_out)} | ${t.checkOut}`);
     stayLines.push(`• Guests: ${b.guests}`);
     stayLines.push(`• Room(s): ${roomSummary(b)}`);
     stayLines.push(``);
