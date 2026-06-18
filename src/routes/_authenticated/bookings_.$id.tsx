@@ -265,8 +265,10 @@ function BookingDetail() {
     },
     onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ["booking-payments", id] });
+      qc.invalidateQueries({ queryKey: ["all-booking-payments"] });
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["cash"] });
+      qc.invalidateQueries({ queryKey: ["cash-tx-home"] });
       toast.success(`Refund ₹${refundAmount.toLocaleString("en-IN")} recorded`);
       const after = refundAfterAction;
       setRefundOpen(false);
