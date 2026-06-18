@@ -4,9 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { Loader2, ShieldCheck, LogIn, LogOut, AlertTriangle, X, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { setBookingStatus } from "@/lib/bookings-api";
-import { logBookingActivity } from "@/lib/booking-activities-api";
-import { getPendingForAudit, performNightAudit } from "@/lib/night-audit-api";
+import { getPendingForAudit, performNightAudit, bulkSetStatus } from "@/lib/night-audit-api";
 
 /**
  * Night Audit dialog.
@@ -30,6 +28,8 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
   const setStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "Checked-In" | "Checked-Out" | "Cancelled" }) => {
       setBusyId(id);
+      const { setBookingStatus } = await import("@/lib/bookings-api");
+      const { logBookingActivity } = await import("@/lib/booking-activities-api");
       await setBookingStatus(id, status as any);
       await logBookingActivity({
         booking_id: id,
@@ -47,10 +47,36 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
     onError: (e: any) => toast.error(e?.message ?? "Could not update booking"),
   });
 
+  const bulk = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: "Checked-In" | "Checked-Out" | "Cancelled" }) => {
+      await bulkSetStatus(ids, status);
+    },
+    onSuccess: (_d, vars) => {
+      toast.success(`${vars.ids.length} bookings → ${vars.status}`);
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
+      refetch();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Bulk action failed"),
+  });
+
+  const runBulk = (ids: string[], status: "Checked-In" | "Checked-Out" | "Cancelled", verb: string) => {
+    if (ids.length === 0) return;
+    if (!window.confirm(`You are about to ${verb} ${ids.length} booking${ids.length === 1 ? "" : "s"}. Continue?`)) return;
+    bulk.mutate({ ids, status });
+  };
+
   const perform = useMutation({
     mutationFn: () => performNightAudit({ mode: "manual" }),
     onSuccess: (res) => {
       if (!res.ok) {
+        if (res.reason === "already_done") {
+          toast.success("Night Audit already performed for this Business Date");
+          qc.invalidateQueries({ queryKey: ["business-date"] });
+          qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
+          onClose();
+          return;
+        }
         toast.error("Cannot advance business date — pending items remain");
         refetch();
         return;
@@ -90,6 +116,16 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
               title="Pending Check-Ins"
               empty="✓ No pending check-ins"
               rows={ci}
+              bulk={ci.length > 0 ? (
+                <>
+                  <button onClick={() => runBulk(ci.map((b) => b.id), "Checked-In", "Check-In")}
+                    disabled={bulk.isPending}
+                    className="rounded-md gold-gradient px-2.5 py-1 text-[11px] font-medium text-charcoal disabled:opacity-50">Check-In All</button>
+                  <button onClick={() => runBulk(ci.map((b) => b.id), "Cancelled", "Cancel")}
+                    disabled={bulk.isPending}
+                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive disabled:opacity-50">Cancel All</button>
+                </>
+              ) : null}
               renderActions={(b) => (
                 <>
                   <button
@@ -111,6 +147,11 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
               title="Pending Check-Outs"
               empty="✓ No pending check-outs"
               rows={co}
+              bulk={co.length > 0 ? (
+                <button onClick={() => runBulk(co.map((b) => b.id), "Checked-Out", "Check-Out")}
+                  disabled={bulk.isPending}
+                  className="rounded-md gold-gradient px-2.5 py-1 text-[11px] font-medium text-charcoal disabled:opacity-50">Check-Out All</button>
+              ) : null}
               renderActions={(b) => (
                 <>
                   <button
@@ -126,6 +167,7 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
                 </>
               )}
             />
+
 
             <div className={cn("rounded-md border p-3 text-xs flex items-start gap-2",
               clear ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500" : "border-warning/40 bg-warning/10 text-warning")}>
@@ -155,15 +197,19 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
   );
 }
 
-function Section({ title, empty, rows, renderActions }: {
+function Section({ title, empty, rows, renderActions, bulk }: {
   title: string;
   empty: string;
   rows: Array<{ id: string; booking_reference: string; guest_name: string; check_in: string; check_out: string; status: string; room_number?: string | null }>;
   renderActions: (b: any) => ReactNode;
+  bulk?: ReactNode;
 }) {
   return (
     <div>
-      <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{title}</h4>
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground">{title}</h4>
+        {bulk && <div className="flex items-center gap-1.5">{bulk}</div>}
+      </div>
       {rows.length === 0 ? (
         <div className="text-xs text-emerald-500 italic">{empty}</div>
       ) : (

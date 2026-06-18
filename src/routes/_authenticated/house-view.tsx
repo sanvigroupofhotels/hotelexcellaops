@@ -65,7 +65,24 @@ function blockClasses(status: string): string {
 }
 
 function HouseView() {
+  // Business date is the source of truth for "today" in operations.
+  // Fall back to system date until the query resolves so the grid still renders.
+  const { data: businessDate } = useQuery({
+    queryKey: ["business-date"],
+    queryFn: async () => {
+      const { getBusinessDate } = await import("@/lib/night-audit-api");
+      return getBusinessDate();
+    },
+    staleTime: 60_000,
+  });
   const [anchor, setAnchor] = useState(() => { const t = new Date(); t.setHours(0,0,0,0); return t; });
+  // When business date arrives the first time, snap the grid anchor onto it.
+  const [anchorBound, setAnchorBound] = useState(false);
+  if (!anchorBound && businessDate) {
+    setAnchorBound(true);
+    const d = new Date(businessDate + "T00:00:00");
+    if (!isNaN(d.getTime())) setAnchor(d);
+  }
   const [selected, setSelected] = useState<any | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<any | null>(null);
   const [editBlock, setEditBlock] = useState<any | null>(null);
@@ -222,7 +239,7 @@ function HouseView() {
   }, [visibleBlocks]);
 
   // -------- House Overview stats (for selected date = today) --------
-  const todayKey = dateKey(new Date());
+  const todayKey = businessDate ?? dateKey(new Date());
   const occupiedRooms = new Set<string>();
   const inHouseBookings: any[] = [];
   let arrivalsToday = 0, departuresToday = 0;
@@ -297,14 +314,16 @@ function HouseView() {
     }, 80);
   }
 
-  const todayLabel = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const todayLabel = (businessDate ? new Date(businessDate + "T00:00:00") : new Date())
+    .toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const systemLabel = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
   return (
     <>
-      <Topbar title="House View" subtitle="Room occupancy at a glance" />
+      <Topbar title="House View" subtitle={`Business Date: ${todayLabel}${businessDate && businessDate !== dateKey(new Date()) ? ` · System: ${systemLabel}` : ""}`} />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1600px] space-y-4">
 
-        <NightAuditPendingBanner onOpen={() => setAuditOpen(true)} />
+        <NightAuditPendingBanner onOpen={() => setAuditOpen(true)} businessDate={businessDate} />
 
         {/* Search */}
         <div className="luxe-card rounded-xl p-3">
@@ -357,8 +376,8 @@ function HouseView() {
             <span className="hidden md:inline text-sm font-medium">House Overview</span>
             <input type="date" value={dateKey(anchor)} onChange={(e) => { const d = new Date(e.target.value); if (!isNaN(d.getTime())) setAnchor(d); }}
               className="bg-input/60 border border-border rounded-md px-3 py-1.5 text-sm" />
-            <button onClick={() => { const t = new Date(); t.setHours(0,0,0,0); setAnchor(t); }}
-              className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
+            <button onClick={() => { const d = businessDate ? new Date(businessDate + "T00:00:00") : new Date(); d.setHours(0,0,0,0); setAnchor(d); }}
+              className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Business Date</button>
             <button onClick={() => setStatsOpen(true)}
               className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5">
               <Hotel className="h-3.5 w-3.5" /> Stats
@@ -523,7 +542,7 @@ function HouseView() {
       </div>
 
       {selected && <BookingPopover b={selected} onClose={() => setSelected(null)} rooms={rooms}
-        hasBreakfast={!!breakfastByBooking.get(selected.id)} />}
+        hasBreakfast={!!breakfastByBooking.get(selected.id)} businessDate={todayKey} />}
       {selectedBlock && <BlockPopover m={selectedBlock} onClose={() => setSelectedBlock(null)} rooms={rooms}
         onEdit={() => { setEditBlock(selectedBlock); setSelectedBlock(null); }} />}
       {editBlock && (() => {
@@ -606,7 +625,7 @@ function Legend({ cls, label }: { cls: string; label: string }) {
   return <div className="flex items-center gap-1.5"><span className={cn("inline-block h-3 w-6 rounded-full border-2", cls)} />{label}</div>;
 }
 
-function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean }) {
+function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean; businessDate?: string }) {
   const qc = useQueryClient();
   const room = rooms.find((r: any) => r.id === b.room_id);
   const { data: chargesForBooking = [] } = useQuery({
@@ -620,7 +639,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: 
   const roomCharges = Number(b.amount) || 0;
   const totalCharges = roomCharges + additionalCharges;
   const balance = b.status === "Cancelled" ? 0 : Math.max(0, totalCharges - Number(b.advance_paid || 0));
-  const today = dateKey(new Date());
+  const today = businessDate ?? dateKey(new Date());
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
@@ -922,7 +941,7 @@ function Field({ label, value, icon }: { label: string; value: string; icon?: an
   );
 }
 
-function NightAuditPendingBanner({ onOpen }: { onOpen: () => void }) {
+function NightAuditPendingBanner({ onOpen, businessDate }: { onOpen: () => void; businessDate?: string }) {
   const { data } = useQuery({
     queryKey: ["night-audit-pending"],
     queryFn: async () => {
@@ -935,13 +954,14 @@ function NightAuditPendingBanner({ onOpen }: { onOpen: () => void }) {
   const ciN = data?.pendingCheckIns.length ?? 0;
   const coN = data?.pendingCheckOuts.length ?? 0;
   if (ciN + coN === 0) return null;
+  const bdLabel = businessDate ? new Date(businessDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : null;
   return (
     <div className="luxe-card rounded-xl p-3 border-warning/40 bg-warning/10 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-warning text-sm">
         <AlertTriangle className="h-4 w-4" />
         <span className="font-medium">Night Audit Pending</span>
         <span className="text-xs text-warning/80">
-          · Check-Ins: <b className="tabular-nums">{ciN}</b> · Check-Outs: <b className="tabular-nums">{coN}</b>
+          {bdLabel ? `· Business Date: ${bdLabel} ` : ""}· Check-Ins: <b className="tabular-nums">{ciN}</b> · Check-Outs: <b className="tabular-nums">{coN}</b>
         </span>
       </div>
       <button onClick={onOpen}

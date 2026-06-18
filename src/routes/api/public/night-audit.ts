@@ -69,10 +69,9 @@ export const Route = createFileRoute("/api/public/night-audit")({
         }
 
         const next = addDays(businessDate, 1);
-        await supabaseAdmin.from("app_settings" as any).upsert({
-          key: "business_date", value: { date: next }, updated_at: new Date().toISOString(),
-        } as any);
-        await supabaseAdmin.from("night_audit_runs" as any).insert({
+
+        // Idempotency: insert audit row first; UNIQUE(previous_business_date) prevents double-advance.
+        const { error: insErr } = await supabaseAdmin.from("night_audit_runs" as any).insert({
           user_id: null,
           actor_name: "system (cron)",
           mode: "auto",
@@ -81,6 +80,18 @@ export const Route = createFileRoute("/api/public/night-audit")({
           pending_check_ins_resolved: 0,
           pending_check_outs_resolved: 0,
           notes: null,
+        } as any);
+        if (insErr) {
+          const code = (insErr as any).code;
+          if (code === "23505") {
+            return new Response(JSON.stringify({
+              ok: false, reason: "already_done", business_date: businessDate,
+            }), { status: 200, headers: { "content-type": "application/json" } });
+          }
+          return new Response(JSON.stringify({ ok: false, error: (insErr as any).message }), { status: 500, headers: { "content-type": "application/json" } });
+        }
+        await supabaseAdmin.from("app_settings" as any).upsert({
+          key: "business_date", value: { date: next }, updated_at: new Date().toISOString(),
         } as any);
 
         return new Response(JSON.stringify({

@@ -241,6 +241,42 @@ function BookingDetail() {
   const [cancelRefundAmount, setCancelRefundAmount] = useState<number>(0);
   const [cancelRefundMode, setCancelRefundMode] = useState<string>("Cash");
   const [cancelRefundBy, setCancelRefundBy] = useState<string>("");
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundAmount, setRefundAmount] = useState<number>(0);
+  const [refundMode, setRefundMode] = useState<string>("Cash");
+  const [refundRef, setRefundRef] = useState<string>("");
+  const [refundBy, setRefundBy] = useState<string>("");
+  const [refundAfterAction, setRefundAfterAction] = useState<"checkout" | null>(null);
+
+  const refundMut = useMutation({
+    mutationFn: async () => {
+      const { createBookingPayment } = await import("@/lib/booking-payments-api");
+      await createBookingPayment({
+        booking_id: id,
+        customer_id: b?.customer_id ?? null,
+        amount: refundAmount,
+        payment_mode: refundMode,
+        collected_by: refundBy || "—",
+        is_refund: true,
+        refund_reason: "Overpayment refund",
+        notes: `Refund · ${refundMode}${refundRef ? ` · Ref ${refundRef}` : ""}`,
+      });
+    },
+    onSuccess: async () => {
+      qc.invalidateQueries({ queryKey: ["booking-payments", id] });
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["cash"] });
+      toast.success(`Refund ₹${refundAmount.toLocaleString("en-IN")} recorded`);
+      const after = refundAfterAction;
+      setRefundOpen(false);
+      setRefundAfterAction(null);
+      if (after === "checkout") {
+        // Wait for advance recompute trigger; small delay then attempt
+        setTimeout(() => status.mutate("Checked-Out" as any), 300);
+      }
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Refund failed"),
+  });
 
   const { data: assignments = [], refetch: refetchAssignments } = useQuery({
     queryKey: ["booking-room-assignments", id],
@@ -506,9 +542,14 @@ function BookingDetail() {
                 const canCheckOut = b.status === "Checked-In";
                 const canCancel = !["Checked-In", "Checked-Out", "Cancelled"].includes(b.status as any);
                 const handleCheckOutClick = () => {
-                  // Block overpayment in all cases — staff must refund the excess first.
+                  // Block overpayment — but offer to process refund inline.
                   if (overpaid > 0) {
-                    toast.error(`Overpayment of ₹${overpaid.toLocaleString("en-IN")} — process a refund before check-out`);
+                    setRefundAmount(overpaid);
+                    setRefundMode("Cash");
+                    setRefundRef("");
+                    setRefundBy("");
+                    setRefundAfterAction("checkout");
+                    setRefundOpen(true);
                     return;
                   }
                   if (balance <= 0) { status.mutate("Checked-Out" as any); return; }
@@ -550,7 +591,15 @@ function BookingDetail() {
                           <p className="text-[10px] text-warning">Balance due ₹{balance.toLocaleString("en-IN")} — collect payment to enable check-out.</p>
                         )}
                         {overpaid > 0 && (
-                          <p className="text-[10px] text-warning">Overpayment ₹{overpaid.toLocaleString("en-IN")} — process a refund before check-out.</p>
+                          <div className="rounded-md border border-warning/40 bg-warning/10 p-2 space-y-1.5">
+                            <p className="text-[10px] text-warning">Overpayment ₹{overpaid.toLocaleString("en-IN")} — refund the excess before check-out.</p>
+                            <button onClick={() => {
+                              setRefundAmount(overpaid); setRefundMode("Cash"); setRefundRef(""); setRefundBy("");
+                              setRefundAfterAction("checkout"); setRefundOpen(true);
+                            }} className="w-full rounded-md gold-gradient text-charcoal px-2 py-1 text-[11px] font-medium">
+                              Process Refund
+                            </button>
+                          </div>
                         )}
                       </>
                     )}
@@ -726,6 +775,56 @@ function BookingDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Process Refund (overpayment) — opens from Check-Out validation */}
+      {refundOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setRefundOpen(false)}>
+          <div className="luxe-card rounded-xl w-full max-w-md p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display text-lg">Process Refund</h3>
+            <p className="text-xs text-muted-foreground">Refund the overpaid balance, then continue with check-out.</p>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <label className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Amount</div>
+                <input type="number" min={0} value={refundAmount}
+                  onChange={(e) => setRefundAmount(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 tabular-nums" />
+              </label>
+              <label className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Mode</div>
+                <select value={refundMode} onChange={(e) => setRefundMode(e.target.value)}
+                  className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5">
+                  <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
+                </select>
+              </label>
+              <label className="col-span-2 space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Reference (UTR / Txn ID / Notes)</div>
+                <input type="text" value={refundRef} onChange={(e) => setRefundRef(e.target.value)}
+                  className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5" />
+              </label>
+              <label className="col-span-2 space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refunded By (Staff)</div>
+                <input type="text" value={refundBy} onChange={(e) => setRefundBy(e.target.value)}
+                  placeholder="Staff name" className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setRefundOpen(false)} className="rounded-md border border-border bg-card px-3 py-2 text-xs">Cancel</button>
+              <button
+                onClick={() => {
+                  if (refundAmount <= 0) { toast.error("Enter refund amount"); return; }
+                  if (!refundBy.trim()) { toast.error("Enter staff name"); return; }
+                  refundMut.mutate();
+                }}
+                disabled={refundMut.isPending}
+                className="rounded-md gold-gradient text-charcoal px-3 py-2 text-xs font-medium disabled:opacity-50">
+                {refundMut.isPending ? "Working…" : (refundAfterAction === "checkout" ? "Refund & Check-Out" : "Process Refund")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
 
       {/* Cancel Booking with mandatory reason + optional refund */}
       <AlertDialog open={cancelOpen} onOpenChange={(o) => { setCancelOpen(o); if (!o) { setCancelReason(""); setCancelRefundAmount(0); } }}>

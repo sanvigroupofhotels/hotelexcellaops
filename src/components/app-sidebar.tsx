@@ -5,7 +5,7 @@ import {
   MessageSquareWarning, Building2, Database,
   Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
   Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
-  BarChart3, IndianRupee,
+  BarChart3, IndianRupee, Receipt, UsersRound,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -20,17 +20,20 @@ const nav: NavItem[] = [
   { to: "/bookings", label: "Bookings", icon: BedDouble },
   { to: "/house-view", label: "House View", icon: Building2 },
   { to: "/customers", label: "Customers", icon: Users },
+  { to: "/dues", label: "Due Collection", icon: Receipt },
   { to: "/cash", label: "CashBook", icon: Wallet },
   // Reporting is rendered separately as an expandable group below.
   { to: "/staff-management", label: "Staff Management", icon: UserCog },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
+  { to: "/users", label: "User Management", icon: UsersRound, adminOnly: true },
   { to: "/master-data", label: "Master Data", icon: Database, adminOnly: true },
 ];
 
 const reportingChildren = [
-  { to: "/reporting/analytics", label: "Analytics",          icon: BarChart3 },
-  { to: "/reporting/payments",  label: "Payment Reports",    icon: IndianRupee },
-  { to: "/reporting/staff",     label: "Staff Reporting",    icon: FileBarChart, adminOnly: true },
+  { to: "/reporting/analytics",   label: "Analytics",            icon: BarChart3 },
+  { to: "/reporting/payments",    label: "Payment Reports",      icon: IndianRupee },
+  { to: "/reporting/staff",       label: "Staff Reporting",      icon: FileBarChart, adminOnly: true },
+  { to: "/reporting/night-audit", label: "Night Audit History",  icon: ShieldCheck, adminOnly: true },
 ] as const;
 
 const settingsChildren = [
