@@ -18,6 +18,7 @@ import {
   Star, Clock, Pencil, CheckCircle2, Share2, Printer, BedDouble,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useOpsTimeLabels } from "@/lib/check-times";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
 import { StayItemsList } from "@/components/shared/stay-items-list";
