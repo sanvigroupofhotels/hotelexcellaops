@@ -542,9 +542,14 @@ function BookingDetail() {
                 const canCheckOut = b.status === "Checked-In";
                 const canCancel = !["Checked-In", "Checked-Out", "Cancelled"].includes(b.status as any);
                 const handleCheckOutClick = () => {
-                  // Block overpayment in all cases — staff must refund the excess first.
+                  // Block overpayment — but offer to process refund inline.
                   if (overpaid > 0) {
-                    toast.error(`Overpayment of ₹${overpaid.toLocaleString("en-IN")} — process a refund before check-out`);
+                    setRefundAmount(overpaid);
+                    setRefundMode("Cash");
+                    setRefundRef("");
+                    setRefundBy("");
+                    setRefundAfterAction("checkout");
+                    setRefundOpen(true);
                     return;
                   }
                   if (balance <= 0) { status.mutate("Checked-Out" as any); return; }
