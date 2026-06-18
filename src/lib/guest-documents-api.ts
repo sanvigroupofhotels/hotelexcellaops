@@ -57,12 +57,15 @@ export interface CreateGuestDocumentInput {
   selfie?: File | null;
   notes?: string;
   uploadedByName?: string;
+  /** Set to true when a previously uploaded doc on this booking already has a Front Side on file. */
+  allowMissingFront?: boolean;
 }
 
 export async function createGuestDocument(input: CreateGuestDocumentInput): Promise<GuestDocumentRow> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
-  if (!input.front) throw new Error("Front side is mandatory");
+  if (!input.front && !input.allowMissingFront) throw new Error("Front side is mandatory");
+  if (!input.front && !input.back && !input.selfie) throw new Error("Please choose at least one file to upload");
 
   const insertRes = await supabase
     .from("guest_documents" as any)
