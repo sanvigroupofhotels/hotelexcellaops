@@ -53,6 +53,7 @@ import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import { listGuestDocuments } from "@/lib/guest-documents-api";
 import { toast } from "sonner";
+import { useOpsTimeLabels } from "@/lib/check-times";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
   component: BookingDetail,
@@ -209,6 +210,7 @@ function BookingDetail() {
     onSuccess: (_, vars) => {
       invalidateAll();
       qc.invalidateQueries({ queryKey: ["booking-payments", id] });
+      qc.invalidateQueries({ queryKey: ["all-booking-payments"] });
       qc.invalidateQueries({ queryKey: ["cash"] });
       qc.invalidateQueries({ queryKey: ["cash-tx-home"] });
       toast.success(vars.refundAmount > 0 ? `Booking cancelled · Refund ₹${vars.refundAmount.toLocaleString("en-IN")} recorded` : "Booking cancelled");
@@ -264,8 +266,10 @@ function BookingDetail() {
     },
     onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ["booking-payments", id] });
+      qc.invalidateQueries({ queryKey: ["all-booking-payments"] });
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["cash"] });
+      qc.invalidateQueries({ queryKey: ["cash-tx-home"] });
       toast.success(`Refund ₹${refundAmount.toLocaleString("en-IN")} recorded`);
       const after = refundAfterAction;
       setRefundOpen(false);
@@ -1024,6 +1028,7 @@ function CheckoutOverrideForm({ balance, onCancel, onAddPayment, onProceed }: {
 
 function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }: { b: any; items?: any[]; balance: number; chargesTotal?: number; charges?: any[] }) {
   const multi = items.length > 1;
+  const checkTimes = useOpsTimeLabels();
   const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   return (
     <div className="luxe-card rounded-2xl p-4 md:p-8 relative overflow-hidden print:border-0 print:shadow-none print:bg-white print:text-black">
@@ -1072,8 +1077,8 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
         <div className="relative py-3 border-b border-border">
           <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-1.5">Stay Details</h4>
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)}</div><div className="text-[10px] text-muted-foreground">Check-in · 1:00 PM</div></div>
-            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_out)}</div><div className="text-[10px] text-muted-foreground">Check-out · 11:00 AM</div></div>
+            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)}</div><div className="text-[10px] text-muted-foreground">Check-in · {checkTimes.checkIn}</div></div>
+            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_out)}</div><div className="text-[10px] text-muted-foreground">Check-out · {checkTimes.checkOut}</div></div>
             <div className="col-span-2 text-xs text-muted-foreground">{b.guests} Guest{b.guests === 1 ? "" : "s"} · {b.nights} Night{b.nights === 1 ? "" : "s"}{b.room_details ? ` · ${b.room_details}` : ""}</div>
           </div>
         </div>

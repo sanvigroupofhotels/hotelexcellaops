@@ -18,6 +18,7 @@ import {
   Star, Clock, Pencil, CheckCircle2, Share2, Printer, BedDouble,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useOpsTimeLabels } from "@/lib/check-times";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
 import { StayItemsList } from "@/components/shared/stay-items-list";
@@ -319,6 +320,7 @@ function QuoteDetail() {
 function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
   const hasItems = items.length > 0;
   const multi = items.length > 1;
+  const checkTimes = useOpsTimeLabels();
   const whyStay = [
     "Free High-Speed Wi-Fi",
     "Walkable Distance to Beach",
@@ -378,11 +380,11 @@ function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(q.check_in)}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">Check-in · 1:00 PM</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Check-in · {checkTimes.checkIn}</div>
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(q.check_out)}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">Check-out · 11:00 AM</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Check-out · {checkTimes.checkOut}</div>
                 </div>
                 <div className="col-span-2 text-xs text-muted-foreground">
                   {q.group_size} · {q.nights} Night{q.nights > 1 ? "s" : ""}
@@ -455,7 +457,7 @@ function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
           ))}
         </div>
         <p className="text-[10px] text-muted-foreground mt-3">
-          Quote valid for 7 days · Standard check-in 1:00 PM · Standard check-out 11:00 AM
+          Quote valid for 7 days · Standard check-in {checkTimes.checkIn} · Standard check-out {checkTimes.checkOut}
         </p>
       </div>
       {/* suppress unused */}

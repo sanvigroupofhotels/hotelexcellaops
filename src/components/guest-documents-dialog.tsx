@@ -43,6 +43,11 @@ export function GuestDocumentsDialog({ bookingId, open, onClose, mode, onComplet
   const [selfie, setSelfie] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
 
+  // If a previously uploaded doc already has a Front Side on file, the
+  // mandatory-front requirement is treated as satisfied — staff may add Back
+  // or Selfie alone without being forced to re-upload Front.
+  const hasExistingFront = docs.some((d) => !!d.front_path);
+
   useEffect(() => {
     if (!open) {
       setDocType("Aadhaar"); setFront(null); setBack(null); setSelfie(null); setNotes("");
@@ -53,6 +58,7 @@ export function GuestDocumentsDialog({ bookingId, open, onClose, mode, onComplet
     mutationFn: () => createGuestDocument({
       bookingId, docType, front, back, selfie, notes,
       uploadedByName: user?.email ?? "Staff",
+      allowMissingFront: hasExistingFront,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["guest-documents", bookingId] });
@@ -73,6 +79,9 @@ export function GuestDocumentsDialog({ bookingId, open, onClose, mode, onComplet
   });
 
   const canManage = isAdmin || true; // any signed-in staff allowed per spec
+
+  const anyPicked = !!(front || back || selfie);
+  const canUpload = anyPicked && (!!front || hasExistingFront);
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -118,7 +127,13 @@ export function GuestDocumentsDialog({ bookingId, open, onClose, mode, onComplet
             </div>
           </div>
 
-          <FileSlot label="Front Side" required value={front} onChange={setFront} />
+          <FileSlot
+            label="Front Side"
+            required={!hasExistingFront}
+            value={front}
+            onChange={setFront}
+            hint={hasExistingFront ? "Already on file — optional" : undefined}
+          />
           <FileSlot label="Back Side" value={back} onChange={setBack} hint="Optional" />
           <FileSlot label="Guest Photo / Selfie" value={selfie} onChange={setSelfie} hint="Optional" />
 
@@ -129,7 +144,7 @@ export function GuestDocumentsDialog({ bookingId, open, onClose, mode, onComplet
               placeholder="Optional — anything to record about the ID" />
           </div>
 
-          <Button type="button" onClick={() => save.mutate()} disabled={!front || save.isPending} className="w-full">
+          <Button type="button" onClick={() => save.mutate()} disabled={!canUpload || save.isPending} className="w-full">
             {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             Upload Document
           </Button>

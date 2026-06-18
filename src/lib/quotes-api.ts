@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { normalizePhoneNumber, validatePhoneNumber, phoneToWaDigits } from "@/lib/phone";
+import { getOpsTimeLabels } from "@/lib/check-times";
 import {
   EARLY_CHECK_IN_SLOTS,
   LATE_CHECK_OUT_SLOTS,
@@ -437,6 +438,7 @@ export async function getUserNamesByIds(ids: string[]): Promise<Record<string, s
 
 /** WhatsApp deep-link with branded operational message (Hotel Excella format). */
 export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
+  const t = getOpsTimeLabels();
   const fmtDate = (d: string) =>
     new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const c = calc(q);
@@ -469,8 +471,8 @@ export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
       roomBlock.push(`Room ${i + 1}`);
       roomBlock.push(`• Room Type: ${it.room_type}`);
       roomBlock.push(`• Guests: ${occ}`);
-      roomBlock.push(`• Check-in: ${fmtDate(it.check_in)} | 1:00 PM`);
-      roomBlock.push(`• Check-out: ${fmtDate(it.check_out)} | 11:00 AM`);
+      roomBlock.push(`• Check-in: ${fmtDate(it.check_in)} | ${t.checkIn}`);
+      roomBlock.push(`• Check-out: ${fmtDate(it.check_out)} | ${t.checkOut}`);
       roomBlock.push(`• Nights: ${it.nights}`);
       if (it.breakfast_included) roomBlock.push(`• Breakfast: Included`);
       roomBlock.push(`• Subtotal: ${inr(Number(it.subtotal))}`);
@@ -481,8 +483,8 @@ export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
   const stayBlock = multi ? roomBlock : [
     `🏨 Room Details`,
     `• Room Type: ${q.room_type} × ${q.rooms}`,
-    `• Check-in: ${fmtDate(q.check_in)} | 1:00 PM`,
-    `• Check-out: ${fmtDate(q.check_out)} | 11:00 AM`,
+    `• Check-in: ${fmtDate(q.check_in)} | ${t.checkIn}`,
+    `• Check-out: ${fmtDate(q.check_out)} | ${t.checkOut}`,
     `• Duration: ${q.nights} Night${q.nights > 1 ? "s" : ""}`,
     `• Guests: ${guestLine}`,
     ...(q.breakfast_included ? [`• Breakfast: Included`] : []),
