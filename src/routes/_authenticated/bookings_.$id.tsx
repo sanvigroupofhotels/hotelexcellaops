@@ -272,6 +272,11 @@ function BookingDetail() {
     queryFn: () => listBookingCharges(id),
     enabled: !!b,
   });
+  const { data: guestDocs = [] } = useQuery({
+    queryKey: ["guest-documents", id],
+    queryFn: () => listGuestDocuments(id),
+    enabled: !!b,
+  });
 
   // IMPORTANT: every hook must be called BEFORE any early return.
   // Previously `useServerFn(issueBookingToken)` lived below the early return,
@@ -283,7 +288,9 @@ function BookingDetail() {
 
   const chargesTotal = sumCharges(charges);
   const payable = Number(b.amount) + chargesTotal;
-  const balance = b.status === "Cancelled" ? 0 : Math.max(0, payable - Number(b.advance_paid || 0));
+  const advance = Number(b.advance_paid || 0);
+  const balance = b.status === "Cancelled" ? 0 : Math.max(0, payable - advance);
+  const overpaid = b.status === "Cancelled" ? 0 : Math.max(0, advance - payable);
   const isCheckedOut = b.status === "Checked-Out";
 
   const sendWa = (template: WhatsAppTemplate) => {
