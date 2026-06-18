@@ -471,8 +471,8 @@ export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
       roomBlock.push(`Room ${i + 1}`);
       roomBlock.push(`• Room Type: ${it.room_type}`);
       roomBlock.push(`• Guests: ${occ}`);
-      roomBlock.push(`• Check-in: ${fmtDate(it.check_in)} | 1:00 PM`);
-      roomBlock.push(`• Check-out: ${fmtDate(it.check_out)} | 11:00 AM`);
+      roomBlock.push(`• Check-in: ${fmtDate(it.check_in)} | ${t.checkIn}`);
+      roomBlock.push(`• Check-out: ${fmtDate(it.check_out)} | ${t.checkOut}`);
       roomBlock.push(`• Nights: ${it.nights}`);
       if (it.breakfast_included) roomBlock.push(`• Breakfast: Included`);
       roomBlock.push(`• Subtotal: ${inr(Number(it.subtotal))}`);
@@ -483,8 +483,8 @@ export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
   const stayBlock = multi ? roomBlock : [
     `🏨 Room Details`,
     `• Room Type: ${q.room_type} × ${q.rooms}`,
-    `• Check-in: ${fmtDate(q.check_in)} | 1:00 PM`,
-    `• Check-out: ${fmtDate(q.check_out)} | 11:00 AM`,
+    `• Check-in: ${fmtDate(q.check_in)} | ${t.checkIn}`,
+    `• Check-out: ${fmtDate(q.check_out)} | ${t.checkOut}`,
     `• Duration: ${q.nights} Night${q.nights > 1 ? "s" : ""}`,
     `• Guests: ${guestLine}`,
     ...(q.breakfast_included ? [`• Breakfast: Included`] : []),
