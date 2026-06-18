@@ -28,6 +28,8 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
   const setStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "Checked-In" | "Checked-Out" | "Cancelled" }) => {
       setBusyId(id);
+      const { setBookingStatus } = await import("@/lib/bookings-api");
+      const { logBookingActivity } = await import("@/lib/booking-activities-api");
       await setBookingStatus(id, status as any);
       await logBookingActivity({
         booking_id: id,
@@ -45,10 +47,36 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
     onError: (e: any) => toast.error(e?.message ?? "Could not update booking"),
   });
 
+  const bulk = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: "Checked-In" | "Checked-Out" | "Cancelled" }) => {
+      await bulkSetStatus(ids, status);
+    },
+    onSuccess: (_d, vars) => {
+      toast.success(`${vars.ids.length} bookings → ${vars.status}`);
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
+      refetch();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Bulk action failed"),
+  });
+
+  const runBulk = (ids: string[], status: "Checked-In" | "Checked-Out" | "Cancelled", verb: string) => {
+    if (ids.length === 0) return;
+    if (!window.confirm(`You are about to ${verb} ${ids.length} booking${ids.length === 1 ? "" : "s"}. Continue?`)) return;
+    bulk.mutate({ ids, status });
+  };
+
   const perform = useMutation({
     mutationFn: () => performNightAudit({ mode: "manual" }),
     onSuccess: (res) => {
       if (!res.ok) {
+        if (res.reason === "already_done") {
+          toast.success("Night Audit already performed for this Business Date");
+          qc.invalidateQueries({ queryKey: ["business-date"] });
+          qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
+          onClose();
+          return;
+        }
         toast.error("Cannot advance business date — pending items remain");
         refetch();
         return;
