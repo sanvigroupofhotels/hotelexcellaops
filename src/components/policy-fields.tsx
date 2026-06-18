@@ -46,6 +46,7 @@ export function PolicyFields({
   // UAT: Extras (Early Check-In / Late Check-Out / Pet / Extra Adults / Drivers)
   // were not obviously selectable because this section started collapsed. Default OPEN.
   const [extrasOpen, setExtrasOpen] = useState<boolean>(true);
+  const checkTimes = useOpsTimeLabels();
 
   return (
     <div className="space-y-4">
