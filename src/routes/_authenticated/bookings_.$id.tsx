@@ -1024,6 +1024,7 @@ function CheckoutOverrideForm({ balance, onCancel, onAddPayment, onProceed }: {
 
 function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }: { b: any; items?: any[]; balance: number; chargesTotal?: number; charges?: any[] }) {
   const multi = items.length > 1;
+  const checkTimes = useOpsTimeLabels();
   const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   return (
     <div className="luxe-card rounded-2xl p-4 md:p-8 relative overflow-hidden print:border-0 print:shadow-none print:bg-white print:text-black">
