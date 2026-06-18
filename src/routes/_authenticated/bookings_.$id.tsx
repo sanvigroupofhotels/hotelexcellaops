@@ -506,19 +506,31 @@ function BookingDetail() {
                 const canCheckOut = b.status === "Checked-In";
                 const canCancel = !["Checked-In", "Checked-Out", "Cancelled"].includes(b.status as any);
                 const handleCheckOutClick = () => {
+                  // Block overpayment in all cases — staff must refund the excess first.
+                  if (overpaid > 0) {
+                    toast.error(`Overpayment of ₹${overpaid.toLocaleString("en-IN")} — process a refund before check-out`);
+                    return;
+                  }
                   if (balance <= 0) { status.mutate("Checked-Out" as any); return; }
                   if (isAdmin) { setOverrideOpen(true); return; }
                   toast.error("Balance due — collect payment before check-out");
                 };
+                // Optimized check-in flow:
+                //  - If guest documents already on file → skip the documents dialog
+                //  - If rooms already assigned → skip room assignment too (status mutation triggers check-in directly)
+                const handleCheckInClick = () => {
+                  const required = requiredRoomCount(items as any);
+                  const hasDocs = (guestDocs?.length ?? 0) > 0;
+                  const fullyAssigned = (assignments?.length ?? 0) >= required;
+                  if (hasDocs && fullyAssigned) { status.mutate("Checked-In" as any); return; }
+                  if (hasDocs) { setChangingAssignmentId(null); setCheckinFlowOpen(true); return; }
+                  setGuestDocsMode("checkin");
+                  setGuestDocsOpen(true);
+                };
                 return (
                   <div className="space-y-2">
                     {canCheckIn && (
-                      <button onClick={() => {
-                        // New order: Guest Documents FIRST, then Room Assignment (if needed),
-                        // then auto Check-In on completion.
-                        setGuestDocsMode("checkin");
-                        setGuestDocsOpen(true);
-                      }}
+                      <button onClick={handleCheckInClick}
                         className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-3 py-2.5 text-xs font-medium text-charcoal">
                         <LogIn className="h-3.5 w-3.5" /> Check-In
                       </button>
@@ -536,6 +548,9 @@ function BookingDetail() {
                         </button>
                         {balance > 0 && !isAdmin && (
                           <p className="text-[10px] text-warning">Balance due ₹{balance.toLocaleString("en-IN")} — collect payment to enable check-out.</p>
+                        )}
+                        {overpaid > 0 && (
+                          <p className="text-[10px] text-warning">Overpayment ₹{overpaid.toLocaleString("en-IN")} — process a refund before check-out.</p>
                         )}
                       </>
                     )}
