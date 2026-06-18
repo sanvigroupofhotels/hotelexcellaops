@@ -101,7 +101,7 @@ export function PolicyFields({
           <SlotPicker
             icon="🌙"
             title="Late Check-out"
-            subtitle="Standard 11:00 AM · Subject to availability"
+            subtitle={`Standard ${checkTimes.checkOut} · Subject to availability`}
             options={LATE_CHECK_OUT_SLOTS.map((s) => ({ value: s.value, label: s.label, fee: s.fee }))}
             active={form.late_check_out}
             selectedValue={form.late_check_out_slot}
