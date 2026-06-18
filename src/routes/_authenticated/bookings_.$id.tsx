@@ -241,6 +241,42 @@ function BookingDetail() {
   const [cancelRefundAmount, setCancelRefundAmount] = useState<number>(0);
   const [cancelRefundMode, setCancelRefundMode] = useState<string>("Cash");
   const [cancelRefundBy, setCancelRefundBy] = useState<string>("");
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundAmount, setRefundAmount] = useState<number>(0);
+  const [refundMode, setRefundMode] = useState<string>("Cash");
+  const [refundRef, setRefundRef] = useState<string>("");
+  const [refundBy, setRefundBy] = useState<string>("");
+  const [refundAfterAction, setRefundAfterAction] = useState<"checkout" | null>(null);
+
+  const refundMut = useMutation({
+    mutationFn: async () => {
+      const { createBookingPayment } = await import("@/lib/booking-payments-api");
+      await createBookingPayment({
+        booking_id: id,
+        customer_id: b?.customer_id ?? null,
+        amount: refundAmount,
+        payment_mode: refundMode,
+        collected_by: refundBy || "—",
+        is_refund: true,
+        refund_reason: "Overpayment refund",
+        notes: `Refund · ${refundMode}${refundRef ? ` · Ref ${refundRef}` : ""}`,
+      });
+    },
+    onSuccess: async () => {
+      qc.invalidateQueries({ queryKey: ["booking-payments", id] });
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["cash"] });
+      toast.success(`Refund ₹${refundAmount.toLocaleString("en-IN")} recorded`);
+      const after = refundAfterAction;
+      setRefundOpen(false);
+      setRefundAfterAction(null);
+      if (after === "checkout") {
+        // Wait for advance recompute trigger; small delay then attempt
+        setTimeout(() => status.mutate("Checked-Out" as any), 300);
+      }
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Refund failed"),
+  });
 
   const { data: assignments = [], refetch: refetchAssignments } = useQuery({
     queryKey: ["booking-room-assignments", id],
