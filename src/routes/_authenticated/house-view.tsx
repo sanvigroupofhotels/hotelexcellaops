@@ -625,7 +625,7 @@ function Legend({ cls, label }: { cls: string; label: string }) {
   return <div className="flex items-center gap-1.5"><span className={cn("inline-block h-3 w-6 rounded-full border-2", cls)} />{label}</div>;
 }
 
-function BookingPopover({ b, onClose, rooms, hasBreakfast }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean }) {
+function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean; businessDate?: string }) {
   const qc = useQueryClient();
   const room = rooms.find((r: any) => r.id === b.room_id);
   const { data: chargesForBooking = [] } = useQuery({
