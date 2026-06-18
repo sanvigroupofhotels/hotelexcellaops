@@ -116,6 +116,16 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
               title="Pending Check-Ins"
               empty="✓ No pending check-ins"
               rows={ci}
+              bulk={ci.length > 0 ? (
+                <>
+                  <button onClick={() => runBulk(ci.map((b) => b.id), "Checked-In", "Check-In")}
+                    disabled={bulk.isPending}
+                    className="rounded-md gold-gradient px-2.5 py-1 text-[11px] font-medium text-charcoal disabled:opacity-50">Check-In All</button>
+                  <button onClick={() => runBulk(ci.map((b) => b.id), "Cancelled", "Cancel")}
+                    disabled={bulk.isPending}
+                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive disabled:opacity-50">Cancel All</button>
+                </>
+              ) : null}
               renderActions={(b) => (
                 <>
                   <button
@@ -137,6 +147,11 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
               title="Pending Check-Outs"
               empty="✓ No pending check-outs"
               rows={co}
+              bulk={co.length > 0 ? (
+                <button onClick={() => runBulk(co.map((b) => b.id), "Checked-Out", "Check-Out")}
+                  disabled={bulk.isPending}
+                  className="rounded-md gold-gradient px-2.5 py-1 text-[11px] font-medium text-charcoal disabled:opacity-50">Check-Out All</button>
+              ) : null}
               renderActions={(b) => (
                 <>
                   <button
@@ -152,6 +167,7 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
                 </>
               )}
             />
+
 
             <div className={cn("rounded-md border p-3 text-xs flex items-start gap-2",
               clear ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500" : "border-warning/40 bg-warning/10 text-warning")}>
