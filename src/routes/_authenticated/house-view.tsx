@@ -639,7 +639,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   const roomCharges = Number(b.amount) || 0;
   const totalCharges = roomCharges + additionalCharges;
   const balance = b.status === "Cancelled" ? 0 : Math.max(0, totalCharges - Number(b.advance_paid || 0));
-  const today = dateKey(new Date());
+  const today = businessDate ?? dateKey(new Date());
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
