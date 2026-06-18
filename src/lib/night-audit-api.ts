@@ -82,7 +82,7 @@ export async function getPendingForAudit(businessDate?: string): Promise<{
 
 export interface PerformAuditResult {
   ok: boolean;
-  reason?: "pending_check_ins" | "pending_check_outs";
+  reason?: "pending_check_ins" | "pending_check_outs" | "already_done";
   pendingCheckIns?: number;
   pendingCheckOuts?: number;
   previousBusinessDate?: string;
@@ -102,9 +102,9 @@ export async function performNightAudit(opts: { mode?: "manual" | "auto"; actorN
   }
 
   const next = addDaysYMD(bd, 1);
-  await setBusinessDate(next);
 
-  await supabase.from("night_audit_runs" as any).insert({
+  // Idempotency lock: insert audit row first; UNIQUE(previous_business_date) prevents double-advance.
+  const { error: insErr } = await supabase.from("night_audit_runs" as any).insert({
     user_id: user?.id ?? null,
     actor_name: opts.actorName ?? user?.email ?? "system",
     mode: opts.mode ?? "manual",
@@ -114,6 +114,51 @@ export async function performNightAudit(opts: { mode?: "manual" | "auto"; actorN
     pending_check_outs_resolved: 0,
     notes: null,
   } as any);
+  if (insErr) {
+    const msg = (insErr as any).message ?? "";
+    if (msg.includes("night_audit_runs_prev_date_unique") || (insErr as any).code === "23505") {
+      return { ok: false, reason: "already_done", previousBusinessDate: bd };
+    }
+    throw insErr;
+  }
 
+  await setBusinessDate(next);
   return { ok: true, previousBusinessDate: bd, newBusinessDate: next };
+}
+
+/** Bulk operations used by the Night Audit dialog. */
+export async function bulkSetStatus(ids: string[], status: "Checked-In" | "Checked-Out" | "Cancelled"): Promise<void> {
+  const { setBookingStatus } = await import("@/lib/bookings-api");
+  const { logBookingActivity } = await import("@/lib/booking-activities-api");
+  for (const id of ids) {
+    await setBookingStatus(id, status as any);
+    await logBookingActivity({
+      booking_id: id,
+      action: status === "Checked-In" ? "check_in" : status === "Checked-Out" ? "check_out" : "cancelled",
+      from_status: null, to_status: status,
+      notes: "From Night Audit (bulk)",
+    });
+  }
+}
+
+export interface NightAuditRun {
+  id: string;
+  actor_name: string | null;
+  mode: string;
+  previous_business_date: string | null;
+  new_business_date: string;
+  pending_check_ins_resolved: number;
+  pending_check_outs_resolved: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export async function listNightAuditRuns(limit = 200): Promise<NightAuditRun[]> {
+  const { data, error } = await supabase
+    .from("night_audit_runs" as any)
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as any;
 }
