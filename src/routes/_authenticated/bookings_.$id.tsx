@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, setBookingStatus, deleteBooking } from "@/lib/bookings-api";
-import { listBookingPayments, deleteBookingPayment, type BookingPaymentRow } from "@/lib/booking-payments-api";
+import { listBookingPayments, deleteBookingPayment, signedAttachmentUrl, type BookingPaymentRow } from "@/lib/booking-payments-api";
 import { listBookingPaymentActivities } from "@/lib/booking-payment-activities-api";
 import { listBookingActivities, logBookingActivity } from "@/lib/booking-activities-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
@@ -34,6 +34,7 @@ import {
   ArrowLeft, Loader2, Trash2, Phone, Mail, User, Copy,
   Wallet, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
   FileText, History, RotateCcw, AlertTriangle, MoreVertical, MessageCircle, Link2,
+  Paperclip,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
