@@ -457,7 +457,7 @@ function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
           ))}
         </div>
         <p className="text-[10px] text-muted-foreground mt-3">
-          Quote valid for 7 days · Standard check-in 1:00 PM · Standard check-out 11:00 AM
+          Quote valid for 7 days · Standard check-in {checkTimes.checkIn} · Standard check-out {checkTimes.checkOut}
         </p>
       </div>
       {/* suppress unused */}
