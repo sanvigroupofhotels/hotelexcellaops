@@ -438,6 +438,7 @@ export async function getUserNamesByIds(ids: string[]): Promise<Record<string, s
 
 /** WhatsApp deep-link with branded operational message (Hotel Excella format). */
 export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
+  const _t = getOpsTimeLabels();
   const fmtDate = (d: string) =>
     new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const c = calc(q);
