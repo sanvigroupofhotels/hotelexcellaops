@@ -314,14 +314,16 @@ function HouseView() {
     }, 80);
   }
 
-  const todayLabel = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const todayLabel = (businessDate ? new Date(businessDate + "T00:00:00") : new Date())
+    .toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const systemLabel = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
   return (
     <>
-      <Topbar title="House View" subtitle="Room occupancy at a glance" />
+      <Topbar title="House View" subtitle={`Business Date: ${todayLabel}${businessDate && businessDate !== dateKey(new Date()) ? ` · System: ${systemLabel}` : ""}`} />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1600px] space-y-4">
 
-        <NightAuditPendingBanner onOpen={() => setAuditOpen(true)} />
+        <NightAuditPendingBanner onOpen={() => setAuditOpen(true)} businessDate={businessDate} />
 
         {/* Search */}
         <div className="luxe-card rounded-xl p-3">
