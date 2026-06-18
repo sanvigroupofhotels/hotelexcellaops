@@ -197,15 +197,19 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
   );
 }
 
-function Section({ title, empty, rows, renderActions }: {
+function Section({ title, empty, rows, renderActions, bulk }: {
   title: string;
   empty: string;
   rows: Array<{ id: string; booking_reference: string; guest_name: string; check_in: string; check_out: string; status: string; room_number?: string | null }>;
   renderActions: (b: any) => ReactNode;
+  bulk?: ReactNode;
 }) {
   return (
     <div>
-      <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{title}</h4>
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground">{title}</h4>
+        {bulk && <div className="flex items-center gap-1.5">{bulk}</div>}
+      </div>
       {rows.length === 0 ? (
         <div className="text-xs text-emerald-500 italic">{empty}</div>
       ) : (
