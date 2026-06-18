@@ -287,10 +287,12 @@ export type Database = {
           ocr_data: Json | null
           ocr_extracted_text: string | null
           ocr_image_path: string | null
+          paid_to: string | null
           payment_mode: string
           refund_reason: string | null
           updated_at: string
           user_id: string
+          utr: string | null
         }
         Insert: {
           amount: number
@@ -306,10 +308,12 @@ export type Database = {
           ocr_data?: Json | null
           ocr_extracted_text?: string | null
           ocr_image_path?: string | null
+          paid_to?: string | null
           payment_mode: string
           refund_reason?: string | null
           updated_at?: string
           user_id: string
+          utr?: string | null
         }
         Update: {
           amount?: number
@@ -325,10 +329,12 @@ export type Database = {
           ocr_data?: Json | null
           ocr_extracted_text?: string | null
           ocr_image_path?: string | null
+          paid_to?: string | null
           payment_mode?: string
           refund_reason?: string | null
           updated_at?: string
           user_id?: string
+          utr?: string | null
         }
         Relationships: [
           {
@@ -1411,6 +1417,45 @@ export type Database = {
           sort_order?: number
           updated_at?: string
           value?: string
+        }
+        Relationships: []
+      }
+      night_audit_runs: {
+        Row: {
+          actor_name: string | null
+          created_at: string
+          id: string
+          mode: string
+          new_business_date: string
+          notes: string | null
+          pending_check_ins_resolved: number
+          pending_check_outs_resolved: number
+          previous_business_date: string | null
+          user_id: string | null
+        }
+        Insert: {
+          actor_name?: string | null
+          created_at?: string
+          id?: string
+          mode?: string
+          new_business_date: string
+          notes?: string | null
+          pending_check_ins_resolved?: number
+          pending_check_outs_resolved?: number
+          previous_business_date?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          actor_name?: string | null
+          created_at?: string
+          id?: string
+          mode?: string
+          new_business_date?: string
+          notes?: string | null
+          pending_check_ins_resolved?: number
+          pending_check_outs_resolved?: number
+          previous_business_date?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
