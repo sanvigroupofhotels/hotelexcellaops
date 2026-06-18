@@ -320,6 +320,7 @@ function QuoteDetail() {
 function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
   const hasItems = items.length > 0;
   const multi = items.length > 1;
+  const checkTimes = useOpsTimeLabels();
   const whyStay = [
     "Free High-Speed Wi-Fi",
     "Walkable Distance to Beach",
