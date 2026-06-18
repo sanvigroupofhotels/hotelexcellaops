@@ -65,7 +65,24 @@ function blockClasses(status: string): string {
 }
 
 function HouseView() {
+  // Business date is the source of truth for "today" in operations.
+  // Fall back to system date until the query resolves so the grid still renders.
+  const { data: businessDate } = useQuery({
+    queryKey: ["business-date"],
+    queryFn: async () => {
+      const { getBusinessDate } = await import("@/lib/night-audit-api");
+      return getBusinessDate();
+    },
+    staleTime: 60_000,
+  });
   const [anchor, setAnchor] = useState(() => { const t = new Date(); t.setHours(0,0,0,0); return t; });
+  // When business date arrives the first time, snap the grid anchor onto it.
+  const [anchorBound, setAnchorBound] = useState(false);
+  if (!anchorBound && businessDate) {
+    setAnchorBound(true);
+    const d = new Date(businessDate + "T00:00:00");
+    if (!isNaN(d.getTime())) setAnchor(d);
+  }
   const [selected, setSelected] = useState<any | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<any | null>(null);
   const [editBlock, setEditBlock] = useState<any | null>(null);
