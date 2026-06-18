@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Loader2, ShieldCheck, LogIn, LogOut, AlertTriangle, X, CheckCircle2 } from "lucide-react";
