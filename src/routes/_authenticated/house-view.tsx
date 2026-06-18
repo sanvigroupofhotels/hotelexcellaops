@@ -921,3 +921,33 @@ function Field({ label, value, icon }: { label: string; value: string; icon?: an
     </div>
   );
 }
+
+function NightAuditPendingBanner({ onOpen }: { onOpen: () => void }) {
+  const { data } = useQuery({
+    queryKey: ["night-audit-pending"],
+    queryFn: async () => {
+      const { getPendingForAudit } = await import("@/lib/night-audit-api");
+      return getPendingForAudit();
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const ciN = data?.pendingCheckIns.length ?? 0;
+  const coN = data?.pendingCheckOuts.length ?? 0;
+  if (ciN + coN === 0) return null;
+  return (
+    <div className="luxe-card rounded-xl p-3 border-warning/40 bg-warning/10 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 text-warning text-sm">
+        <AlertTriangle className="h-4 w-4" />
+        <span className="font-medium">Night Audit Pending</span>
+        <span className="text-xs text-warning/80">
+          · Check-Ins: <b className="tabular-nums">{ciN}</b> · Check-Outs: <b className="tabular-nums">{coN}</b>
+        </span>
+      </div>
+      <button onClick={onOpen}
+        className="rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal">
+        Resolve
+      </button>
+    </div>
+  );
+}
