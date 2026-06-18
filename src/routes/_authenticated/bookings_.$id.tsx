@@ -1140,6 +1140,12 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Payment History</div>
           {payments.map((p) => {
             const isRefund = (p as any).is_refund === true;
+            const attachment = (p as any).ocr_image_path as string | null | undefined;
+            const openAttachment = async () => {
+              const url = await signedAttachmentUrl(attachment);
+              if (url) window.open(url, "_blank");
+              else toast.error("Could not open attachment");
+            };
             return (
             <div key={p.id} className={cn("text-xs rounded-md border px-3 py-2 flex items-start justify-between gap-2",
               isRefund ? "border-destructive/40 bg-destructive/5" : "border-border bg-secondary/40")}>
@@ -1150,9 +1156,22 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
                   <span className="text-muted-foreground"> · {p.payment_mode}</span>
                 </div>
                 <div className="text-[10px] text-muted-foreground">{isRefund ? "Refunded By" : "Collected By"}: {p.collected_by} · {new Date(p.occurred_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</div>
+                {(p.utr || p.paid_to) && (
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    {p.utr && <>UTR: <span className="font-mono text-foreground/80">{p.utr}</span></>}
+                    {p.utr && p.paid_to && <> · </>}
+                    {p.paid_to && <>Paid To: <span className="text-foreground/80">{p.paid_to}</span></>}
+                  </div>
+                )}
                 {p.notes && <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{p.notes}</div>}
               </div>
               <div className="flex items-center gap-0.5 shrink-0">
+                {attachment && (
+                  <button onClick={openAttachment}
+                    className="p-1 text-muted-foreground hover:text-gold" title="View attachment">
+                    <Paperclip className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <button onClick={() => setEditPayment(p)}
                   className="p-1 text-muted-foreground hover:text-gold" title="Edit">
                   <Pencil className="h-3.5 w-3.5" />
