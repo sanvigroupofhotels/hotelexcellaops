@@ -41,6 +41,7 @@ import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAccessSettingsRouteImport } from './routes/_authenticated/access-settings'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
+import { Route as ApiPublicNightAuditRouteImport } from './routes/api/public/night-audit'
 import { Route as ApiPublicHotelzifyPollRouteImport } from './routes/api/public/hotelzify-poll'
 import { Route as ApiPublicCleanupGuestDocumentsRouteImport } from './routes/api/public/cleanup-guest-documents'
 import { Route as AuthenticatedStaffManagementSalaryRouteImport } from './routes/_authenticated/staff-management.salary'
@@ -228,6 +229,11 @@ const ApiPublicRazorpayWebhookRoute =
     path: '/api/public/razorpay-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicNightAuditRoute = ApiPublicNightAuditRouteImport.update({
+  id: '/api/public/night-audit',
+  path: '/api/public/night-audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHotelzifyPollRoute = ApiPublicHotelzifyPollRouteImport.update({
   id: '/api/public/hotelzify-poll',
   path: '/api/public/hotelzify-poll',
@@ -406,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
+  '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
@@ -460,6 +467,7 @@ export interface FileRoutesByTo {
   '/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
+  '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
@@ -517,6 +525,7 @@ export interface FileRoutesById {
   '/_authenticated/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
+  '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
@@ -574,6 +583,7 @@ export interface FileRouteTypes {
     | '/staff-management/salary'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
+    | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
     | '/settings/'
     | '/bookings/$id/edit'
@@ -628,6 +638,7 @@ export interface FileRouteTypes {
     | '/staff-management/salary'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
+    | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
     | '/settings'
     | '/bookings/$id/edit'
@@ -684,6 +695,7 @@ export interface FileRouteTypes {
     | '/_authenticated/staff-management/salary'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
+    | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
     | '/_authenticated/settings/'
     | '/_authenticated/bookings_/$id_/edit'
@@ -698,6 +710,7 @@ export interface RootRouteChildren {
   PortalTokenRoute: typeof PortalTokenRoute
   ApiPublicCleanupGuestDocumentsRoute: typeof ApiPublicCleanupGuestDocumentsRoute
   ApiPublicHotelzifyPollRoute: typeof ApiPublicHotelzifyPollRoute
+  ApiPublicNightAuditRoute: typeof ApiPublicNightAuditRoute
   ApiPublicRazorpayWebhookRoute: typeof ApiPublicRazorpayWebhookRoute
 }
 
@@ -925,6 +938,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/razorpay-webhook'
       fullPath: '/api/public/razorpay-webhook'
       preLoaderRoute: typeof ApiPublicRazorpayWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/night-audit': {
+      id: '/api/public/night-audit'
+      path: '/api/public/night-audit'
+      fullPath: '/api/public/night-audit'
+      preLoaderRoute: typeof ApiPublicNightAuditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hotelzify-poll': {
@@ -1237,6 +1257,7 @@ const rootRouteChildren: RootRouteChildren = {
   PortalTokenRoute: PortalTokenRoute,
   ApiPublicCleanupGuestDocumentsRoute: ApiPublicCleanupGuestDocumentsRoute,
   ApiPublicHotelzifyPollRoute: ApiPublicHotelzifyPollRoute,
+  ApiPublicNightAuditRoute: ApiPublicNightAuditRoute,
   ApiPublicRazorpayWebhookRoute: ApiPublicRazorpayWebhookRoute,
 }
 export const routeTree = rootRouteImport
