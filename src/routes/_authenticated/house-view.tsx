@@ -941,7 +941,7 @@ function Field({ label, value, icon }: { label: string; value: string; icon?: an
   );
 }
 
-function NightAuditPendingBanner({ onOpen }: { onOpen: () => void }) {
+function NightAuditPendingBanner({ onOpen, businessDate }: { onOpen: () => void; businessDate?: string }) {
   const { data } = useQuery({
     queryKey: ["night-audit-pending"],
     queryFn: async () => {
@@ -954,13 +954,14 @@ function NightAuditPendingBanner({ onOpen }: { onOpen: () => void }) {
   const ciN = data?.pendingCheckIns.length ?? 0;
   const coN = data?.pendingCheckOuts.length ?? 0;
   if (ciN + coN === 0) return null;
+  const bdLabel = businessDate ? new Date(businessDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : null;
   return (
     <div className="luxe-card rounded-xl p-3 border-warning/40 bg-warning/10 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-warning text-sm">
         <AlertTriangle className="h-4 w-4" />
         <span className="font-medium">Night Audit Pending</span>
         <span className="text-xs text-warning/80">
-          · Check-Ins: <b className="tabular-nums">{ciN}</b> · Check-Outs: <b className="tabular-nums">{coN}</b>
+          {bdLabel ? `· Business Date: ${bdLabel} ` : ""}· Check-Ins: <b className="tabular-nums">{ciN}</b> · Check-Outs: <b className="tabular-nums">{coN}</b>
         </span>
       </div>
       <button onClick={onOpen}
