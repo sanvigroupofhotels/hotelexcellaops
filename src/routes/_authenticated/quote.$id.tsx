@@ -380,11 +380,11 @@ function QuoteCard({ q, items = [] }: { q: any; items?: any[] }) {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(q.check_in)}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">Check-in · 1:00 PM</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Check-in · {checkTimes.checkIn}</div>
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(q.check_out)}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">Check-out · 11:00 AM</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Check-out · {checkTimes.checkOut}</div>
                 </div>
                 <div className="col-span-2 text-xs text-muted-foreground">
                   {q.group_size} · {q.nights} Night{q.nights > 1 ? "s" : ""}
