@@ -376,8 +376,8 @@ function HouseView() {
             <span className="hidden md:inline text-sm font-medium">House Overview</span>
             <input type="date" value={dateKey(anchor)} onChange={(e) => { const d = new Date(e.target.value); if (!isNaN(d.getTime())) setAnchor(d); }}
               className="bg-input/60 border border-border rounded-md px-3 py-1.5 text-sm" />
-            <button onClick={() => { const t = new Date(); t.setHours(0,0,0,0); setAnchor(t); }}
-              className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
+            <button onClick={() => { const d = businessDate ? new Date(businessDate + "T00:00:00") : new Date(); d.setHours(0,0,0,0); setAnchor(d); }}
+              className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Business Date</button>
             <button onClick={() => setStatsOpen(true)}
               className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5">
               <Hotel className="h-3.5 w-3.5" /> Stats
