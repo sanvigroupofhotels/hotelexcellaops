@@ -1072,8 +1072,8 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
         <div className="relative py-3 border-b border-border">
           <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-1.5">Stay Details</h4>
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)}</div><div className="text-[10px] text-muted-foreground">Check-in · 1:00 PM</div></div>
-            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_out)}</div><div className="text-[10px] text-muted-foreground">Check-out · 11:00 AM</div></div>
+            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)}</div><div className="text-[10px] text-muted-foreground">Check-in · {checkTimes.checkIn}</div></div>
+            <div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_out)}</div><div className="text-[10px] text-muted-foreground">Check-out · {checkTimes.checkOut}</div></div>
             <div className="col-span-2 text-xs text-muted-foreground">{b.guests} Guest{b.guests === 1 ? "" : "s"} · {b.nights} Night{b.nights === 1 ? "" : "s"}{b.room_details ? ` · ${b.room_details}` : ""}</div>
           </div>
         </div>
