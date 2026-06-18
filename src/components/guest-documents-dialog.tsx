@@ -127,7 +127,13 @@ export function GuestDocumentsDialog({ bookingId, open, onClose, mode, onComplet
             </div>
           </div>
 
-          <FileSlot label="Front Side" required value={front} onChange={setFront} />
+          <FileSlot
+            label="Front Side"
+            required={!hasExistingFront}
+            value={front}
+            onChange={setFront}
+            hint={hasExistingFront ? "Already on file — optional" : undefined}
+          />
           <FileSlot label="Back Side" value={back} onChange={setBack} hint="Optional" />
           <FileSlot label="Guest Photo / Selfie" value={selfie} onChange={setSelfie} hint="Optional" />
 
@@ -138,7 +144,7 @@ export function GuestDocumentsDialog({ bookingId, open, onClose, mode, onComplet
               placeholder="Optional — anything to record about the ID" />
           </div>
 
-          <Button type="button" onClick={() => save.mutate()} disabled={!front || save.isPending} className="w-full">
+          <Button type="button" onClick={() => save.mutate()} disabled={!canUpload || save.isPending} className="w-full">
             {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             Upload Document
           </Button>
