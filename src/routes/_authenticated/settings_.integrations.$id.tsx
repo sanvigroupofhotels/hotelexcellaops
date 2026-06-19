@@ -137,10 +137,27 @@ function Content({ id }: { id: string }) {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const debugInfo = useMemo<Partial<SyncDebugResponse> | null>(() => {
+  // Dry-run preview: hits the same endpoint with dryRun=1 — same Gmail fetch
+  // + parser + dedupe, no writes. Result shows "Would Create" / "Would
+  // Update" counts so staff can decide whether to import for real.
+  const runPreview = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/public/hotelzify-poll?debug=1&dryRun=1&integration_id=${id}`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `Preview failed (${res.status})`);
+      return data as SyncDebugResponse & { dryRun: boolean };
+    },
+    onSuccess: (d) => {
+      toast.success(`Preview · scanned ${d.scanned} · would create ${d.created} · would update ${d.updated}`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const debugInfo = useMemo<Partial<SyncDebugResponse & { dryRun: boolean }> | null>(() => {
+    if (runPreview.data) return runPreview.data;
     if (runSync.data) return runSync.data;
     return null;
-  }, [runSync.data]);
+  }, [runSync.data, runPreview.data]);
 
   if (isLoading || !row) return <div className="p-8"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>;
 
@@ -228,10 +245,17 @@ function Content({ id }: { id: string }) {
 
         <div className="flex flex-wrap gap-2 justify-end pt-2">
           {row.type === "email_parser" && (
-            <button onClick={() => runSync.mutate()} disabled={runSync.isPending}
-              className="inline-flex items-center gap-1.5 border border-border rounded-md px-4 py-2 text-xs font-medium hover:bg-muted/40 disabled:opacity-60">
-              {runSync.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Run sync now
-            </button>
+            <>
+              <button onClick={() => runPreview.mutate()} disabled={runPreview.isPending || runSync.isPending}
+                className="inline-flex items-center gap-1.5 border border-gold/40 bg-gold-soft/40 text-foreground rounded-md px-4 py-2 text-xs font-medium hover:bg-gold-soft/60 disabled:opacity-60"
+                title="Scan and parse without writing any bookings — preview only">
+                {runPreview.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Run Preview (Dry-Run)
+              </button>
+              <button onClick={() => runSync.mutate()} disabled={runSync.isPending || runPreview.isPending}
+                className="inline-flex items-center gap-1.5 border border-border rounded-md px-4 py-2 text-xs font-medium hover:bg-muted/40 disabled:opacity-60">
+                {runSync.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Import Now (Live)
+              </button>
+            </>
           )}
           <button onClick={() => save.mutate()} disabled={save.isPending}
             className="inline-flex items-center gap-1.5 gold-gradient text-charcoal rounded-md px-5 py-2 text-xs font-medium disabled:opacity-60">
@@ -243,9 +267,16 @@ function Content({ id }: { id: string }) {
       {row.type === "email_parser" && debugInfo && (
         <div className="luxe-card rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h3 className="font-display text-lg">{PROVIDER_LABELS[row.provider]} Sync Diagnostics</h3>
+            <h3 className="font-display text-lg">
+              {PROVIDER_LABELS[row.provider]} {debugInfo.dryRun ? "Preview (no writes)" : "Sync"} Diagnostics
+            </h3>
             <span className="text-[11px] text-muted-foreground">Connected Gmail: {debugInfo.gmail_account ?? "—"}</span>
           </div>
+          {debugInfo.dryRun && (
+            <div className="rounded-md border border-gold/40 bg-gold-soft/30 px-3 py-2 text-[11px] text-foreground">
+              <b>Dry-Run.</b> No bookings, customers or external_bookings rows were written. Review the counts below, then click <b>Import Now (Live)</b> to apply.
+            </div>
+          )}
           <div className="text-[11px] text-muted-foreground bg-muted/30 rounded px-3 py-2 break-all">
             Gmail Query Used: <span className="text-foreground">{debugInfo.query ?? "—"}</span>
           </div>
@@ -253,12 +284,12 @@ function Content({ id }: { id: string }) {
             <Metric label="Emails Scanned" value={debugInfo.scanned ?? 0} />
             <Metric label="Emails Matched" value={debugInfo.matched ?? 0} />
             <Metric label="Emails Parsed" value={debugInfo.parsed ?? 0} />
-            <Metric label="Bookings Created" value={debugInfo.created ?? 0} />
-            <Metric label="Bookings Updated" value={debugInfo.updated ?? 0} />
+            <Metric label={debugInfo.dryRun ? "Would Create" : "Bookings Created"} value={debugInfo.created ?? 0} />
+            <Metric label={debugInfo.dryRun ? "Would Update" : "Bookings Updated"} value={debugInfo.updated ?? 0} />
             <Metric label="Errors" value={(debugInfo.errors ?? []).length + (debugInfo.parser_errors ?? []).length} />
           </div>
           <DebugList title="First 5 email subjects seen" empty="No emails returned for the main query." items={(debugInfo.first_5_email_subjects_seen ?? []).map((s) => `${s.from || "—"} — ${s.subject || "—"}`)} />
-          <DebugList title="Parser errors" empty="No parser errors." items={debugInfo.parser_errors ?? []} />
+          <DebugList title="Parser errors / skipped" empty="No parser errors." items={debugInfo.parser_errors ?? []} />
           <DebugList title="Other errors" empty="No errors recorded." items={debugInfo.errors ?? []} />
         </div>
       )}

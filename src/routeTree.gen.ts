@@ -47,6 +47,7 @@ import { Route as ApiPublicCleanupGuestDocumentsRouteImport } from './routes/api
 import { Route as AuthenticatedStaffManagementSalaryRouteImport } from './routes/_authenticated/staff-management.salary'
 import { Route as AuthenticatedStaffManagementMasterRouteImport } from './routes/_authenticated/staff-management.master'
 import { Route as AuthenticatedStaffManagementAttendanceRouteImport } from './routes/_authenticated/staff-management.attendance'
+import { Route as AuthenticatedSettingsPaymentSettingsRouteImport } from './routes/_authenticated/settings.payment-settings'
 import { Route as AuthenticatedSettingsOperationsRouteImport } from './routes/_authenticated/settings.operations'
 import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings.general'
@@ -264,6 +265,12 @@ const AuthenticatedStaffManagementAttendanceRoute =
     path: '/attendance',
     getParentRoute: () => AuthenticatedStaffManagementRoute,
   } as any)
+const AuthenticatedSettingsPaymentSettingsRoute =
+  AuthenticatedSettingsPaymentSettingsRouteImport.update({
+    id: '/payment-settings',
+    path: '/payment-settings',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsOperationsRoute =
   AuthenticatedSettingsOperationsRouteImport.update({
     id: '/operations',
@@ -415,6 +422,7 @@ export interface FileRoutesByFullPath {
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/operations': typeof AuthenticatedSettingsOperationsRoute
+  '/settings/payment-settings': typeof AuthenticatedSettingsPaymentSettingsRoute
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
@@ -471,6 +479,7 @@ export interface FileRoutesByTo {
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/operations': typeof AuthenticatedSettingsOperationsRoute
+  '/settings/payment-settings': typeof AuthenticatedSettingsPaymentSettingsRoute
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
@@ -530,6 +539,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/_authenticated/settings/operations': typeof AuthenticatedSettingsOperationsRoute
+  '/_authenticated/settings/payment-settings': typeof AuthenticatedSettingsPaymentSettingsRoute
   '/_authenticated/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/_authenticated/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/_authenticated/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
@@ -589,6 +599,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/integrations'
     | '/settings/operations'
+    | '/settings/payment-settings'
     | '/staff-management/attendance'
     | '/staff-management/master'
     | '/staff-management/salary'
@@ -645,6 +656,7 @@ export interface FileRouteTypes {
     | '/settings/general'
     | '/settings/integrations'
     | '/settings/operations'
+    | '/settings/payment-settings'
     | '/staff-management/attendance'
     | '/staff-management/master'
     | '/staff-management/salary'
@@ -703,6 +715,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/general'
     | '/_authenticated/settings/integrations'
     | '/_authenticated/settings/operations'
+    | '/_authenticated/settings/payment-settings'
     | '/_authenticated/staff-management/attendance'
     | '/_authenticated/staff-management/master'
     | '/_authenticated/staff-management/salary'
@@ -995,6 +1008,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStaffManagementAttendanceRouteImport
       parentRoute: typeof AuthenticatedStaffManagementRoute
     }
+    '/_authenticated/settings/payment-settings': {
+      id: '/_authenticated/settings/payment-settings'
+      path: '/payment-settings'
+      fullPath: '/settings/payment-settings'
+      preLoaderRoute: typeof AuthenticatedSettingsPaymentSettingsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/operations': {
       id: '/_authenticated/settings/operations'
       path: '/operations'
@@ -1151,6 +1171,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSettingsIntegrationsRoute: typeof AuthenticatedSettingsIntegrationsRoute
   AuthenticatedSettingsOperationsRoute: typeof AuthenticatedSettingsOperationsRoute
+  AuthenticatedSettingsPaymentSettingsRoute: typeof AuthenticatedSettingsPaymentSettingsRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
@@ -1161,6 +1182,8 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsIntegrationsRoute:
     AuthenticatedSettingsIntegrationsRoute,
   AuthenticatedSettingsOperationsRoute: AuthenticatedSettingsOperationsRoute,
+  AuthenticatedSettingsPaymentSettingsRoute:
+    AuthenticatedSettingsPaymentSettingsRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
 
@@ -1286,13 +1309,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

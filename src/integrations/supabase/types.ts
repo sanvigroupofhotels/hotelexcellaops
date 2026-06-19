@@ -2393,7 +2393,7 @@ export type Database = {
         | "note_added"
         | "deleted"
         | "duplicated"
-      app_role: "admin" | "staff" | "owner"
+      app_role: "admin" | "staff" | "owner" | "reception"
       attendance_status: "Present" | "Absent" | "HalfDay" | "Leave"
       booking_status:
         | "Draft"
@@ -2563,7 +2563,7 @@ export const Constants = {
         "deleted",
         "duplicated",
       ],
-      app_role: ["admin", "staff", "owner"],
+      app_role: ["admin", "staff", "owner", "reception"],
       attendance_status: ["Present", "Absent", "HalfDay", "Leave"],
       booking_status: [
         "Draft",

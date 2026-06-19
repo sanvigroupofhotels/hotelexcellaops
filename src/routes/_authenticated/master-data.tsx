@@ -59,7 +59,8 @@ const GROUPS: GroupDef[] = [
       { kind: "lookup", key: "charge_category", label: "Charge Categories", placeholder: "e.g. Spa" },
       { kind: "lookup", key: "expense_category", label: "Expense Categories", placeholder: "e.g. Utilities" },
       { kind: "lookup", key: "tax", label: "GST / Taxes", placeholder: "e.g. GST 18%" },
-      { kind: "settings", key: "payment_settings", label: "Payment Settings" },
+      // Payment Settings moved out of Master Data → Settings → Payment Settings
+      // (see src/routes/_authenticated/settings.payment-settings.tsx).
     ],
   },
   {

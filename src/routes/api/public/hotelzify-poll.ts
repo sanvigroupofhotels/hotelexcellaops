@@ -297,6 +297,7 @@ async function processIntegration(
   gatewayKey: string,
   connectionKey: string,
   debug: boolean,
+  dryRun: boolean = false,
 ): Promise<RunResult> {
   const provider: string = intg.provider;
   const parser = PARSERS[provider];
@@ -396,9 +397,9 @@ async function processIntegration(
         const { data: anyUser } = await supabaseAdmin
           .from("user_roles").select("user_id").eq("role", "admin").limit(1).maybeSingle();
         const systemUserId = anyUser?.user_id;
-        if (!systemUserId) throw new Error("No admin user to attribute booking");
+        if (!systemUserId && !dryRun) throw new Error("No admin user to attribute booking");
 
-        if (!customerId) {
+        if (!customerId && !dryRun) {
           const { data: newCust, error: custErr } = await supabaseAdmin
             .from("customers")
             .insert({
@@ -447,34 +448,45 @@ async function processIntegration(
             // Dedupe-skip: existing booking, updates disabled in integration config.
             result.parser_errors.push(`msg ${m.id} ("${subject.slice(0, 60)}"): skipped — booking exists (updates disabled)`);
           } else {
-            // Patch only safe financial / status / requests fields. Never overwrite guest identity,
-            // phone, room assignment, or staff notes — those are owned by the PMS once created.
-            await supabaseAdmin.from("bookings").update({
-              amount: bookingPayload.amount,
-              subtotal: bookingPayload.amount,
-              advance_paid: bookingPayload.advance_paid,
-              status: bookingPayload.status,
-              special_requests: bookingPayload.special_requests,
-            } as any).eq("id", existing.id);
+            if (!dryRun) {
+              // Patch only safe financial / status / requests fields. Never overwrite guest identity,
+              // phone, room assignment, or staff notes — those are owned by the PMS once created.
+              await supabaseAdmin.from("bookings").update({
+                amount: bookingPayload.amount,
+                subtotal: bookingPayload.amount,
+                advance_paid: bookingPayload.advance_paid,
+                status: bookingPayload.status,
+                special_requests: bookingPayload.special_requests,
+              } as any).eq("id", existing.id);
+            }
             result.updated++;
           }
         } else {
-          await supabaseAdmin.from("bookings").insert(bookingPayload as any);
+          if (!dryRun) {
+            await supabaseAdmin.from("bookings").insert(bookingPayload as any);
+          }
           result.created++;
         }
 
-        await supabaseAdmin.from("external_bookings").upsert({
-          integration_id: intg.id,
-          external_ref: parsed.external_ref,
-          raw_payload: { subject, parsed, gmail_message_id: m.id },
-          state: "processed",
-        } as any, { onConflict: "integration_id,external_ref" });
+        if (!dryRun) {
+          await supabaseAdmin.from("external_bookings").upsert({
+            integration_id: intg.id,
+            external_ref: parsed.external_ref,
+            raw_payload: { subject, parsed, gmail_message_id: m.id },
+            state: "processed",
+          } as any, { onConflict: "integration_id,external_ref" });
+        }
       } catch (e: any) {
         result.errors.push(`msg ${m.id}: ${e.message?.slice(0, 200)}`);
       }
     }
 
     result.ok = true;
+
+    // Dry-run: don't touch integrations/integration_runs at all. Caller renders the preview.
+    if (dryRun) {
+      return result;
+    }
 
     const summary = `query="${gmailQuery}" · scanned ${result.scanned} · matched ${result.matched} · parsed ${result.parsed} · created ${result.created} · updated ${result.updated}${result.errors.length ? ` · ${result.errors.length} errors` : ""}`;
 
@@ -546,12 +558,17 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
         const url = new URL(request.url);
         const debug = url.searchParams.get("debug") === "1";
         const integrationId = url.searchParams.get("integration_id");
+        // dryRun=1: identical pipeline (Gmail fetch, parse, dedupe) but NO
+        // writes to bookings/customers/external_bookings/integration_runs.
+        // Returns the same counts so the UI can render a "Would create/update"
+        // preview before staff hit Import. Used by the "Run Preview" button.
+        const dryRun = url.searchParams.get("dryRun") === "1";
 
         let query = supabaseAdmin
           .from("integrations")
           .select("*")
           .eq("type", "email_parser")
-          .in("status", ["connected", "draft"]);
+          .in("status", ["connected", "draft", "disabled"]); // dry-run should also work on disabled integrations
         if (integrationId) query = query.eq("id", integrationId);
         const { data: rows, error: intgErr } = await query.order("updated_at", { ascending: false });
 
@@ -564,7 +581,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
 
         const results: RunResult[] = [];
         for (const intg of rows) {
-          results.push(await processIntegration(intg, supabaseAdmin, gatewayKey, connectionKey, debug));
+          results.push(await processIntegration(intg, supabaseAdmin, gatewayKey, connectionKey, debug, dryRun));
         }
 
         // When called for a specific integration, flatten to the legacy single-result shape
@@ -572,6 +589,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
           const r = results[0];
           return Response.json({
             ok: !r.fatal,
+            dryRun,
             integration_id: r.integration_id,
             provider: r.provider,
             gmail_account: r.gmail_account,
@@ -585,7 +603,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
             error: r.fatal,
           });
         }
-        return Response.json({ ok: true, results });
+        return Response.json({ ok: true, dryRun, results });
       },
     },
   },

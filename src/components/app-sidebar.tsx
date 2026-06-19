@@ -5,7 +5,7 @@ import {
   MessageSquareWarning, Building2, Database,
   Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
   Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
-  BarChart3, IndianRupee, Receipt, UsersRound,
+  BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -13,11 +13,13 @@ import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
 import { UserMenu } from "@/components/user-menu";
 
-type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; hideForStaff?: boolean };
+type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; managerOnly?: boolean };
 
 const nav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: Home },
-  { to: "/bookings", label: "Bookings", icon: BedDouble },
+  // Bookings list — only Owner/Admin (Reception/Staff use House View). Direct URL
+  // is also blocked by a beforeLoad gate on the /bookings route.
+  { to: "/bookings", label: "Bookings", icon: BedDouble, managerOnly: true },
   { to: "/house-view", label: "House View", icon: Building2 },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/dues", label: "Due Collection", icon: Receipt },
@@ -37,11 +39,13 @@ const reportingChildren = [
 ] as const;
 
 const settingsChildren = [
-  { to: "/settings/general",      label: "General",             icon: Building2Alt },
-  { to: "/settings/operations",   label: "Operations",          icon: Cog },
-  { to: "/settings/branding",     label: "Branding",            icon: Palette },
-  { to: "/settings/documents",    label: "Documents Retention", icon: ShieldCheck },
-  { to: "/settings/integrations", label: "Integrations",        icon: Plug },
+  { to: "/settings/general",          label: "General",             icon: Building2Alt },
+  { to: "/settings/operations",       label: "Operations",          icon: Cog },
+  { to: "/settings/branding",         label: "Branding",            icon: Palette },
+  { to: "/settings/documents",        label: "Documents Retention", icon: ShieldCheck },
+  { to: "/settings/payment-settings", label: "Payment Settings",    icon: CreditCard },
+  { to: "/settings/integrations",     label: "Integrations",        icon: Plug },
+  { to: "/access-settings",           label: "Access Management",   icon: KeyRound },
 ] as const;
 
 function Logo() {
@@ -129,10 +133,11 @@ function ExpandableGroup({
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { isAdmin, role } = useUserRole();
+  const { isAdmin, canManage } = useUserRole();
   const visible = nav.filter((n) => {
     if (n.adminOnly && !isAdmin) return false;
-    if (n.hideForStaff && role === "staff") return false;
+    // managerOnly = Owner or Admin (canManage). Reception/Staff use House View.
+    if (n.managerOnly && !canManage) return false;
     return true;
   });
   return (
