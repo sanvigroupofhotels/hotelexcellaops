@@ -483,6 +483,11 @@ async function processIntegration(
 
     result.ok = true;
 
+    // Dry-run: don't touch integrations/integration_runs at all. Caller renders the preview.
+    if (dryRun) {
+      return result;
+    }
+
     const summary = `query="${gmailQuery}" · scanned ${result.scanned} · matched ${result.matched} · parsed ${result.parsed} · created ${result.created} · updated ${result.updated}${result.errors.length ? ` · ${result.errors.length} errors` : ""}`;
 
     await supabaseAdmin.from("integrations").update({
