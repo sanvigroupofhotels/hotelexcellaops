@@ -158,6 +158,10 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
               ) : null}
               renderActions={(b) => (
                 <>
+                  <Link to="/bookings/$id" params={{ id: b.id }} onClick={onClose}
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40">
+                    View
+                  </Link>
                   <button
                     onClick={() => setStatus.mutate({ id: b.id, status: "Checked-Out" })}
                     disabled={busyId === b.id}
