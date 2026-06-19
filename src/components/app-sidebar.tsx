@@ -133,10 +133,11 @@ function ExpandableGroup({
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { isAdmin, role } = useUserRole();
+  const { isAdmin, canManage } = useUserRole();
   const visible = nav.filter((n) => {
     if (n.adminOnly && !isAdmin) return false;
-    if (n.hideForStaff && role === "staff") return false;
+    // managerOnly = Owner or Admin (canManage). Reception/Staff use House View.
+    if (n.managerOnly && !canManage) return false;
     return true;
   });
   return (
