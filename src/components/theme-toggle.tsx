@@ -12,16 +12,16 @@ function applyTheme(t: Theme) {
 }
 
 export function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   try {
     const v = localStorage.getItem("excella-theme");
     if (v === "light" || v === "dark") return v;
   } catch {}
-  return "dark";
+  return "light";
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("light");
   useEffect(() => {
     const t = getInitialTheme();
     setTheme(t);

@@ -1,84 +1,65 @@
-# Architecture Cleanup & FabHotels Integration
 
-Big refactor — confirming the scope and approach before I touch code so we don't churn.
+This is a large consolidated batch. I'll group the work into shippable phases so we can verify each one before moving on, rather than touching everything at once. Phases 1–4 are this turn's commitment; 5–7 follow once those land cleanly.
 
-## Target Navigation (final)
+## Phase 1 — Data cleanup & customer/mobile integrity
 
-```
-Dashboard · Bookings · House View · Customers · Cashbook · Reporting · Staff Management · Complaints · Master Data · Settings
-```
+**1.1 FabHotels purge** — Re-run the cleanup (anything that crept back in since the last sweep): delete `customers` and `bookings` where `lead_source = 'FabHotels'`, cascading through payments / charges / activities / items / room assignments / tokens / guest_documents.
 
-Removed from sidebar: Rooms, Rates & Inventory, Staff, Attendance, Salary, Audit, Payment Reports, Analytics (all reachable via parent modules below).
+**1.2 Hotelzify mobile repair** — One-shot SQL repair:
+- For each booking where `lead_source = 'Hotelzify'` AND booking `phone` is valid AND linked `customers.phone` is blank → copy booking phone to customer.
+- Skip & log reasons: blank booking phone, customer already has a phone (no overwrite), phone equals the known hotel reception number, phone appears on ≥3 distinct customers (OTA shared number heuristic).
+- Report totals back in chat (repaired / skipped / skip reasons).
 
-## 1. Cashbook
-- Remove the in-page master tabs (Payment Modes, Expense Types, etc.) — they already exist in `master_data`.
-- Keep just two tabs: **Dashboard** and **Audit Close** (admin only).
-- Any master UI that's nicer than the Master Data version gets ported into Master Data, not duplicated.
+**1.3 Booking → Customer mobile sync (ongoing)** — Add a trigger on `bookings` UPDATE: when `phone` changes and the linked customer's phone is blank, copy it over. Never overwrite a non-blank customer phone.
 
-## 2 & 3. Staff Management
-- New top-level route `/staff-management` with tabs: **Staff Master**, **Attendance**, **Salary** (existing pages, rehoused as tabs).
-- Single `staff` table remains the only source. Add columns:
-  - `available_in_cashbook boolean default true`
-  - `available_in_dues boolean default true`
-  - `available_in_complaints boolean default true`
-- All staff dropdowns app-wide filter by the relevant flag.
-- Staff Master is NOT under Master Data.
+## Phase 2 — OTA integration hardening (UI-driven config + dedupe + preview)
 
-## 4 & 5. Rooms & Rates under Master Data
-- Move existing Rooms page and Rates & Inventory page under Master Data tabs.
-- Remove standalone nav entries.
+**2.1 Config-driven Hotelzify/email integrations** — Extend the existing `integrations` row config to surface all knobs in the integration detail UI (`settings_.integrations.$id.tsx`):
+- sender_email, inbox_email, subject_filters[], lookback_days, sync_minutes, lead_source, search_query_override, allow_updates (default false), field_aliases{}, enabled.
+- Remove any remaining hardcoded constants from `hotelzify-poll.ts` — read everything from the row.
 
-## 6. Master Data layout
-Sectioned tabs:
-- **General → Rooms**: Room Master, Room Categories, Room Statuses, Block Reasons
-- **Finance**: Payment Modes, Taxes, Charge Categories, Expense Categories
-- **Operations**: Cancellation Reasons, Override Reasons
-- **Complaints**: Issue Types, Priorities, Complaint Statuses
-- **Rates & Inventory** (embedded existing page)
+**2.2 Stronger dedupe** — In the poller, dedupe on `(source, external_booking_id)` first, then fall back to `(source, guest_mobile, check_in, check_out)`. If a match is found and `allow_updates = false` → skip with reason "Updates disabled". If `true` → patch only `amount`, `advance_paid`, balance, `status`, `special_requests`; never touch name/phone/room/notes.
 
-Backed by `master_data.category` values seeded for any new categories that don't exist.
+**2.3 Preview mode** — Add a "Dry Run" button on the integration detail page that calls the poller with `?dryRun=1`, returns counts (scanned / would create / would update / would skip / potential duplicates) and shows a confirm dialog before a real run.
 
-## 7. Reporting reorg
-Single `/reporting` route with tabs in order:
-1. **Analytics** (current Analytics page)
-2. **Payment Reporting** (current payments-reports)
-3. **Staff Reporting** (current Reporting page)
+## Phase 3 — Payments, OCR, check-in & guest docs
 
-Old standalone routes redirect to the tabbed view.
+**3.1 Payment Settings relocation** — Move the Payment Settings section out of Master Data into a new `/settings/payment-settings` route and add a sidebar entry under Settings. New bookings inherit these defaults; edit forms remain free to override per-booking.
 
-## 8. Audit removed
-Delete `/audit` route, sidebar entry, and `audit.tsx`. No data migration needed.
+**3.2 Mobile mandatory at check-in for OTA bookings** — In `bookings_.$id.tsx` check-in dialog, if `lead_source` is an OTA and `phone` is blank, render a required input and block the check-in mutation until a valid phone is entered. Save the entered phone back onto the booking (which then triggers 1.3 to sync to customer).
 
-## 9. FabHotels email integration
-- Add `fabhotels` as a first-class provider in the polling route — reuses the same configurable `field_labels`, `subject_filters`, `sender_email`, `inbox_email` UI already built for Hotelzify.
-- **Sender/inbox emails come from the UI config only** — no hardcoded defaults in the backend.
-- New FabHotels parser tuned for the attached email format:
-  - Booking ID: from subject `Booking ID: KPZYPT` (regex on subject) + body fallback
-  - Table-style fields: `NAME OF GUEST`, `CHECKIN DATE`, `CHECKOUT DATE`, `TYPE OF ROOM`, `NUMBER OF ROOMS`, `TOTAL GUESTS`, `PAYMENT MODE`, `INCLUSIONS`, `SPECIAL REQUEST`, `TOTAL BOOKING AMOUNT`
-  - Date format: `15 JUN 26` → normalized
-  - Lead source defaults to "FabHotels" (configurable in UI)
-- Rename `/api/public/hotelzify-poll` → `/api/public/integrations-poll` that loops over all `connected` email integrations and dispatches to the right parser by `provider`. Keep old URL as alias for safety.
-- Diagnostics UI on integration detail page works for both providers (already provider-agnostic, just needs the provider check broadened).
+**3.3 Guest Documents — Front ID requirement** — Already partially done last turn. Double-check `guest-documents-dialog.tsx` Proceed gating: enabled when any of {front newly picked, front already on file, back picked, selfie picked} — confirm with a quick read of the file and tighten if regressed.
 
-## Technical notes
+**3.4 Payment History as single source of truth** — Audit every payment creation site (OCR, manual add, receive payment, UPI, cash, booking detail, house view popup, Due Collection, refund) and confirm each writes through `createBookingPayment` / `booking-payments-api`. Any direct `cash_transactions` insert that should also produce a `booking_payments` row gets refactored.
 
-- DB migrations:
-  1. Add `available_in_cashbook`, `available_in_dues`, `available_in_complaints` to `staff`.
-  2. Seed any missing `master_data` categories: `room_category`, `room_status`, `block_reason`, `cancellation_reason`, `override_reason`, `issue_type`, `complaint_priority`, `complaint_status`, `charge_category`. (Payment modes & expense types already have dedicated tables — keep those as-is, surface via Master Data UI.)
-- Route changes (TanStack file routes):
-  - New: `_authenticated/staff-management.tsx` (+ tab children or in-page tabs)
-  - New: `_authenticated/reporting.tsx` becomes tabs container (current file is Staff Reporting — rename internals)
-  - Delete: `_authenticated/audit.tsx`, `_authenticated/rooms.tsx` (move content), `_authenticated/rates.tsx` (move content), `_authenticated/attendance.tsx`, `_authenticated/salary.tsx`, `_authenticated/staff.tsx`, `_authenticated/analytics.tsx`, `_authenticated/payments-reports.tsx` (or convert to redirects)
-  - Update: `master-data.tsx` to render sectioned tabs incl. Rooms, Rates
-  - Update: `cash.tsx` to drop master tabs
-  - Update: `app-sidebar.tsx` to new nav set
-- FabHotels parser lives next to Hotelzify parser in `hotelzify-poll.ts` (renamed to `integrations-poll.ts`); registry pattern: `{ hotelzify: parseHotelzify, fabhotels: parseFabhotels }`.
+**3.5 Payment OCR UAT** — Run sample BharatPe/PhonePe/GPay/Paytm screenshots through `payment-ocr.functions.ts`, capture which fields extract reliably, tighten prompts/regex for weak ones. (Manual UAT step — I'll report a matrix.)
 
-## Scope check before I start
+## Phase 4 — Guest comms: check-in/out **time** everywhere
 
-This is ~15-20 file changes plus 1-2 migrations. I'll do it in one pass without intermediate check-ins unless you want a different sequencing. **Two quick confirmations:**
+Sweep every guest- or staff-facing booking summary and ensure dates render with the configured check-in/check-out times from `useOpsTimeLabels()` / `getOpsTimeLabels()`:
+- Guest Portal, Booking Preview, Confirmation link, WhatsApp confirmation, Proforma Invoice, Final Invoice, Email templates, Booking Detail, House View popups, Reservation popups, OTA imported booking summaries.
 
-1. For Cashbook master tabs that look nicer than current Master Data UI — port the nicer UI into Master Data (replacing current), or just delete and use what's there?
-2. Staff Management — single page with in-page tabs (simpler), or separate routes per tab `/staff-management/master`, `/staff-management/attendance`, `/staff-management/salary`?
+Audit list of files I'll touch: `invoice-dialog.tsx`, `portal/*`, `booking-messages.ts` (verify), `quote-messages.ts`, `house-view.tsx` popovers, `bookings_.$id.tsx` summary header, and any other date-only render found via `rg`.
 
-Reply with answers (or "your call on both") and I'll ship it all.
+## Phase 5 — Invoice & Proforma redesign + signature
+
+- Redesign `invoice-dialog.tsx` for a denser, single-page, hotel-grade layout: refined header (logo block, GSTIN, contact strip), clearer guest/stay grid, tightened charges/taxes/totals table, distinct payments + refunds sections, polished footer.
+- Add a `signature_url` (+ optional `signatory_designation`) to Branding settings with file upload to a new `branding` storage bucket. Render at bottom-right of Invoice & Proforma above "Authorized Signatory · Hotel Excella · Sanvi Group of Hotels".
+
+## Phase 6 — Light theme default
+
+`theme-toggle.tsx` currently defaults to dark when no preference exists. Change `getInitialTheme()` fallback to `"light"` and apply at the SSR entry so first paint is light. Dark remains opt-in via the toggle.
+
+## Phase 7 — Stabilization UAT (no code; report findings)
+
+Run targeted UAT passes on: payment consistency across all entry points, refund flow, business date / night audit interaction, OCR accuracy matrix, guest documents requirement matrix. Report findings and queue fixes.
+
+## FabHotels Deep UAT — still parked for next release.
+
+---
+
+### Scope this turn
+
+I'll execute **Phase 1, 2, 3, 4, 6** in this turn (data + integrations + payments + comms + light theme default). Phase 5 (invoice redesign + signature upload) is a meaningful design pass that deserves its own turn so we can iterate on the layout. Phase 7 UAT findings will follow.
+
+OK to proceed on that scoping?

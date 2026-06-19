@@ -111,17 +111,17 @@ function RootShell({ children }: { children: React.ReactNode }) {
     (function(){
       try {
         var t = localStorage.getItem('excella-theme');
-        if (t !== 'light' && t !== 'dark') t = 'dark';
+        if (t !== 'light' && t !== 'dark') t = 'light';
         document.documentElement.classList.remove('light','dark');
         document.documentElement.classList.add(t);
         document.documentElement.setAttribute('data-theme', t);
       } catch(e) {
-        document.documentElement.classList.add('dark');
+        document.documentElement.classList.add('light');
       }
     })();
   `;
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="light">
       <head>
         <HeadContent />
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
@@ -149,7 +149,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Outlet />
-        <Toaster theme="dark" position="top-right" />
+        <Toaster position="top-right" />
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -72,6 +72,7 @@ function Content({ id }: { id: string }) {
   const [lookbackDays, setLookbackDays] = useState<number>(7);
   const [subjectFilters, setSubjectFilters] = useState("");
   const [leadSource, setLeadSource] = useState("");
+  const [allowUpdates, setAllowUpdates] = useState(false);
   const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
@@ -87,6 +88,7 @@ function Content({ id }: { id: string }) {
     setLookbackDays(typeof cfg.lookback_days === "number" ? cfg.lookback_days : 7);
     setSubjectFilters(Array.isArray(cfg.subject_filters) ? cfg.subject_filters.join(", ") : "");
     setLeadSource(cfg.lead_source ?? PROVIDER_LABELS[row.provider] ?? "");
+    setAllowUpdates(cfg.allow_updates === true);
     const fl = (cfg.field_labels ?? {}) as Record<string, string | string[]>;
     const normalized: Record<string, string> = {};
     for (const f of FIELD_KEYS) {
@@ -109,6 +111,7 @@ function Content({ id }: { id: string }) {
       lookback_days: lookbackDays,
       subject_filters: subjectFilters.split(",").map((s) => s.trim()).filter(Boolean),
       lead_source: leadSource.trim() || undefined,
+      allow_updates: allowUpdates,
       field_labels: fl,
     };
   };
@@ -174,6 +177,17 @@ function Content({ id }: { id: string }) {
             placeholder="Your Booking with Hotel Excella confirmed, Your Booking with Hotel Excella is received" />
           <div className="text-[10px] text-muted-foreground mt-1">Only emails whose subject contains one of these will be parsed. Other emails (reports, marketing, invoices) are skipped silently.</div>
         </Field>
+
+        <label className="flex items-start gap-2 rounded-md border border-border bg-muted/20 px-3 py-2.5 cursor-pointer">
+          <input type="checkbox" className="mt-0.5" checked={allowUpdates} onChange={(e) => setAllowUpdates(e.target.checked)} />
+          <span className="text-xs">
+            <span className="font-medium">Allow updates to existing bookings</span>
+            <span className="block text-[10px] text-muted-foreground mt-0.5">
+              Off (default): bookings that already exist are skipped on re-sync. On: only amount, paid, status and special requests are patched — guest name, mobile, room assignment and staff notes are never overwritten.
+            </span>
+          </span>
+        </label>
+
 
         {/* Advanced */}
         <div>

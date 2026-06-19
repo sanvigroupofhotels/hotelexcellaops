@@ -307,6 +307,9 @@ async function processIntegration(
   const days = cfg.lookback_days ?? 30;
   const customQuery: string | undefined = cfg.search_query;
   const leadSource: string = cfg.lead_source ?? (provider === "hotelzify" ? "Hotelzify" : provider === "fabhotels" ? "FabHotels" : provider);
+  // When false (default), bookings that already exist (by external_ref) are skipped — never patched.
+  // When true, only safe fields (amount, status, special_requests) are patched; guest identity is never overwritten.
+  const allowUpdates: boolean = cfg.allow_updates === true;
 
   const fieldLabels: Record<string, string[]> = (() => {
     const raw = cfg.field_labels ?? {};
@@ -440,19 +443,21 @@ async function processIntegration(
         };
 
         if (existing) {
-          await supabaseAdmin.from("bookings").update({
-            guest_name: bookingPayload.guest_name,
-            phone: bookingPayload.phone,
-            email: bookingPayload.email,
-            check_in: bookingPayload.check_in,
-            check_out: bookingPayload.check_out,
-            guests: bookingPayload.guests,
-            room_details: bookingPayload.room_details,
-            amount: bookingPayload.amount,
-            status: bookingPayload.status,
-            special_requests: bookingPayload.special_requests,
-          } as any).eq("id", existing.id);
-          result.updated++;
+          if (!allowUpdates) {
+            // Dedupe-skip: existing booking, updates disabled in integration config.
+            result.parser_errors.push(`msg ${m.id} ("${subject.slice(0, 60)}"): skipped — booking exists (updates disabled)`);
+          } else {
+            // Patch only safe financial / status / requests fields. Never overwrite guest identity,
+            // phone, room assignment, or staff notes — those are owned by the PMS once created.
+            await supabaseAdmin.from("bookings").update({
+              amount: bookingPayload.amount,
+              subtotal: bookingPayload.amount,
+              advance_paid: bookingPayload.advance_paid,
+              status: bookingPayload.status,
+              special_requests: bookingPayload.special_requests,
+            } as any).eq("id", existing.id);
+            result.updated++;
+          }
         } else {
           await supabaseAdmin.from("bookings").insert(bookingPayload as any);
           result.created++;
