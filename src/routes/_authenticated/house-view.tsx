@@ -629,6 +629,7 @@ function Legend({ cls, label }: { cls: string; label: string }) {
 
 function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean; businessDate?: string }) {
   const qc = useQueryClient();
+  const opsTimes = useOpsTimeLabels();
   const room = rooms.find((r: any) => r.id === b.room_id);
   const { data: chargesForBooking = [] } = useQuery({
     queryKey: ["booking-charges", b.id],
