@@ -297,6 +297,7 @@ async function processIntegration(
   gatewayKey: string,
   connectionKey: string,
   debug: boolean,
+  dryRun: boolean = false,
 ): Promise<RunResult> {
   const provider: string = intg.provider;
   const parser = PARSERS[provider];
@@ -396,9 +397,9 @@ async function processIntegration(
         const { data: anyUser } = await supabaseAdmin
           .from("user_roles").select("user_id").eq("role", "admin").limit(1).maybeSingle();
         const systemUserId = anyUser?.user_id;
-        if (!systemUserId) throw new Error("No admin user to attribute booking");
+        if (!systemUserId && !dryRun) throw new Error("No admin user to attribute booking");
 
-        if (!customerId) {
+        if (!customerId && !dryRun) {
           const { data: newCust, error: custErr } = await supabaseAdmin
             .from("customers")
             .insert({
@@ -447,28 +448,34 @@ async function processIntegration(
             // Dedupe-skip: existing booking, updates disabled in integration config.
             result.parser_errors.push(`msg ${m.id} ("${subject.slice(0, 60)}"): skipped — booking exists (updates disabled)`);
           } else {
-            // Patch only safe financial / status / requests fields. Never overwrite guest identity,
-            // phone, room assignment, or staff notes — those are owned by the PMS once created.
-            await supabaseAdmin.from("bookings").update({
-              amount: bookingPayload.amount,
-              subtotal: bookingPayload.amount,
-              advance_paid: bookingPayload.advance_paid,
-              status: bookingPayload.status,
-              special_requests: bookingPayload.special_requests,
-            } as any).eq("id", existing.id);
+            if (!dryRun) {
+              // Patch only safe financial / status / requests fields. Never overwrite guest identity,
+              // phone, room assignment, or staff notes — those are owned by the PMS once created.
+              await supabaseAdmin.from("bookings").update({
+                amount: bookingPayload.amount,
+                subtotal: bookingPayload.amount,
+                advance_paid: bookingPayload.advance_paid,
+                status: bookingPayload.status,
+                special_requests: bookingPayload.special_requests,
+              } as any).eq("id", existing.id);
+            }
             result.updated++;
           }
         } else {
-          await supabaseAdmin.from("bookings").insert(bookingPayload as any);
+          if (!dryRun) {
+            await supabaseAdmin.from("bookings").insert(bookingPayload as any);
+          }
           result.created++;
         }
 
-        await supabaseAdmin.from("external_bookings").upsert({
-          integration_id: intg.id,
-          external_ref: parsed.external_ref,
-          raw_payload: { subject, parsed, gmail_message_id: m.id },
-          state: "processed",
-        } as any, { onConflict: "integration_id,external_ref" });
+        if (!dryRun) {
+          await supabaseAdmin.from("external_bookings").upsert({
+            integration_id: intg.id,
+            external_ref: parsed.external_ref,
+            raw_payload: { subject, parsed, gmail_message_id: m.id },
+            state: "processed",
+          } as any, { onConflict: "integration_id,external_ref" });
+        }
       } catch (e: any) {
         result.errors.push(`msg ${m.id}: ${e.message?.slice(0, 200)}`);
       }
