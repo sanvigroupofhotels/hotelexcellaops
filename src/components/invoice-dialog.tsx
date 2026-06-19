@@ -46,6 +46,9 @@ export function InvoiceDialog({
   const isFinal = booking.status === "Checked-Out" as any;
   const kind = isFinal ? "INVOICE" : "PROFORMA INVOICE";
   const docRef = useRef<HTMLDivElement>(null);
+  const checkTimes = useOpsTimeLabels();
+  // Branding (signature, designation, footer text) — null while loading.
+  const { data: branding } = useQuery({ queryKey: ["branding-settings"], queryFn: getBrandingSettings });
 
   const chargesTotal = sumCharges(charges);
   const advance = Number(booking.advance_paid || 0);
