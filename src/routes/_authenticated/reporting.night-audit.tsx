@@ -2,11 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
-import { AdminOnly } from "@/components/admin-only";
+import { PermissionGate } from "@/components/permission-gate";
 import { listNightAuditRuns } from "@/lib/night-audit-api";
 
 export const Route = createFileRoute("/_authenticated/reporting/night-audit")({
-  component: () => <AdminOnly><NightAuditHistory /></AdminOnly>,
+  component: () => <PermissionGate permission="reporting.night_audit.view"><NightAuditHistory /></PermissionGate>,
 });
 
 function NightAuditHistory() {
