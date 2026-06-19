@@ -249,6 +249,9 @@ function BookingDetail() {
   const [refundRef, setRefundRef] = useState<string>("");
   const [refundBy, setRefundBy] = useState<string>("");
   const [refundAfterAction, setRefundAfterAction] = useState<"checkout" | null>(null);
+  const [phoneGateOpen, setPhoneGateOpen] = useState(false);
+  const [phoneGateValue, setPhoneGateValue] = useState("");
+  const [phoneGateSaving, setPhoneGateSaving] = useState(false);
 
   const refundMut = useMutation({
     mutationFn: async () => {
@@ -564,6 +567,18 @@ function BookingDetail() {
                 //  - If guest documents already on file → skip the documents dialog
                 //  - If rooms already assigned → skip room assignment too (status mutation triggers check-in directly)
                 const handleCheckInClick = () => {
+                  // OTA bookings often arrive without a guest mobile (Hotelzify/FabHotels parsers
+                  // capture the hotel reception number, not the guest). Block check-in until a
+                  // valid 10-digit Indian mobile is captured. Direct/Walk-In/etc. are exempt.
+                  const OTA_SOURCES = ["Hotelzify", "FabHotels", "Booking.com", "Agoda", "MakeMyTrip", "Goibibo", "Expedia"];
+                  const isOTA = OTA_SOURCES.includes((b.lead_source ?? "").trim());
+                  const cleanPhone = (b.phone ?? "").replace(/[^\d+]/g, "");
+                  const hasValidPhone = /\d{10}/.test(cleanPhone);
+                  if (isOTA && !hasValidPhone) {
+                    setPhoneGateValue(cleanPhone);
+                    setPhoneGateOpen(true);
+                    return;
+                  }
                   const required = requiredRoomCount(items as any);
                   const hasDocs = (guestDocs?.length ?? 0) > 0;
                   const fullyAssigned = (assignments?.length ?? 0) >= required;
