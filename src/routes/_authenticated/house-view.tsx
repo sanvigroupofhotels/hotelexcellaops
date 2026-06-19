@@ -706,6 +706,18 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
     },
     onError: (e: any) => toast.error(e.message),
   });
+  const noShowMut = useMutation({
+    mutationFn: async () => {
+      const { setBookingStatus } = await import("@/lib/bookings-api");
+      await setBookingStatus(b.id, "No-Show" as any);
+    },
+    onSuccess: () => {
+      toast.success("Marked as No-Show");
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   const handleCheckIn = async () => {
     const { requiredRoomCount } = await import("@/lib/booking-room-assignments-api");
