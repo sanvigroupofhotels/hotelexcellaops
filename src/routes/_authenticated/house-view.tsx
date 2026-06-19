@@ -9,6 +9,7 @@ import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck } from "lucide-react";
 import { NightAuditDialog } from "@/components/night-audit-dialog";
+import { useOpsTimeLabels } from "@/lib/check-times";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
 import { toast } from "sonner";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
