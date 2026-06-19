@@ -43,6 +43,7 @@ function DuesPage() {
     ["bookings", "all-charge-totals"],
     "dues-page",
   );
+  const checkTimes = useOpsTimeLabels();
   const searchParams = Route.useSearch();
   const initialFilter = FILTERS.some((f) => f.key === searchParams.filter) ? searchParams.filter as FilterKey : "today";
   const [filter, setFilter] = useState<FilterKey>(initialFilter);
@@ -173,7 +174,9 @@ function DuesPage() {
                         {b.booking_reference} · Room {roomById.get(b.room_id ?? "") ?? "—"}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {b.check_in} → {b.check_out}
+                        {fmtStay(b.check_in)} <span className="text-[10px]">{checkTimes.checkIn}</span>
+                        {" → "}
+                        {fmtStay(b.check_out)} <span className="text-[10px]">{checkTimes.checkOut}</span>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
@@ -215,8 +218,8 @@ function DuesPage() {
                         <div className="text-[11px] text-muted-foreground">{b.booking_reference}</div>
                       </Td>
                       <Td>{roomById.get(b.room_id ?? "") ?? "—"}</Td>
-                      <Td>{b.check_in}</Td>
-                      <Td>{b.check_out}</Td>
+                      <Td>{fmtStay(b.check_in)}<div className="text-[10px] text-muted-foreground">{checkTimes.checkIn}</div></Td>
+                      <Td>{fmtStay(b.check_out)}<div className="text-[10px] text-muted-foreground">{checkTimes.checkOut}</div></Td>
                       <Td className="text-right tabular-nums">{inr(total)}</Td>
                       <Td className="text-right tabular-nums">{inr(paid)}</Td>
                       <Td className="text-right tabular-nums font-medium text-destructive">{inr(due)}</Td>
