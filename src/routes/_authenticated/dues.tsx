@@ -8,6 +8,7 @@ import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listRooms } from "@/lib/rooms-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
+import { useOpsTimeLabels } from "@/lib/check-times";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { MetricCard, Money } from "@/components/money";
 import {
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/_authenticated/dues")({
 });
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
+const fmtStay = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
 type FilterKey = "today" | "tomorrow" | "all" | "inhouse" | "checkedout";
 
