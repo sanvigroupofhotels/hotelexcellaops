@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { supabase } from "@/integrations/supabase/client";
 import { listBookings } from "@/lib/bookings-api";
-import { useUserRole } from "@/hooks/use-role";
+import { usePermissions } from "@/hooks/use-permissions";
 import { downloadCSV } from "@/lib/csv";
 import { PAYMENT_MODES, deleteBookingPayment, type BookingPaymentRow } from "@/lib/booking-payments-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
@@ -32,7 +32,9 @@ async function listAllBookingPayments() {
 }
 
 export function PaymentsReportsPage() {
-  const { isAdmin, isLoading: roleLoading } = useUserRole();
+  const { has, isLoading: permissionsLoading } = usePermissions();
+  const canView = has("reporting.payments.view");
+  const canExport = has("reporting.payments.export");
   const qc = useQueryClient();
 
   const today = toLocalYMD();
@@ -51,17 +53,17 @@ export function PaymentsReportsPage() {
   const { data: payments = [], isLoading: lp } = useQuery({
     queryKey: ["all-booking-payments"],
     queryFn: listAllBookingPayments,
-    enabled: isAdmin,
+    enabled: canView,
   });
   const { data: bookings = [], isLoading: lb } = useQuery({
     queryKey: ["bookings"],
     queryFn: listBookings,
-    enabled: isAdmin,
+    enabled: canView,
   });
   const bookingById = useMemo(() => Object.fromEntries(bookings.map((b: any) => [b.id, b])), [bookings]);
 
-  if (roleLoading) return <div className="p-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>;
-  if (!isAdmin) {
+  if (permissionsLoading) return <div className="p-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>;
+  if (!canView) {
     return (
       <>
         <Topbar title="Payments Reports" />
@@ -210,9 +212,11 @@ export function PaymentsReportsPage() {
             </button>
             <span className="text-muted-foreground inline-flex items-center gap-1.5"><Search className="h-3 w-3" /> {filtered.length} payment{filtered.length === 1 ? "" : "s"}</span>
           </div>
-          <button onClick={onExport} className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal">
-            <Download className="h-4 w-4" /> Export Excel (CSV)
-          </button>
+          {canExport && (
+            <button onClick={onExport} className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal">
+              <Download className="h-4 w-4" /> Export Excel (CSV)
+            </button>
+          )}
         </div>
 
         {/* Table */}
