@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 /** Throws if the calling user is not an admin. */
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
@@ -29,6 +28,7 @@ export const createUserFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
@@ -59,6 +59,7 @@ export const updateUserFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (data.email) {
       const { error } = await supabaseAdmin.auth.admin.updateUserById(data.id, { email: data.email });
       if (error) throw new Error(error.message);
@@ -81,6 +82,7 @@ export const setUserActiveFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     if (data.id === context.userId && !data.active) throw new Error("You can't deactivate yourself");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.id, {
       ban_duration: data.active ? "none" : "876000h", // ~100 years
     } as any);
@@ -95,6 +97,7 @@ export const resetUserPasswordFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.id, {
       password: data.new_password,
     });
@@ -108,6 +111,7 @@ export const deleteUserFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     if (data.id === context.userId) throw new Error("You can't delete yourself");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -117,6 +121,7 @@ export const listUsersFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: profiles, error: pErr }, { data: roles, error: rErr }, adminUsers] =
       await Promise.all([
         supabaseAdmin.from("profiles").select("id, email, display_name, created_at").order("created_at"),
