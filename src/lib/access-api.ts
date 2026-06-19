@@ -95,3 +95,79 @@ export async function deleteRole(id: string) {
   const { error } = await supabase.from("roles" as any).delete().eq("id", id);
   if (error) throw error;
 }
+
+/* ============================================================
+   Per-user permission overrides
+   ============================================================ */
+
+export interface UserPermissionOverride {
+  id: string;
+  user_id: string;
+  permission_key: string;
+  granted: boolean;
+  expires_at: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** All overrides (admin view). RLS allows admins to read every row. */
+export async function listAllUserOverrides(): Promise<UserPermissionOverride[]> {
+  const { data, error } = await supabase
+    .from("user_permission_overrides" as any)
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as any;
+}
+
+export async function listUserOverrides(user_id: string): Promise<UserPermissionOverride[]> {
+  const { data, error } = await supabase
+    .from("user_permission_overrides" as any)
+    .select("*")
+    .eq("user_id", user_id);
+  if (error) throw error;
+  return (data ?? []) as any;
+}
+
+/** Upsert a single override (grant or deny). expires_at: ISO string or null. */
+export async function setUserOverride(input: {
+  user_id: string;
+  permission_key: string;
+  granted: boolean;
+  expires_at?: string | null;
+  notes?: string | null;
+}) {
+  const { error } = await supabase
+    .from("user_permission_overrides" as any)
+    .upsert(
+      {
+        user_id: input.user_id,
+        permission_key: input.permission_key,
+        granted: input.granted,
+        expires_at: input.expires_at ?? null,
+        notes: input.notes ?? null,
+      } as any,
+      { onConflict: "user_id,permission_key" },
+    );
+  if (error) throw error;
+}
+
+/** Remove an override entirely (back to role-inherited default). */
+export async function clearUserOverride(user_id: string, permission_key: string) {
+  const { error } = await supabase
+    .from("user_permission_overrides" as any)
+    .delete()
+    .eq("user_id", user_id)
+    .eq("permission_key", permission_key);
+  if (error) throw error;
+}
+
+/** Compute the permission set a given user effectively has (role ∪ grants − denies). */
+export async function getUserEffectivePermissions(user_id: string): Promise<Set<string>> {
+  const { data, error } = await supabase.rpc("user_effective_permissions" as any, { _user_id: user_id } as any);
+  if (error) throw error;
+  const list = ((data as any[]) ?? []).map((r) => (typeof r === "string" ? r : r.permission_key));
+  return new Set(list.filter(Boolean));
+}
