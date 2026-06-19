@@ -17,7 +17,7 @@ import { getBrandingSettings } from "@/lib/app-settings-api";
 const fmtDate = (s: string) =>
   new Date(s + (s.length === 10 ? "T00:00:00" : "")).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 const fmtDateTime = (s: string) =>
-  new Date(s).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+  new Date(s).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" });
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 
 const HOTEL = {
@@ -30,20 +30,10 @@ const HOTEL = {
   gstin: "—",
 };
 
-/* Brand palette scoped to the invoice document (print-safe, theme-independent). */
-const INV_VARS: React.CSSProperties = {
-  // deep teal primary, refined ink, parchment surfaces, gold accent
-  ["--inv-ink" as any]: "#0f1a24",
-  ["--inv-muted" as any]: "#5b6b7a",
-  ["--inv-line" as any]: "#e5e7eb",
-  ["--inv-soft" as any]: "#f6f7f9",
-  ["--inv-primary" as any]: "#0e3b46",
-  ["--inv-primary-2" as any]: "#15545e",
-  ["--inv-gold" as any]: "#c9a24a",
-  ["--inv-gold-2" as any]: "#e1c98c",
-  ["--inv-bg" as any]: "#ffffff",
-};
-
+/**
+ * Invoice viewer for a booking. Renders Proforma before checkout, Final after.
+ * Supports PDF download (window.print with invoice-only CSS) and image share.
+ */
 export function InvoiceDialog({
   booking, items = [], payments = [], charges = [], onClose,
 }: {
@@ -53,10 +43,11 @@ export function InvoiceDialog({
   charges?: BookingChargeRow[];
   onClose: () => void;
 }) {
-  const isFinal = booking.status === ("Checked-Out" as any);
+  const isFinal = booking.status === "Checked-Out" as any;
   const kind = isFinal ? "INVOICE" : "PROFORMA INVOICE";
   const docRef = useRef<HTMLDivElement>(null);
   const checkTimes = useOpsTimeLabels();
+  // Branding (signature, designation, footer text) — null while loading.
   const { data: branding } = useQuery({ queryKey: ["branding-settings"], queryFn: getBrandingSettings });
 
   const chargesTotal = sumCharges(charges);
@@ -67,6 +58,8 @@ export function InvoiceDialog({
   const discount = Number(booking.discount || 0);
   const taxRate = Number((booking as any).tax_rate || 0);
 
+  // Compute itemized pricing from booking_items (room + extras) so the invoice
+  // matches Booking Preview / WhatsApp / Portal exactly.
   const pricing = useMemo(() => {
     if (!items.length) return null;
     try {
@@ -140,330 +133,214 @@ export function InvoiceDialog({
     }
   };
 
-  const guestsLabel = `${booking.adults} Adult${booking.adults === 1 ? "" : "s"}${
-    booking.children > 0 ? ` + ${booking.children} Child${booking.children === 1 ? "" : "ren"}` : ""
-  }`;
-
   const node = (
     <div
-      className="invoice-print-portal fixed inset-0 z-[100] flex items-start justify-center overflow-auto bg-black/70 backdrop-blur-sm p-2 sm:p-4"
+      className="invoice-print-portal fixed inset-0 z-[100] flex items-start justify-center overflow-auto bg-black/70 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="invoice-modal-shell rounded-2xl w-full max-w-3xl my-2 sm:my-6 shadow-2xl bg-white"
+        className="invoice-modal-shell luxe-card rounded-2xl w-full max-w-4xl my-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Toolbar (hidden on print) */}
-        <div className="invoice-print-hide flex items-center justify-between gap-2 p-3 sm:p-4 border-b border-[var(--inv-line)] rounded-t-2xl bg-white" style={INV_VARS}>
-          <div className="text-xs sm:text-sm font-medium text-[var(--inv-ink)] truncate">{kind} · {booking.booking_reference}</div>
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="invoice-print-hide flex items-center justify-between gap-2 p-4 border-b border-border">
+          <div className="text-sm font-medium">{kind} · {booking.booking_reference}</div>
+          <div className="flex items-center gap-2">
             <button onClick={handleShare}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--inv-line)] px-2.5 py-2 text-xs text-[var(--inv-ink)] hover:bg-[var(--inv-soft)]">
-              <Share2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Share</span>
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs hover:border-gold/40">
+              <Share2 className="h-3.5 w-3.5 text-gold" /> Share
             </button>
             <button onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-semibold text-white"
-              style={{ background: "linear-gradient(135deg, var(--inv-primary), var(--inv-primary-2))" }}>
-              <Printer className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download PDF</span>
+              className="inline-flex items-center gap-2 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">
+              <Printer className="h-3.5 w-3.5" /> Download PDF
             </button>
-            <button onClick={onClose} className="p-2 text-[var(--inv-muted)] hover:text-[var(--inv-ink)]" aria-label="Close" style={INV_VARS}>
+            <button onClick={onClose} className="p-2 text-muted-foreground hover:text-foreground" aria-label="Close">
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Document body — A4 friendly, single column on mobile */}
-        <div
-          ref={docRef}
-          data-invoice-print
-          className="invoice-doc bg-white text-[var(--inv-ink)] rounded-b-2xl"
-          style={{
-            ...INV_VARS,
-            fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif",
-          }}
-        >
-          {/* ── HEADER BAR (B style) ── */}
-          <div
-            className="px-5 sm:px-10 py-6 sm:py-7 text-white rounded-t-2xl"
-            style={{ background: "linear-gradient(135deg, var(--inv-primary) 0%, var(--inv-primary-2) 100%)" }}
-          >
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 items-start">
-              <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-lg grid place-items-center"
-                  style={{ background: "linear-gradient(135deg, var(--inv-gold) 0%, var(--inv-gold-2) 100%)" }}
-                >
-                  <span style={{ fontFamily: "'Fraunces', Georgia, serif" }} className="text-2xl sm:text-3xl font-bold text-[var(--inv-primary)]">H</span>
-                </div>
-                <div className="min-w-0">
-                  <div style={{ fontFamily: "'Fraunces', Georgia, serif" }} className="text-lg sm:text-2xl font-semibold leading-tight truncate">
-                    {HOTEL.name}
-                  </div>
-                  <div className="text-[10px] sm:text-[11px] tracking-[0.28em] uppercase text-white/70">{HOTEL.tagline}</div>
-                </div>
+        {/* Document body */}
+        <div ref={docRef} className="p-6 md:p-10 bg-card text-foreground" data-invoice-print>
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 pb-6 border-b border-border">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 rounded-md gold-gradient flex items-center justify-center">
+                <span className="font-display text-2xl font-semibold text-charcoal">H</span>
               </div>
-              <div className="text-right shrink-0">
-                <div
-                  className="inline-block px-2.5 py-1 rounded text-[10px] sm:text-[11px] font-semibold tracking-[0.22em]"
-                  style={{ background: "var(--inv-gold)", color: "var(--inv-primary)" }}
-                >
-                  {kind}
-                </div>
-                <div className="text-[11px] sm:text-xs text-white/85 mt-1.5 font-medium">{booking.booking_reference}</div>
-                <div className="text-[10px] text-white/65 mt-0.5">Issued {fmtDate(new Date().toISOString())}</div>
+              <div>
+                <div className="font-display text-xl">{HOTEL.name}</div>
+                <div className="text-[10px] tracking-[0.3em] text-gold/80 uppercase">{HOTEL.tagline}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">{HOTEL.address}</div>
+                <div className="text-[11px] text-muted-foreground">{HOTEL.phone} · {HOTEL.email}</div>
+                <div className="text-[11px] text-muted-foreground">GSTIN: {HOTEL.gstin}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <h2 className="font-display text-3xl gold-text-gradient">{kind}</h2>
+              <div className="text-xs text-muted-foreground mt-1">{booking.booking_reference}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Issued: {fmtDate(new Date().toISOString())}</div>
+              {isFinal && <div className="text-[10px] text-muted-foreground">Checkout: {fmtDate(booking.check_out)}</div>}
+            </div>
+          </div>
+
+          {/* Guest */}
+          <div className="py-5 border-b border-border">
+            <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-2">Guest Details</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+              <div><span className="text-muted-foreground">Name: </span>{booking.guest_name}</div>
+              {booking.phone && <div><span className="text-muted-foreground">Phone: </span>{booking.phone}</div>}
+              {booking.email && <div><span className="text-muted-foreground">Email: </span>{booking.email}</div>}
+            </div>
+          </div>
+
+          {/* Stay */}
+          <div className="py-5 border-b border-border">
+            <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-2">
+              {isFinal ? "Final Stay Details" : "Stay Details"}
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Check-in: </span>{fmtDate(booking.check_in)}
+                <span className="text-[10px] text-muted-foreground"> · {checkTimes.checkIn}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Check-out: </span>{fmtDate(booking.check_out)}
+                <span className="text-[10px] text-muted-foreground"> · {checkTimes.checkOut}</span>
+              </div>
+              <div><span className="text-muted-foreground">Nights: </span>{booking.nights}</div>
+              <div><span className="text-muted-foreground">Guests: </span>{booking.adults} Adult{booking.adults === 1 ? "" : "s"}{booking.children > 0 ? ` + ${booking.children} Child${booking.children === 1 ? "" : "ren"}` : ""}</div>
+              {booking.room_details && <div className="col-span-2"><span className="text-muted-foreground">Room: </span>{booking.room_details}</div>}
+            </div>
+          </div>
+
+          {/* Room/Charges */}
+          <div className="py-5 border-b border-border">
+            <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">
+              {isFinal ? "Final Charges" : "Charges"}
+            </h4>
+            <table className="w-full text-sm">
+              <tbody>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 font-medium">Main Stay Charges</td>
+                  <td className="py-2 text-right tabular-nums">{inr(mainStay)}</td>
+                </tr>
+                {extraLines.length > 0 && (
+                  <tr>
+                    <td className="pt-3 pb-1 font-medium" colSpan={2}>Additional Stay Charges</td>
+                  </tr>
+                )}
+                {extraLines.map((ex, i) => (
+                  <tr key={`ex-${i}`} className="border-b border-border/50">
+                    <td className="py-1.5 pl-4 text-muted-foreground">– {ex.label}</td>
+                    <td className="py-1.5 text-right tabular-nums">{inr(ex.value)}</td>
+                  </tr>
+                ))}
+                {chargesTotal > 0 && (
+                  <tr>
+                    <td className="pt-3 pb-1 font-medium" colSpan={2}>
+                      In-House Charges <span className="text-[10px] font-normal text-muted-foreground">(tax incl.)</span>
+                    </td>
+                  </tr>
+                )}
+                {charges.map((c, i) => (
+                  <tr key={`ch-${i}`} className="border-b border-border/50">
+                    <td className="py-1.5 pl-4 text-muted-foreground">
+                      – {c.category}{c.category === "Other" && c.other_description ? ` · ${c.other_description}` : ""}{Number(c.quantity) !== 1 ? ` × ${Number(c.quantity)}` : ""}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums">{inr(Number(c.amount))}</td>
+                  </tr>
+                ))}
+                <tr className="border-b border-border/50">
+                  <td className="py-2 font-medium">Subtotal</td>
+                  <td className="py-2 text-right tabular-nums">{inr(itemsTotal + chargesTotal)}</td>
+                </tr>
+                {discount > 0 && (
+                  <tr className="border-b border-border/50">
+                    <td className="py-2">Discount</td>
+                    <td className="py-2 text-right tabular-nums">-{inr(discount)}</td>
+                  </tr>
+                )}
+                <tr className="border-b border-border/50">
+                  <td className="py-2">Taxable Amount</td>
+                  <td className="py-2 text-right tabular-nums">{inr(taxable)}</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2">Tax{taxRate > 0 ? ` (${Math.round(taxRate * 100)}%)` : ""}</td>
+                  <td className="py-2 text-right tabular-nums">{inr(taxes)}</td>
+                </tr>
+                <tr>
+                  <td className="pt-3 font-medium">Final Booking Amount</td>
+                  <td className="pt-3 text-right font-display text-lg gold-text-gradient tabular-nums">{inr(total)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Payment History */}
+          <div className="py-5 border-b border-border">
+            <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-3">
+              {isFinal ? "Final Payment Summary" : "Payment History"}
+            </h4>
+            {payments.length > 0 ? (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                    <th className="text-left py-2">Date</th>
+                    <th className="text-left py-2">Mode</th>
+                    <th className="text-right py-2">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((p) => (
+                    <tr key={p.id} className="border-b border-border/50">
+                      <td className="py-2 tabular-nums">{fmtDateTime(p.occurred_at)}</td>
+                      <td className="py-2">{p.payment_mode}</td>
+                      <td className="py-2 text-right tabular-nums">{inr(Number(p.amount))}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td className="pt-3 font-medium" colSpan={2}>Total Paid</td>
+                    <td className="pt-3 text-right tabular-nums">{inr(sumPayments)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No payments recorded yet.</p>
+            )}
+          </div>
+
+          {/* Totals — Total Booking Amount / Amount Paid / Balance Due */}
+          <div className="py-5">
+            <div className="flex flex-col gap-1.5 text-sm max-w-xs ml-auto">
+              <div className="flex justify-between"><span className="text-muted-foreground">Total Booking Amount</span><span className="tabular-nums">{inr(total)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Amount Paid</span><span className="tabular-nums">{inr(advance)}</span></div>
+              <div className="flex justify-between border-t border-border pt-2">
+                <span className="font-medium">{isFinal ? "Outstanding Balance" : "Balance Due"}</span>
+                <span className="font-display text-lg gold-text-gradient tabular-nums">{inr(balance)}</span>
               </div>
             </div>
           </div>
 
-          <div className="px-5 sm:px-10 py-5 sm:py-7 space-y-5 sm:space-y-6">
-
-            {/* ── GRAND TOTAL HERO BAND (C-style, prominent) ── */}
-            <div
-              className="rounded-xl p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 items-center"
-              style={{ background: "var(--inv-soft)", border: "1px solid var(--inv-line)" }}
-            >
-              <div className="sm:col-span-2 grid grid-cols-2 gap-3 sm:gap-4">
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--inv-muted)]">Grand Total</div>
-                  <div style={{ fontFamily: "'Fraunces', Georgia, serif" }} className="text-2xl sm:text-3xl font-semibold text-[var(--inv-ink)] tabular-nums leading-tight mt-0.5">
-                    {inr(total)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--inv-muted)]">Amount Paid</div>
-                  <div className="text-xl sm:text-2xl font-semibold tabular-nums leading-tight mt-0.5 text-[var(--inv-primary)]">{inr(advance)}</div>
-                </div>
-              </div>
-              <div
-                className="rounded-lg p-3 sm:p-4 text-center sm:text-right"
-                style={{
-                  background: balance > 0
-                    ? "linear-gradient(135deg, var(--inv-gold) 0%, var(--inv-gold-2) 100%)"
-                    : "linear-gradient(135deg, #0e7c5e, #15966e)",
-                  color: balance > 0 ? "var(--inv-primary)" : "#fff",
-                }}
-              >
-                <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">
-                  {isFinal ? "Outstanding" : "Balance Due"}
-                </div>
-                <div style={{ fontFamily: "'Fraunces', Georgia, serif" }} className="text-2xl sm:text-3xl font-bold tabular-nums leading-tight mt-0.5">
-                  {inr(balance)}
-                </div>
-                {balance === 0 && <div className="text-[10px] mt-0.5 opacity-90">Fully Settled</div>}
-              </div>
+          {/* Footer: signature (bottom-right) + thank-you note */}
+          <div className="pt-6 mt-2 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+            <div className="text-[11px] text-muted-foreground">
+              {branding?.invoice_footer ||
+                (isFinal
+                  ? "Thank you for staying with Hotel Excella. We hope to welcome you again."
+                  : "This is a Proforma Invoice. Final invoice will be issued after checkout.")}
             </div>
-
-            {/* ── FROM / TO ── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div className="rounded-lg p-3 sm:p-4" style={{ border: "1px solid var(--inv-line)" }}>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--inv-muted)] mb-1.5">From</div>
-                <div className="font-semibold text-[var(--inv-ink)] text-sm">{HOTEL.name}</div>
-                <div className="text-[11px] sm:text-xs text-[var(--inv-muted)] leading-relaxed mt-0.5">
-                  {HOTEL.address}<br />
-                  {HOTEL.phone} · {HOTEL.email}<br />
-                  GSTIN: {HOTEL.gstin}
-                </div>
-              </div>
-              <div className="rounded-lg p-3 sm:p-4" style={{ border: "1px solid var(--inv-line)", background: "var(--inv-soft)" }}>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--inv-muted)] mb-1.5">Billed To</div>
-                <div className="font-semibold text-[var(--inv-ink)] text-sm">{booking.guest_name}</div>
-                <div className="text-[11px] sm:text-xs text-[var(--inv-muted)] leading-relaxed mt-0.5">
-                  {booking.phone && <>{booking.phone}<br /></>}
-                  {booking.email && <>{booking.email}<br /></>}
-                </div>
-              </div>
-            </div>
-
-            {/* ── STAY (check-in / out highlighted, C-style) ── */}
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--inv-muted)] mb-2 font-semibold">Stay Details</div>
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                <div className="rounded-lg p-3" style={{ border: "1px solid var(--inv-line)" }}>
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--inv-muted)]">Check-In</div>
-                  <div className="font-semibold text-[var(--inv-ink)] text-sm sm:text-base mt-0.5">{fmtDate(booking.check_in)}</div>
-                  <div className="text-[11px] text-[var(--inv-primary)] font-medium">{checkTimes.checkIn}</div>
-                </div>
-                <div className="rounded-lg p-3" style={{ border: "1px solid var(--inv-line)" }}>
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--inv-muted)]">Check-Out</div>
-                  <div className="font-semibold text-[var(--inv-ink)] text-sm sm:text-base mt-0.5">{fmtDate(booking.check_out)}</div>
-                  <div className="text-[11px] text-[var(--inv-primary)] font-medium">{checkTimes.checkOut}</div>
-                </div>
-                <div className="rounded-lg p-3" style={{ border: "1px solid var(--inv-line)" }}>
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--inv-muted)]">Nights</div>
-                  <div className="font-semibold text-[var(--inv-ink)] text-sm sm:text-base mt-0.5">{booking.nights}</div>
-                </div>
-                <div className="rounded-lg p-3" style={{ border: "1px solid var(--inv-line)" }}>
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--inv-muted)]">Guests</div>
-                  <div className="font-semibold text-[var(--inv-ink)] text-sm sm:text-base mt-0.5">{guestsLabel}</div>
-                </div>
-                {booking.room_details && (
-                  <div className="col-span-2 rounded-lg p-3" style={{ border: "1px solid var(--inv-line)" }}>
-                    <div className="text-[10px] uppercase tracking-wider text-[var(--inv-muted)]">Room</div>
-                    <div className="font-semibold text-[var(--inv-ink)] text-sm mt-0.5">{booking.room_details}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* ── CHARGES (responsive: table on sm+, list on mobile) ── */}
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--inv-muted)] mb-2 font-semibold">
-                {isFinal ? "Final Charges" : "Charges"}
-              </div>
-              <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--inv-line)" }}>
-                {/* Mobile list */}
-                <ul className="sm:hidden divide-y" style={{ borderColor: "var(--inv-line)" }}>
-                  <li className="flex justify-between gap-3 p-3 text-sm">
-                    <span className="font-medium text-[var(--inv-ink)]">Main Stay Charges</span>
-                    <span className="tabular-nums">{inr(mainStay)}</span>
-                  </li>
-                  {extraLines.map((ex, i) => (
-                    <li key={`mex-${i}`} className="flex justify-between gap-3 p-3 text-sm">
-                      <span className="text-[var(--inv-muted)]">{ex.label}</span>
-                      <span className="tabular-nums">{inr(ex.value)}</span>
-                    </li>
-                  ))}
-                  {charges.map((c, i) => (
-                    <li key={`mch-${i}`} className="flex justify-between gap-3 p-3 text-sm">
-                      <span className="text-[var(--inv-muted)] min-w-0 truncate">
-                        {c.category}{c.category === "Other" && c.other_description ? ` · ${c.other_description}` : ""}{Number(c.quantity) !== 1 ? ` × ${Number(c.quantity)}` : ""}
-                      </span>
-                      <span className="tabular-nums shrink-0">{inr(Number(c.amount))}</span>
-                    </li>
-                  ))}
-                </ul>
-                {/* Desktop / A4 table */}
-                <table className="hidden sm:table w-full text-sm">
-                  <thead>
-                    <tr style={{ background: "var(--inv-soft)" }}>
-                      <th className="text-left p-3 text-[10px] uppercase tracking-wider text-[var(--inv-muted)] font-semibold">Particulars</th>
-                      <th className="text-right p-3 text-[10px] uppercase tracking-wider text-[var(--inv-muted)] font-semibold">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr style={{ borderTop: "1px solid var(--inv-line)" }}>
-                      <td className="p-3 font-medium">Main Stay Charges</td>
-                      <td className="p-3 text-right tabular-nums">{inr(mainStay)}</td>
-                    </tr>
-                    {extraLines.length > 0 && extraLines.map((ex, i) => (
-                      <tr key={`ex-${i}`} style={{ borderTop: "1px solid var(--inv-line)" }}>
-                        <td className="p-3 pl-6 text-[var(--inv-muted)]">{ex.label}</td>
-                        <td className="p-3 text-right tabular-nums">{inr(ex.value)}</td>
-                      </tr>
-                    ))}
-                    {chargesTotal > 0 && (
-                      <tr style={{ borderTop: "1px solid var(--inv-line)", background: "var(--inv-soft)" }}>
-                        <td className="px-3 py-1.5 text-[11px] uppercase tracking-wider text-[var(--inv-muted)] font-semibold" colSpan={2}>
-                          In-House Charges <span className="normal-case font-normal">(tax incl.)</span>
-                        </td>
-                      </tr>
-                    )}
-                    {charges.map((c, i) => (
-                      <tr key={`ch-${i}`} style={{ borderTop: "1px solid var(--inv-line)" }}>
-                        <td className="p-3 pl-6 text-[var(--inv-muted)]">
-                          {c.category}{c.category === "Other" && c.other_description ? ` · ${c.other_description}` : ""}{Number(c.quantity) !== 1 ? ` × ${Number(c.quantity)}` : ""}
-                        </td>
-                        <td className="p-3 text-right tabular-nums">{inr(Number(c.amount))}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Summary block — right-aligned on desktop, full-width on mobile */}
-              <div className="mt-3 sm:flex sm:justify-end">
-                <div className="w-full sm:max-w-xs text-sm rounded-lg p-3 sm:p-4" style={{ border: "1px solid var(--inv-line)", background: "var(--inv-soft)" }}>
-                  <div className="flex justify-between py-1"><span className="text-[var(--inv-muted)]">Subtotal</span><span className="tabular-nums">{inr(itemsTotal + chargesTotal)}</span></div>
-                  {discount > 0 && (
-                    <div className="flex justify-between py-1"><span className="text-[var(--inv-muted)]">Discount</span><span className="tabular-nums">-{inr(discount)}</span></div>
-                  )}
-                  <div className="flex justify-between py-1"><span className="text-[var(--inv-muted)]">Taxable</span><span className="tabular-nums">{inr(taxable)}</span></div>
-                  <div className="flex justify-between py-1"><span className="text-[var(--inv-muted)]">Tax{taxRate > 0 ? ` (${Math.round(taxRate * 100)}%)` : ""}</span><span className="tabular-nums">{inr(taxes)}</span></div>
-                  <div className="flex justify-between py-2 mt-1 border-t" style={{ borderColor: "var(--inv-line)" }}>
-                    <span className="font-semibold">Grand Total</span>
-                    <span className="tabular-nums font-semibold text-[var(--inv-primary)]" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{inr(total)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ── PAYMENTS ── */}
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--inv-muted)] mb-2 font-semibold">
-                {isFinal ? "Payment Summary" : "Payment History"}
-              </div>
-              {payments.length > 0 ? (
-                <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--inv-line)" }}>
-                  {/* Mobile list */}
-                  <ul className="sm:hidden divide-y" style={{ borderColor: "var(--inv-line)" }}>
-                    {payments.map((p) => (
-                      <li key={p.id} className="p-3 text-sm flex justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-[var(--inv-ink)] font-medium truncate">{p.payment_mode}</div>
-                          <div className="text-[11px] text-[var(--inv-muted)]">{fmtDateTime(p.occurred_at)}</div>
-                        </div>
-                        <div className="tabular-nums shrink-0 font-medium">{inr(Number(p.amount))}</div>
-                      </li>
-                    ))}
-                    <li className="p-3 flex justify-between bg-[var(--inv-soft)]">
-                      <span className="font-semibold">Total Paid</span>
-                      <span className="tabular-nums font-semibold">{inr(sumPayments)}</span>
-                    </li>
-                  </ul>
-                  {/* Desktop */}
-                  <table className="hidden sm:table w-full text-sm">
-                    <thead>
-                      <tr style={{ background: "var(--inv-soft)" }}>
-                        <th className="text-left p-3 text-[10px] uppercase tracking-wider text-[var(--inv-muted)] font-semibold">Date</th>
-                        <th className="text-left p-3 text-[10px] uppercase tracking-wider text-[var(--inv-muted)] font-semibold">Mode</th>
-                        <th className="text-right p-3 text-[10px] uppercase tracking-wider text-[var(--inv-muted)] font-semibold">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {payments.map((p) => (
-                        <tr key={p.id} style={{ borderTop: "1px solid var(--inv-line)" }}>
-                          <td className="p-3 tabular-nums">{fmtDateTime(p.occurred_at)}</td>
-                          <td className="p-3">{p.payment_mode}</td>
-                          <td className="p-3 text-right tabular-nums">{inr(Number(p.amount))}</td>
-                        </tr>
-                      ))}
-                      <tr style={{ borderTop: "1px solid var(--inv-line)", background: "var(--inv-soft)" }}>
-                        <td className="p-3 font-semibold" colSpan={2}>Total Paid</td>
-                        <td className="p-3 text-right tabular-nums font-semibold">{inr(sumPayments)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+            <div className="text-right text-[11px] text-muted-foreground">
+              {branding?.signature_url ? (
+                <img src={branding.signature_url} alt="Authorised signature"
+                  className="ml-auto mb-1 h-14 w-auto max-w-[180px] object-contain bg-white rounded p-1" />
               ) : (
-                <p className="text-sm text-[var(--inv-muted)] italic">No payments recorded yet.</p>
+                <div className="ml-auto mb-1 h-14 w-[160px] border-b border-dashed border-border" />
               )}
-            </div>
-
-            {/* ── SIGNATURE + NOTE ── */}
-            <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end" style={{ borderTop: "1px solid var(--inv-line)" }}>
-              <div className="text-[11px] text-[var(--inv-muted)] leading-relaxed">
-                {branding?.invoice_footer ||
-                  (isFinal
-                    ? "Thank you for staying with Hotel Excella. We hope to welcome you again."
-                    : "This is a Proforma Invoice. Final invoice will be issued after checkout.")}
+              <div className="text-foreground font-medium">
+                {branding?.signatory_designation || "Authorised Signatory"}
               </div>
-              <div className="text-right text-[11px] text-[var(--inv-muted)]">
-                {branding?.signature_url ? (
-                  <img src={branding.signature_url} alt="Authorised signature"
-                    className="ml-auto mb-1 h-14 w-auto max-w-[180px] object-contain bg-white rounded p-1" />
-                ) : (
-                  <div className="ml-auto mb-1 h-12 w-[160px] border-b border-dashed" style={{ borderColor: "var(--inv-line)" }} />
-                )}
-                <div className="text-[var(--inv-ink)] font-semibold">
-                  {branding?.signatory_designation || "Authorised Signatory"}
-                </div>
-                <div>{HOTEL.name}</div>
-              </div>
-            </div>
-
-            {/* Footer micro line */}
-            <div className="text-center text-[10px] text-[var(--inv-muted)] tracking-wider pt-2">
-              {HOTEL.website} · {HOTEL.phone}
+              <div>{HOTEL.name}</div>
             </div>
           </div>
         </div>

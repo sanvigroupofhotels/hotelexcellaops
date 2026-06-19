@@ -177,6 +177,7 @@ export type BookingStatus =
   | "Checked-In"
   | "Checked-Out"
   | "Cancelled"
+  | "No-Show"
   // legacy values kept so old rows still render correctly
   | "Confirmed"
   | "Stay Completed"
@@ -188,6 +189,7 @@ export const BOOKING_STATUSES: BookingStatus[] = [
   "Checked-In",
   "Checked-Out",
   "Cancelled",
+  "No-Show",
 ];
 export const bookingStatusStyles: Record<BookingStatus, string> = {
   Pending: "bg-warning/10 text-warning border-warning/30",
@@ -199,6 +201,7 @@ export const bookingStatusStyles: Record<BookingStatus, string> = {
   "Checked-In": "bg-gold/15 text-gold border-gold/40",
   "Checked-Out": "bg-muted/60 text-muted-foreground border-border",
   "Stay Completed": "bg-muted/60 text-muted-foreground border-border",
+  "No-Show": "bg-destructive/15 text-destructive border-destructive/40",
 };
 
 export const PAYMENT_STATUSES = [
