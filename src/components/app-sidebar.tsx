@@ -27,7 +27,6 @@ const nav: NavItem[] = [
   // Reporting is rendered separately as an expandable group below.
   { to: "/staff-management", label: "Staff Management", icon: UserCog },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
-  { to: "/users", label: "User Management", icon: UsersRound, adminOnly: true },
   { to: "/master-data", label: "Master Data", icon: Database, adminOnly: true },
 ];
 
@@ -38,6 +37,12 @@ const reportingChildren = [
   { to: "/reporting/night-audit", label: "Night Audit History",  icon: ShieldCheck, adminOnly: true },
 ] as const;
 
+const usersChildren = [
+  { to: "/users/management", label: "User Management", icon: UsersRound },
+  { to: "/users/roles",      label: "Role Management", icon: ShieldCheck },
+  { to: "/users/access",     label: "Access Management", icon: KeyRound },
+] as const;
+
 const settingsChildren = [
   { to: "/settings/general",          label: "General",             icon: Building2Alt },
   { to: "/settings/operations",       label: "Operations",          icon: Cog },
@@ -45,7 +50,6 @@ const settingsChildren = [
   { to: "/settings/documents",        label: "Documents Retention", icon: ShieldCheck },
   { to: "/settings/payment-settings", label: "Payment Settings",    icon: CreditCard },
   { to: "/settings/integrations",     label: "Integrations",        icon: Plug },
-  { to: "/access-settings",           label: "Access Management",   icon: KeyRound },
 ] as const;
 
 function Logo() {
