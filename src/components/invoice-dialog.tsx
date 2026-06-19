@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Printer, Share2, X } from "lucide-react";
 import { toast } from "sonner";
 import type { BookingRow } from "@/lib/bookings-api";
@@ -10,9 +11,11 @@ import type { BookingChargeRow } from "@/lib/booking-charges-api";
 import { chargesTotal as sumCharges } from "@/lib/booking-charges-api";
 import { nodeToBlob } from "@/lib/share-quote";
 import { computePricing } from "@/lib/pricing";
+import { useOpsTimeLabels } from "@/lib/check-times";
+import { getBrandingSettings } from "@/lib/app-settings-api";
 
 const fmtDate = (s: string) =>
-  new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  new Date(s + (s.length === 10 ? "T00:00:00" : "")).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 const fmtDateTime = (s: string) =>
   new Date(s).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" });
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
