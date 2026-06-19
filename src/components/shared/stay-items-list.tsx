@@ -1,4 +1,6 @@
 import { earlyCheckInLabel, lateCheckOutLabel } from "@/lib/mock-data";
+import { useOpsTimeLabels } from "@/lib/check-times";
+
 
 /**
  * Shared renderer for stay line-items, used by Quote Detail/Preview AND
@@ -14,6 +16,7 @@ export function StayItemsList({
   title?: string;
 }) {
   if (!items?.length) return null;
+  const t = useOpsTimeLabels();
   const fmtDate = (s: string) =>
     new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
@@ -38,7 +41,8 @@ export function StayItemsList({
             <li>• <span className="text-muted-foreground">Guests:</span> {it.adults} Adult{it.adults === 1 ? "" : "s"}
               {it.children > 0 ? ` + ${it.children} Child${it.children === 1 ? "" : "ren"}` : ""}
               {it.extra_bed ? ` + ${it.extra_bed} Extra Bed` : ""}</li>
-            <li>• <span className="text-muted-foreground">Dates:</span> {fmtDate(it.check_in)} – {fmtDate(it.check_out)}</li>
+            <li>• <span className="text-muted-foreground">Check-In:</span> {fmtDate(it.check_in)}, {t.checkIn}</li>
+            <li>• <span className="text-muted-foreground">Check-Out:</span> {fmtDate(it.check_out)}, {t.checkOut}</li>
             <li>• <span className="text-muted-foreground">Nights:</span> {it.nights}</li>
             {it.breakfast_included && <li>• <span className="text-muted-foreground">Breakfast:</span> Included</li>}
             {(it.extra_adults ?? 0) > 0 && <li>• <span className="text-muted-foreground">Extra Adults:</span> {it.extra_adults}</li>}
