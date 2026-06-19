@@ -11,45 +11,46 @@ import {
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
+import { usePermissions } from "@/hooks/use-permissions";
 import { UserMenu } from "@/components/user-menu";
 
-type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; managerOnly?: boolean };
+type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; managerOnly?: boolean; permission?: string; anyOf?: string[] };
 
 const nav: NavItem[] = [
-  { to: "/", label: "Dashboard", icon: Home },
+  { to: "/", label: "Dashboard", icon: Home, permission: "dashboard.view" },
   // Bookings list — only Owner/Admin (Reception/Staff use House View). Direct URL
   // is also blocked by a beforeLoad gate on the /bookings route.
-  { to: "/bookings", label: "Bookings", icon: BedDouble, managerOnly: true },
-  { to: "/house-view", label: "House View", icon: Building2 },
-  { to: "/customers", label: "Customers", icon: Users },
-  { to: "/dues", label: "Due Collection", icon: Receipt },
-  { to: "/cash", label: "CashBook", icon: Wallet },
+  { to: "/bookings", label: "Bookings", icon: BedDouble, permission: "bookings.view" },
+  { to: "/house-view", label: "House View", icon: Building2, permission: "house_view.view" },
+  { to: "/customers", label: "Customers", icon: Users, permission: "customers.view" },
+  { to: "/dues", label: "Due Collection", icon: Receipt, permission: "dues.view" },
+  { to: "/cash", label: "CashBook", icon: Wallet, permission: "cash.view" },
   // Reporting is rendered separately as an expandable group below.
-  { to: "/staff-management", label: "Staff Management", icon: UserCog },
-  { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
-  { to: "/master-data", label: "Master Data", icon: Database, adminOnly: true },
+  { to: "/staff-management", label: "Staff Management", icon: UserCog, anyOf: ["staff.master", "staff.attendance", "staff.salary"] },
+  { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, permission: "complaints.view" },
+  { to: "/master-data", label: "Master Data", icon: Database, anyOf: ["master.rooms", "master.rates", "master.others"] },
 ];
 
 const reportingChildren = [
-  { to: "/reporting/analytics",   label: "Analytics",            icon: BarChart3 },
-  { to: "/reporting/payments",    label: "Payment Reports",      icon: IndianRupee },
-  { to: "/reporting/staff",       label: "Staff Reporting",      icon: FileBarChart, adminOnly: true },
-  { to: "/reporting/night-audit", label: "Night Audit History",  icon: ShieldCheck, adminOnly: true },
+  { to: "/reporting/analytics",   label: "Analytics",            icon: BarChart3, permission: "reporting.analytics.view" },
+  { to: "/reporting/payments",    label: "Payment Reports",      icon: IndianRupee, permission: "reporting.payments.view" },
+  { to: "/reporting/staff",       label: "Staff Reporting",      icon: FileBarChart, permission: "reporting.staff.view" },
+  { to: "/reporting/night-audit", label: "Night Audit History",  icon: ShieldCheck, permission: "reporting.night_audit.view" },
 ] as const;
 
 const usersChildren = [
-  { to: "/users/management", label: "User Management", icon: UsersRound },
-  { to: "/users/roles",      label: "Role Management", icon: ShieldCheck },
-  { to: "/users/access",     label: "Access Management", icon: KeyRound },
+  { to: "/users/management", label: "User Management", icon: UsersRound, permission: "users.manage_users" },
+  { to: "/users/roles",      label: "Role Management", icon: ShieldCheck, permission: "users.manage_roles" },
+  { to: "/users/access",     label: "Access Management", icon: KeyRound, permission: "users.manage_access" },
 ] as const;
 
 const settingsChildren = [
-  { to: "/settings/general",          label: "General",             icon: Building2Alt },
-  { to: "/settings/operations",       label: "Operations",          icon: Cog },
-  { to: "/settings/branding",         label: "Branding",            icon: Palette },
-  { to: "/settings/documents",        label: "Documents Retention", icon: ShieldCheck },
-  { to: "/settings/payment-settings", label: "Payment Settings",    icon: CreditCard },
-  { to: "/settings/integrations",     label: "Integrations",        icon: Plug },
+  { to: "/settings/general",          label: "General",             icon: Building2Alt, permission: "settings.general" },
+  { to: "/settings/operations",       label: "Operations",          icon: Cog, permission: "settings.operations" },
+  { to: "/settings/branding",         label: "Branding",            icon: Palette, permission: "settings.branding" },
+  { to: "/settings/documents",        label: "Documents Retention", icon: ShieldCheck, permission: "settings.documents" },
+  { to: "/settings/payment-settings", label: "Payment Settings",    icon: CreditCard, permission: "settings.payment_settings" },
+  { to: "/settings/integrations",     label: "Integrations",        icon: Plug, permission: "settings.integrations" },
 ] as const;
 
 function Logo() {
@@ -77,16 +78,25 @@ function ExpandableGroup({
   label: string;
   icon: any;
   prefix: string;
-  children: ReadonlyArray<{ to: string; label: string; icon: any; adminOnly?: boolean }>;
+  children: ReadonlyArray<{ to: string; label: string; icon: any; adminOnly?: boolean; permission?: string; anyOf?: string[] }>;
   onNavigate?: () => void;
   pathname: string;
 }) {
   const { isAdmin } = useUserRole();
+  const { has, hasAny, isLoading } = usePermissions();
   const sectionActive = pathname.startsWith(prefix);
   const [open, setOpen] = useState(sectionActive);
   useEffect(() => { if (sectionActive) setOpen(true); }, [sectionActive]);
 
-  const visible = children.filter((c) => !c.adminOnly || isAdmin);
+  const visible = children.filter((c) => {
+    if (isLoading) return false;
+    if (c.adminOnly && !isAdmin) return false;
+    if (c.permission && !has(c.permission)) return false;
+    if (c.anyOf && !hasAny(c.anyOf)) return false;
+    return true;
+  });
+
+  if (visible.length === 0) return null;
 
   return (
     <div>
@@ -138,10 +148,14 @@ function ExpandableGroup({
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isAdmin, canManage } = useUserRole();
+  const { has, hasAny, isLoading } = usePermissions();
   const visible = nav.filter((n) => {
+    if (isLoading) return false;
     if (n.adminOnly && !isAdmin) return false;
     // managerOnly = Owner or Admin (canManage). Reception/Staff use House View.
     if (n.managerOnly && !canManage) return false;
+    if (n.permission && !has(n.permission)) return false;
+    if (n.anyOf && !hasAny(n.anyOf)) return false;
     return true;
   });
   return (
@@ -182,20 +196,14 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
         label="Reporting" icon={FileBarChart} prefix="/reporting"
         children={reportingChildren} onNavigate={onNavigate} pathname={pathname}
       />
-      {/* Users group — admin only */}
-      {isAdmin && (
-        <ExpandableGroup
-          label="Users" icon={UsersRound} prefix="/users"
-          children={usersChildren} onNavigate={onNavigate} pathname={pathname}
-        />
-      )}
-      {/* Settings group — admin only */}
-      {isAdmin && (
-        <ExpandableGroup
-          label="Settings" icon={SettingsIcon} prefix="/settings"
-          children={settingsChildren} onNavigate={onNavigate} pathname={pathname}
-        />
-      )}
+      <ExpandableGroup
+        label="Users" icon={UsersRound} prefix="/users"
+        children={usersChildren} onNavigate={onNavigate} pathname={pathname}
+      />
+      <ExpandableGroup
+        label="Settings" icon={SettingsIcon} prefix="/settings"
+        children={settingsChildren} onNavigate={onNavigate} pathname={pathname}
+      />
     </nav>
   );
 }

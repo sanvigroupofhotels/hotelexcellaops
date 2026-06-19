@@ -46,7 +46,10 @@ function AccessSettingsPage() {
       if (ctx?.prev) qc.setQueryData(["access-matrix"], ctx.prev);
       toast.error(e.message ?? "Failed to update permission");
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["access-matrix"] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["access-matrix"] });
+      qc.invalidateQueries({ queryKey: ["my-permissions"] });
+    },
   });
 
   const [showNewRole, setShowNewRole] = useState(false);
@@ -68,13 +71,8 @@ function AccessSettingsPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  if (roleLoading) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
-  if (!isAdmin) return <Navigate to="/" />;
-
   const roles = rolesQ.data ?? [];
   const perms = permsQ.data ?? [];
-
-  // Group permissions by module
   const modules = useMemo(() => {
     const map = new Map<string, Permission[]>();
     for (const p of perms) {
@@ -83,8 +81,10 @@ function AccessSettingsPage() {
     }
     return Array.from(map.entries());
   }, [perms]);
-
   const loading = rolesQ.isLoading || permsQ.isLoading || matrixQ.isLoading;
+
+  if (roleLoading) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
+  if (!isAdmin) return <Navigate to="/" />;
 
   return (
     <>

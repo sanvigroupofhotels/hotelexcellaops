@@ -1,4 +1,12 @@
 import { createFileRoute, Outlet, Navigate, useRouterState } from "@tanstack/react-router";
+import { usePermissions } from "@/hooks/use-permissions";
+
+const REPORTING_ROUTES = [
+  { to: "/reporting/analytics", permission: "reporting.analytics.view" },
+  { to: "/reporting/payments", permission: "reporting.payments.view" },
+  { to: "/reporting/staff", permission: "reporting.staff.view" },
+  { to: "/reporting/night-audit", permission: "reporting.night_audit.view" },
+] as const;
 
 export const Route = createFileRoute("/_authenticated/reporting")({
   component: ReportingLayout,
@@ -12,8 +20,13 @@ export const Route = createFileRoute("/_authenticated/reporting")({
  */
 function ReportingLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { has, hasAny, isLoading } = usePermissions();
+  const visibleRoutes = REPORTING_ROUTES.filter((r) => has(r.permission));
+
+  if (isLoading) return <div className="p-20 flex justify-center text-sm text-muted-foreground">Loading access…</div>;
+  if (!hasAny(REPORTING_ROUTES.map((r) => r.permission))) return <Navigate to="/" replace />;
   if (pathname === "/reporting" || pathname === "/reporting/") {
-    return <Navigate to="/reporting/analytics" replace />;
+    return <Navigate to={visibleRoutes[0]?.to ?? "/"} replace />;
   }
   return <Outlet />;
 }

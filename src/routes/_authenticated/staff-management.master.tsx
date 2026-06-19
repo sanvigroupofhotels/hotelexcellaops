@@ -13,8 +13,11 @@ import {
   listStaffHr, createStaffHr, updateStaffHr, type StaffHrRow,
 } from "@/lib/staff-hr-api";
 import { useUserRole } from "@/hooks/use-role";
+import { PermissionGate } from "@/components/permission-gate";
 
-export const Route = createFileRoute("/_authenticated/staff-management/master")({ component: StaffPage });
+export const Route = createFileRoute("/_authenticated/staff-management/master")({
+  component: () => <PermissionGate permission="staff.master"><StaffPage /></PermissionGate>,
+});
 
 const inputCls = "w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40";
 

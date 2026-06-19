@@ -86,9 +86,6 @@ function AccessOverridesPage() {
     onError: (e: any) => toast.error(e.message ?? "Failed to clear override"),
   });
 
-  if (roleLoading) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
-  if (!isAdmin) return <Navigate to="/" />;
-
   const modules = useMemo(() => {
     const map = new Map<string, Permission[]>();
     for (const p of perms) {
@@ -102,6 +99,9 @@ function AccessOverridesPage() {
   const usersSorted = [...users].sort((a, b) =>
     (a.display_name ?? a.email ?? "").localeCompare(b.display_name ?? b.email ?? ""),
   );
+
+  if (roleLoading) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
+  if (!isAdmin) return <Navigate to="/" />;
 
   return (
     <>

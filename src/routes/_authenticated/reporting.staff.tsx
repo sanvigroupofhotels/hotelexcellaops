@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Reports } from "./reports";
-import { AdminOnly } from "@/components/admin-only";
+import { PermissionGate } from "@/components/permission-gate";
 
 export const Route = createFileRoute("/_authenticated/reporting/staff")({
-  component: () => <AdminOnly><Reports /></AdminOnly>,
+  component: () => <PermissionGate permission="reporting.staff.view"><Reports /></PermissionGate>,
 });

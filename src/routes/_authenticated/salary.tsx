@@ -15,8 +15,11 @@ import {
   type ComputedSalary, type SalaryStatus,
 } from "@/lib/staff-hr-api";
 import { useUserRole } from "@/hooks/use-role";
+import { PermissionGate } from "@/components/permission-gate";
 
-export const Route = createFileRoute("/_authenticated/salary")({ component: SalaryPage });
+export const Route = createFileRoute("/_authenticated/salary")({
+  component: () => <PermissionGate permission="staff.salary"><SalaryPage /></PermissionGate>,
+});
 
 const inputCls = "w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40";
 

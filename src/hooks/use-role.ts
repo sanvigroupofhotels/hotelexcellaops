@@ -2,9 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
-export type AppRole = "admin" | "owner" | "staff";
+export type AppRole = "admin" | "owner" | "reception" | "staff";
 
-const RANK: Record<AppRole, number> = { admin: 1, owner: 2, staff: 3 };
+const RANK: Record<AppRole, number> = { admin: 1, owner: 2, reception: 3, staff: 4 };
 
 /**
  * Returns the current user's role. Defaults to "staff" while loading or if
