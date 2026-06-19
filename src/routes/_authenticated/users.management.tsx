@@ -29,7 +29,7 @@ interface Row {
   created_at: string;
 }
 
-const ROLE_LABEL: Record<AppRole, string> = { admin: "Admin", owner: "Owner", staff: "Staff" };
+const ROLE_LABEL: Record<AppRole, string> = { admin: "Admin", owner: "Owner", reception: "Reception", staff: "Staff" };
 
 function UsersPage() {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
@@ -115,6 +115,7 @@ function UsersPage() {
                     "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs border",
                     u.role === "admin" ? "border-gold/40 bg-gold-soft text-gold" :
                     u.role === "owner" ? "border-blue-500/40 bg-blue-500/10 text-blue-400" :
+                    u.role === "reception" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" :
                     "border-border bg-muted/40 text-muted-foreground",
                   )}>
                     {u.role === "admin" ? <ShieldCheck className="h-3 w-3" /> : <UserIcon className="h-3 w-3" />}
@@ -146,6 +147,7 @@ function UsersPage() {
                   >
                     <option value="admin">Admin</option>
                     <option value="owner">Owner</option>
+                    <option value="reception">Reception</option>
                     <option value="staff">Staff</option>
                   </select>
                   <button
@@ -228,6 +230,7 @@ function CreateUserModal({ onClose, onSubmit }: any) {
         <select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as AppRole })}
           className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
           <option value="staff">Staff</option>
+          <option value="reception">Reception</option>
           <option value="owner">Owner</option>
           <option value="admin">Admin</option>
         </select>
