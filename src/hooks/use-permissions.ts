@@ -18,7 +18,9 @@ export function usePermissions() {
       return new Set(list.filter(Boolean));
     },
     enabled: !!user,
-    staleTime: 5 * 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
   const set = data ?? new Set<string>();
   return {
