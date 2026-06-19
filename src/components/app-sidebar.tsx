@@ -28,7 +28,7 @@ const nav: NavItem[] = [
   // Reporting is rendered separately as an expandable group below.
   { to: "/staff-management", label: "Staff Management", icon: UserCog, anyOf: ["staff.master", "staff.attendance", "staff.salary"] },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, permission: "complaints.view" },
-  { to: "/master-data", label: "Master Data", icon: Database, adminOnly: true },
+  { to: "/master-data", label: "Master Data", icon: Database, anyOf: ["master.rooms", "master.rates", "master.others"] },
 ];
 
 const reportingChildren = [
@@ -39,18 +39,18 @@ const reportingChildren = [
 ] as const;
 
 const usersChildren = [
-  { to: "/users/management", label: "User Management", icon: UsersRound },
-  { to: "/users/roles",      label: "Role Management", icon: ShieldCheck },
-  { to: "/users/access",     label: "Access Management", icon: KeyRound },
+  { to: "/users/management", label: "User Management", icon: UsersRound, permission: "users.manage_users" },
+  { to: "/users/roles",      label: "Role Management", icon: ShieldCheck, permission: "users.manage_roles" },
+  { to: "/users/access",     label: "Access Management", icon: KeyRound, permission: "users.manage_access" },
 ] as const;
 
 const settingsChildren = [
-  { to: "/settings/general",          label: "General",             icon: Building2Alt },
-  { to: "/settings/operations",       label: "Operations",          icon: Cog },
-  { to: "/settings/branding",         label: "Branding",            icon: Palette },
-  { to: "/settings/documents",        label: "Documents Retention", icon: ShieldCheck },
-  { to: "/settings/payment-settings", label: "Payment Settings",    icon: CreditCard },
-  { to: "/settings/integrations",     label: "Integrations",        icon: Plug },
+  { to: "/settings/general",          label: "General",             icon: Building2Alt, permission: "settings.general" },
+  { to: "/settings/operations",       label: "Operations",          icon: Cog, permission: "settings.operations" },
+  { to: "/settings/branding",         label: "Branding",            icon: Palette, permission: "settings.branding" },
+  { to: "/settings/documents",        label: "Documents Retention", icon: ShieldCheck, permission: "settings.documents" },
+  { to: "/settings/payment-settings", label: "Payment Settings",    icon: CreditCard, permission: "settings.payment_settings" },
+  { to: "/settings/integrations",     label: "Integrations",        icon: Plug, permission: "settings.integrations" },
 ] as const;
 
 function Logo() {
