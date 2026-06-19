@@ -558,12 +558,17 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
         const url = new URL(request.url);
         const debug = url.searchParams.get("debug") === "1";
         const integrationId = url.searchParams.get("integration_id");
+        // dryRun=1: identical pipeline (Gmail fetch, parse, dedupe) but NO
+        // writes to bookings/customers/external_bookings/integration_runs.
+        // Returns the same counts so the UI can render a "Would create/update"
+        // preview before staff hit Import. Used by the "Run Preview" button.
+        const dryRun = url.searchParams.get("dryRun") === "1";
 
         let query = supabaseAdmin
           .from("integrations")
           .select("*")
           .eq("type", "email_parser")
-          .in("status", ["connected", "draft"]);
+          .in("status", ["connected", "draft", "disabled"]); // dry-run should also work on disabled integrations
         if (integrationId) query = query.eq("id", integrationId);
         const { data: rows, error: intgErr } = await query.order("updated_at", { ascending: false });
 
@@ -576,7 +581,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
 
         const results: RunResult[] = [];
         for (const intg of rows) {
-          results.push(await processIntegration(intg, supabaseAdmin, gatewayKey, connectionKey, debug));
+          results.push(await processIntegration(intg, supabaseAdmin, gatewayKey, connectionKey, debug, dryRun));
         }
 
         // When called for a specific integration, flatten to the legacy single-result shape
@@ -584,6 +589,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
           const r = results[0];
           return Response.json({
             ok: !r.fatal,
+            dryRun,
             integration_id: r.integration_id,
             provider: r.provider,
             gmail_account: r.gmail_account,
@@ -597,7 +603,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
             error: r.fatal,
           });
         }
-        return Response.json({ ok: true, results });
+        return Response.json({ ok: true, dryRun, results });
       },
     },
   },
