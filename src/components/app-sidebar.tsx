@@ -11,30 +11,31 @@ import {
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
+import { usePermissions } from "@/hooks/use-permissions";
 import { UserMenu } from "@/components/user-menu";
 
-type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; managerOnly?: boolean };
+type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; managerOnly?: boolean; permission?: string; anyOf?: string[] };
 
 const nav: NavItem[] = [
-  { to: "/", label: "Dashboard", icon: Home },
+  { to: "/", label: "Dashboard", icon: Home, permission: "dashboard.view" },
   // Bookings list — only Owner/Admin (Reception/Staff use House View). Direct URL
   // is also blocked by a beforeLoad gate on the /bookings route.
-  { to: "/bookings", label: "Bookings", icon: BedDouble, managerOnly: true },
-  { to: "/house-view", label: "House View", icon: Building2 },
-  { to: "/customers", label: "Customers", icon: Users },
-  { to: "/dues", label: "Due Collection", icon: Receipt },
-  { to: "/cash", label: "CashBook", icon: Wallet },
+  { to: "/bookings", label: "Bookings", icon: BedDouble, permission: "bookings.view" },
+  { to: "/house-view", label: "House View", icon: Building2, permission: "house_view.view" },
+  { to: "/customers", label: "Customers", icon: Users, permission: "customers.view" },
+  { to: "/dues", label: "Due Collection", icon: Receipt, permission: "dues.view" },
+  { to: "/cash", label: "CashBook", icon: Wallet, permission: "cash.view" },
   // Reporting is rendered separately as an expandable group below.
-  { to: "/staff-management", label: "Staff Management", icon: UserCog },
-  { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
+  { to: "/staff-management", label: "Staff Management", icon: UserCog, anyOf: ["staff.master", "staff.attendance", "staff.salary"] },
+  { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, permission: "complaints.view" },
   { to: "/master-data", label: "Master Data", icon: Database, adminOnly: true },
 ];
 
 const reportingChildren = [
-  { to: "/reporting/analytics",   label: "Analytics",            icon: BarChart3 },
-  { to: "/reporting/payments",    label: "Payment Reports",      icon: IndianRupee },
-  { to: "/reporting/staff",       label: "Staff Reporting",      icon: FileBarChart, adminOnly: true },
-  { to: "/reporting/night-audit", label: "Night Audit History",  icon: ShieldCheck, adminOnly: true },
+  { to: "/reporting/analytics",   label: "Analytics",            icon: BarChart3, permission: "reporting.analytics.view" },
+  { to: "/reporting/payments",    label: "Payment Reports",      icon: IndianRupee, permission: "reporting.payments.view" },
+  { to: "/reporting/staff",       label: "Staff Reporting",      icon: FileBarChart, permission: "reporting.staff.view" },
+  { to: "/reporting/night-audit", label: "Night Audit History",  icon: ShieldCheck, permission: "reporting.night_audit.view" },
 ] as const;
 
 const usersChildren = [
