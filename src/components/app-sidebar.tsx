@@ -78,16 +78,25 @@ function ExpandableGroup({
   label: string;
   icon: any;
   prefix: string;
-  children: ReadonlyArray<{ to: string; label: string; icon: any; adminOnly?: boolean }>;
+  children: ReadonlyArray<{ to: string; label: string; icon: any; adminOnly?: boolean; permission?: string; anyOf?: string[] }>;
   onNavigate?: () => void;
   pathname: string;
 }) {
   const { isAdmin } = useUserRole();
+  const { has, hasAny, isLoading } = usePermissions();
   const sectionActive = pathname.startsWith(prefix);
   const [open, setOpen] = useState(sectionActive);
   useEffect(() => { if (sectionActive) setOpen(true); }, [sectionActive]);
 
-  const visible = children.filter((c) => !c.adminOnly || isAdmin);
+  const visible = children.filter((c) => {
+    if (isLoading) return false;
+    if (c.adminOnly && !isAdmin) return false;
+    if (c.permission && !has(c.permission)) return false;
+    if (c.anyOf && !hasAny(c.anyOf)) return false;
+    return true;
+  });
+
+  if (visible.length === 0) return null;
 
   return (
     <div>
@@ -139,10 +148,14 @@ function ExpandableGroup({
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isAdmin, canManage } = useUserRole();
+  const { has, hasAny, isLoading } = usePermissions();
   const visible = nav.filter((n) => {
+    if (isLoading) return false;
     if (n.adminOnly && !isAdmin) return false;
     // managerOnly = Owner or Admin (canManage). Reception/Staff use House View.
     if (n.managerOnly && !canManage) return false;
+    if (n.permission && !has(n.permission)) return false;
+    if (n.anyOf && !hasAny(n.anyOf)) return false;
     return true;
   });
   return (
