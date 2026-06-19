@@ -52,6 +52,10 @@ export interface BrandingSettings {
   portal_title: string;
   welcome_message: string;
   invoice_footer: string;
+  /** Base64 data URL of the authorised-signatory signature image. Empty = none. */
+  signature_url: string;
+  /** Free-text designation rendered beneath the signature (e.g. "Authorised Signatory · Hotel Excella"). */
+  signatory_designation: string;
 }
 /**
  * Documents Retention setting.
@@ -79,6 +83,8 @@ export const DEFAULT_BRANDING: BrandingSettings = {
   portal_title: "Welcome to Hotel Excella",
   welcome_message: "Thank you for choosing us. We look forward to hosting you.",
   invoice_footer: "Thank you for staying with us.",
+  signature_url: "",
+  signatory_designation: "Authorised Signatory · Hotel Excella",
 };
 export const DEFAULT_DOCUMENTS_RETENTION: DocumentsRetentionSettings = {
   retention_days: 60,
