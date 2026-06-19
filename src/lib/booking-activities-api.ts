@@ -7,6 +7,7 @@ export type BookingActivityAction =
   | "revert_check_out"
   | "checkout_override"
   | "cancelled"
+  | "no_show"
   | "reactivated";
 
 export interface BookingActivityRow {
