@@ -15,6 +15,7 @@ import {
   updateGuestPortalDetails,
   confirmRazorpayPayment,
 } from "@/lib/portal.functions";
+import { useOpsTimeLabels } from "@/lib/check-times";
 import { PortalPaymentOptions, type PortalPaymentChoice } from "@/components/portal/payment-options";
 
 export const Route = createFileRoute("/portal/$token")({
@@ -148,8 +149,8 @@ function GuestPortal() {
           <div className="text-xs uppercase tracking-wider text-gold mb-1">Booking · {b.reference}</div>
           <h1 className="font-display text-2xl mb-3">Welcome, {b.guestName}</h1>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <Field label="Check-In" value={b.checkIn} />
-            <Field label="Check-Out" value={b.checkOut} />
+            <StayField label="Check-In" date={b.checkIn} kind="in" />
+            <StayField label="Check-Out" date={b.checkOut} kind="out" />
             <Field label="Room" value={b.roomType} />
             <Field label="Guests" value={String(b.guests)} />
             <Field label="Payable" value={inr(b.payable)} />
@@ -207,6 +208,24 @@ function Field({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="text-foreground">{value || "—"}</div>
+    </div>
+  );
+}
+
+/**
+ * Stay-date field that joins the standard hotel check-in/out time from
+ * Operations settings to the date, so the guest always sees both
+ * "17-Jun-2026" AND "1:00 PM" — never date alone.
+ */
+function StayField({ label, date, kind }: { label: string; date: string; kind: "in" | "out" }) {
+  const t = useOpsTimeLabels();
+  const formatted = date ? new Date(date + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "";
+  const time = kind === "in" ? t.checkIn : t.checkOut;
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-foreground">{formatted || "—"}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">{time}</div>
     </div>
   );
 }
