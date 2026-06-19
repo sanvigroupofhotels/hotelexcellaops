@@ -846,9 +846,20 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
           )}
           {primary && (
             <button onClick={primary.onClick}
-              disabled={performCheckIn.isPending || checkOutMut.isPending}
+              disabled={performCheckIn.isPending || checkOutMut.isPending || noShowMut.isPending}
               className={cn("flex-1 text-center rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60", toneCls(primary.tone))}>
               {(performCheckIn.isPending || checkOutMut.isPending) ? "Working…" : primary.label}
+            </button>
+          )}
+          {canTransact && status !== "Checked-In" && today > b.check_in && (
+            <button
+              onClick={() => {
+                if (!confirm("Mark this booking as No-Show?")) return;
+                noShowMut.mutate();
+              }}
+              disabled={noShowMut.isPending}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-3 py-2 text-xs font-medium hover:bg-destructive/20 disabled:opacity-60">
+              {noShowMut.isPending ? "Working…" : "Mark No-Show"}
             </button>
           )}
         </div>
