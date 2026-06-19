@@ -81,7 +81,10 @@ function UsersPage() {
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1200px] space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <p className="text-sm text-muted-foreground">
-            Staff see only Quotes, Customers, Tasks, Follow-ups & Calendar. Admins see everything including this page.
+            Manage user accounts here. Roles and the permission matrix are configured in{" "}
+            <a className="text-gold underline-offset-2 hover:underline" href="/users/roles">Role Management</a>;
+            per-user overrides live in{" "}
+            <a className="text-gold underline-offset-2 hover:underline" href="/users/access">Access Management</a>.
           </p>
           <button
             onClick={() => setShowCreate(true)}
