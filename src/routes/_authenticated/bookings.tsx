@@ -25,6 +25,17 @@ export const Route = createFileRoute("/_authenticated/bookings")({
   component: BookingsPage,
 });
 
+/**
+ * Route gate: only Owner / Admin can view the bookings list. Reception &
+ * Staff are redirected to House View when they hit /bookings directly. The
+ * sidebar already hides the link for them — this catches deep-link / typed
+ * URL access. Role is read client-side because that's how the rest of the
+ * app gates today; RLS on bookings is the real backend guard.
+ */
+function GatedBookingsPage() {
+  return <ManagerGate><BookingsPage /></ManagerGate>;
+}
+
 const STATUS_FILTERS = ["All", "Pending", "Advance Paid", "Full Paid", "Checked-In", "Checked-Out", "Cancelled"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
