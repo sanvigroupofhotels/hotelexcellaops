@@ -182,6 +182,13 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
         label="Reporting" icon={FileBarChart} prefix="/reporting"
         children={reportingChildren} onNavigate={onNavigate} pathname={pathname}
       />
+      {/* Users group — admin only */}
+      {isAdmin && (
+        <ExpandableGroup
+          label="Users" icon={UsersRound} prefix="/users"
+          children={usersChildren} onNavigate={onNavigate} pathname={pathname}
+        />
+      )}
       {/* Settings group — admin only */}
       {isAdmin && (
         <ExpandableGroup
