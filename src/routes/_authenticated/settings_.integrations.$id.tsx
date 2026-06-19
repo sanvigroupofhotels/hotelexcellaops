@@ -137,10 +137,27 @@ function Content({ id }: { id: string }) {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const debugInfo = useMemo<Partial<SyncDebugResponse> | null>(() => {
+  // Dry-run preview: hits the same endpoint with dryRun=1 — same Gmail fetch
+  // + parser + dedupe, no writes. Result shows "Would Create" / "Would
+  // Update" counts so staff can decide whether to import for real.
+  const runPreview = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/public/hotelzify-poll?debug=1&dryRun=1&integration_id=${id}`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `Preview failed (${res.status})`);
+      return data as SyncDebugResponse & { dryRun: boolean };
+    },
+    onSuccess: (d) => {
+      toast.success(`Preview · scanned ${d.scanned} · would create ${d.created} · would update ${d.updated}`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const debugInfo = useMemo<Partial<SyncDebugResponse & { dryRun: boolean }> | null>(() => {
+    if (runPreview.data) return runPreview.data;
     if (runSync.data) return runSync.data;
     return null;
-  }, [runSync.data]);
+  }, [runSync.data, runPreview.data]);
 
   if (isLoading || !row) return <div className="p-8"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>;
 
