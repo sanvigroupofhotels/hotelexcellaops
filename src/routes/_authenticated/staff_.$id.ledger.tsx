@@ -9,9 +9,10 @@ import {
   listStaffHr, listAdvances, listSalaryPayments,
   monthKey,
 } from "@/lib/staff-hr-api";
+import { PermissionGate } from "@/components/permission-gate";
 
 export const Route = createFileRoute("/_authenticated/staff_/$id/ledger")({
-  component: LedgerPage,
+  component: () => <PermissionGate anyOf={["staff.master", "staff.salary"]}><LedgerPage /></PermissionGate>,
 });
 
 function inr(n: number) {
