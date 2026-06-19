@@ -11,8 +11,11 @@ import {
   type AttendanceStatus, listStaffHr, monthRange, monthKey,
 } from "@/lib/staff-hr-api";
 import { useUserRole } from "@/hooks/use-role";
+import { PermissionGate } from "@/components/permission-gate";
 
-export const Route = createFileRoute("/_authenticated/attendance")({ component: AttendancePage });
+export const Route = createFileRoute("/_authenticated/attendance")({
+  component: () => <PermissionGate permission="staff.attendance"><AttendancePage /></PermissionGate>,
+});
 
 const STATUS_CYCLE: (AttendanceStatus | null)[] = [null, "Present", "Absent", "HalfDay", "Leave"];
 const STATUS_GLYPH: Record<AttendanceStatus, string> = { Present: "P", Absent: "A", HalfDay: "H", Leave: "L" };
