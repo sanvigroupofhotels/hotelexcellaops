@@ -1080,6 +1080,7 @@ function formatActivity(a: any): string {
     case "checkout_override":
       return `Check-Out Override · Outstanding ₹${Number(a.metadata?.outstanding_balance || 0).toLocaleString("en-IN")}`;
     case "cancelled": return "Cancelled";
+    case "no_show": return "Marked No-Show";
     case "reactivated": return `Status → ${a.to_status}`;
     default: return a.action;
   }
