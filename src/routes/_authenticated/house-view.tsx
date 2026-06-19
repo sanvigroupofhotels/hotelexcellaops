@@ -58,6 +58,8 @@ function blockClasses(status: string): string {
       return "bg-blue-500/85 text-white border-blue-700";
     case "Cancelled":
       return "bg-destructive/40 text-foreground border-destructive/60 line-through";
+    case "No-Show":
+      return "bg-destructive/60 text-white border-destructive line-through";
     case "Pending":
     case "Confirmed":
     default:
