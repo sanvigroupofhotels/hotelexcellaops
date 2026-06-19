@@ -200,8 +200,14 @@ export function InvoiceDialog({
               {isFinal ? "Final Stay Details" : "Stay Details"}
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
-              <div><span className="text-muted-foreground">Check-in: </span>{fmtDate(booking.check_in)}</div>
-              <div><span className="text-muted-foreground">Check-out: </span>{fmtDate(booking.check_out)}</div>
+              <div>
+                <span className="text-muted-foreground">Check-in: </span>{fmtDate(booking.check_in)}
+                <span className="text-[10px] text-muted-foreground"> · {checkTimes.checkIn}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Check-out: </span>{fmtDate(booking.check_out)}
+                <span className="text-[10px] text-muted-foreground"> · {checkTimes.checkOut}</span>
+              </div>
               <div><span className="text-muted-foreground">Nights: </span>{booking.nights}</div>
               <div><span className="text-muted-foreground">Guests: </span>{booking.adults} Adult{booking.adults === 1 ? "" : "s"}{booking.children > 0 ? ` + ${booking.children} Child${booking.children === 1 ? "" : "ren"}` : ""}</div>
               {booking.room_details && <div className="col-span-2"><span className="text-muted-foreground">Room: </span>{booking.room_details}</div>}
@@ -316,10 +322,26 @@ export function InvoiceDialog({
             </div>
           </div>
 
-          <div className="pt-4 text-center text-[11px] text-muted-foreground border-t border-border">
-            {isFinal
-              ? "Thank you for staying with Hotel Excella. We hope to welcome you again."
-              : "This is a Proforma Invoice. Final invoice will be issued after checkout."}
+          {/* Footer: signature (bottom-right) + thank-you note */}
+          <div className="pt-6 mt-2 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+            <div className="text-[11px] text-muted-foreground">
+              {branding?.invoice_footer ||
+                (isFinal
+                  ? "Thank you for staying with Hotel Excella. We hope to welcome you again."
+                  : "This is a Proforma Invoice. Final invoice will be issued after checkout.")}
+            </div>
+            <div className="text-right text-[11px] text-muted-foreground">
+              {branding?.signature_url ? (
+                <img src={branding.signature_url} alt="Authorised signature"
+                  className="ml-auto mb-1 h-14 w-auto max-w-[180px] object-contain bg-white rounded p-1" />
+              ) : (
+                <div className="ml-auto mb-1 h-14 w-[160px] border-b border-dashed border-border" />
+              )}
+              <div className="text-foreground font-medium">
+                {branding?.signatory_designation || "Authorised Signatory"}
+              </div>
+              <div>{HOTEL.name}</div>
+            </div>
           </div>
         </div>
       </div>
