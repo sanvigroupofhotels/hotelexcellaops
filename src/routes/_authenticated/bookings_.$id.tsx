@@ -546,8 +546,10 @@ function BookingDetail() {
               {(() => {
                 const canCheckIn = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any)
                   && toLocalYMD() >= b.check_in;
+                const canMarkNoShow = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any)
+                  && toLocalYMD() > b.check_in;
                 const canCheckOut = b.status === "Checked-In";
-                const canCancel = !["Checked-In", "Checked-Out", "Cancelled"].includes(b.status as any);
+                const canCancel = !["Checked-In", "Checked-Out", "Cancelled", "No-Show"].includes(b.status as any);
                 const handleCheckOutClick = () => {
                   // Block overpayment — but offer to process refund inline.
                   if (overpaid > 0) {
