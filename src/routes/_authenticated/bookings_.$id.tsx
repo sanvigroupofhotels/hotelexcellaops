@@ -597,6 +597,16 @@ function BookingDetail() {
                         <LogIn className="h-3.5 w-3.5" /> Check-In
                       </button>
                     )}
+                    {canMarkNoShow && (
+                      <button
+                        onClick={() => {
+                          if (!confirm("Mark this booking as No-Show? The guest will be recorded as never arrived.")) return;
+                          status.mutate("No-Show" as any);
+                        }}
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] text-destructive hover:bg-destructive/20">
+                        Mark No-Show
+                      </button>
+                    )}
                     {!canCheckIn && ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any) && (
                       <div className="text-[11px] text-muted-foreground italic">
                         Check-In available from {new Date(b.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
