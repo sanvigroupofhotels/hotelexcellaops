@@ -46,7 +46,10 @@ function AccessSettingsPage() {
       if (ctx?.prev) qc.setQueryData(["access-matrix"], ctx.prev);
       toast.error(e.message ?? "Failed to update permission");
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["access-matrix"] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["access-matrix"] });
+      qc.invalidateQueries({ queryKey: ["my-permissions"] });
+    },
   });
 
   const [showNewRole, setShowNewRole] = useState(false);
