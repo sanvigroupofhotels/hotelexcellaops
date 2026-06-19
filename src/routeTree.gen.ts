@@ -44,6 +44,9 @@ import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/publi
 import { Route as ApiPublicNightAuditRouteImport } from './routes/api/public/night-audit'
 import { Route as ApiPublicHotelzifyPollRouteImport } from './routes/api/public/hotelzify-poll'
 import { Route as ApiPublicCleanupGuestDocumentsRouteImport } from './routes/api/public/cleanup-guest-documents'
+import { Route as AuthenticatedUsersRolesRouteImport } from './routes/_authenticated/users.roles'
+import { Route as AuthenticatedUsersManagementRouteImport } from './routes/_authenticated/users.management'
+import { Route as AuthenticatedUsersAccessRouteImport } from './routes/_authenticated/users.access'
 import { Route as AuthenticatedStaffManagementSalaryRouteImport } from './routes/_authenticated/staff-management.salary'
 import { Route as AuthenticatedStaffManagementMasterRouteImport } from './routes/_authenticated/staff-management.master'
 import { Route as AuthenticatedStaffManagementAttendanceRouteImport } from './routes/_authenticated/staff-management.attendance'
@@ -247,6 +250,23 @@ const ApiPublicCleanupGuestDocumentsRoute =
     path: '/api/public/cleanup-guest-documents',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedUsersRolesRoute = AuthenticatedUsersRolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => AuthenticatedUsersRoute,
+} as any)
+const AuthenticatedUsersManagementRoute =
+  AuthenticatedUsersManagementRouteImport.update({
+    id: '/management',
+    path: '/management',
+    getParentRoute: () => AuthenticatedUsersRoute,
+  } as any)
+const AuthenticatedUsersAccessRoute =
+  AuthenticatedUsersAccessRouteImport.update({
+    id: '/access',
+    path: '/access',
+    getParentRoute: () => AuthenticatedUsersRoute,
+  } as any)
 const AuthenticatedStaffManagementSalaryRoute =
   AuthenticatedStaffManagementSalaryRouteImport.update({
     id: '/salary',
@@ -406,7 +426,7 @@ export interface FileRoutesByFullPath {
   '/staff': typeof AuthenticatedStaffRoute
   '/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
-  '/users': typeof AuthenticatedUsersRoute
+  '/users': typeof AuthenticatedUsersRouteWithChildren
   '/portal/$token': typeof PortalTokenRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
@@ -426,6 +446,9 @@ export interface FileRoutesByFullPath {
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
+  '/users/access': typeof AuthenticatedUsersAccessRoute
+  '/users/management': typeof AuthenticatedUsersManagementRoute
+  '/users/roles': typeof AuthenticatedUsersRolesRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
@@ -462,7 +485,7 @@ export interface FileRoutesByTo {
   '/staff': typeof AuthenticatedStaffRoute
   '/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
-  '/users': typeof AuthenticatedUsersRoute
+  '/users': typeof AuthenticatedUsersRouteWithChildren
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
@@ -483,6 +506,9 @@ export interface FileRoutesByTo {
   '/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
+  '/users/access': typeof AuthenticatedUsersAccessRoute
+  '/users/management': typeof AuthenticatedUsersManagementRoute
+  '/users/roles': typeof AuthenticatedUsersRolesRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
@@ -522,7 +548,7 @@ export interface FileRoutesById {
   '/_authenticated/staff': typeof AuthenticatedStaffRoute
   '/_authenticated/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
-  '/_authenticated/users': typeof AuthenticatedUsersRoute
+  '/_authenticated/users': typeof AuthenticatedUsersRouteWithChildren
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
@@ -543,6 +569,9 @@ export interface FileRoutesById {
   '/_authenticated/staff-management/attendance': typeof AuthenticatedStaffManagementAttendanceRoute
   '/_authenticated/staff-management/master': typeof AuthenticatedStaffManagementMasterRoute
   '/_authenticated/staff-management/salary': typeof AuthenticatedStaffManagementSalaryRoute
+  '/_authenticated/users/access': typeof AuthenticatedUsersAccessRoute
+  '/_authenticated/users/management': typeof AuthenticatedUsersManagementRoute
+  '/_authenticated/users/roles': typeof AuthenticatedUsersRolesRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
@@ -603,6 +632,9 @@ export interface FileRouteTypes {
     | '/staff-management/attendance'
     | '/staff-management/master'
     | '/staff-management/salary'
+    | '/users/access'
+    | '/users/management'
+    | '/users/roles'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
@@ -660,6 +692,9 @@ export interface FileRouteTypes {
     | '/staff-management/attendance'
     | '/staff-management/master'
     | '/staff-management/salary'
+    | '/users/access'
+    | '/users/management'
+    | '/users/roles'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
@@ -719,6 +754,9 @@ export interface FileRouteTypes {
     | '/_authenticated/staff-management/attendance'
     | '/_authenticated/staff-management/master'
     | '/_authenticated/staff-management/salary'
+    | '/_authenticated/users/access'
+    | '/_authenticated/users/management'
+    | '/_authenticated/users/roles'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
@@ -987,6 +1025,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCleanupGuestDocumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/users/roles': {
+      id: '/_authenticated/users/roles'
+      path: '/roles'
+      fullPath: '/users/roles'
+      preLoaderRoute: typeof AuthenticatedUsersRolesRouteImport
+      parentRoute: typeof AuthenticatedUsersRoute
+    }
+    '/_authenticated/users/management': {
+      id: '/_authenticated/users/management'
+      path: '/management'
+      fullPath: '/users/management'
+      preLoaderRoute: typeof AuthenticatedUsersManagementRouteImport
+      parentRoute: typeof AuthenticatedUsersRoute
+    }
+    '/_authenticated/users/access': {
+      id: '/_authenticated/users/access'
+      path: '/access'
+      fullPath: '/users/access'
+      preLoaderRoute: typeof AuthenticatedUsersAccessRouteImport
+      parentRoute: typeof AuthenticatedUsersRoute
+    }
     '/_authenticated/staff-management/salary': {
       id: '/_authenticated/staff-management/salary'
       path: '/salary'
@@ -1213,6 +1272,21 @@ const AuthenticatedStaffManagementRouteWithChildren =
     AuthenticatedStaffManagementRouteChildren,
   )
 
+interface AuthenticatedUsersRouteChildren {
+  AuthenticatedUsersAccessRoute: typeof AuthenticatedUsersAccessRoute
+  AuthenticatedUsersManagementRoute: typeof AuthenticatedUsersManagementRoute
+  AuthenticatedUsersRolesRoute: typeof AuthenticatedUsersRolesRoute
+}
+
+const AuthenticatedUsersRouteChildren: AuthenticatedUsersRouteChildren = {
+  AuthenticatedUsersAccessRoute: AuthenticatedUsersAccessRoute,
+  AuthenticatedUsersManagementRoute: AuthenticatedUsersManagementRoute,
+  AuthenticatedUsersRolesRoute: AuthenticatedUsersRolesRoute,
+}
+
+const AuthenticatedUsersRouteWithChildren =
+  AuthenticatedUsersRoute._addFileChildren(AuthenticatedUsersRouteChildren)
+
 interface AuthenticatedRouteChildren {
   AuthenticatedAccessSettingsRoute: typeof AuthenticatedAccessSettingsRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
@@ -1239,7 +1313,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedStaffRoute: typeof AuthenticatedStaffRoute
   AuthenticatedStaffManagementRoute: typeof AuthenticatedStaffManagementRouteWithChildren
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
-  AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
+  AuthenticatedUsersRoute: typeof AuthenticatedUsersRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedBookingsIdRoute: typeof AuthenticatedBookingsIdRoute
   AuthenticatedBookingsNewRoute: typeof AuthenticatedBookingsNewRoute
@@ -1279,7 +1353,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedStaffManagementRoute:
     AuthenticatedStaffManagementRouteWithChildren,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
-  AuthenticatedUsersRoute: AuthenticatedUsersRoute,
+  AuthenticatedUsersRoute: AuthenticatedUsersRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedBookingsIdRoute: AuthenticatedBookingsIdRoute,
   AuthenticatedBookingsNewRoute: AuthenticatedBookingsNewRoute,
@@ -1309,13 +1383,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

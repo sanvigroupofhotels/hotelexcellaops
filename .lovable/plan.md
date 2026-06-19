@@ -1,80 +1,121 @@
-## Consolidated Hardening Shipment — Plan
+## Shipment Plan — Comms sweep, Users hierarchy, Night Audit Action Center, Invoice redesign
 
-This shipment closes the remaining operational items. I'll group the work into focused phases and ship in this order. Items 8 (keep OTAs disabled) and 9 (UAT) are policy/QA and need no code.
+### Phase 1 — Communication Time Sweep (final)
+**Goal**: Every check-in/out display shows `dd-MMM-yyyy, h:mm AM/PM` using `useOpsTimeLabels()` (or `getOpsTimeLabels()` for sync builders).
 
----
+Audit + fix:
+- `src/routes/_authenticated/bookings_.$id.tsx` — Booking Preview / Detail header & summary cards (HIGH PRIORITY — this is the user's #1 complaint).
+- `src/routes/_authenticated/house-view.tsx` — popups, arrival/departure tiles.
+- `src/routes/_authenticated/bookings.tsx` — list rows.
+- `src/routes/_authenticated/bookings_.new.tsx` + `bookings_.$id_.edit.tsx` — summary panels.
+- `src/lib/booking-messages.ts` — WhatsApp / email confirmation strings (use sync `getOpsTimeLabels()`).
+- `src/components/invoice-dialog.tsx`, `src/components/quote-summary.tsx`, `src/components/pricing-breakdown.tsx`.
+- `src/routes/portal.$token.tsx` (verify).
+- Any `format(date, "dd-MMM-yyyy")` for check-in/out across the codebase — `rg` sweep, replace.
 
-### Phase A — Access Management restoration (items 1 + 2)
+### Phase 2 — Users hierarchy (Sidebar reorganization)
+**Goal**: Collapse `User Management` + `Access Management` (and new `Role Management`) under a single `Users` expandable group.
 
-**Restore the Access Settings page** under Settings → Access Management. Route: `/settings/access`. The page already exists at `src/routes/_authenticated/access-settings.tsx` and the API/tables (`roles`, `permissions`, `role_permissions`, `has_role`) are intact — it was only unlinked from the sidebar.
+- `src/components/app-sidebar.tsx`: remove standalone `User Management` and `Access Management` items; add `ExpandableGroup label="Users" prefix="/users"` with three children:
+  - `/users/management` → User Management
+  - `/users/roles` → Role Management (NEW)
+  - `/users/access` → Access Management
+- Create routes:
+  - `src/routes/_authenticated/users.tsx` (layout `<Outlet />`)
+  - `src/routes/_authenticated/users.management.tsx` (move existing `users.tsx` content here)
+  - `src/routes/_authenticated/users.roles.tsx` (NEW — see Phase 3)
+  - `src/routes/_authenticated/users.access.tsx` (re-export of existing `access-settings.tsx` content)
+- Keep `/users` redirecting to `/users/management`.
 
-- Add **Access Management** as a 6th item in the Settings expandable group in `app-sidebar.tsx` (admin only).
-- Add a new route file `settings.access.tsx` that renders the existing access-settings UI inside the Settings layout (or move the page in-place and redirect the old path).
-- Wire the **Bookings** menu item + `/bookings` route to a permission key (`bookings.view`). Hide in sidebar AND block direct URL via a `beforeLoad` permission check that redirects non-permitted users to `/house-view`.
-- Seed default matrix:
-  - Bookings list → Owner ✓, Admin ✓, Reception ✗, Staff ✗
-  - House View, Due Collection → all roles ✓
-  - User Management, Settings, Master Data → Owner ✓, Admin ✓ only
-- Reception/Staff land on `/house-view` after login (already their default per `AdminOnly`).
+### Phase 3 — Role Management page (NEW)
+At `/users/roles`. Reads from `roles`, `permissions`, `role_permissions` (existing tables — already used by `access-api.ts`).
+- List all roles with row counts.
+- Inline create / rename / delete (non-system roles only).
+- Permission matrix (role × permission grid with toggle), grouped by `permissions.module`.
+- Uses existing `togglePermission`, `createRole`, `updateRole`, `deleteRole`.
 
-### Phase B — Communication time sweep (item 3, HIGH PRIORITY)
+### Phase 4 — Access Management = user-level overrides
+Refactor `/users/access` to be **per-user permission overrides** on top of role-derived perms. Requires new table:
+```sql
+CREATE TABLE public.user_permission_overrides (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  permission_key text not null references public.permissions(key) on delete cascade,
+  granted boolean not null default true,  -- true=grant override, false=deny override
+  expires_at timestamptz null,
+  notes text,
+  created_at timestamptz default now(),
+  unique(user_id, permission_key)
+);
+```
++ GRANTs, RLS (admin manage, self read), and update `my_permissions()` RPC to union role perms with `granted=true` overrides and subtract `granted=false` overrides (respecting `expires_at`).
 
-Audit every guest- and staff-facing booking summary and replace any `format(date, "dd-MMM-yyyy")` of check-in/out with `formatStayDateTime(date, opsTimes)` using `useOpsTimeLabels()` / `getOpsTimeLabels()` from `src/lib/check-times.ts`.
+UI: pick a user → see effective permissions (role-inherited vs override) → add/remove overrides with optional expiry.
 
-Surfaces to sweep:
-- Guest Portal (`portal.$token.tsx`)
-- Booking Detail (`bookings_.$id.tsx`) — header summary
-- Booking Preview / Confirmation link rendering
-- Proforma + Invoice (`invoice-dialog.tsx`, `quote.$id.tsx`)
-- Email templates / `booking-messages.ts` (re-check)
-- House View popup + Reservation popups (`house-view.tsx`)
-- OTA imported bookings display
-- Customers detail booking list, Dues page
+### Phase 5 — Night Audit UX
+- `src/routes/_authenticated/house-view.tsx`: remove second "Night Audit" button next to Business Date; keep only the top-right one.
+- `src/components/night-audit-dialog.tsx`: convert to **Action Center**:
+  - Tabbed/sectioned: Pending Check-Ins | Pending Check-Outs | Audit Summary.
+  - Row columns: Booking ID, Guest, Room, Check-In, Check-Out, Status.
+  - Row actions: View (link to detail), Check-In (open existing check-in flow / dialog), Check-Out, Extend Stay (existing extend dialog).
+  - Footer keeps the existing "Perform Night Audit" button (disabled until both lists empty).
 
-Pattern: render as `17-Jun-2026, 1:00 PM` (date + time from Operations settings).
+### Phase 6 — Invoice & Proforma redesign (HIGH PRIORITY)
+Rewrite `src/components/invoice-dialog.tsx` print layout for a single-page, hotel-grade A4 document that also reflows on mobile.
 
-### Phase C — Payment Settings relocation (item 4)
+Layout (single page when possible):
+```
+┌──────────────────────────────────────────────┐
+│  [LOGO]   HOTEL EXCELLA              INVOICE │
+│           address · GST · contact     #INV-… │
+│                                       Date    │
+├──────────────────────────────────────────────┤
+│  Bill To             │  Stay Details         │
+│  Guest name          │  Check-In  17-Jun, 1PM│
+│  Phone · Email       │  Check-Out 18-Jun,11AM│
+│  Address             │  Nights · Adults/Kids │
+│                      │  Room(s)              │
+├──────────────────────────────────────────────┤
+│  Description       Qty   Rate   GST   Amount │
+│  Room charge …                               │
+│  Extra charges…                              │
+├──────────────────────────────────────────────┤
+│  Payment History                Sub-total    │
+│  date · mode · ref · amt        Tax          │
+│                                 TOTAL  ₹     │
+│                                 Paid         │
+│                                 Balance      │
+├──────────────────────────────────────────────┤
+│  Refunds (if any)                            │
+├──────────────────────────────────────────────┤
+│  Notes / Terms              Authorized Sig.  │
+│  Thank you for staying      [signature.png]  │
+│                             Designation      │
+└──────────────────────────────────────────────┘
+```
 
-- New route `src/routes/_authenticated/settings.payment-settings.tsx` rendering the existing `payment-settings-section.tsx`.
-- Add to Settings sidebar group between **Documents Retention** and **Integrations**.
-- Remove the Payment Settings tab/section from Master Data.
-- Confirm `bookings_.new.tsx` and `bookings_.$id_.edit.tsx` already read defaults from app_settings on create (they do — `payment_terms`, `cancellation_policy`, etc. are inherited). Document override behavior in payment-settings UI copy.
+Implementation:
+- Use Tailwind print + responsive utilities (`print:`, `sm:`, `md:`), `@page { size: A4; margin: 12mm }`.
+- Compact typography (11pt body, 9pt table), tight spacing.
+- All check-in/out timestamps via `useOpsTimeLabels()`.
+- Premium feel: subtle gold rule lines (`border-gold/30`), serif display font for headings already in theme, no heavy fills.
+- Mobile: single column, totals card pinned, tables horizontally scrollable only if necessary.
+- Proforma variant: same shell, header label "PROFORMA INVOICE", omits payment history (or shows "advance received").
 
-### Phase D — Invoice & Proforma redesign + signature (items 5 + 6)
+### Phase 7 — Payment Settings inheritance verification
+- Read `bookings_.new.tsx` + `bookings_.$id_.edit.tsx` and confirm `getPaymentSettings()` defaults populate `payment_mode`, `payment_terms`, etc.
+- Add fallback initializer where missing. Booking-level edits already override (existing form state).
 
-- Redesign `invoice-dialog.tsx` for a hotel-grade single-page layout:
-  - Header: logo + hotel block (left), invoice meta (right)
-  - Guest + Stay summary (two-column, includes check-in/out time from C)
-  - Charges table with right-aligned amounts, GST breakdown
-  - Totals block (subtotal / discount / tax / total / paid / balance)
-  - Payment history compact strip
-  - Refunds section only when present
-  - Footer: terms + bank details + signature
-- **Signature**: add `signature_url` and `signatory_designation` to Branding settings.
-  - Create storage bucket `branding` (public-read).
-  - Upload control in `settings.branding.tsx`.
-  - Render bottom-right of Invoice + Proforma: "Authorized Signatory / [image] / Hotel name / Group name".
-- Same layout applied to proforma rendering in `quote.$id.tsx`.
-
-### Phase E — OTA Preview / Dry-run mode (item 7)
-
-- Add `?dryRun=1` support to `hotelzify-poll.ts` (and FabHotels poller when wired): same parse + dedupe pipeline, no writes; returns `{ scanned, wouldCreate, wouldUpdate, wouldSkip, potentialDuplicates, items[] }`.
-- In `settings_.integrations.$id.tsx`, add **Run Preview** button next to **Run Now** that calls the poller in dry-run and displays a summary modal with the counts and per-email status, then offers **Import** (real run) or **Cancel**.
-
-### Phase F — Items 8 + 9
-
-- Hotelzify and FabHotels remain `enabled = false`. Verified — no change.
-- UAT — I'll spot-check each surface in B (comms times), D (invoice/proforma), payment consistency, refund flow, guest documents, business date / night audit after shipping, and report findings.
-
----
-
-### Out of scope this turn
-
-- FabHotels Deep UAT — parked per your instruction.
-- New email templates beyond time-format fixes.
+### Out of scope (per user)
+- FabHotels & Hotelzify stay disabled. No parser work this shipment.
 
 ### Order of execution
+1. Phase 1 (comms sweep, fastest user-visible win)
+2. Phase 5 (Night Audit UX — small, isolated)
+3. Phase 2 (sidebar + route shells)
+4. Phase 3 (Role Management page)
+5. Phase 4 (Access overrides — migration + UI)
+6. Phase 7 (payment defaults verification)
+7. Phase 6 (Invoice redesign — largest)
 
-A → B → C → E → D (largest visual work last) → F (verify).
-
-If anything in this scope should be deferred to a follow-up shipment, say which phase to drop and I'll proceed with the rest.
+Proceeding in this order. Each phase compiles independently so partial shipment is safe.

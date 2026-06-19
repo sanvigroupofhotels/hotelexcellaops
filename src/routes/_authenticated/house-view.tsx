@@ -9,6 +9,7 @@ import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck } from "lucide-react";
 import { NightAuditDialog } from "@/components/night-audit-dialog";
+import { useOpsTimeLabels } from "@/lib/check-times";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
 import { toast } from "sonner";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
@@ -320,7 +321,14 @@ function HouseView() {
 
   return (
     <>
-      <Topbar title="House View" subtitle={`Business Date: ${todayLabel}${businessDate && businessDate !== dateKey(new Date()) ? ` · System: ${systemLabel}` : ""}`} />
+      <Topbar title="House View" subtitle={`Business Date: ${todayLabel}${businessDate && businessDate !== dateKey(new Date()) ? ` · System: ${systemLabel}` : ""}`}
+        action={
+          <button onClick={() => setAuditOpen(true)}
+            className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5"
+            title="Perform Night Audit">
+            <ShieldCheck className="h-3.5 w-3.5" /> Night Audit
+          </button>
+        } />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1600px] space-y-4">
 
         <NightAuditPendingBanner onOpen={() => setAuditOpen(true)} businessDate={businessDate} />
@@ -381,11 +389,6 @@ function HouseView() {
             <button onClick={() => setStatsOpen(true)}
               className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5">
               <Hotel className="h-3.5 w-3.5" /> Stats
-            </button>
-            <button onClick={() => setAuditOpen(true)}
-              className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5"
-              title="Perform Night Audit">
-              <ShieldCheck className="h-3.5 w-3.5" /> Night Audit
             </button>
             <span className="text-[11px] text-muted-foreground tabular hidden md:inline">Today · {todayLabel}</span>
           </div>
@@ -627,6 +630,7 @@ function Legend({ cls, label }: { cls: string; label: string }) {
 
 function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean; businessDate?: string }) {
   const qc = useQueryClient();
+  const opsTimes = useOpsTimeLabels();
   const room = rooms.find((r: any) => r.id === b.room_id);
   const { data: chargesForBooking = [] } = useQuery({
     queryKey: ["booking-charges", b.id],
@@ -776,8 +780,8 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
         <div className="grid grid-cols-2 gap-2 text-xs">
           <Field label="Room" value={room ? `Room ${room.room_number}` : "Unassigned"} />
           <Field label="Status" value={b.status} />
-          <Field label="Check-In" value={fmtFull(b.check_in)} />
-          <Field label="Check-Out" value={fmtFull(b.check_out)} />
+          <Field label="Check-In" value={`${fmtFull(b.check_in)}, ${opsTimes.checkIn}`} />
+          <Field label="Check-Out" value={`${fmtFull(b.check_out)}, ${opsTimes.checkOut}`} />
           <Field label="Guests" value={`${b.adults} Adult${b.adults === 1 ? "" : "s"}${b.children ? ` + ${b.children}` : ""}`} />
           <Field label="Breakfast" value={hasBreakfast ? "Included" : "Not Included"} />
           {(b as any).expected_arrival_at && b.status !== "Checked-In" && b.status !== "Checked-Out" && b.status !== "Stay Completed" && (() => {
