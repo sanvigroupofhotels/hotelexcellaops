@@ -88,7 +88,7 @@ function BookingDetail() {
       await setBookingStatus(id, s);
       await logBookingActivity({
         booking_id: id,
-        action: s === "Checked-In" ? "check_in" : s === "Checked-Out" ? "check_out" : s === "Cancelled" ? "cancelled" : "reactivated",
+        action: s === "Checked-In" ? "check_in" : s === "Checked-Out" ? "check_out" : s === "Cancelled" ? "cancelled" : s === "No-Show" ? "no_show" : "reactivated",
         from_status: from ?? null,
         to_status: s,
       });
