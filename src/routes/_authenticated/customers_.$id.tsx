@@ -201,7 +201,7 @@ function CustomerDetail() {
                   <Link key={q.id} to="/quote/$id" params={{ id: q.id }}
                     className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-5 py-3 border-b border-border/50 last:border-0 hover:bg-secondary/40 text-sm">
                     <div className="md:col-span-3 font-mono text-xs text-muted-foreground">{q.reference_code}</div>
-                    <div className="md:col-span-4">{new Date(q.check_in).toLocaleDateString("en-IN")} – {new Date(q.check_out).toLocaleDateString("en-IN")}</div>
+                    <div className="md:col-span-4">{new Date(q.check_in + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – {new Date(q.check_out + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
                     <div className="md:col-span-3 font-medium tabular-nums">₹{Number(q.total).toLocaleString("en-IN")}</div>
                     <div className="md:col-span-2"><StatusPill status={q.status} /></div>
                   </Link>
@@ -221,7 +221,7 @@ function CustomerDetail() {
                   <Link key={b.id} to="/bookings/$id" params={{ id: b.id }}
                     className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-5 py-3 border-b border-border/50 last:border-0 hover:bg-secondary/40 text-sm">
                     <div className="md:col-span-3 font-mono text-xs text-muted-foreground">{b.booking_reference}</div>
-                    <div className="md:col-span-4">{new Date(b.check_in).toLocaleDateString("en-IN")} – {new Date(b.check_out).toLocaleDateString("en-IN")}</div>
+                    <div className="md:col-span-4">{new Date(b.check_in + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – {new Date(b.check_out + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
                     <div className="md:col-span-3 font-medium tabular-nums">₹{Number(b.amount).toLocaleString("en-IN")}</div>
                     <div className="md:col-span-2">
                       <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]", bookingStatusStyles[b.status as keyof typeof bookingStatusStyles])}>{b.status}</span>
