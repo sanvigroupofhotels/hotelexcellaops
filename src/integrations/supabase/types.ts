@@ -2313,6 +2313,50 @@ export type Database = {
           },
         ]
       }
+      user_permission_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          granted: boolean
+          id: string
+          notes: string | null
+          permission_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          granted: boolean
+          id?: string
+          notes?: string | null
+          permission_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          granted?: boolean
+          id?: string
+          notes?: string | null
+          permission_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permission_overrides_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2379,6 +2423,13 @@ export type Database = {
         Returns: undefined
       }
       sweep_stay_completed: { Args: never; Returns: number }
+      user_effective_permissions: {
+        Args: { _user_id: string }
+        Returns: {
+          permission_key: string
+          source: string
+        }[]
+      }
     }
     Enums: {
       activity_type:
