@@ -12,8 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as BeRouteImport } from './routes/be'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as BeIndexRouteImport } from './routes/be.index'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
+import { Route as BeSearchRouteImport } from './routes/be.search'
+import { Route as BeCheckoutRouteImport } from './routes/be.checkout'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedStaffManagementRouteImport } from './routes/_authenticated/staff-management'
@@ -41,6 +44,7 @@ import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAccessSettingsRouteImport } from './routes/_authenticated/access-settings'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
+import { Route as BeConfirmationRefRouteImport } from './routes/be.confirmation.$ref'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
 import { Route as ApiPublicNightAuditRouteImport } from './routes/api/public/night-audit'
 import { Route as ApiPublicHotelzifyPollRouteImport } from './routes/api/public/hotelzify-poll'
@@ -85,6 +89,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BeIndexRoute = BeIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BeRoute,
+} as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -94,6 +103,16 @@ const PortalTokenRoute = PortalTokenRouteImport.update({
   id: '/portal/$token',
   path: '/portal/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const BeSearchRoute = BeSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => BeRoute,
+} as any)
+const BeCheckoutRoute = BeCheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => BeRoute,
 } as any)
 const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
   id: '/users',
@@ -234,6 +253,11 @@ const AuthenticatedSettingsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const BeConfirmationRefRoute = BeConfirmationRefRouteImport.update({
+  id: '/confirmation/$ref',
+  path: '/confirmation/$ref',
+  getParentRoute: () => BeRoute,
+} as any)
 const ApiPublicRazorpayWebhookRoute =
   ApiPublicRazorpayWebhookRouteImport.update({
     id: '/api/public/razorpay-webhook',
@@ -406,7 +430,7 @@ const AuthenticatedBookingsIdEditRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
-  '/be': typeof BeRoute
+  '/be': typeof BeRouteWithChildren
   '/login': typeof LoginRoute
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
@@ -434,7 +458,10 @@ export interface FileRoutesByFullPath {
   '/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRouteWithChildren
+  '/be/checkout': typeof BeCheckoutRoute
+  '/be/search': typeof BeSearchRoute
   '/portal/$token': typeof PortalTokenRoute
+  '/be/': typeof BeIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
@@ -460,6 +487,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
+  '/be/confirmation/$ref': typeof BeConfirmationRefRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -467,7 +495,6 @@ export interface FileRoutesByFullPath {
   '/staff/$id/ledger': typeof AuthenticatedStaffIdLedgerRoute
 }
 export interface FileRoutesByTo {
-  '/be': typeof BeRoute
   '/login': typeof LoginRoute
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
@@ -494,8 +521,11 @@ export interface FileRoutesByTo {
   '/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRouteWithChildren
+  '/be/checkout': typeof BeCheckoutRoute
+  '/be/search': typeof BeSearchRoute
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
+  '/be': typeof BeIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
@@ -521,6 +551,7 @@ export interface FileRoutesByTo {
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
+  '/be/confirmation/$ref': typeof BeConfirmationRefRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -530,7 +561,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
-  '/be': typeof BeRoute
+  '/be': typeof BeRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
@@ -558,8 +589,11 @@ export interface FileRoutesById {
   '/_authenticated/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/users': typeof AuthenticatedUsersRouteWithChildren
+  '/be/checkout': typeof BeCheckoutRoute
+  '/be/search': typeof BeSearchRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/be/': typeof BeIndexRoute
   '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
   '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
   '/_authenticated/complaints_/$id': typeof AuthenticatedComplaintsIdRoute
@@ -585,6 +619,7 @@ export interface FileRoutesById {
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
+  '/be/confirmation/$ref': typeof BeConfirmationRefRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -623,7 +658,10 @@ export interface FileRouteTypes {
     | '/staff-management'
     | '/tasks'
     | '/users'
+    | '/be/checkout'
+    | '/be/search'
     | '/portal/$token'
+    | '/be/'
     | '/bookings/$id'
     | '/bookings/new'
     | '/complaints/$id'
@@ -649,6 +687,7 @@ export interface FileRouteTypes {
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
+    | '/be/confirmation/$ref'
     | '/settings/'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
@@ -656,7 +695,6 @@ export interface FileRouteTypes {
     | '/staff/$id/ledger'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/be'
     | '/login'
     | '/access-settings'
     | '/analytics'
@@ -683,8 +721,11 @@ export interface FileRouteTypes {
     | '/staff-management'
     | '/tasks'
     | '/users'
+    | '/be/checkout'
+    | '/be/search'
     | '/portal/$token'
     | '/'
+    | '/be'
     | '/bookings/$id'
     | '/bookings/new'
     | '/complaints/$id'
@@ -710,6 +751,7 @@ export interface FileRouteTypes {
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
+    | '/be/confirmation/$ref'
     | '/settings'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
@@ -746,8 +788,11 @@ export interface FileRouteTypes {
     | '/_authenticated/staff-management'
     | '/_authenticated/tasks'
     | '/_authenticated/users'
+    | '/be/checkout'
+    | '/be/search'
     | '/portal/$token'
     | '/_authenticated/'
+    | '/be/'
     | '/_authenticated/bookings_/$id'
     | '/_authenticated/bookings_/new'
     | '/_authenticated/complaints_/$id'
@@ -773,6 +818,7 @@ export interface FileRouteTypes {
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
+    | '/be/confirmation/$ref'
     | '/_authenticated/settings/'
     | '/_authenticated/bookings_/$id_/edit'
     | '/_authenticated/quote/$id_/edit'
@@ -782,7 +828,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
-  BeRoute: typeof BeRoute
+  BeRoute: typeof BeRouteWithChildren
   LoginRoute: typeof LoginRoute
   PortalTokenRoute: typeof PortalTokenRoute
   ApiPublicCleanupGuestDocumentsRoute: typeof ApiPublicCleanupGuestDocumentsRoute
@@ -814,6 +860,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/be/': {
+      id: '/be/'
+      path: '/'
+      fullPath: '/be/'
+      preLoaderRoute: typeof BeIndexRouteImport
+      parentRoute: typeof BeRoute
+    }
     '/_authenticated/': {
       id: '/_authenticated/'
       path: '/'
@@ -827,6 +880,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal/$token'
       preLoaderRoute: typeof PortalTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/be/search': {
+      id: '/be/search'
+      path: '/search'
+      fullPath: '/be/search'
+      preLoaderRoute: typeof BeSearchRouteImport
+      parentRoute: typeof BeRoute
+    }
+    '/be/checkout': {
+      id: '/be/checkout'
+      path: '/checkout'
+      fullPath: '/be/checkout'
+      preLoaderRoute: typeof BeCheckoutRouteImport
+      parentRoute: typeof BeRoute
     }
     '/_authenticated/users': {
       id: '/_authenticated/users'
@@ -1016,6 +1083,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/be/confirmation/$ref': {
+      id: '/be/confirmation/$ref'
+      path: '/confirmation/$ref'
+      fullPath: '/be/confirmation/$ref'
+      preLoaderRoute: typeof BeConfirmationRefRouteImport
+      parentRoute: typeof BeRoute
     }
     '/api/public/razorpay-webhook': {
       id: '/api/public/razorpay-webhook'
@@ -1391,9 +1465,25 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface BeRouteChildren {
+  BeCheckoutRoute: typeof BeCheckoutRoute
+  BeSearchRoute: typeof BeSearchRoute
+  BeIndexRoute: typeof BeIndexRoute
+  BeConfirmationRefRoute: typeof BeConfirmationRefRoute
+}
+
+const BeRouteChildren: BeRouteChildren = {
+  BeCheckoutRoute: BeCheckoutRoute,
+  BeSearchRoute: BeSearchRoute,
+  BeIndexRoute: BeIndexRoute,
+  BeConfirmationRefRoute: BeConfirmationRefRoute,
+}
+
+const BeRouteWithChildren = BeRoute._addFileChildren(BeRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
-  BeRoute: BeRoute,
+  BeRoute: BeRouteWithChildren,
   LoginRoute: LoginRoute,
   PortalTokenRoute: PortalTokenRoute,
   ApiPublicCleanupGuestDocumentsRoute: ApiPublicCleanupGuestDocumentsRoute,
