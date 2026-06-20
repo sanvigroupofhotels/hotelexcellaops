@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as BeRouteImport } from './routes/be'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as BeIndexRouteImport } from './routes/be.index'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
@@ -87,6 +88,11 @@ const BeRoute = BeRouteImport.update({
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalIndexRoute = PortalIndexRouteImport.update({
+  id: '/portal/',
+  path: '/portal/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BeIndexRoute = BeIndexRouteImport.update({
@@ -462,6 +468,7 @@ export interface FileRoutesByFullPath {
   '/be/search': typeof BeSearchRoute
   '/portal/$token': typeof PortalTokenRoute
   '/be/': typeof BeIndexRoute
+  '/portal/': typeof PortalIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
@@ -526,6 +533,7 @@ export interface FileRoutesByTo {
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/be': typeof BeIndexRoute
+  '/portal': typeof PortalIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
@@ -594,6 +602,7 @@ export interface FileRoutesById {
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/be/': typeof BeIndexRoute
+  '/portal/': typeof PortalIndexRoute
   '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
   '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
   '/_authenticated/complaints_/$id': typeof AuthenticatedComplaintsIdRoute
@@ -662,6 +671,7 @@ export interface FileRouteTypes {
     | '/be/search'
     | '/portal/$token'
     | '/be/'
+    | '/portal/'
     | '/bookings/$id'
     | '/bookings/new'
     | '/complaints/$id'
@@ -726,6 +736,7 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/'
     | '/be'
+    | '/portal'
     | '/bookings/$id'
     | '/bookings/new'
     | '/complaints/$id'
@@ -793,6 +804,7 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/_authenticated/'
     | '/be/'
+    | '/portal/'
     | '/_authenticated/bookings_/$id'
     | '/_authenticated/bookings_/new'
     | '/_authenticated/complaints_/$id'
@@ -831,6 +843,7 @@ export interface RootRouteChildren {
   BeRoute: typeof BeRouteWithChildren
   LoginRoute: typeof LoginRoute
   PortalTokenRoute: typeof PortalTokenRoute
+  PortalIndexRoute: typeof PortalIndexRoute
   ApiPublicCleanupGuestDocumentsRoute: typeof ApiPublicCleanupGuestDocumentsRoute
   ApiPublicHotelzifyPollRoute: typeof ApiPublicHotelzifyPollRoute
   ApiPublicNightAuditRoute: typeof ApiPublicNightAuditRoute
@@ -858,6 +871,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal/': {
+      id: '/portal/'
+      path: '/portal'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof PortalIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/be/': {
@@ -1486,6 +1506,7 @@ const rootRouteChildren: RootRouteChildren = {
   BeRoute: BeRouteWithChildren,
   LoginRoute: LoginRoute,
   PortalTokenRoute: PortalTokenRoute,
+  PortalIndexRoute: PortalIndexRoute,
   ApiPublicCleanupGuestDocumentsRoute: ApiPublicCleanupGuestDocumentsRoute,
   ApiPublicHotelzifyPollRoute: ApiPublicHotelzifyPollRoute,
   ApiPublicNightAuditRoute: ApiPublicNightAuditRoute,
