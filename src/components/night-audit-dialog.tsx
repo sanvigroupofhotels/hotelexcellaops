@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Loader2, ShieldCheck, LogIn, LogOut, AlertTriangle, X, CheckCircle2 } from "lucide-react";
+import { Loader2, ShieldCheck, LogIn, LogOut, AlertTriangle, X, CheckCircle2, UserX } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getPendingForAudit, performNightAudit, bulkSetStatus } from "@/lib/night-audit-api";
