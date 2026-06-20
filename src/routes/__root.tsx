@@ -121,11 +121,27 @@ function RootShell({ children }: { children: React.ReactNode }) {
       }
     })();
   `;
+  const portalGuard = `
+    (function(){
+      try {
+        if (location.pathname.indexOf('/portal') === 0) {
+          var m = document.querySelector('link[rel="manifest"]');
+          if (m && m.parentNode) m.parentNode.removeChild(m);
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(rs){
+              rs.forEach(function(r){ r.unregister(); });
+            }).catch(function(){});
+          }
+        }
+      } catch(e) {}
+    })();
+  `;
   return (
     <html lang="en" className="light">
       <head>
         <HeadContent />
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <script dangerouslySetInnerHTML={{ __html: portalGuard }} />
       </head>
       <body className="bg-background text-foreground">
         {children}
