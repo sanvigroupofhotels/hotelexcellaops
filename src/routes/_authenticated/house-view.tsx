@@ -142,7 +142,7 @@ function HouseView() {
 
   const visibleBookings = useMemo(
     () => (bookings as any[]).filter((b) => {
-      if (b.status === "Cancelled") return false;
+      if (b.status === "Cancelled" || b.status === "No-Show") return false;
       const { slots } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
       return slots.some((slot) => segmentOverlapsRange(slot, rangeStart, rangeEnd));
     }),
