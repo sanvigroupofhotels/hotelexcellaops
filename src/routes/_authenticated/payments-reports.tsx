@@ -103,15 +103,18 @@ export function PaymentsReportsPage() {
   const totals = useMemo(() => {
     const byMode: Record<string, number> = {};
     let total = 0;
+    let refunds = 0;
     for (const p of filtered) {
-      total += Number(p.amount || 0);
-      byMode[p.payment_mode] = (byMode[p.payment_mode] || 0) + Number(p.amount || 0);
+      const signed = Number(p.amount || 0) * (p.is_refund ? -1 : 1);
+      total += signed;
+      byMode[p.payment_mode] = (byMode[p.payment_mode] || 0) + signed;
+      if (p.is_refund) refunds += Number(p.amount || 0);
     }
-    // Outstanding across ACTIVE bookings (not cancelled, not checked-out)
+    // Outstanding across ACTIVE bookings (not cancelled, not no-show, not checked-out)
     const outstanding = bookings
-      .filter((b: any) => b.status !== "Cancelled" && b.status !== "Checked-Out")
+      .filter((b: any) => b.status !== "Cancelled" && b.status !== "No-Show" && b.status !== "Checked-Out")
       .reduce((s: number, b: any) => s + Math.max(0, Number(b.amount) - Number(b.advance_paid || 0)), 0);
-    return { total, byMode, outstanding };
+    return { total, byMode, outstanding, refunds };
   }, [filtered, bookings]);
 
   const onExport = () => {
