@@ -194,21 +194,35 @@ export const getAvailability = createServerFn({ method: "POST" })
       roomsByType[t] = Math.max(0, total - occ - blk);
     }
 
-    // Build per-type pricing
+    // Build per-type pricing.
+    // NOTE: rooms.room_type may differ from room_rates.room_type by the trailing
+    // " Room" suffix (e.g. rooms="Oak", rates="Oak Room"). Probe both forms.
     const ratesByType: Record<string, any> = {};
     for (const r of (rates ?? []) as any[]) ratesByType[r.room_type] = r;
+    const pickRates = (type: string) =>
+      ratesByType[type] ??
+      ratesByType[`${type} Room`] ??
+      ratesByType[type.replace(/\s+Room$/i, "")] ??
+      {};
+    const pickRateKey = (type: string): string =>
+      ratesByType[type] ? type
+        : ratesByType[`${type} Room`] ? `${type} Room`
+        : ratesByType[type.replace(/\s+Room$/i, "")] ? type.replace(/\s+Room$/i, "")
+        : type;
     const overridesByKey: Record<string, number> = {};
     for (const o of (overrides ?? []) as any[]) overridesByKey[`${o.room_type}|${o.date}`] = Number(o.rate);
 
     const results = Object.keys(totalRoomsByType).map((type) => {
-      const r = ratesByType[type] ?? {};
+      const r = pickRates(type);
+      const rateKey = pickRateKey(type);
+      const displayType = /\bRoom\b/i.test(type) ? type : `${type} Room`;
       const nightly: { date: string; rate: number }[] = [];
       let subtotal = 0;
       for (let i = 0; i < nights; i++) {
         const d = new Date(data.check_in + "T00:00:00");
         d.setDate(d.getDate() + i);
         const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        let rate = overridesByKey[`${type}|${iso}`];
+        let rate = overridesByKey[`${rateKey}|${iso}`] ?? overridesByKey[`${type}|${iso}`];
         if (rate == null) {
           if (isWeekendISO(iso)) rate = Number(r.weekend_rate ?? r.default_rate ?? 0);
           else rate = Number(r.weekday_rate ?? r.default_rate ?? 0);
@@ -219,7 +233,8 @@ export const getAvailability = createServerFn({ method: "POST" })
       const taxes = Math.round(subtotal * tax_rate);
       const total = subtotal + taxes;
       return {
-        type,
+        type: displayType,
+        room_type_key: type,
         available: roomsByType[type] ?? 0,
         total_rooms: totalRoomsByType[type] ?? 0,
         nights,
