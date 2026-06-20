@@ -15,10 +15,12 @@ import { Route as BookingEngineRouteImport } from './routes/booking-engine'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as BookingEngineIndexRouteImport } from './routes/booking-engine.index'
+import { Route as BeIndexRouteImport } from './routes/be.index'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as BookingEngineSearchRouteImport } from './routes/booking-engine.search'
 import { Route as BookingEngineCheckoutRouteImport } from './routes/booking-engine.checkout'
+import { Route as BeSplatRouteImport } from './routes/be.$'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedStaffManagementRouteImport } from './routes/_authenticated/staff-management'
@@ -106,6 +108,11 @@ const BookingEngineIndexRoute = BookingEngineIndexRouteImport.update({
   path: '/',
   getParentRoute: () => BookingEngineRoute,
 } as any)
+const BeIndexRoute = BeIndexRouteImport.update({
+  id: '/be/',
+  path: '/be/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -125,6 +132,11 @@ const BookingEngineCheckoutRoute = BookingEngineCheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
   getParentRoute: () => BookingEngineRoute,
+} as any)
+const BeSplatRoute = BeSplatRouteImport.update({
+  id: '/be/$',
+  path: '/be/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
   id: '/users',
@@ -472,9 +484,11 @@ export interface FileRoutesByFullPath {
   '/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRouteWithChildren
+  '/be/$': typeof BeSplatRoute
   '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
   '/booking-engine/search': typeof BookingEngineSearchRoute
   '/portal/$token': typeof PortalTokenRoute
+  '/be/': typeof BeIndexRoute
   '/booking-engine/': typeof BookingEngineIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
@@ -536,10 +550,12 @@ export interface FileRoutesByTo {
   '/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRouteWithChildren
+  '/be/$': typeof BeSplatRoute
   '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
   '/booking-engine/search': typeof BookingEngineSearchRoute
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
+  '/be': typeof BeIndexRoute
   '/booking-engine': typeof BookingEngineIndexRoute
   '/portal': typeof PortalIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
@@ -606,10 +622,12 @@ export interface FileRoutesById {
   '/_authenticated/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/users': typeof AuthenticatedUsersRouteWithChildren
+  '/be/$': typeof BeSplatRoute
   '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
   '/booking-engine/search': typeof BookingEngineSearchRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/be/': typeof BeIndexRoute
   '/booking-engine/': typeof BookingEngineIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
@@ -677,9 +695,11 @@ export interface FileRouteTypes {
     | '/staff-management'
     | '/tasks'
     | '/users'
+    | '/be/$'
     | '/booking-engine/checkout'
     | '/booking-engine/search'
     | '/portal/$token'
+    | '/be/'
     | '/booking-engine/'
     | '/portal/'
     | '/bookings/$id'
@@ -741,10 +761,12 @@ export interface FileRouteTypes {
     | '/staff-management'
     | '/tasks'
     | '/users'
+    | '/be/$'
     | '/booking-engine/checkout'
     | '/booking-engine/search'
     | '/portal/$token'
     | '/'
+    | '/be'
     | '/booking-engine'
     | '/portal'
     | '/bookings/$id'
@@ -810,10 +832,12 @@ export interface FileRouteTypes {
     | '/_authenticated/staff-management'
     | '/_authenticated/tasks'
     | '/_authenticated/users'
+    | '/be/$'
     | '/booking-engine/checkout'
     | '/booking-engine/search'
     | '/portal/$token'
     | '/_authenticated/'
+    | '/be/'
     | '/booking-engine/'
     | '/portal/'
     | '/_authenticated/bookings_/$id'
@@ -854,6 +878,8 @@ export interface RootRouteChildren {
   BookingEngineRoute: typeof BookingEngineRouteWithChildren
   LoginRoute: typeof LoginRoute
   PortalRoute: typeof PortalRouteWithChildren
+  BeSplatRoute: typeof BeSplatRoute
+  BeIndexRoute: typeof BeIndexRoute
   ApiPublicCleanupGuestDocumentsRoute: typeof ApiPublicCleanupGuestDocumentsRoute
   ApiPublicHotelzifyPollRoute: typeof ApiPublicHotelzifyPollRoute
   ApiPublicNightAuditRoute: typeof ApiPublicNightAuditRoute
@@ -904,6 +930,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BookingEngineIndexRouteImport
       parentRoute: typeof BookingEngineRoute
     }
+    '/be/': {
+      id: '/be/'
+      path: '/be'
+      fullPath: '/be/'
+      preLoaderRoute: typeof BeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/': {
       id: '/_authenticated/'
       path: '/'
@@ -931,6 +964,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/booking-engine/checkout'
       preLoaderRoute: typeof BookingEngineCheckoutRouteImport
       parentRoute: typeof BookingEngineRoute
+    }
+    '/be/$': {
+      id: '/be/$'
+      path: '/be/$'
+      fullPath: '/be/$'
+      preLoaderRoute: typeof BeSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/users': {
       id: '/_authenticated/users'
@@ -1538,6 +1578,8 @@ const rootRouteChildren: RootRouteChildren = {
   BookingEngineRoute: BookingEngineRouteWithChildren,
   LoginRoute: LoginRoute,
   PortalRoute: PortalRouteWithChildren,
+  BeSplatRoute: BeSplatRoute,
+  BeIndexRoute: BeIndexRoute,
   ApiPublicCleanupGuestDocumentsRoute: ApiPublicCleanupGuestDocumentsRoute,
   ApiPublicHotelzifyPollRoute: ApiPublicHotelzifyPollRoute,
   ApiPublicNightAuditRoute: ApiPublicNightAuditRoute,
