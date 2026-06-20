@@ -103,15 +103,18 @@ export function PaymentsReportsPage() {
   const totals = useMemo(() => {
     const byMode: Record<string, number> = {};
     let total = 0;
+    let refunds = 0;
     for (const p of filtered) {
-      total += Number(p.amount || 0);
-      byMode[p.payment_mode] = (byMode[p.payment_mode] || 0) + Number(p.amount || 0);
+      const signed = Number(p.amount || 0) * (p.is_refund ? -1 : 1);
+      total += signed;
+      byMode[p.payment_mode] = (byMode[p.payment_mode] || 0) + signed;
+      if (p.is_refund) refunds += Number(p.amount || 0);
     }
-    // Outstanding across ACTIVE bookings (not cancelled, not checked-out)
+    // Outstanding across ACTIVE bookings (not cancelled, not no-show, not checked-out)
     const outstanding = bookings
-      .filter((b: any) => b.status !== "Cancelled" && b.status !== "Checked-Out")
+      .filter((b: any) => b.status !== "Cancelled" && b.status !== "No-Show" && b.status !== "Checked-Out")
       .reduce((s: number, b: any) => s + Math.max(0, Number(b.amount) - Number(b.advance_paid || 0)), 0);
-    return { total, byMode, outstanding };
+    return { total, byMode, outstanding, refunds };
   }, [filtered, bookings]);
 
   const onExport = () => {
@@ -121,8 +124,9 @@ export function PaymentsReportsPage() {
           "Payment Date": new Date(p.occurred_at).toISOString(),
           "Booking ID": p._bookingRef,
           Guest: p._guestName,
-          Amount: Number(p.amount),
+          Amount: Number(p.amount) * (p.is_refund ? -1 : 1),
           "Payment Mode": p.payment_mode,
+          "Type": p.is_refund ? "Refund" : "Payment",
           "UTR": p.utr ?? "",
           "Paid To": p.paid_to ?? "",
           "Collected By": p.collected_by,
@@ -252,9 +256,13 @@ export function PaymentsReportsPage() {
                       <Link to="/bookings/$id" params={{ id: p.booking_id }} className="font-mono text-xs text-gold hover:underline">{p._bookingRef}</Link>
                     </td>
                     <td className="px-4 py-2.5">{p._guestName}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium">₹{Number(p.amount).toLocaleString("en-IN")}</td>
+                    <td className={cn("px-4 py-2.5 text-right tabular-nums font-medium", p.is_refund ? "text-destructive" : "")}>
+                      {p.is_refund ? "−" : ""}₹{Number(p.amount).toLocaleString("en-IN")}
+                    </td>
                     <td className="px-4 py-2.5">
-                      <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[11px]">{p.payment_mode}</span>
+                      <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[11px]">
+                        {p.is_refund ? `${p.payment_mode} · Refund` : p.payment_mode}
+                      </span>
                     </td>
                     <td className="px-4 py-2.5 text-xs font-mono text-muted-foreground max-w-[140px] truncate" title={p.utr ?? ""}>{p.utr ?? "—"}</td>
                     <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[140px] truncate" title={p.paid_to ?? ""}>{p.paid_to ?? "—"}</td>

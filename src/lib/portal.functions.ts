@@ -140,7 +140,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     const taxesIncluded = !!(b as any).taxes_included;
     const advance = Number((b as any).advance_paid) || 0;
     const payable = total + chargesTotal;
-    const balance = (b as any).status === "Cancelled" ? 0 : Math.max(0, payable - advance);
+    const balance = ((b as any).status === "Cancelled" || (b as any).status === "No-Show") ? 0 : Math.max(0, payable - advance);
     // Stay extras = stay subtotal beyond the pure room charges line(s)
     const additionalStay = Math.max(0, subtotal - roomCharges);
 

@@ -145,7 +145,7 @@ function LandingPage() {
       {/* Existing booking */}
       <section className="mx-auto max-w-5xl px-4 my-10 text-center text-sm text-muted-foreground">
         Have a booking?{" "}
-        <a href="https://guest.hotelexcella.in" className="text-gold underline">
+        <a href="https://guest.hotelexcella.in/portal" className="text-gold underline">
           Open the Guest Portal
         </a>
       </section>

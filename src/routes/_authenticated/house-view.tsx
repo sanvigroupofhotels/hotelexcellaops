@@ -487,7 +487,7 @@ function HouseView() {
                                 if (span <= 0) return null;
                                 const cellW = CELL_W_MOB;
                                 const hasBreakfast = breakfastByBooking.get(b.id);
-                                const balanceDue = b.status === "Cancelled" ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+                                const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
                                 return (
                                   <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={() => setSelected(b)}
                                     data-booking-pill={b.id}
@@ -644,7 +644,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   const additionalCharges = (chargesForBooking as any[]).reduce((s, c) => s + Number(c.amount || 0), 0);
   const roomCharges = Number(b.amount) || 0;
   const totalCharges = roomCharges + additionalCharges;
-  const balance = b.status === "Cancelled" ? 0 : Math.max(0, totalCharges - Number(b.advance_paid || 0));
+  const balance = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, totalCharges - Number(b.advance_paid || 0));
   const today = businessDate ?? dateKey(new Date());
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
