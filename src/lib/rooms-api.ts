@@ -131,16 +131,39 @@ export async function listOccupiedRoomIds(
   excludeBookingId?: string,
 ): Promise<Set<string>> {
   if (!check_in || !check_out || check_out < check_in) return new Set();
-  const { data, error } = await supabase
-    .from("bookings" as any)
-    .select("id,room_id,check_in,check_out,status")
-    .not("status", "in", "(Cancelled,Stay Completed,Checked-Out)")
-    .not("room_id", "is", null);
-  if (error) throw error;
+  // Pull bookings.room_id rows AND booking_room_assignments rows. A room is
+  // occupied if (a) its date range overlaps OR (b) the booking is still
+  // Checked-In — until the guest is Checked-Out / Cancelled / No-Show the
+  // room must stay blocked, even when check_out has passed.
+  const [{ data: bks, error: e1 }, { data: asg, error: e2 }] = await Promise.all([
+    supabase
+      .from("bookings" as any)
+      .select("id,room_id,check_in,check_out,status")
+      .not("status", "in", "(Cancelled,Stay Completed,Checked-Out,No-Show)")
+      .not("room_id", "is", null),
+    supabase
+      .from("booking_room_assignments" as any)
+      .select("room_id,booking_id,bookings:bookings!inner(id,check_in,check_out,status)"),
+  ]);
+  if (e1) throw e1;
+  if (e2) throw e2;
   const out = new Set<string>();
-  for (const b of (data ?? []) as any[]) {
-    if (excludeBookingId && b.id === excludeBookingId) continue;
-    if (datesOverlap(check_in, check_out, b.check_in, b.check_out)) out.add(b.room_id);
+  const consider = (id: string, room_id: string | null, ci: string, co: string, status: string) => {
+    if (!room_id) return;
+    if (excludeBookingId && id === excludeBookingId) return;
+    if (["Cancelled", "Stay Completed", "Checked-Out", "No-Show"].includes(status)) return;
+    // Checked-In stays block the room indefinitely until Checked-Out.
+    if (status === "Checked-In") { out.add(room_id); return; }
+    if (datesOverlap(check_in, check_out, ci, co)) out.add(room_id);
+  };
+  for (const b of (bks ?? []) as any[]) {
+    consider(b.id, b.room_id, b.check_in, b.check_out, b.status);
+  }
+  for (const a of (asg ?? []) as any[]) {
+    const b = a.bookings;
+    if (!b) continue;
+    consider(b.id, a.room_id, b.check_in, b.check_out, b.status);
   }
   return out;
 }
+
