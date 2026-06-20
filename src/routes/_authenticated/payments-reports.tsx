@@ -256,9 +256,13 @@ export function PaymentsReportsPage() {
                       <Link to="/bookings/$id" params={{ id: p.booking_id }} className="font-mono text-xs text-gold hover:underline">{p._bookingRef}</Link>
                     </td>
                     <td className="px-4 py-2.5">{p._guestName}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium">₹{Number(p.amount).toLocaleString("en-IN")}</td>
+                    <td className={cn("px-4 py-2.5 text-right tabular-nums font-medium", p.is_refund ? "text-destructive" : "")}>
+                      {p.is_refund ? "−" : ""}₹{Number(p.amount).toLocaleString("en-IN")}
+                    </td>
                     <td className="px-4 py-2.5">
-                      <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[11px]">{p.payment_mode}</span>
+                      <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[11px]">
+                        {p.is_refund ? `${p.payment_mode} · Refund` : p.payment_mode}
+                      </span>
                     </td>
                     <td className="px-4 py-2.5 text-xs font-mono text-muted-foreground max-w-[140px] truncate" title={p.utr ?? ""}>{p.utr ?? "—"}</td>
                     <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[140px] truncate" title={p.paid_to ?? ""}>{p.paid_to ?? "—"}</td>
