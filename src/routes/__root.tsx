@@ -160,7 +160,7 @@ function RootComponent() {
 
   useEffect(() => {
     if (!hostTarget) return;
-    router.navigate({ to: hostTarget as any, replace: true });
+    router.navigate({ href: hostTarget, replace: true });
   }, [hostTarget, router]);
 
   useEffect(() => {
