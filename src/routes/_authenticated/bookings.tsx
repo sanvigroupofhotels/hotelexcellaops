@@ -230,7 +230,7 @@ function Section({ refEl, title, icon: Icon, bookings, chargeTotals, completedBy
         <div className="py-8 text-center text-xs text-muted-foreground">No bookings in this section.</div>
       ) : (
         bookings.map((b, i) => {
-          const isCancelled = b.status === "Cancelled";
+          const isCancelled = b.status === "Cancelled" || b.status === "No-Show";
           const payable = Number(b.amount) + Number(chargeTotals[b.id] || 0);
           const diff = isCancelled ? 0 : payable - Number(b.advance_paid || 0);
           const balance = Math.max(0, diff);
@@ -241,7 +241,7 @@ function Section({ refEl, title, icon: Icon, bookings, chargeTotals, completedBy
           const completed = b.customer_id ? (completedByCustomer[b.customer_id] ?? 0) : 0;
           const priorCompleted = b.status === "Checked-Out" ? Math.max(0, completed - 1) : completed;
           const isReturning = priorCompleted >= 1
-            && !["Checked-In", "Checked-Out", "Stay Completed", "Cancelled"].includes(b.status as string);
+            && !["Checked-In", "Checked-Out", "Stay Completed", "Cancelled", "No-Show"].includes(b.status as string);
           const showArrival = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status);
           const arr = showArrival ? smartArrival((b as any).expected_arrival_at) : null;
           return (
