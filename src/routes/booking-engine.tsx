@@ -8,7 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getEngineConfig } from "@/lib/booking-engine.functions";
 import { Phone, Mail, MapPin } from "lucide-react";
 
-export const Route = createFileRoute("/be")({
+export const Route = createFileRoute("/booking-engine")({
   component: BookingEngineLayout,
   head: () => ({
     meta: [
@@ -37,7 +37,7 @@ function BookingEngineLayout() {
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-          <Link to="/be" className="flex items-center gap-2">
+          <Link to="/booking-engine" className="flex items-center gap-2">
             {cfg?.hotel.logo_url ? (
               <img src={cfg.hotel.logo_url} alt={hotelName} className="h-9 w-auto" />
             ) : (

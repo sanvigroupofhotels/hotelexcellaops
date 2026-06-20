@@ -137,49 +137,16 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const router = useRouter();
-
-  // Subdomain routing — keep one project, three apps.
-  // book.hotelexcella.in -> Booking Engine (/be), guest.hotelexcella.in -> Guest Portal (/portal)
-  const hostTarget = (() => {
-    if (typeof window === "undefined") return null;
-    const host = window.location.hostname.toLowerCase();
-    const path = window.location.pathname;
-    if (path.startsWith("/api")) return null;
-    if (host === "book.hotelexcella.in" && !path.startsWith("/be")) {
-      return `/be${path === "/" ? "" : path}${window.location.search}${window.location.hash}`;
-    }
-    if (host === "guest.hotelexcella.in" && !path.startsWith("/portal")) {
-      // Token in path? e.g. /abc123 -> /portal/abc123
-      const tokenMatch = path.match(/^\/([a-f0-9]{16,64})\/?$/i);
-      const newPath = tokenMatch ? `/portal/${tokenMatch[1]}` : "/portal";
-      return `${newPath}${window.location.search}${window.location.hash}`;
-    }
-    return null;
-  })();
 
   useEffect(() => {
-    if (!hostTarget) return;
-    router.navigate({ href: hostTarget, replace: true });
-  }, [hostTarget, router]);
-
-  useEffect(() => {
-    if (hostTarget || typeof window === "undefined" || (window as any).__excella_swept) return;
+    if (typeof window === "undefined" || (window as any).__excella_swept) return;
     (window as any).__excella_swept = true;
     import("@/integrations/supabase/client").then(({ supabase }) => {
       supabase.rpc("sweep_stay_completed" as any).then(() => {
         queryClient.invalidateQueries({ queryKey: ["bookings"] });
       });
     }).catch(() => {});
-  }, [hostTarget, queryClient]);
-
-  if (hostTarget) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <div className="min-h-screen bg-background" />
-      </QueryClientProvider>
-    );
-  }
+  }, [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>

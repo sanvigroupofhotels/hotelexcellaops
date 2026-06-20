@@ -194,21 +194,35 @@ export const getAvailability = createServerFn({ method: "POST" })
       roomsByType[t] = Math.max(0, total - occ - blk);
     }
 
-    // Build per-type pricing
+    // Build per-type pricing.
+    // NOTE: rooms.room_type may differ from room_rates.room_type by the trailing
+    // " Room" suffix (e.g. rooms="Oak", rates="Oak Room"). Probe both forms.
     const ratesByType: Record<string, any> = {};
     for (const r of (rates ?? []) as any[]) ratesByType[r.room_type] = r;
+    const pickRates = (type: string) =>
+      ratesByType[type] ??
+      ratesByType[`${type} Room`] ??
+      ratesByType[type.replace(/\s+Room$/i, "")] ??
+      {};
+    const pickRateKey = (type: string): string =>
+      ratesByType[type] ? type
+        : ratesByType[`${type} Room`] ? `${type} Room`
+        : ratesByType[type.replace(/\s+Room$/i, "")] ? type.replace(/\s+Room$/i, "")
+        : type;
     const overridesByKey: Record<string, number> = {};
     for (const o of (overrides ?? []) as any[]) overridesByKey[`${o.room_type}|${o.date}`] = Number(o.rate);
 
     const results = Object.keys(totalRoomsByType).map((type) => {
-      const r = ratesByType[type] ?? {};
+      const r = pickRates(type);
+      const rateKey = pickRateKey(type);
+      const displayType = /\bRoom\b/i.test(type) ? type : `${type} Room`;
       const nightly: { date: string; rate: number }[] = [];
       let subtotal = 0;
       for (let i = 0; i < nights; i++) {
         const d = new Date(data.check_in + "T00:00:00");
         d.setDate(d.getDate() + i);
         const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        let rate = overridesByKey[`${type}|${iso}`];
+        let rate = overridesByKey[`${rateKey}|${iso}`] ?? overridesByKey[`${type}|${iso}`];
         if (rate == null) {
           if (isWeekendISO(iso)) rate = Number(r.weekend_rate ?? r.default_rate ?? 0);
           else rate = Number(r.weekday_rate ?? r.default_rate ?? 0);
@@ -219,7 +233,8 @@ export const getAvailability = createServerFn({ method: "POST" })
       const taxes = Math.round(subtotal * tax_rate);
       const total = subtotal + taxes;
       return {
-        type,
+        type: displayType,
+        room_type_key: type,
         available: roomsByType[type] ?? 0,
         total_rooms: totalRoomsByType[type] ?? 0,
         nights,
@@ -269,11 +284,16 @@ export const createDraftBooking = createServerFn({ method: "POST" })
     // Re-check availability for the chosen type
     const nights = nightsBetween(data.check_in, data.check_out);
 
-    const [{ data: rooms }, { data: rates }, { data: overrides }, { data: bookingRows }, { data: maintRows }, { data: settingRows }] =
+    // Resolve type against both forms: "Oak" vs "Oak Room"
+    const typeIn = data.room_type;
+    const typeStripped = typeIn.replace(/\s+Room$/i, "");
+    const typeCandidates = Array.from(new Set([typeIn, typeStripped, `${typeStripped} Room`]));
+
+    const [{ data: rooms }, { data: ratesAll }, { data: overrides }, { data: bookingRows }, { data: maintRows }, { data: settingRows }] =
       await Promise.all([
-        supabaseAdmin.from("rooms").select("id,room_type").eq("active", true).eq("room_type", data.room_type),
-        supabaseAdmin.from("room_rates").select("*").eq("room_type", data.room_type).maybeSingle(),
-        supabaseAdmin.from("rate_overrides").select("date,rate").eq("room_type", data.room_type).gte("date", data.check_in).lt("date", data.check_out),
+        supabaseAdmin.from("rooms").select("id,room_type").eq("active", true).in("room_type", typeCandidates),
+        supabaseAdmin.from("room_rates").select("*").in("room_type", typeCandidates),
+        supabaseAdmin.from("rate_overrides").select("room_type,date,rate").in("room_type", typeCandidates).gte("date", data.check_in).lt("date", data.check_out),
         supabaseAdmin
           .from("bookings")
           .select("room_id,room_details,check_in,check_out,status,draft_expires_at")
@@ -288,6 +308,9 @@ export const createDraftBooking = createServerFn({ method: "POST" })
         supabaseAdmin.from("app_settings").select("value").eq("key", "tax").maybeSingle(),
       ]);
 
+    const rates = (ratesAll ?? [])[0] ?? null;
+    const roomsRoomType = (rooms ?? [])[0]?.room_type ?? typeStripped;
+
     const tax_rate = Number((settingRows as any)?.value?.rate ?? 0.05);
     const totalOfType = (rooms ?? []).length;
     if (totalOfType === 0) throw new Error("That room type is no longer available.");
@@ -301,7 +324,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       if (!OCCUPIED.has(b.status)) continue;
       if (b.status === "Draft" && b.draft_expires_at && new Date(b.draft_expires_at).getTime() < nowMs) continue;
       if (b.room_id) occupiedRoomIds.add(b.room_id);
-      else if (b.room_details === data.room_type) occupied++;
+      else if (b.room_details === data.room_type || b.room_details === roomsRoomType) occupied++;
     }
     for (const r of (rooms ?? []) as any[]) {
       if (occupiedRoomIds.has(r.id) || blockedRoomIds.has(r.id)) occupied++;
