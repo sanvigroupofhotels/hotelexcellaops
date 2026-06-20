@@ -58,7 +58,7 @@ export async function getPendingForAudit(businessDate?: string): Promise<{
   const [{ data: ci }, { data: co }, { data: rooms }] = await Promise.all([
     supabase.from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
       .lte("check_in", bd)
-      .not("status", "in", "(Checked-In,Checked-Out,Cancelled,Stay Completed)")
+      .not("status", "in", "(Checked-In,Checked-Out,Cancelled,Stay Completed,No-Show)")
       .order("check_in", { ascending: true }),
     supabase.from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
       .lte("check_out", bd)
