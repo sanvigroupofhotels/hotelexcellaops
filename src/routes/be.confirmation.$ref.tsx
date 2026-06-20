@@ -24,7 +24,7 @@ function ConfirmationPage() {
   const q = useQuery({
     queryKey: ["be", "confirm", ref],
     queryFn: () => fn({ data: { reference: ref } }),
-    refetchInterval: (data) => (data?.state.data?.advancePaid ? false : 4000),
+    refetchInterval: (query) => ((query.state.data as any)?.advancePaid ? false : 4000),
   });
 
   if (q.isLoading) {
