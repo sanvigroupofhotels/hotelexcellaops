@@ -8,7 +8,7 @@ import { toLocalYMD } from "@/lib/utils";
  * `business_date` ({ date: "YYYY-MM-DD" }). We never advance the date
  * automatically until pending check-ins / check-outs are resolved.
  *
- * Pending check-ins  : status NOT IN (Checked-In, Checked-Out, Cancelled)
+ * Pending check-ins  : status NOT IN (Checked-In, Checked-Out, Cancelled, Stay Completed, No-Show)
  *                      AND check_in <= business_date
  * Pending check-outs : status = Checked-In AND check_out <= business_date
  */
