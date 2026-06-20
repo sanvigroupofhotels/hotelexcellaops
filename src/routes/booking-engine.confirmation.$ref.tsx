@@ -47,7 +47,7 @@ function ConfirmationPage() {
   }
 
   const b = q.data;
-  const portalUrl = b.token ? `https://guest.hotelexcella.in/${b.token}` : "";
+  const portalUrl = b.token ? `https://guest.hotelexcella.in/portal/${b.token}` : "";
   const waText = encodeURIComponent(
     `Hello ${b.guestName},\n\nYour booking at Hotel Excella is confirmed.\n\nRef: ${b.reference}\nCheck-In: ${b.checkIn}\nCheck-Out: ${b.checkOut}\nRoom: ${b.roomType}\nGuests: ${b.guests}\nTotal: ${inr(b.amount)}${b.payAtHotel ? "\nPayment: Pay at Hotel" : `\nPaid: ${inr(b.advancePaid)}`}\n\nView booking: ${portalUrl}`,
   );
