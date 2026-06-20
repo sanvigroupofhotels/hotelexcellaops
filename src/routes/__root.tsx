@@ -173,6 +173,14 @@ function RootComponent() {
     }).catch(() => {});
   }, [hostTarget, queryClient]);
 
+  if (hostTarget) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <div className="min-h-screen bg-background" />
+      </QueryClientProvider>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
