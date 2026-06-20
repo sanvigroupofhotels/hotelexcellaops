@@ -136,18 +136,23 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
                     className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40">
                     View
                   </Link>
-                  <button
-                    onClick={() => setStatus.mutate({ id: b.id, status: "Checked-In" })}
-                    disabled={busyId === b.id}
-                    className="inline-flex items-center gap-1 rounded-md gold-gradient px-2.5 py-1 text-[11px] text-charcoal font-medium disabled:opacity-50">
+                  <Link to="/bookings/$id" params={{ id: b.id }} onClick={onClose}
+                    className="inline-flex items-center gap-1 rounded-md gold-gradient px-2.5 py-1 text-[11px] text-charcoal font-medium">
                     <LogIn className="h-3 w-3" /> Check-In
-                  </button>
+                  </Link>
                   <button
-                    onClick={() => setStatus.mutate({ id: b.id, status: "Cancelled" })}
+                    onClick={() => {
+                      if (!window.confirm(`Mark "${b.guest_name}" as No-Show? Balance Due becomes ₹0 and the room is freed.`)) return;
+                      setStatus.mutate({ id: b.id, status: "No-Show" });
+                    }}
                     disabled={busyId === b.id}
-                    className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive disabled:opacity-50">
-                    Cancel
+                    className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1 text-[11px] text-warning disabled:opacity-50">
+                    <UserX className="h-3 w-3" /> No-Show
                   </button>
+                  <Link to="/bookings/$id" params={{ id: b.id }} onClick={onClose}
+                    className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive">
+                    Cancel
+                  </Link>
                 </>
               )}
             />
