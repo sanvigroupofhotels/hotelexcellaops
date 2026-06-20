@@ -2579,6 +2579,7 @@ export type Database = {
         | "Pending"
         | "Checked-In"
         | "Checked-Out"
+        | "No-Show"
       complaint_priority: "Low" | "Medium" | "High" | "Critical"
       complaint_status: "Open" | "In Progress" | "Resolved"
       complaint_type: "Room" | "General"
@@ -2749,6 +2750,7 @@ export const Constants = {
         "Pending",
         "Checked-In",
         "Checked-Out",
+        "No-Show",
       ],
       complaint_priority: ["Low", "Medium", "High", "Critical"],
       complaint_status: ["Open", "In Progress", "Resolved"],
