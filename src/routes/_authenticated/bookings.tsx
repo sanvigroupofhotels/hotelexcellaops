@@ -40,7 +40,7 @@ function GatedBookingsPage() {
   return <BookingsPage />;
 }
 
-const STATUS_FILTERS = ["All", "Pending", "Advance Paid", "Full Paid", "Checked-In", "Checked-Out", "Cancelled"] as const;
+const STATUS_FILTERS = ["All", "Pending", "Advance Paid", "Full Paid", "Checked-In", "Checked-Out", "Cancelled", "No-Show"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 function BookingsPage() {
