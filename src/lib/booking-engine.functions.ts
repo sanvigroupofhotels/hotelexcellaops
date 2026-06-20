@@ -560,6 +560,7 @@ export const confirmPayAtHotel = createServerFn({ method: "POST" })
 
     await supabaseAdmin.from("bookings").update({
       status: "Confirmed",
+      payment_status: "Pending Payment",
       pay_at_hotel: true,
       draft_expires_at: null,
     } as any).eq("id", (b as any).id);
