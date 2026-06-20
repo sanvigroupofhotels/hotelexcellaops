@@ -145,6 +145,23 @@ function RootComponent() {
       });
     }).catch(() => {});
   }
+
+  // Subdomain routing — keep one project, three apps.
+  // book.hotelexcella.in -> Booking Engine (/be), guest.hotelexcella.in -> Guest Portal (/portal)
+  if (typeof window !== "undefined" && !(window as any).__excella_host_routed) {
+    (window as any).__excella_host_routed = true;
+    const host = window.location.host.toLowerCase();
+    const path = window.location.pathname;
+    if (host.startsWith("book.") && !path.startsWith("/be") && !path.startsWith("/api")) {
+      window.history.replaceState({}, "", "/be" + (path === "/" ? "" : path) + window.location.search);
+    } else if (host.startsWith("guest.") && !path.startsWith("/portal") && !path.startsWith("/api")) {
+      // Token in path? e.g. /abc123 -> /portal/abc123
+      const tokenMatch = path.match(/^\/([a-f0-9]{16,64})\/?$/i);
+      const newPath = tokenMatch ? `/portal/${tokenMatch[1]}` : "/portal";
+      window.history.replaceState({}, "", newPath + window.location.search);
+    }
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

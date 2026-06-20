@@ -462,11 +462,14 @@ export type Database = {
           created_at: string
           customer_id: string
           discount: number
+          draft_expires_at: string | null
           email: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           expected_arrival_at: string | null
           external_ref: string | null
+          gateway_order_id: string | null
+          gateway_payment_id: string | null
           guest_name: string
           guests: number
           id: string
@@ -477,10 +480,12 @@ export type Database = {
           notes: string | null
           part_payment_type: string
           part_payment_value: number
+          pay_at_hotel: boolean
           payment_status: string
           phone: string | null
           room_details: string | null
           room_id: string | null
+          source_channel: string
           source_quote_id: string | null
           special_requests: string | null
           status: Database["public"]["Enums"]["booking_status"]
@@ -514,11 +519,14 @@ export type Database = {
           created_at?: string
           customer_id: string
           discount?: number
+          draft_expires_at?: string | null
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           expected_arrival_at?: string | null
           external_ref?: string | null
+          gateway_order_id?: string | null
+          gateway_payment_id?: string | null
           guest_name: string
           guests?: number
           id?: string
@@ -529,10 +537,12 @@ export type Database = {
           notes?: string | null
           part_payment_type?: string
           part_payment_value?: number
+          pay_at_hotel?: boolean
           payment_status?: string
           phone?: string | null
           room_details?: string | null
           room_id?: string | null
+          source_channel?: string
           source_quote_id?: string | null
           special_requests?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
@@ -566,11 +576,14 @@ export type Database = {
           created_at?: string
           customer_id?: string
           discount?: number
+          draft_expires_at?: string | null
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           expected_arrival_at?: string | null
           external_ref?: string | null
+          gateway_order_id?: string | null
+          gateway_payment_id?: string | null
           guest_name?: string
           guests?: number
           id?: string
@@ -581,10 +594,12 @@ export type Database = {
           notes?: string | null
           part_payment_type?: string
           part_payment_value?: number
+          pay_at_hotel?: boolean
           payment_status?: string
           phone?: string | null
           room_details?: string | null
           room_id?: string | null
+          source_channel?: string
           source_quote_id?: string | null
           special_requests?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
@@ -1298,6 +1313,53 @@ export type Database = {
           },
         ]
       }
+      guest_reviews: {
+        Row: {
+          booking_id: string
+          comment: string | null
+          created_at: string
+          guest_name: string | null
+          id: string
+          is_public: boolean
+          moderated_at: string | null
+          rating: number
+          updated_at: string
+          would_recommend: boolean | null
+        }
+        Insert: {
+          booking_id: string
+          comment?: string | null
+          created_at?: string
+          guest_name?: string | null
+          id?: string
+          is_public?: boolean
+          moderated_at?: string | null
+          rating: number
+          updated_at?: string
+          would_recommend?: boolean | null
+        }
+        Update: {
+          booking_id?: string
+          comment?: string | null
+          created_at?: string
+          guest_name?: string | null
+          id?: string
+          is_public?: boolean
+          moderated_at?: string | null
+          rating?: number
+          updated_at?: string
+          would_recommend?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_reviews_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_runs: {
         Row: {
           created_count: number
@@ -1507,6 +1569,66 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+        }
+        Relationships: []
+      }
+      promo_codes: {
+        Row: {
+          active: boolean
+          applicable_room_types: string[] | null
+          applies_to: string
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discount_type: string
+          discount_value: number
+          id: string
+          max_uses: number | null
+          min_nights: number | null
+          season_label: string | null
+          updated_at: string
+          used_count: number
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          active?: boolean
+          applicable_room_types?: string[] | null
+          applies_to?: string
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_type: string
+          discount_value: number
+          id?: string
+          max_uses?: number | null
+          min_nights?: number | null
+          season_label?: string | null
+          updated_at?: string
+          used_count?: number
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          active?: boolean
+          applicable_room_types?: string[] | null
+          applies_to?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          max_uses?: number | null
+          min_nights?: number | null
+          season_label?: string | null
+          updated_at?: string
+          used_count?: number
+          valid_from?: string | null
+          valid_to?: string | null
         }
         Relationships: []
       }
@@ -2422,6 +2544,7 @@ export type Database = {
         Args: { p_customer_id: string }
         Returns: undefined
       }
+      sweep_expired_draft_bookings: { Args: never; Returns: number }
       sweep_stay_completed: { Args: never; Returns: number }
       user_effective_permissions: {
         Args: { _user_id: string }
