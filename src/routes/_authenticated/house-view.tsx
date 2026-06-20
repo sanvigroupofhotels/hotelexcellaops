@@ -142,7 +142,7 @@ function HouseView() {
 
   const visibleBookings = useMemo(
     () => (bookings as any[]).filter((b) => {
-      if (b.status === "Cancelled") return false;
+      if (b.status === "Cancelled" || b.status === "No-Show") return false;
       const { slots } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
       return slots.some((slot) => segmentOverlapsRange(slot, rangeStart, rangeEnd));
     }),
@@ -247,7 +247,7 @@ function HouseView() {
   const inHouseBookings: any[] = [];
   let arrivalsToday = 0, departuresToday = 0;
   for (const b of (bookings as any[])) {
-    if (b.status === "Cancelled") continue;
+    if (b.status === "Cancelled" || b.status === "No-Show") continue;
     if (b.check_in === todayKey) arrivalsToday++;
     if (b.check_out === todayKey) departuresToday++;
     if (b.status === "Checked-Out" || b.status === "Stay Completed") continue;
@@ -290,7 +290,7 @@ function HouseView() {
     const qNorm = normalized(q);
     const qDigits = normPhone(q);
     return (bookings as any[]).filter((b) => {
-      if (b.status === "Cancelled") return false;
+      if (b.status === "Cancelled" || b.status === "No-Show") return false;
       const nameHit = qNorm.length >= 2 && normalized(b.guest_name).includes(qNorm);
       const refHit = qNorm.length >= 2 && normalized(b.booking_reference).includes(qNorm);
       const phoneHit = qDigits.length >= 3 && normPhone(b.phone).includes(qDigits);

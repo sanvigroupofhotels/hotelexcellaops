@@ -8,7 +8,7 @@ import { toLocalYMD } from "@/lib/utils";
  * `business_date` ({ date: "YYYY-MM-DD" }). We never advance the date
  * automatically until pending check-ins / check-outs are resolved.
  *
- * Pending check-ins  : status NOT IN (Checked-In, Checked-Out, Cancelled)
+ * Pending check-ins  : status NOT IN (Checked-In, Checked-Out, Cancelled, Stay Completed, No-Show)
  *                      AND check_in <= business_date
  * Pending check-outs : status = Checked-In AND check_out <= business_date
  */
@@ -58,7 +58,7 @@ export async function getPendingForAudit(businessDate?: string): Promise<{
   const [{ data: ci }, { data: co }, { data: rooms }] = await Promise.all([
     supabase.from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
       .lte("check_in", bd)
-      .not("status", "in", "(Checked-In,Checked-Out,Cancelled,Stay Completed)")
+      .not("status", "in", "(Checked-In,Checked-Out,Cancelled,Stay Completed,No-Show)")
       .order("check_in", { ascending: true }),
     supabase.from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
       .lte("check_out", bd)

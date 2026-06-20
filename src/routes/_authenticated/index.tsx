@@ -122,7 +122,7 @@ function HomePage() {
       .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true }));
   }, [bookings, itemsByBooking, assignmentsByBooking, rooms, chargeTotals, todayKey]);
 
-  const active = bookings.filter((b) => b.status !== "Cancelled");
+  const active = bookings.filter((b) => b.status !== "Cancelled" && b.status !== "No-Show");
   const occupied = active.filter((b) => b.status === "Checked-In").length;
   const arrivalsToday = active.filter((b) => b.check_in === today).length;
   const pendingCheckins = active.filter((b) => b.check_in <= today && !["Checked-In","Checked-Out"].includes(b.status as string)).length;
