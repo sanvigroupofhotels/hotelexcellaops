@@ -247,7 +247,7 @@ function HouseView() {
   const inHouseBookings: any[] = [];
   let arrivalsToday = 0, departuresToday = 0;
   for (const b of (bookings as any[])) {
-    if (b.status === "Cancelled") continue;
+    if (b.status === "Cancelled" || b.status === "No-Show") continue;
     if (b.check_in === todayKey) arrivalsToday++;
     if (b.check_out === todayKey) departuresToday++;
     if (b.status === "Checked-Out" || b.status === "Stay Completed") continue;
