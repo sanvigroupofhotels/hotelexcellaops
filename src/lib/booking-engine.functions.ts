@@ -324,7 +324,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       if (!OCCUPIED.has(b.status)) continue;
       if (b.status === "Draft" && b.draft_expires_at && new Date(b.draft_expires_at).getTime() < nowMs) continue;
       if (b.room_id) occupiedRoomIds.add(b.room_id);
-      else if (b.room_details === data.room_type) occupied++;
+      else if (b.room_details === data.room_type || b.room_details === roomsRoomType) occupied++;
     }
     for (const r of (rooms ?? []) as any[]) {
       if (occupiedRoomIds.has(r.id) || blockedRoomIds.has(r.id)) occupied++;
