@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PortalRouteImport } from './routes/portal'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as BeRouteImport } from './routes/be'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
@@ -76,6 +77,11 @@ import { Route as AuthenticatedSettingsIntegrationsIdRouteImport } from './route
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
 import { Route as AuthenticatedBookingsIdEditRouteImport } from './routes/_authenticated/bookings_.$id_.edit'
 
+const PortalRoute = PortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -91,9 +97,9 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortalIndexRoute = PortalIndexRouteImport.update({
-  id: '/portal/',
-  path: '/portal/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => PortalRoute,
 } as any)
 const BeIndexRoute = BeIndexRouteImport.update({
   id: '/',
@@ -106,9 +112,9 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const PortalTokenRoute = PortalTokenRouteImport.update({
-  id: '/portal/$token',
-  path: '/portal/$token',
-  getParentRoute: () => rootRouteImport,
+  id: '/$token',
+  path: '/$token',
+  getParentRoute: () => PortalRoute,
 } as any)
 const BeSearchRoute = BeSearchRouteImport.update({
   id: '/search',
@@ -438,6 +444,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/be': typeof BeRouteWithChildren
   '/login': typeof LoginRoute
+  '/portal': typeof PortalRouteWithChildren
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/attendance': typeof AuthenticatedAttendanceRoute
@@ -571,6 +578,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/be': typeof BeRouteWithChildren
   '/login': typeof LoginRoute
+  '/portal': typeof PortalRouteWithChildren
   '/_authenticated/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
@@ -641,6 +649,7 @@ export interface FileRouteTypes {
     | '/'
     | '/be'
     | '/login'
+    | '/portal'
     | '/access-settings'
     | '/analytics'
     | '/attendance'
@@ -773,6 +782,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/be'
     | '/login'
+    | '/portal'
     | '/_authenticated/access-settings'
     | '/_authenticated/analytics'
     | '/_authenticated/attendance'
@@ -842,8 +852,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   BeRoute: typeof BeRouteWithChildren
   LoginRoute: typeof LoginRoute
-  PortalTokenRoute: typeof PortalTokenRoute
-  PortalIndexRoute: typeof PortalIndexRoute
+  PortalRoute: typeof PortalRouteWithChildren
   ApiPublicCleanupGuestDocumentsRoute: typeof ApiPublicCleanupGuestDocumentsRoute
   ApiPublicHotelzifyPollRoute: typeof ApiPublicHotelzifyPollRoute
   ApiPublicNightAuditRoute: typeof ApiPublicNightAuditRoute
@@ -852,6 +861,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -875,10 +891,10 @@ declare module '@tanstack/react-router' {
     }
     '/portal/': {
       id: '/portal/'
-      path: '/portal'
+      path: '/'
       fullPath: '/portal/'
       preLoaderRoute: typeof PortalIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof PortalRoute
     }
     '/be/': {
       id: '/be/'
@@ -896,10 +912,10 @@ declare module '@tanstack/react-router' {
     }
     '/portal/$token': {
       id: '/portal/$token'
-      path: '/portal/$token'
+      path: '/$token'
       fullPath: '/portal/$token'
       preLoaderRoute: typeof PortalTokenRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof PortalRoute
     }
     '/be/search': {
       id: '/be/search'
@@ -1501,12 +1517,24 @@ const BeRouteChildren: BeRouteChildren = {
 
 const BeRouteWithChildren = BeRoute._addFileChildren(BeRouteChildren)
 
+interface PortalRouteChildren {
+  PortalTokenRoute: typeof PortalTokenRoute
+  PortalIndexRoute: typeof PortalIndexRoute
+}
+
+const PortalRouteChildren: PortalRouteChildren = {
+  PortalTokenRoute: PortalTokenRoute,
+  PortalIndexRoute: PortalIndexRoute,
+}
+
+const PortalRouteWithChildren =
+  PortalRoute._addFileChildren(PortalRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   BeRoute: BeRouteWithChildren,
   LoginRoute: LoginRoute,
-  PortalTokenRoute: PortalTokenRoute,
-  PortalIndexRoute: PortalIndexRoute,
+  PortalRoute: PortalRouteWithChildren,
   ApiPublicCleanupGuestDocumentsRoute: ApiPublicCleanupGuestDocumentsRoute,
   ApiPublicHotelzifyPollRoute: ApiPublicHotelzifyPollRoute,
   ApiPublicNightAuditRoute: ApiPublicNightAuditRoute,
