@@ -98,7 +98,7 @@ function BookingsPage() {
     const upcoming: any[] = [];
     const past: any[] = [];
     for (const b of visible) {
-      const isCancelled = b.status === "Cancelled";
+      const isCancelled = b.status === "Cancelled" || b.status === "No-Show";
       const isCheckedIn = b.status === "Checked-In";
       const isPostStay = b.status === "Checked-Out" || b.status === "Stay Completed";
       if (isCheckedIn) { inHouse.push(b); continue; }
