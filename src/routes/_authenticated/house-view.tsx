@@ -290,7 +290,7 @@ function HouseView() {
     const qNorm = normalized(q);
     const qDigits = normPhone(q);
     return (bookings as any[]).filter((b) => {
-      if (b.status === "Cancelled") return false;
+      if (b.status === "Cancelled" || b.status === "No-Show") return false;
       const nameHit = qNorm.length >= 2 && normalized(b.guest_name).includes(qNorm);
       const refHit = qNorm.length >= 2 && normalized(b.booking_reference).includes(qNorm);
       const phoneHit = qDigits.length >= 3 && normPhone(b.phone).includes(qDigits);
