@@ -1,121 +1,261 @@
-## Shipment Plan — Comms sweep, Users hierarchy, Night Audit Action Center, Invoice redesign
+# Booking Engine + Guest Portal Expansion — Design Proposal
 
-### Phase 1 — Communication Time Sweep (final)
-**Goal**: Every check-in/out display shows `dd-MMM-yyyy, h:mm AM/PM` using `useOpsTimeLabels()` (or `getOpsTimeLabels()` for sync builders).
+This is a design-only document. No code will be written until you approve.
 
-Audit + fix:
-- `src/routes/_authenticated/bookings_.$id.tsx` — Booking Preview / Detail header & summary cards (HIGH PRIORITY — this is the user's #1 complaint).
-- `src/routes/_authenticated/house-view.tsx` — popups, arrival/departure tiles.
-- `src/routes/_authenticated/bookings.tsx` — list rows.
-- `src/routes/_authenticated/bookings_.new.tsx` + `bookings_.$id_.edit.tsx` — summary panels.
-- `src/lib/booking-messages.ts` — WhatsApp / email confirmation strings (use sync `getOpsTimeLabels()`).
-- `src/components/invoice-dialog.tsx`, `src/components/quote-summary.tsx`, `src/components/pricing-breakdown.tsx`.
-- `src/routes/portal.$token.tsx` (verify).
-- Any `format(date, "dd-MMM-yyyy")` for check-in/out across the codebase — `rg` sweep, replace.
+---
 
-### Phase 2 — Users hierarchy (Sidebar reorganization)
-**Goal**: Collapse `User Management` + `Access Management` (and new `Role Management`) under a single `Users` expandable group.
+## 1. Architecture Overview
 
-- `src/components/app-sidebar.tsx`: remove standalone `User Management` and `Access Management` items; add `ExpandableGroup label="Users" prefix="/users"` with three children:
-  - `/users/management` → User Management
-  - `/users/roles` → Role Management (NEW)
-  - `/users/access` → Access Management
-- Create routes:
-  - `src/routes/_authenticated/users.tsx` (layout `<Outlet />`)
-  - `src/routes/_authenticated/users.management.tsx` (move existing `users.tsx` content here)
-  - `src/routes/_authenticated/users.roles.tsx` (NEW — see Phase 3)
-  - `src/routes/_authenticated/users.access.tsx` (re-export of existing `access-settings.tsx` content)
-- Keep `/users` redirecting to `/users/management`.
+Single Lovable project + single Supabase DB. Host-header routing in `src/routes/__root.tsx` selects which "app" renders:
 
-### Phase 3 — Role Management page (NEW)
-At `/users/roles`. Reads from `roles`, `permissions`, `role_permissions` (existing tables — already used by `access-api.ts`).
-- List all roles with row counts.
-- Inline create / rename / delete (non-system roles only).
-- Permission matrix (role × permission grid with toggle), grouped by `permissions.module`.
-- Uses existing `togglePermission`, `createRole`, `updateRole`, `deleteRole`.
+```
+ops.hotelexcella.in    -> PMS (existing _authenticated tree)
+book.hotelexcella.in   -> Booking Engine (new /be/* routes, host-rewritten to /)
+guest.hotelexcella.in  -> Guest Portal (rewrites / -> /portal landing, /:token -> existing portal)
+ops.hotelexcella.in/portal/<token>  -> KEEPS WORKING (no break)
+```
 
-### Phase 4 — Access Management = user-level overrides
-Refactor `/users/access` to be **per-user permission overrides** on top of role-derived perms. Requires new table:
+Why one project: shared rooms, rates, bookings, customers, payments tables. Zero sync. OTA push-pull later plugs into the same inventory layer.
+
+---
+
+## 2. Route Structure
+
+### Booking Engine (book.hotelexcella.in)
+```
+/                      Landing — hero, dates picker, "Search"
+/search                Results — room cards, prices, availability
+/rooms/$slug           Room detail — gallery, amenities, policies
+/checkout              Guest details + add-ons + tax breakup
+/checkout/payment      Payment method (Pay Now / Pay at Hotel)
+/checkout/processing   Razorpay callback handler
+/confirmation/$ref     Success page + portal link + WhatsApp share
+/policies, /contact, /faq
+```
+
+### Guest Portal (guest.hotelexcella.in)
+```
+/                      Marketing splash → "Enter your booking link"
+/$token                Portal home (mirrors current ops/portal/<token>)
+/$token/documents      Upload ID
+/$token/pay            Pay due
+/$token/food           Order food (during stay)
+/$token/complaint      Raise complaint
+/$token/extend         Extend stay request
+/$token/charges        In-house charges
+/$token/invoice        Download invoice / proforma
+/$token/review         Post-stay review
+```
+
+Legacy `ops.hotelexcella.in/portal/<token>` continues to work — same route file, same token, no DB change.
+
+---
+
+## 3. UX Flow
+
+### Booking Engine (mobile-first, 4 thumb-taps to book)
+```
+[Landing]
+  Dates + Guests (sticky bottom CTA "Check Availability")
+       ↓
+[Search Results]
+  Filter chips • Room cards (image, price/night, "Select")
+       ↓
+[Room Detail] (optional skip)
+  Gallery • Amenities • Inclusions • "Book Now"
+       ↓
+[Checkout — single scroll page]
+  • Guest details (name, phone OTP-light, email)
+  • Special requests
+  • Price summary (sticky)
+  • Pay Now / Pay at Hotel toggle
+       ↓
+[Payment]  →  Razorpay Checkout (UPI/Card/Netbanking)
+       ↓
+[Confirmation]
+  • Booking ref • WhatsApp share • "Open Guest Portal" deep link
+  • Auto-send WhatsApp + Email with portal token
+```
+
+Pay-at-Hotel path: skips Razorpay, confirms booking immediately with `status='Confirmed'`, `advance_paid=0`, portal link issued.
+
+---
+
+## 4. Database Changes
+
+Minimal — reuses existing `bookings`, `rooms`, `room_rates`, `rate_overrides`, `booking_payments`, `booking_tokens`, `customers`.
+
+### New columns (additive)
 ```sql
-CREATE TABLE public.user_permission_overrides (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null,
-  permission_key text not null references public.permissions(key) on delete cascade,
-  granted boolean not null default true,  -- true=grant override, false=deny override
-  expires_at timestamptz null,
-  notes text,
-  created_at timestamptz default now(),
-  unique(user_id, permission_key)
-);
-```
-+ GRANTs, RLS (admin manage, self read), and update `my_permissions()` RPC to union role perms with `granted=true` overrides and subtract `granted=false` overrides (respecting `expires_at`).
-
-UI: pick a user → see effective permissions (role-inherited vs override) → add/remove overrides with optional expiry.
-
-### Phase 5 — Night Audit UX
-- `src/routes/_authenticated/house-view.tsx`: remove second "Night Audit" button next to Business Date; keep only the top-right one.
-- `src/components/night-audit-dialog.tsx`: convert to **Action Center**:
-  - Tabbed/sectioned: Pending Check-Ins | Pending Check-Outs | Audit Summary.
-  - Row columns: Booking ID, Guest, Room, Check-In, Check-Out, Status.
-  - Row actions: View (link to detail), Check-In (open existing check-in flow / dialog), Check-Out, Extend Stay (existing extend dialog).
-  - Footer keeps the existing "Perform Night Audit" button (disabled until both lists empty).
-
-### Phase 6 — Invoice & Proforma redesign (HIGH PRIORITY)
-Rewrite `src/components/invoice-dialog.tsx` print layout for a single-page, hotel-grade A4 document that also reflows on mobile.
-
-Layout (single page when possible):
-```
-┌──────────────────────────────────────────────┐
-│  [LOGO]   HOTEL EXCELLA              INVOICE │
-│           address · GST · contact     #INV-… │
-│                                       Date    │
-├──────────────────────────────────────────────┤
-│  Bill To             │  Stay Details         │
-│  Guest name          │  Check-In  17-Jun, 1PM│
-│  Phone · Email       │  Check-Out 18-Jun,11AM│
-│  Address             │  Nights · Adults/Kids │
-│                      │  Room(s)              │
-├──────────────────────────────────────────────┤
-│  Description       Qty   Rate   GST   Amount │
-│  Room charge …                               │
-│  Extra charges…                              │
-├──────────────────────────────────────────────┤
-│  Payment History                Sub-total    │
-│  date · mode · ref · amt        Tax          │
-│                                 TOTAL  ₹     │
-│                                 Paid         │
-│                                 Balance      │
-├──────────────────────────────────────────────┤
-│  Refunds (if any)                            │
-├──────────────────────────────────────────────┤
-│  Notes / Terms              Authorized Sig.  │
-│  Thank you for staying      [signature.png]  │
-│                             Designation      │
-└──────────────────────────────────────────────┘
+ALTER TABLE bookings ADD COLUMN source_channel text DEFAULT 'PMS';
+  -- 'PMS' | 'BookingEngine' | 'Hotelzify' | 'FabHotels' | 'BookingCom' ...
+ALTER TABLE bookings ADD COLUMN pay_at_hotel boolean DEFAULT false;
+ALTER TABLE bookings ADD COLUMN gateway_order_id text;
+ALTER TABLE bookings ADD COLUMN gateway_payment_id text;
 ```
 
-Implementation:
-- Use Tailwind print + responsive utilities (`print:`, `sm:`, `md:`), `@page { size: A4; margin: 12mm }`.
-- Compact typography (11pt body, 9pt table), tight spacing.
-- All check-in/out timestamps via `useOpsTimeLabels()`.
-- Premium feel: subtle gold rule lines (`border-gold/30`), serif display font for headings already in theme, no heavy fills.
-- Mobile: single column, totals card pinned, tables horizontally scrollable only if necessary.
-- Proforma variant: same shell, header label "PROFORMA INVOICE", omits payment history (or shows "advance received").
+### New tables (future-ready, optional now)
+```sql
+-- Promo codes / coupons (schema only, not enforced yet)
+public.promo_codes(code, type, value, valid_from, valid_to,
+                   min_nights, applicable_room_types text[], max_uses, used_count)
 
-### Phase 7 — Payment Settings inheritance verification
-- Read `bookings_.new.tsx` + `bookings_.$id_.edit.tsx` and confirm `getPaymentSettings()` defaults populate `payment_mode`, `payment_terms`, etc.
-- Add fallback initializer where missing. Booking-level edits already override (existing form state).
+-- Seasonal / dynamic pricing layer (above rate_overrides)
+public.rate_seasons(name, start_date, end_date, room_type, multiplier, priority)
 
-### Out of scope (per user)
-- FabHotels & Hotelzify stay disabled. No parser work this shipment.
+-- OTA channel inventory map (future)
+public.channel_inventory(channel, room_type, date, allotment, stop_sell)
+```
 
-### Order of execution
-1. Phase 1 (comms sweep, fastest user-visible win)
-2. Phase 5 (Night Audit UX — small, isolated)
-3. Phase 2 (sidebar + route shells)
-4. Phase 3 (Role Management page)
-5. Phase 4 (Access overrides — migration + UI)
-6. Phase 7 (payment defaults verification)
-7. Phase 6 (Invoice redesign — largest)
+### Public read access
+Booking Engine runs unauthenticated. Add narrow `TO anon SELECT` policies on:
+- `rooms` (only active, public-safe columns)
+- `room_rates`, `rate_overrides`
+- `app_settings` (branding subset)
 
-Proceeding in this order. Each phase compiles independently so partial shipment is safe.
+All writes (create booking, create payment) go through a **server function** with input validation — never direct anon insert.
+
+---
+
+## 5. Inventory & Availability Rules
+
+**Occupied** (block the room/date):
+- Bookings with status ∈ {`Pending`, `Confirmed`, `Advance Paid`, `Full Paid`, `Checked-In`}
+- `room_maintenance` rows where `active=true`
+- Future: `channel_inventory.stop_sell=true`
+
+**Available** (free the room/date):
+- `Cancelled`, `No-Show`, `Checked-Out`, `Stay Completed` (already enforced in DB triggers ✓)
+
+**Availability query** (room-type level, not room-id level — Booking Engine sells *types*, PMS assigns specific rooms at check-in):
+```
+available(type, date) =
+  total_active_rooms_of_type
+  - count(active bookings of type overlapping date)
+  - count(maintenance overlapping date)
+  - channel_inventory.allotment_consumed (future)
+```
+
+Server function `getAvailability(checkIn, checkOut, guests)` returns per-type:
+`{ type, available_count, nightly_breakdown[], total, taxes, grand_total }`.
+
+OTA-ready: same function will later subtract `channel_inventory` and respect stop-sell.
+
+---
+
+## 6. Rates & Pricing
+
+Single source of truth chain:
+```
+rate_overrides (date-specific)  >  rate_seasons (range)  >  room_rates (default/weekday/weekend)
+```
+Resolver already exists in `src/hooks/use-resolved-rate.ts` / `src/lib/rates.ts` — extend it server-side for the engine.
+
+Tax breakup displayed at checkout:
+- Pulled from `app_settings` (GST slabs by tariff — already configured in PMS)
+- Line items: Room × nights, Extra guest, Taxes (CGST/SGST split), Grand total
+
+---
+
+## 7. Payment Flow
+
+**Gateway: Razorpay** (already wired — `RAZORPAY_KEY_ID`, `_SECRET`, `_WEBHOOK_SECRET` exist in secrets, webhook route already lives at `/api/public/razorpay-webhook`).
+
+```
+Checkout → createServerFn createDraftBooking()
+                ↓ returns {booking_id, amount}
+         → Razorpay Checkout (client SDK, key_id only)
+                ↓ on success: payment_id, order_id, signature
+         → createServerFn confirmPayment() verifies signature
+                ↓
+         → booking.status = 'Advance Paid' or 'Full Paid'
+         → portal token issued, WhatsApp + email dispatched
+```
+
+**Pay at Hotel:** skip gateway, booking goes to `Confirmed` directly, `advance_paid=0`.
+
+**Failure handling:**
+- Draft booking held with `status='Draft'` for 15 min (TTL sweep job)
+- On payment failure → confirmation page shows "Retry" → re-opens Razorpay with same order
+- Webhook is the source of truth; client callback is best-effort
+- Idempotent: webhook upserts by `gateway_payment_id`
+
+**Retry:** if user closes browser, the draft booking holds inventory 15 min. WhatsApp "complete your booking" link uses same draft.
+
+---
+
+## 8. Guest Portal Integration
+
+Zero DB changes. Reuse `booking_tokens` table and existing `src/routes/portal.$token.tsx`.
+
+- `guest.hotelexcella.in/$token` → renders existing portal component
+- `ops.hotelexcella.in/portal/$token` → continues to work (no redirect — both paths render)
+- Booking Engine confirmation auto-issues a token and shares the **guest.** URL going forward
+- Old WhatsApp links with ops/portal continue to work indefinitely
+
+New portal sections (Food, Complaint, Extend, Charges, Review) reuse existing PMS tables (`tasks`, `complaints`, `booking_charges`). New tiny table only for reviews:
+```sql
+public.guest_reviews(booking_id, rating, comment, would_recommend, created_at)
+```
+
+---
+
+## 9. Mobile-First Design Approach
+
+- **Tailwind v4 breakpoints**: design at 360px first, enhance at md/lg
+- **Sticky bottom CTA** on every booking step (thumb zone)
+- **Single-column** everywhere; no horizontal scrolling
+- **Skeleton loaders** for slow networks; cached availability per session
+- **Inline date picker** (no modal) on mobile
+- **WhatsApp-safe**: meta tags for rich previews; portal pages render < 1s on 3G
+- **Premium feel**: hospitality typography (serif display + clean sans body), generous whitespace, hero photography
+- **PWA**: installable, offline-tolerant for portal "view booking"
+
+---
+
+## 10. Open Questions / Assumptions
+
+**Please confirm:**
+
+1. **Branding for book.** — Use Hotel Excella visual identity from PMS settings (logo, colors, hero image), or do you want a separate design pass with 2-3 prototype directions before build?
+2. **Inventory granularity** — Sell by **room type** (recommended; OTA-standard) or by **specific room number**? PMS already assigns specific rooms at/before check-in.
+3. **Draft booking TTL** — 15 minutes acceptable to hold inventory during payment?
+4. **Phone verification** — OTP at checkout (extra friction, less spam) or just collect phone (faster, current PMS behavior)? Recommend: skip OTP for v1, add later if abuse seen.
+5. **Guest portal landing** (`guest.hotelexcella.in/`) — Marketing splash, or redirect to hotelexcella.in marketing site, or 404 unless token present?
+6. **Reviews** — Public on website, or internal-only for now?
+7. **Cancellation policy** — Self-serve cancel from portal, or "Contact hotel" only? Refund rules?
+8. **Multi-room bookings** — Allow booking 2+ rooms in one transaction in v1, or single-room only and iterate?
+9. **Promo codes** — Schema only now, UI in v2? Or include a simple flat-discount field at v1?
+10. **Email/SMS** — WhatsApp via existing pipeline is fine; do we also send transactional email at confirmation (you have Google Mail connector)?
+
+**Assumptions I'll make unless you object:**
+- Razorpay for payments (already wired)
+- Room-type level inventory
+- 15-min draft TTL with cron sweep
+- No OTP at v1
+- guest. landing = marketing splash with "Enter booking link" input
+- Self-serve cancel disabled at v1 ("Contact hotel")
+- Single-room bookings at v1
+- Promo codes = schema only, no UI at v1
+- WhatsApp + Email confirmation
+
+---
+
+## 11. Phased Delivery Plan
+
+**Phase 1 (Booking Engine MVP)** — search → checkout → Razorpay → confirmation → portal link
+**Phase 2 (Guest Portal expansion)** — guest. subdomain wiring, document upload, pay due, charges view
+**Phase 3 (In-stay features)** — food order, complaint, extend stay
+**Phase 4 (Post-stay)** — invoice download, reviews
+**Phase 5 (OTA-ready)** — channel_inventory layer, stop-sell, allotment sync hooks
+
+Each phase ends with Deep UAT before the next.
+
+---
+
+Please review and:
+1. Answer the open questions
+2. Confirm/adjust the architecture
+3. Approve phasing
+
+I'll then write the Phase 1 implementation plan and start building.
