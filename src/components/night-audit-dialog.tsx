@@ -26,21 +26,25 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
   });
 
   const setStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: "Checked-In" | "Checked-Out" | "Cancelled" }) => {
+    mutationFn: async ({ id, status }: { id: string; status: "Checked-In" | "Checked-Out" | "Cancelled" | "No-Show" }) => {
       setBusyId(id);
       const { setBookingStatus } = await import("@/lib/bookings-api");
       const { logBookingActivity } = await import("@/lib/booking-activities-api");
       await setBookingStatus(id, status as any);
       await logBookingActivity({
         booking_id: id,
-        action: status === "Checked-In" ? "check_in" : status === "Checked-Out" ? "check_out" : "cancelled",
+        action: status === "Checked-In" ? "check_in"
+          : status === "Checked-Out" ? "check_out"
+          : status === "No-Show" ? "no_show"
+          : "cancelled",
         from_status: null, to_status: status,
         notes: "From Night Audit",
       });
     },
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
+      if (vars.status === "No-Show") toast.success("Marked as No-Show");
       refetch();
     },
     onSettled: () => setBusyId(null),
