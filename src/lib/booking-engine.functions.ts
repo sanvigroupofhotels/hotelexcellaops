@@ -284,11 +284,16 @@ export const createDraftBooking = createServerFn({ method: "POST" })
     // Re-check availability for the chosen type
     const nights = nightsBetween(data.check_in, data.check_out);
 
-    const [{ data: rooms }, { data: rates }, { data: overrides }, { data: bookingRows }, { data: maintRows }, { data: settingRows }] =
+    // Resolve type against both forms: "Oak" vs "Oak Room"
+    const typeIn = data.room_type;
+    const typeStripped = typeIn.replace(/\s+Room$/i, "");
+    const typeCandidates = Array.from(new Set([typeIn, typeStripped, `${typeStripped} Room`]));
+
+    const [{ data: rooms }, { data: ratesAll }, { data: overrides }, { data: bookingRows }, { data: maintRows }, { data: settingRows }] =
       await Promise.all([
-        supabaseAdmin.from("rooms").select("id,room_type").eq("active", true).eq("room_type", data.room_type),
-        supabaseAdmin.from("room_rates").select("*").eq("room_type", data.room_type).maybeSingle(),
-        supabaseAdmin.from("rate_overrides").select("date,rate").eq("room_type", data.room_type).gte("date", data.check_in).lt("date", data.check_out),
+        supabaseAdmin.from("rooms").select("id,room_type").eq("active", true).in("room_type", typeCandidates),
+        supabaseAdmin.from("room_rates").select("*").in("room_type", typeCandidates),
+        supabaseAdmin.from("rate_overrides").select("room_type,date,rate").in("room_type", typeCandidates).gte("date", data.check_in).lt("date", data.check_out),
         supabaseAdmin
           .from("bookings")
           .select("room_id,room_details,check_in,check_out,status,draft_expires_at")
@@ -302,6 +307,9 @@ export const createDraftBooking = createServerFn({ method: "POST" })
           .gt("end_date", data.check_in),
         supabaseAdmin.from("app_settings").select("value").eq("key", "tax").maybeSingle(),
       ]);
+
+    const rates = (ratesAll ?? [])[0] ?? null;
+    const roomsRoomType = (rooms ?? [])[0]?.room_type ?? typeStripped;
 
     const tax_rate = Number((settingRows as any)?.value?.rate ?? 0.05);
     const totalOfType = (rooms ?? []).length;
