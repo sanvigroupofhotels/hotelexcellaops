@@ -190,11 +190,16 @@ function parseGeneric(
 
   const emailMatch = emailVal?.match(/[\w.+-]+@[\w.-]+\.\w+/);
 
+  // Safeguard — never store the hotel's reception number as a guest phone.
+  const RECEPTION_NUMBERS = new Set(["9985908131", "09985908131", "+919985908131", "919985908131"]);
+  const cleanedPhone = mobile ? mobile.replace(/[\s\-()]/g, "") : null;
+  const guestPhone = cleanedPhone && !RECEPTION_NUMBERS.has(cleanedPhone) ? cleanedPhone : null;
+
   return {
     booking: {
       external_ref: bookingId,
       guest_name: name.replace(/\s*\([^)]*\)\s*$/, "").trim(),
-      phone: mobile ? mobile.replace(/[\s\-()]/g, "") : null,
+      phone: guestPhone,
       email: emailMatch ? emailMatch[0].toLowerCase() : null,
       check_in: checkIn,
       check_out: checkOut,
