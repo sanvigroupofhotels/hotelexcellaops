@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as BeRouteImport } from './routes/be'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
@@ -73,6 +74,11 @@ import { Route as AuthenticatedBookingsIdEditRouteImport } from './routes/_authe
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BeRoute = BeRouteImport.update({
+  id: '/be',
+  path: '/be',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -400,6 +406,7 @@ const AuthenticatedBookingsIdEditRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
+  '/be': typeof BeRoute
   '/login': typeof LoginRoute
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
@@ -460,6 +467,7 @@ export interface FileRoutesByFullPath {
   '/staff/$id/ledger': typeof AuthenticatedStaffIdLedgerRoute
 }
 export interface FileRoutesByTo {
+  '/be': typeof BeRoute
   '/login': typeof LoginRoute
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
@@ -522,6 +530,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/be': typeof BeRoute
   '/login': typeof LoginRoute
   '/_authenticated/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
@@ -586,6 +595,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/be'
     | '/login'
     | '/access-settings'
     | '/analytics'
@@ -646,6 +656,7 @@ export interface FileRouteTypes {
     | '/staff/$id/ledger'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/be'
     | '/login'
     | '/access-settings'
     | '/analytics'
@@ -707,6 +718,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
+    | '/be'
     | '/login'
     | '/_authenticated/access-settings'
     | '/_authenticated/analytics'
@@ -770,6 +782,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  BeRoute: typeof BeRoute
   LoginRoute: typeof LoginRoute
   PortalTokenRoute: typeof PortalTokenRoute
   ApiPublicCleanupGuestDocumentsRoute: typeof ApiPublicCleanupGuestDocumentsRoute
@@ -785,6 +798,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/be': {
+      id: '/be'
+      path: '/be'
+      fullPath: '/be'
+      preLoaderRoute: typeof BeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -1373,6 +1393,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  BeRoute: BeRoute,
   LoginRoute: LoginRoute,
   PortalTokenRoute: PortalTokenRoute,
   ApiPublicCleanupGuestDocumentsRoute: ApiPublicCleanupGuestDocumentsRoute,
