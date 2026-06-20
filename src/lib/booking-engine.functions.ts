@@ -148,7 +148,7 @@ export const getAvailability = createServerFn({ method: "POST" })
           .gt("end_date", data.check_in),
       ]);
 
-    const tax_rate = Number((settingRows ?? [])[0]?.value?.rate ?? 0.05);
+    const tax_rate = Number(((settingRows ?? [])[0]?.value as any)?.rate ?? 0.05);
 
     // Group active rooms by type
     const roomsByType: Record<string, number> = {};
