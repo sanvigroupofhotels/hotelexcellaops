@@ -18,7 +18,7 @@ const SearchSchema = z.object({
   guests: z.coerce.number().int().min(1).max(10).default(2),
 });
 
-export const Route = createFileRoute("/be/search")({
+export const Route = createFileRoute("/booking-engine/search")({
   component: SearchPage,
   validateSearch: (raw) => SearchSchema.parse(raw),
 });
@@ -28,7 +28,7 @@ const dateLabel = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" });
 
 function SearchPage() {
-  const search = useSearch({ from: "/be/search" });
+  const search = useSearch({ from: "/booking-engine/search" });
   const navigate = useNavigate();
   const fn = useServerFn(getAvailability);
   const q = useQuery({
@@ -39,7 +39,7 @@ function SearchPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
-      <Link to="/be" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link to="/booking-engine" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Change dates
       </Link>
 
@@ -109,7 +109,7 @@ function SearchPage() {
                 disabled={r.available <= 0}
                 onClick={() =>
                   navigate({
-                    to: "/be/checkout",
+                    to: "/booking-engine/checkout",
                     search: {
                       check_in: search.check_in,
                       check_out: search.check_out,

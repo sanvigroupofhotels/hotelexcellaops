@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, Calendar, BedDouble, Users, Phone, ExternalLink, Loader2 } from "lucide-react";
 
-export const Route = createFileRoute("/be/confirmation/$ref")({
+export const Route = createFileRoute("/booking-engine/confirmation/$ref")({
   component: ConfirmationPage,
 });
 
@@ -40,7 +40,7 @@ function ConfirmationPage() {
         <Card className="p-6 text-center">
           <p className="font-display text-lg">We couldn't find this booking</p>
           <p className="text-sm text-muted-foreground mt-2">Please check the link or contact the hotel.</p>
-          <Link to="/be" className="inline-block mt-4 text-sm text-gold underline">Back to home</Link>
+          <Link to="/booking-engine" className="inline-block mt-4 text-sm text-gold underline">Back to home</Link>
         </Card>
       </div>
     );

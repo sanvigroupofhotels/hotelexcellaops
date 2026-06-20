@@ -30,7 +30,7 @@ const Schema = z.object({
   room_type: z.string(),
 });
 
-export const Route = createFileRoute("/be/checkout")({
+export const Route = createFileRoute("/booking-engine/checkout")({
   component: CheckoutPage,
   validateSearch: (raw) => Schema.parse(raw),
 });
@@ -46,7 +46,7 @@ declare global {
 }
 
 function CheckoutPage() {
-  const search = useSearch({ from: "/be/checkout" });
+  const search = useSearch({ from: "/booking-engine/checkout" });
   const navigate = useNavigate();
   const { data: cfg } = useEngineConfig();
 
@@ -159,7 +159,7 @@ function CheckoutPage() {
                 razorpay_signature: resp.razorpay_signature,
               },
             });
-            navigate({ to: "/be/confirmation/$ref", params: { ref: r.reference } });
+            navigate({ to: "/booking-engine/confirmation/$ref", params: { ref: r.reference } });
           } catch (e: any) {
             toast.error(e?.message ?? "Payment verification failed");
           }
@@ -180,7 +180,7 @@ function CheckoutPage() {
       const d = await ensureDraft();
       if (!d) return;
       const r = await confirmPah({ data: { booking_id: d.booking_id } });
-      navigate({ to: "/be/confirmation/$ref", params: { ref: r.reference } });
+      navigate({ to: "/booking-engine/confirmation/$ref", params: { ref: r.reference } });
     } catch (e: any) {
       toast.error(e?.message ?? "Could not confirm. Please try again.");
     } finally {
@@ -193,7 +193,7 @@ function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-32">
-      <Link to="/be/search" search={{ check_in: search.check_in, check_out: search.check_out, guests: search.guests } as any}
+      <Link to="/booking-engine/search" search={{ check_in: search.check_in, check_out: search.check_out, guests: search.guests } as any}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Back to results
       </Link>

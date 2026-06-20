@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { CalendarDays, Users, Sparkles, Shield, Tag } from "lucide-react";
 
-export const Route = createFileRoute("/be/")({
+export const Route = createFileRoute("/booking-engine/")({
   component: LandingPage,
 });
 
@@ -36,7 +36,7 @@ function LandingPage() {
   })();
 
   function search() {
-    navigate({ to: "/be/search", search: { check_in: checkIn, check_out: checkOut, guests } as any });
+    navigate({ to: "/booking-engine/search", search: { check_in: checkIn, check_out: checkOut, guests } as any });
   }
 
   const hero = cfg?.branding.hero_image_url || "";

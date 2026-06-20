@@ -11,14 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as BeRouteImport } from './routes/be'
+import { Route as BookingEngineRouteImport } from './routes/booking-engine'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
-import { Route as BeIndexRouteImport } from './routes/be.index'
+import { Route as BookingEngineIndexRouteImport } from './routes/booking-engine.index'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
-import { Route as BeSearchRouteImport } from './routes/be.search'
-import { Route as BeCheckoutRouteImport } from './routes/be.checkout'
+import { Route as BookingEngineSearchRouteImport } from './routes/booking-engine.search'
+import { Route as BookingEngineCheckoutRouteImport } from './routes/booking-engine.checkout'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedStaffManagementRouteImport } from './routes/_authenticated/staff-management'
@@ -46,7 +46,7 @@ import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAccessSettingsRouteImport } from './routes/_authenticated/access-settings'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
-import { Route as BeConfirmationRefRouteImport } from './routes/be.confirmation.$ref'
+import { Route as BookingEngineConfirmationRefRouteImport } from './routes/booking-engine.confirmation.$ref'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
 import { Route as ApiPublicNightAuditRouteImport } from './routes/api/public/night-audit'
 import { Route as ApiPublicHotelzifyPollRouteImport } from './routes/api/public/hotelzify-poll'
@@ -87,9 +87,9 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BeRoute = BeRouteImport.update({
-  id: '/be',
-  path: '/be',
+const BookingEngineRoute = BookingEngineRouteImport.update({
+  id: '/booking-engine',
+  path: '/booking-engine',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -101,10 +101,10 @@ const PortalIndexRoute = PortalIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PortalRoute,
 } as any)
-const BeIndexRoute = BeIndexRouteImport.update({
+const BookingEngineIndexRoute = BookingEngineIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => BeRoute,
+  getParentRoute: () => BookingEngineRoute,
 } as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
@@ -116,15 +116,15 @@ const PortalTokenRoute = PortalTokenRouteImport.update({
   path: '/$token',
   getParentRoute: () => PortalRoute,
 } as any)
-const BeSearchRoute = BeSearchRouteImport.update({
+const BookingEngineSearchRoute = BookingEngineSearchRouteImport.update({
   id: '/search',
   path: '/search',
-  getParentRoute: () => BeRoute,
+  getParentRoute: () => BookingEngineRoute,
 } as any)
-const BeCheckoutRoute = BeCheckoutRouteImport.update({
+const BookingEngineCheckoutRoute = BookingEngineCheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
-  getParentRoute: () => BeRoute,
+  getParentRoute: () => BookingEngineRoute,
 } as any)
 const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
   id: '/users',
@@ -265,11 +265,12 @@ const AuthenticatedSettingsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
-const BeConfirmationRefRoute = BeConfirmationRefRouteImport.update({
-  id: '/confirmation/$ref',
-  path: '/confirmation/$ref',
-  getParentRoute: () => BeRoute,
-} as any)
+const BookingEngineConfirmationRefRoute =
+  BookingEngineConfirmationRefRouteImport.update({
+    id: '/confirmation/$ref',
+    path: '/confirmation/$ref',
+    getParentRoute: () => BookingEngineRoute,
+  } as any)
 const ApiPublicRazorpayWebhookRoute =
   ApiPublicRazorpayWebhookRouteImport.update({
     id: '/api/public/razorpay-webhook',
@@ -442,7 +443,7 @@ const AuthenticatedBookingsIdEditRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
-  '/be': typeof BeRouteWithChildren
+  '/booking-engine': typeof BookingEngineRouteWithChildren
   '/login': typeof LoginRoute
   '/portal': typeof PortalRouteWithChildren
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
@@ -471,10 +472,10 @@ export interface FileRoutesByFullPath {
   '/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRouteWithChildren
-  '/be/checkout': typeof BeCheckoutRoute
-  '/be/search': typeof BeSearchRoute
+  '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
+  '/booking-engine/search': typeof BookingEngineSearchRoute
   '/portal/$token': typeof PortalTokenRoute
-  '/be/': typeof BeIndexRoute
+  '/booking-engine/': typeof BookingEngineIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
@@ -501,7 +502,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
-  '/be/confirmation/$ref': typeof BeConfirmationRefRoute
+  '/booking-engine/confirmation/$ref': typeof BookingEngineConfirmationRefRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -535,11 +536,11 @@ export interface FileRoutesByTo {
   '/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
   '/users': typeof AuthenticatedUsersRouteWithChildren
-  '/be/checkout': typeof BeCheckoutRoute
-  '/be/search': typeof BeSearchRoute
+  '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
+  '/booking-engine/search': typeof BookingEngineSearchRoute
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
-  '/be': typeof BeIndexRoute
+  '/booking-engine': typeof BookingEngineIndexRoute
   '/portal': typeof PortalIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
@@ -566,7 +567,7 @@ export interface FileRoutesByTo {
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
-  '/be/confirmation/$ref': typeof BeConfirmationRefRoute
+  '/booking-engine/confirmation/$ref': typeof BookingEngineConfirmationRefRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -576,7 +577,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
-  '/be': typeof BeRouteWithChildren
+  '/booking-engine': typeof BookingEngineRouteWithChildren
   '/login': typeof LoginRoute
   '/portal': typeof PortalRouteWithChildren
   '/_authenticated/access-settings': typeof AuthenticatedAccessSettingsRoute
@@ -605,11 +606,11 @@ export interface FileRoutesById {
   '/_authenticated/staff-management': typeof AuthenticatedStaffManagementRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/users': typeof AuthenticatedUsersRouteWithChildren
-  '/be/checkout': typeof BeCheckoutRoute
-  '/be/search': typeof BeSearchRoute
+  '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
+  '/booking-engine/search': typeof BookingEngineSearchRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/be/': typeof BeIndexRoute
+  '/booking-engine/': typeof BookingEngineIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
   '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
@@ -636,7 +637,7 @@ export interface FileRoutesById {
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
-  '/be/confirmation/$ref': typeof BeConfirmationRefRoute
+  '/booking-engine/confirmation/$ref': typeof BookingEngineConfirmationRefRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -647,7 +648,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/be'
+    | '/booking-engine'
     | '/login'
     | '/portal'
     | '/access-settings'
@@ -676,10 +677,10 @@ export interface FileRouteTypes {
     | '/staff-management'
     | '/tasks'
     | '/users'
-    | '/be/checkout'
-    | '/be/search'
+    | '/booking-engine/checkout'
+    | '/booking-engine/search'
     | '/portal/$token'
-    | '/be/'
+    | '/booking-engine/'
     | '/portal/'
     | '/bookings/$id'
     | '/bookings/new'
@@ -706,7 +707,7 @@ export interface FileRouteTypes {
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
-    | '/be/confirmation/$ref'
+    | '/booking-engine/confirmation/$ref'
     | '/settings/'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
@@ -740,11 +741,11 @@ export interface FileRouteTypes {
     | '/staff-management'
     | '/tasks'
     | '/users'
-    | '/be/checkout'
-    | '/be/search'
+    | '/booking-engine/checkout'
+    | '/booking-engine/search'
     | '/portal/$token'
     | '/'
-    | '/be'
+    | '/booking-engine'
     | '/portal'
     | '/bookings/$id'
     | '/bookings/new'
@@ -771,7 +772,7 @@ export interface FileRouteTypes {
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
-    | '/be/confirmation/$ref'
+    | '/booking-engine/confirmation/$ref'
     | '/settings'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
@@ -780,7 +781,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
-    | '/be'
+    | '/booking-engine'
     | '/login'
     | '/portal'
     | '/_authenticated/access-settings'
@@ -809,11 +810,11 @@ export interface FileRouteTypes {
     | '/_authenticated/staff-management'
     | '/_authenticated/tasks'
     | '/_authenticated/users'
-    | '/be/checkout'
-    | '/be/search'
+    | '/booking-engine/checkout'
+    | '/booking-engine/search'
     | '/portal/$token'
     | '/_authenticated/'
-    | '/be/'
+    | '/booking-engine/'
     | '/portal/'
     | '/_authenticated/bookings_/$id'
     | '/_authenticated/bookings_/new'
@@ -840,7 +841,7 @@ export interface FileRouteTypes {
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
-    | '/be/confirmation/$ref'
+    | '/booking-engine/confirmation/$ref'
     | '/_authenticated/settings/'
     | '/_authenticated/bookings_/$id_/edit'
     | '/_authenticated/quote/$id_/edit'
@@ -850,7 +851,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
-  BeRoute: typeof BeRouteWithChildren
+  BookingEngineRoute: typeof BookingEngineRouteWithChildren
   LoginRoute: typeof LoginRoute
   PortalRoute: typeof PortalRouteWithChildren
   ApiPublicCleanupGuestDocumentsRoute: typeof ApiPublicCleanupGuestDocumentsRoute
@@ -875,11 +876,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/be': {
-      id: '/be'
-      path: '/be'
-      fullPath: '/be'
-      preLoaderRoute: typeof BeRouteImport
+    '/booking-engine': {
+      id: '/booking-engine'
+      path: '/booking-engine'
+      fullPath: '/booking-engine'
+      preLoaderRoute: typeof BookingEngineRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -896,12 +897,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalIndexRouteImport
       parentRoute: typeof PortalRoute
     }
-    '/be/': {
-      id: '/be/'
+    '/booking-engine/': {
+      id: '/booking-engine/'
       path: '/'
-      fullPath: '/be/'
-      preLoaderRoute: typeof BeIndexRouteImport
-      parentRoute: typeof BeRoute
+      fullPath: '/booking-engine/'
+      preLoaderRoute: typeof BookingEngineIndexRouteImport
+      parentRoute: typeof BookingEngineRoute
     }
     '/_authenticated/': {
       id: '/_authenticated/'
@@ -917,19 +918,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalTokenRouteImport
       parentRoute: typeof PortalRoute
     }
-    '/be/search': {
-      id: '/be/search'
+    '/booking-engine/search': {
+      id: '/booking-engine/search'
       path: '/search'
-      fullPath: '/be/search'
-      preLoaderRoute: typeof BeSearchRouteImport
-      parentRoute: typeof BeRoute
+      fullPath: '/booking-engine/search'
+      preLoaderRoute: typeof BookingEngineSearchRouteImport
+      parentRoute: typeof BookingEngineRoute
     }
-    '/be/checkout': {
-      id: '/be/checkout'
+    '/booking-engine/checkout': {
+      id: '/booking-engine/checkout'
       path: '/checkout'
-      fullPath: '/be/checkout'
-      preLoaderRoute: typeof BeCheckoutRouteImport
-      parentRoute: typeof BeRoute
+      fullPath: '/booking-engine/checkout'
+      preLoaderRoute: typeof BookingEngineCheckoutRouteImport
+      parentRoute: typeof BookingEngineRoute
     }
     '/_authenticated/users': {
       id: '/_authenticated/users'
@@ -1120,12 +1121,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
-    '/be/confirmation/$ref': {
-      id: '/be/confirmation/$ref'
+    '/booking-engine/confirmation/$ref': {
+      id: '/booking-engine/confirmation/$ref'
       path: '/confirmation/$ref'
-      fullPath: '/be/confirmation/$ref'
-      preLoaderRoute: typeof BeConfirmationRefRouteImport
-      parentRoute: typeof BeRoute
+      fullPath: '/booking-engine/confirmation/$ref'
+      preLoaderRoute: typeof BookingEngineConfirmationRefRouteImport
+      parentRoute: typeof BookingEngineRoute
     }
     '/api/public/razorpay-webhook': {
       id: '/api/public/razorpay-webhook'
@@ -1501,21 +1502,23 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
-interface BeRouteChildren {
-  BeCheckoutRoute: typeof BeCheckoutRoute
-  BeSearchRoute: typeof BeSearchRoute
-  BeIndexRoute: typeof BeIndexRoute
-  BeConfirmationRefRoute: typeof BeConfirmationRefRoute
+interface BookingEngineRouteChildren {
+  BookingEngineCheckoutRoute: typeof BookingEngineCheckoutRoute
+  BookingEngineSearchRoute: typeof BookingEngineSearchRoute
+  BookingEngineIndexRoute: typeof BookingEngineIndexRoute
+  BookingEngineConfirmationRefRoute: typeof BookingEngineConfirmationRefRoute
 }
 
-const BeRouteChildren: BeRouteChildren = {
-  BeCheckoutRoute: BeCheckoutRoute,
-  BeSearchRoute: BeSearchRoute,
-  BeIndexRoute: BeIndexRoute,
-  BeConfirmationRefRoute: BeConfirmationRefRoute,
+const BookingEngineRouteChildren: BookingEngineRouteChildren = {
+  BookingEngineCheckoutRoute: BookingEngineCheckoutRoute,
+  BookingEngineSearchRoute: BookingEngineSearchRoute,
+  BookingEngineIndexRoute: BookingEngineIndexRoute,
+  BookingEngineConfirmationRefRoute: BookingEngineConfirmationRefRoute,
 }
 
-const BeRouteWithChildren = BeRoute._addFileChildren(BeRouteChildren)
+const BookingEngineRouteWithChildren = BookingEngineRoute._addFileChildren(
+  BookingEngineRouteChildren,
+)
 
 interface PortalRouteChildren {
   PortalTokenRoute: typeof PortalTokenRoute
@@ -1532,7 +1535,7 @@ const PortalRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
-  BeRoute: BeRouteWithChildren,
+  BookingEngineRoute: BookingEngineRouteWithChildren,
   LoginRoute: LoginRoute,
   PortalRoute: PortalRouteWithChildren,
   ApiPublicCleanupGuestDocumentsRoute: ApiPublicCleanupGuestDocumentsRoute,
@@ -1543,13 +1546,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
