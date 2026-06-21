@@ -276,6 +276,8 @@ function CustomerDetail() {
                 {!c.phone && !c.email && <div className="italic">No contact details</div>}
               </div>
             </Panel>
+
+            <LeadTimeline customerId={c.id} />
           </div>
         </div>
       </div>
