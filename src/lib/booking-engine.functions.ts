@@ -9,6 +9,8 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { normalizeOrThrow } from "@/lib/phone";
+
 
 const DRAFT_TTL_MIN = 15;
 const SOURCE = "BookingEngine";
@@ -279,7 +281,11 @@ export const createDraftBooking = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    // Canonicalize phone so Lead.phone == Customer.phone == Booking.phone everywhere.
+    const phone = normalizeOrThrow(data.phone);
+
     if (data.check_out <= data.check_in) throw new Error("Check-out must be after check-in.");
+
 
     // Re-check availability for the chosen type
     const nights = nightsBetween(data.check_in, data.check_out);
@@ -353,17 +359,19 @@ export const createDraftBooking = createServerFn({ method: "POST" })
 
     const systemUserId = await getSystemUserId();
 
-    // Find or create customer (by phone)
+    // Find or create customer (by normalized phone). Lead capture (Step A) may
+    // have already created a customer via the leads_link_or_create_customer
+    // trigger using the normalized phone, so we MUST query in the same shape.
     let customerId: string | null = null;
     const { data: existingCust } = await supabaseAdmin
-      .from("customers").select("id").eq("phone", data.phone).limit(1).maybeSingle();
+      .from("customers").select("id").eq("phone", phone).limit(1).maybeSingle();
     if (existingCust) customerId = (existingCust as any).id;
     else {
       const { data: newCust, error: ce } = await supabaseAdmin
         .from("customers").insert({
           user_id: systemUserId,
           guest_name: data.guest_name,
-          phone: data.phone,
+          phone,
           email: data.email || null,
           lead_source: "Direct",
         } as any).select("id").single();
@@ -379,7 +387,8 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       customer_id: customerId,
       booking_reference: reference,
       guest_name: data.guest_name,
-      phone: data.phone,
+      phone,
+
       email: data.email || null,
       check_in: data.check_in,
       check_out: data.check_out,
