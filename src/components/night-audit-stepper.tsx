@@ -820,7 +820,7 @@ function DeparturesStep({
     try {
       await setBookingStatus(id, "Checked-Out" as any);
       await logBookingActivity({
-        booking_id: id, action: "checked_out",
+        booking_id: id, action: "check_out",
         from_status: beforeStatus, to_status: "Checked-Out",
         notes: reason ? `Night Audit · Override: ${reason}` : "From Night Audit · Departures",
       });
