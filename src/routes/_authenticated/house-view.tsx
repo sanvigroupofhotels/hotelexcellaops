@@ -825,9 +825,9 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
           )}
           {primary && (
             <button onClick={primary.onClick}
-              disabled={performCheckIn.isPending || checkOutMut.isPending || noShowMut.isPending}
+              disabled={checkIn.isWorking || checkOutMut.isPending || noShowMut.isPending}
               className={cn("flex-1 text-center rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60", toneCls(primary.tone))}>
-              {(performCheckIn.isPending || checkOutMut.isPending) ? "Working…" : primary.label}
+              {(checkIn.isWorking || checkOutMut.isPending) ? "Working…" : primary.label}
             </button>
           )}
           {canTransact && status !== "Checked-In" && today > b.check_out && (
