@@ -281,7 +281,11 @@ export const createDraftBooking = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    // Canonicalize phone so Lead.phone == Customer.phone == Booking.phone everywhere.
+    const phone = normalizeOrThrow(data.phone);
+
     if (data.check_out <= data.check_in) throw new Error("Check-out must be after check-in.");
+
 
     // Re-check availability for the chosen type
     const nights = nightsBetween(data.check_in, data.check_out);
