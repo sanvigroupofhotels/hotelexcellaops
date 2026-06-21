@@ -48,6 +48,7 @@ const settingsChildren = [
   { to: "/settings/general",          label: "General",             icon: Building2Alt, permission: "settings.general" },
   { to: "/settings/operations",       label: "Operations",          icon: Cog, permission: "settings.operations" },
   { to: "/settings/branding",         label: "Branding",            icon: Palette, permission: "settings.branding" },
+  { to: "/settings/crm",              label: "CRM & Notifications", icon: Users, permission: "settings.general" },
   { to: "/settings/documents",        label: "Documents Retention", icon: ShieldCheck, permission: "settings.documents" },
   { to: "/settings/payment-settings", label: "Payment Settings",    icon: CreditCard, permission: "settings.payment_settings" },
   { to: "/settings/integrations",     label: "Integrations",        icon: Plug, permission: "settings.integrations" },
