@@ -66,7 +66,7 @@ function CustomersPage() {
     return ids;
   }, [quotes, q]);
 
-  const filtered = useMemo(() => customers.filter((c) => {
+  const filteredAllCustomers = useMemo(() => customers.filter((c) => {
     if (!q) return true;
     const ql = q.toLowerCase();
     return (
@@ -77,6 +77,36 @@ function CustomersPage() {
       (customerIdsByQuoteRef?.has(c.id) ?? false)
     );
   }), [customers, q, customerIdsByQuoteRef]);
+
+  const filtered = useMemo(() => {
+    let list = filteredAllCustomers;
+    if (tab === "customers") list = list.filter((c) => (c.total_bookings ?? 0) >= 1 && (c.total_bookings ?? 0) < 2);
+    if (tab === "repeat")    list = list.filter((c) => (c.total_bookings ?? 0) >= 2);
+    return list;
+  }, [filteredAllCustomers, tab]);
+
+  // Lead views
+  const filteredLeads = useMemo(() => {
+    const ql = q.toLowerCase().trim();
+    return (leads as any[]).filter((l) => {
+      if (tab === "lost" && l.status !== "Lost") return false;
+      if (tab === "leads" && !["Interested", "Abandoned"].includes(l.status)) return false;
+      if (!ql) return true;
+      return (l.guest_name ?? "").toLowerCase().includes(ql)
+        || (l.phone ?? "").includes(q)
+        || (l.email ?? "").toLowerCase().includes(ql);
+    });
+  }, [leads, q, tab]);
+
+  const counts = useMemo(() => ({
+    all: filteredAllCustomers.length,
+    leads: (leads as any[]).filter((l) => ["Interested", "Abandoned"].includes(l.status)).length,
+    customers: customers.filter((c) => (c.total_bookings ?? 0) >= 1 && (c.total_bookings ?? 0) < 2).length,
+    repeat: customers.filter((c) => (c.total_bookings ?? 0) >= 2).length,
+    lost: (leads as any[]).filter((l) => l.status === "Lost").length,
+  }), [filteredAllCustomers, leads, customers]);
+
+  const showingLeads = tab === "leads" || tab === "lost";
 
   return (
     <>
