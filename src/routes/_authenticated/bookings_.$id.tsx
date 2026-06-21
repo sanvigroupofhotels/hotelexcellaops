@@ -75,6 +75,11 @@ function BookingDetail() {
     queryKey: ["customer", b?.customer_id], queryFn: () => getCustomer(b!.customer_id), enabled: !!b?.customer_id,
   });
   const { data: rooms = [] } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
+  const { data: businessDate } = useQuery({
+    queryKey: ["business-date"],
+    queryFn: async () => (await import("@/lib/night-audit-api")).getBusinessDate(),
+    staleTime: 30_000,
+  });
 
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ["booking", id] });
