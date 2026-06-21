@@ -33,7 +33,6 @@ export const Route = createFileRoute("/_authenticated/night-audit")({
 
 function NightAuditPage() {
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const { isAdmin, canManage } = useUserRole();
   const canCloseOrReopen = isAdmin || canManage;
 
