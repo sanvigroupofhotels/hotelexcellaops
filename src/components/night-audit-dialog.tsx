@@ -1,22 +1,31 @@
 import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Loader2, ShieldCheck, LogIn, LogOut, AlertTriangle, X, CheckCircle2, UserX } from "lucide-react";
+import { Loader2, ShieldCheck, LogIn, LogOut, AlertTriangle, X, CheckCircle2, UserX, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getPendingForAudit, performNightAudit, bulkSetStatus } from "@/lib/night-audit-api";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 
 /**
  * Night Audit dialog.
- * - Lists pending check-ins (status not Checked-In/-Out/Cancelled AND check_in ≤ business date).
- * - Lists pending check-outs (status = Checked-In AND check_out ≤ business date).
- * - Quick actions: Check-In / Cancel Booking / Check-Out.
- * - "Perform Night Audit" is only enabled when both lists are empty; it then
- *   advances the business date by +1 day.
+ *
+ * Business rules:
+ *  - Pending Check-Ins: check_in < business_date AND status ∉ {Checked-In, Checked-Out, Cancelled, No-Show, Stay Completed}.
+ *  - Pending Check-Outs: status = Checked-In AND check_out < business_date.
+ *  - No-Show button is shown only when check_out < business_date (guest didn't arrive AND stay window already past).
+ *  - Check-In opens the same Room Assignment / Check-In flow used elsewhere — no redirection.
+ *  - Cancel opens a confirmation; on Yes, booking → Cancelled (Due becomes ₹0), action item disappears.
  */
 export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [checkinBookingId, setCheckinBookingId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["night-audit-pending"],
@@ -45,6 +54,8 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
       if (vars.status === "No-Show") toast.success("Marked as No-Show");
+      else if (vars.status === "Cancelled") toast.success("Booking cancelled");
+      else if (vars.status === "Checked-In") toast.success("Checked-In Successfully");
       refetch();
     },
     onSettled: () => setBusyId(null),
@@ -68,6 +79,29 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
     if (ids.length === 0) return;
     if (!window.confirm(`You are about to ${verb} ${ids.length} booking${ids.length === 1 ? "" : "s"}. Continue?`)) return;
     bulk.mutate({ ids, status });
+  };
+
+  // Smart Check-In: if rooms already assigned, set status directly; else open Room Assignment flow.
+  const handleCheckIn = async (bookingId: string) => {
+    try {
+      setBusyId(bookingId);
+      const [{ listAssignments, requiredRoomCount }, { listBookingItems }] = await Promise.all([
+        import("@/lib/booking-room-assignments-api"),
+        import("@/lib/booking-items-api"),
+      ]);
+      const [assignments, items] = await Promise.all([listAssignments(bookingId), listBookingItems(bookingId)]);
+      const required = requiredRoomCount(items as any);
+      if (assignments.length < required) {
+        setCheckinBookingId(bookingId);
+        setBusyId(null);
+        return;
+      }
+      await setStatus.mutateAsync({ id: bookingId, status: "Checked-In" });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not start Check-In");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const perform = useMutation({
@@ -95,18 +129,20 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
 
   if (!open) return null;
 
+  const bd = data?.businessDate;
   const ci = data?.pendingCheckIns ?? [];
   const co = data?.pendingCheckOuts ?? [];
   const clear = !isLoading && ci.length === 0 && co.length === 0;
 
   return (
+    <>
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="luxe-card rounded-xl w-full max-w-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>
             <h3 className="font-display text-xl flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-gold" /> Night Audit</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Current business date: <span className="font-medium text-foreground">{data?.businessDate ?? "—"}</span>
+              Current business date: <span className="font-medium text-foreground">{bd ?? "—"}</span>
             </p>
           </div>
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
@@ -130,31 +166,41 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
                     className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive disabled:opacity-50">Cancel All</button>
                 </>
               ) : null}
-              renderActions={(b) => (
-                <>
-                  <Link to="/bookings/$id" params={{ id: b.id }} onClick={onClose}
-                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40">
-                    View
-                  </Link>
-                  <Link to="/bookings/$id" params={{ id: b.id }} onClick={onClose}
-                    className="inline-flex items-center gap-1 rounded-md gold-gradient px-2.5 py-1 text-[11px] text-charcoal font-medium">
-                    <LogIn className="h-3 w-3" /> Check-In
-                  </Link>
-                  <button
-                    onClick={() => {
-                      if (!window.confirm(`Mark "${b.guest_name}" as No-Show? Balance Due becomes ₹0 and the room is freed.`)) return;
-                      setStatus.mutate({ id: b.id, status: "No-Show" });
-                    }}
-                    disabled={busyId === b.id}
-                    className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1 text-[11px] text-warning disabled:opacity-50">
-                    <UserX className="h-3 w-3" /> No-Show
-                  </button>
-                  <Link to="/bookings/$id" params={{ id: b.id }} onClick={onClose}
-                    className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive">
-                    Cancel
-                  </Link>
-                </>
-              )}
+              renderActions={(b) => {
+                // No-Show is shown ONLY when checkout < business_date (stay window already past).
+                const showNoShow = !!bd && b.check_out < bd;
+                return (
+                  <>
+                    <Link to="/bookings/$id" params={{ id: b.id }} onClick={onClose}
+                      className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40">
+                      View
+                    </Link>
+                    <button
+                      onClick={() => handleCheckIn(b.id)}
+                      disabled={busyId === b.id}
+                      className="inline-flex items-center gap-1 rounded-md gold-gradient px-2.5 py-1 text-[11px] text-charcoal font-medium disabled:opacity-60">
+                      <LogIn className="h-3 w-3" /> Check-In
+                    </button>
+                    {showNoShow && (
+                      <button
+                        onClick={() => {
+                          if (!window.confirm(`Mark "${b.guest_name}" as No-Show? Balance Due becomes ₹0 and the room is freed.`)) return;
+                          setStatus.mutate({ id: b.id, status: "No-Show" });
+                        }}
+                        disabled={busyId === b.id}
+                        className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1 text-[11px] text-warning disabled:opacity-50">
+                        <UserX className="h-3 w-3" /> No-Show
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setCancelTarget({ id: b.id, name: b.guest_name })}
+                      disabled={busyId === b.id}
+                      className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive disabled:opacity-50">
+                      <Ban className="h-3 w-3" /> Cancel
+                    </button>
+                  </>
+                );
+              }}
             />
             <Section
               title="Pending Check-Outs"
@@ -211,6 +257,49 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
         )}
       </div>
     </div>
+
+    {/* Inline Check-In flow — same Room Assignment dialog used on the Booking page and House View popup. */}
+    {checkinBookingId && (
+      <RoomAssignmentDialog
+        bookingId={checkinBookingId}
+        open={!!checkinBookingId}
+        onClose={() => setCheckinBookingId(null)}
+        mode="checkin-flow"
+        onAllAssigned={async () => {
+          const id = checkinBookingId;
+          setCheckinBookingId(null);
+          if (id) await setStatus.mutateAsync({ id, status: "Checked-In" });
+        }}
+      />
+    )}
+
+    {/* Cancel confirmation — same outcome as the booking-page cancel flow (status=Cancelled, Due=0). */}
+    <AlertDialog open={!!cancelTarget} onOpenChange={(o) => { if (!o) setCancelTarget(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure you want to cancel this booking?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {cancelTarget?.name ? <><span className="font-medium text-foreground">{cancelTarget.name}</span> — </> : null}
+            The booking will be marked <span className="font-medium text-foreground">Cancelled</span>, assigned rooms become vacant and Balance Due is set to ₹0.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>No</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              if (!cancelTarget) return;
+              const id = cancelTarget.id;
+              setCancelTarget(null);
+              setStatus.mutate({ id, status: "Cancelled" });
+            }}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Yes, Cancel
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
