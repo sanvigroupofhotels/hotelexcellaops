@@ -52,7 +52,7 @@ function HomePage() {
   const [paymentTarget, setPaymentTarget] = useState<InHouseRoomOption | null>(null);
   const [chargeTarget, setChargeTarget] = useState<InHouseRoomOption | null>(null);
   const [arrivalsOpen, setArrivalsOpen] = useState(false);
-  const [checkInBookingId, setCheckInBookingId] = useState<string | null>(null);
+  const checkIn = useCheckInController();
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: complaints = [] } = useQuery({ queryKey: ["complaints"], queryFn: () => listComplaints() });
