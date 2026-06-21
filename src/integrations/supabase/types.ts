@@ -1697,6 +1697,65 @@ export type Database = {
         }
         Relationships: []
       }
+      night_audit_decisions: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          after_status: string | null
+          before_status: string | null
+          booking_id: string | null
+          business_date: string
+          created_at: string
+          id: string
+          payload: Json
+          reason: string | null
+          session_id: string
+          step: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          after_status?: string | null
+          before_status?: string | null
+          booking_id?: string | null
+          business_date: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          reason?: string | null
+          session_id: string
+          step: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          after_status?: string | null
+          before_status?: string | null
+          booking_id?: string | null
+          business_date?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          reason?: string | null
+          session_id?: string
+          step?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "night_audit_decisions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "night_audit_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       night_audit_runs: {
         Row: {
           actor_name: string | null
@@ -1733,6 +1792,57 @@ export type Database = {
           pending_check_outs_resolved?: number
           previous_business_date?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      night_audit_sessions: {
+        Row: {
+          business_date: string
+          closed_at: string | null
+          closed_by_id: string | null
+          closed_by_name: string | null
+          created_at: string
+          eod_html: string | null
+          id: string
+          opened_at: string
+          opened_by_id: string | null
+          opened_by_name: string | null
+          reopen_reason: string | null
+          status: string
+          totals: Json
+          updated_at: string
+        }
+        Insert: {
+          business_date: string
+          closed_at?: string | null
+          closed_by_id?: string | null
+          closed_by_name?: string | null
+          created_at?: string
+          eod_html?: string | null
+          id?: string
+          opened_at?: string
+          opened_by_id?: string | null
+          opened_by_name?: string | null
+          reopen_reason?: string | null
+          status?: string
+          totals?: Json
+          updated_at?: string
+        }
+        Update: {
+          business_date?: string
+          closed_at?: string | null
+          closed_by_id?: string | null
+          closed_by_name?: string | null
+          created_at?: string
+          eod_html?: string | null
+          id?: string
+          opened_at?: string
+          opened_by_id?: string | null
+          opened_by_name?: string | null
+          reopen_reason?: string | null
+          status?: string
+          totals?: Json
+          updated_at?: string
         }
         Relationships: []
       }

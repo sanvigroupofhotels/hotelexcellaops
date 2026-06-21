@@ -5,8 +5,9 @@ import {
   MessageSquareWarning, Building2, Database,
   Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
   Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
-  BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound,
+  BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound, Moon,
 } from "lucide-react";
+import { useNightAuditStatus } from "@/hooks/use-night-audit-status";
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const nav: NavItem[] = [
   { to: "/customers", label: "Customers", icon: Users, permission: "customers.view" },
   { to: "/dues", label: "Due Collection", icon: Receipt, permission: "dues.view" },
   { to: "/cash", label: "CashBook", icon: Wallet, permission: "cash.view" },
+  { to: "/night-audit", label: "Night Audit", icon: Moon, permission: "house_view.view" },
   // Reporting is rendered separately as an expandable group below.
   { to: "/staff-management", label: "Staff Management", icon: UserCog, anyOf: ["staff.master", "staff.attendance", "staff.salary"] },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, permission: "complaints.view" },
@@ -150,6 +152,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isAdmin, canManage } = useUserRole();
   const { has, hasAny, isLoading } = usePermissions();
+  const naStatus = useNightAuditStatus();
   const visible = nav.filter((n) => {
     if (isLoading) return false;
     if (n.adminOnly && !isAdmin) return false;
@@ -164,6 +167,9 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
       {visible.map((item, i) => {
         const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to));
         const Icon = item.icon;
+        const isNA = item.to === "/night-audit";
+        const pending = naStatus.data?.pendingCount ?? 0;
+        const sessionOpen = naStatus.data?.sessionStatus === "open";
         return (
           <motion.div
             key={item.to}
@@ -188,6 +194,18 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
               )}
               <Icon className={cn("relative h-4 w-4 shrink-0", active && "text-gold")} />
               <span className="relative flex-1">{item.label}</span>
+              {isNA && (
+                <span className="relative flex items-center gap-1">
+                  {sessionOpen && (
+                    <span className="text-[9px] uppercase tracking-wider text-emerald-500 font-medium">Open</span>
+                  )}
+                  {pending > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold tabular-nums">
+                      {pending}
+                    </span>
+                  )}
+                </span>
+              )}
             </Link>
           </motion.div>
         );

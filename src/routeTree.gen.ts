@@ -32,6 +32,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedReportingRouteImport } from './routes/_authenticated/reporting'
 import { Route as AuthenticatedRatesRouteImport } from './routes/_authenticated/rates'
 import { Route as AuthenticatedPaymentsReportsRouteImport } from './routes/_authenticated/payments-reports'
+import { Route as AuthenticatedNightAuditRouteImport } from './routes/_authenticated/night-audit'
 import { Route as AuthenticatedMasterDataRouteImport } from './routes/_authenticated/master-data'
 import { Route as AuthenticatedHouseViewRouteImport } from './routes/_authenticated/house-view'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
@@ -196,6 +197,11 @@ const AuthenticatedPaymentsReportsRoute =
     path: '/payments-reports',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedNightAuditRoute = AuthenticatedNightAuditRouteImport.update({
+  id: '/night-audit',
+  path: '/night-audit',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedMasterDataRoute = AuthenticatedMasterDataRouteImport.update({
   id: '/master-data',
   path: '/master-data',
@@ -480,6 +486,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
+  '/night-audit': typeof AuthenticatedNightAuditRoute
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/rates': typeof AuthenticatedRatesRoute
   '/reporting': typeof AuthenticatedReportingRouteWithChildren
@@ -548,6 +555,7 @@ export interface FileRoutesByTo {
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
+  '/night-audit': typeof AuthenticatedNightAuditRoute
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/rates': typeof AuthenticatedRatesRoute
   '/reporting': typeof AuthenticatedReportingRouteWithChildren
@@ -620,6 +628,7 @@ export interface FileRoutesById {
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/house-view': typeof AuthenticatedHouseViewRoute
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
+  '/_authenticated/night-audit': typeof AuthenticatedNightAuditRoute
   '/_authenticated/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/_authenticated/rates': typeof AuthenticatedRatesRoute
   '/_authenticated/reporting': typeof AuthenticatedReportingRouteWithChildren
@@ -694,6 +703,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/house-view'
     | '/master-data'
+    | '/night-audit'
     | '/payments-reports'
     | '/rates'
     | '/reporting'
@@ -762,6 +772,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/house-view'
     | '/master-data'
+    | '/night-audit'
     | '/payments-reports'
     | '/rates'
     | '/reporting'
@@ -833,6 +844,7 @@ export interface FileRouteTypes {
     | '/_authenticated/history'
     | '/_authenticated/house-view'
     | '/_authenticated/master-data'
+    | '/_authenticated/night-audit'
     | '/_authenticated/payments-reports'
     | '/_authenticated/rates'
     | '/_authenticated/reporting'
@@ -1060,6 +1072,13 @@ declare module '@tanstack/react-router' {
       path: '/payments-reports'
       fullPath: '/payments-reports'
       preLoaderRoute: typeof AuthenticatedPaymentsReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/night-audit': {
+      id: '/_authenticated/night-audit'
+      path: '/night-audit'
+      fullPath: '/night-audit'
+      preLoaderRoute: typeof AuthenticatedNightAuditRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/master-data': {
@@ -1496,6 +1515,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedHouseViewRoute: typeof AuthenticatedHouseViewRoute
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
+  AuthenticatedNightAuditRoute: typeof AuthenticatedNightAuditRoute
   AuthenticatedPaymentsReportsRoute: typeof AuthenticatedPaymentsReportsRoute
   AuthenticatedRatesRoute: typeof AuthenticatedRatesRoute
   AuthenticatedReportingRoute: typeof AuthenticatedReportingRouteWithChildren
@@ -1535,6 +1555,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedHouseViewRoute: AuthenticatedHouseViewRoute,
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
+  AuthenticatedNightAuditRoute: AuthenticatedNightAuditRoute,
   AuthenticatedPaymentsReportsRoute: AuthenticatedPaymentsReportsRoute,
   AuthenticatedRatesRoute: AuthenticatedRatesRoute,
   AuthenticatedReportingRoute: AuthenticatedReportingRouteWithChildren,
