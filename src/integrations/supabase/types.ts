@@ -475,6 +475,7 @@ export type Database = {
           id: string
           integration_id: string | null
           internal_notes: string | null
+          lead_id: string | null
           lead_source: string | null
           nights: number | null
           notes: string | null
@@ -532,6 +533,7 @@ export type Database = {
           id?: string
           integration_id?: string | null
           internal_notes?: string | null
+          lead_id?: string | null
           lead_source?: string | null
           nights?: number | null
           notes?: string | null
@@ -589,6 +591,7 @@ export type Database = {
           id?: string
           integration_id?: string | null
           internal_notes?: string | null
+          lead_id?: string | null
           lead_source?: string | null
           nights?: number | null
           notes?: string | null
@@ -624,6 +627,13 @@ export type Database = {
             columns: ["integration_id"]
             isOneToOne: false
             referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
           {
@@ -1021,12 +1031,14 @@ export type Database = {
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           first_contact_date: string
+          first_lead_at: string | null
           gst_number: string | null
           guest_name: string
           guest_type: string | null
           id: string
           internal_notes: string | null
           last_stay_date: string | null
+          lead_count: number
           lead_source: string | null
           lost_reason: string | null
           next_action: string | null
@@ -1059,12 +1071,14 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           first_contact_date?: string
+          first_lead_at?: string | null
           gst_number?: string | null
           guest_name: string
           guest_type?: string | null
           id?: string
           internal_notes?: string | null
           last_stay_date?: string | null
+          lead_count?: number
           lead_source?: string | null
           lost_reason?: string | null
           next_action?: string | null
@@ -1097,12 +1111,14 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           first_contact_date?: string
+          first_lead_at?: string | null
           gst_number?: string | null
           guest_name?: string
           guest_type?: string | null
           id?: string
           internal_notes?: string | null
           last_stay_date?: string | null
+          lead_count?: number
           lead_source?: string | null
           lost_reason?: string | null
           next_action?: string | null
@@ -1448,6 +1464,155 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      lead_activities: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          created_at: string
+          field: string | null
+          id: string
+          lead_id: string
+          new_value: string | null
+          old_value: string | null
+          summary: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          created_at?: string
+          field?: string | null
+          id?: string
+          lead_id: string
+          new_value?: string | null
+          old_value?: string | null
+          summary?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          created_at?: string
+          field?: string | null
+          id?: string
+          lead_id?: string
+          new_value?: string | null
+          old_value?: string | null
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          abandoned_at: string | null
+          adults: number | null
+          booking_id: string | null
+          check_in: string | null
+          check_out: string | null
+          children: number | null
+          converted_at: string | null
+          created_at: string
+          customer_id: string | null
+          email: string | null
+          estimated_total: number | null
+          guest_name: string
+          id: string
+          last_activity_at: string
+          lost_at: string | null
+          lost_reason: string | null
+          notes: string | null
+          phone: string
+          room_type_id: string | null
+          room_type_name: string | null
+          rooms: number | null
+          source_channel: string
+          status: Database["public"]["Enums"]["lead_status"]
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          abandoned_at?: string | null
+          adults?: number | null
+          booking_id?: string | null
+          check_in?: string | null
+          check_out?: string | null
+          children?: number | null
+          converted_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          email?: string | null
+          estimated_total?: number | null
+          guest_name: string
+          id?: string
+          last_activity_at?: string
+          lost_at?: string | null
+          lost_reason?: string | null
+          notes?: string | null
+          phone: string
+          room_type_id?: string | null
+          room_type_name?: string | null
+          rooms?: number | null
+          source_channel?: string
+          status?: Database["public"]["Enums"]["lead_status"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          abandoned_at?: string | null
+          adults?: number | null
+          booking_id?: string | null
+          check_in?: string | null
+          check_out?: string | null
+          children?: number | null
+          converted_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          email?: string | null
+          estimated_total?: number | null
+          guest_name?: string
+          id?: string
+          last_activity_at?: string
+          lost_at?: string | null
+          lost_reason?: string | null
+          notes?: string | null
+          phone?: string
+          room_type_id?: string | null
+          room_type_name?: string | null
+          rooms?: number | null
+          source_channel?: string
+          status?: Database["public"]["Enums"]["lead_status"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       master_data: {
         Row: {
@@ -2544,7 +2709,9 @@ export type Database = {
         Args: { p_customer_id: string }
         Returns: undefined
       }
+      sweep_abandoned_leads: { Args: never; Returns: number }
       sweep_expired_draft_bookings: { Args: never; Returns: number }
+      sweep_lost_leads: { Args: never; Returns: number }
       sweep_stay_completed: { Args: never; Returns: number }
       user_effective_permissions: {
         Args: { _user_id: string }
@@ -2583,6 +2750,7 @@ export type Database = {
       complaint_priority: "Low" | "Medium" | "High" | "Critical"
       complaint_status: "Open" | "In Progress" | "Resolved"
       complaint_type: "Room" | "General"
+      lead_status: "Interested" | "Abandoned" | "Converted" | "Lost"
       quote_status:
         | "Pending"
         | "Sent"
@@ -2755,6 +2923,7 @@ export const Constants = {
       complaint_priority: ["Low", "Medium", "High", "Critical"],
       complaint_status: ["Open", "In Progress", "Resolved"],
       complaint_type: ["Room", "General"],
+      lead_status: ["Interested", "Abandoned", "Converted", "Lost"],
       quote_status: [
         "Pending",
         "Sent",
