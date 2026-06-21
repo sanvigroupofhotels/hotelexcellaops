@@ -20,6 +20,7 @@ import { listBookingItems } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
 import { bookingStatusStyles, type BookingStatus } from "@/lib/mock-data";
+import { useCheckInController } from "@/lib/check-in-flow";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { useUserRole } from "@/hooks/use-role";
 import {
