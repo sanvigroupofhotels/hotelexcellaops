@@ -1,10 +1,10 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, Lock, Unlock, Printer, RotateCcw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
-import { NightAuditDialog } from "@/components/night-audit-dialog";
+import { NightAuditStepper } from "@/components/night-audit-stepper";
 import { useNightAuditStatus } from "@/hooks/use-night-audit-status";
 import { useUserRole } from "@/hooks/use-role";
 import {
