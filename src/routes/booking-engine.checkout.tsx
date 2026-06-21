@@ -15,6 +15,7 @@ import {
   confirmBookingEnginePayment,
   confirmPayAtHotel,
 } from "@/lib/booking-engine.functions";
+import { upsertLeadFromBookingEngine } from "@/lib/leads.functions";
 import { useEngineConfig } from "./booking-engine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
