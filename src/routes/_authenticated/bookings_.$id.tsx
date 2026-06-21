@@ -956,100 +956,16 @@ function BookingDetail() {
         changingAssignmentId={changingAssignmentId}
       />
 
-      <RoomAssignmentDialog
-        bookingId={id}
-        open={checkinFlowOpen}
-        onClose={() => setCheckinFlowOpen(false)}
-        mode="checkin-flow"
-        onAllAssigned={() => {
-          setCheckinFlowOpen(false);
-          status.mutate("Checked-In" as any);
-        }}
-      />
-
+      {/* Manage-mode documents (Check-In flow uses useCheckInController) */}
       <GuestDocumentsDialog
         bookingId={id}
         open={guestDocsOpen}
         onClose={() => setGuestDocsOpen(false)}
-        mode={guestDocsMode}
-        onComplete={
-          guestDocsMode === "checkin"
-            ? () => {
-                // After documents step, decide whether room assignment is still needed.
-                const required = requiredRoomCount(items as any);
-                if (assignments.length < required) {
-                  setChangingAssignmentId(null);
-                  setCheckinFlowOpen(true);
-                } else {
-                  status.mutate("Checked-In" as any);
-                }
-              }
-            : undefined
-        }
+        mode="manage"
       />
 
-      <AlertDialog open={phoneGateOpen} onOpenChange={(o) => !o && setPhoneGateOpen(false)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Guest mobile required</AlertDialogTitle>
-            <AlertDialogDescription>
-              This booking arrived from <span className="font-medium text-foreground">{b.lead_source}</span> without
-              a valid guest mobile. Please capture the guest's mobile number before check-in.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-2 py-2">
-            <label className="text-[11px] uppercase tracking-wider text-muted-foreground">Guest Mobile</label>
-            <input
-              autoFocus
-              type="tel"
-              inputMode="tel"
-              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40"
-              value={phoneGateValue}
-              onChange={(e) => setPhoneGateValue(e.target.value)}
-              placeholder="+91 98765 43210"
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={phoneGateSaving}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={phoneGateSaving}
-              onClick={async (e) => {
-                e.preventDefault();
-                const cleaned = phoneGateValue.replace(/[^\d+]/g, "");
-                if (!/\d{10}/.test(cleaned)) {
-                  toast.error("Enter a valid 10-digit mobile number");
-                  return;
-                }
-                setPhoneGateSaving(true);
-                try {
-                  const { error } = await supabase.from("bookings" as any)
-                    .update({ phone: cleaned } as any).eq("id", id);
-                  if (error) throw error;
-                  await qc.invalidateQueries({ queryKey: ["booking", id] });
-                  toast.success("Mobile saved");
-                  setPhoneGateOpen(false);
-                  // Re-run the check-in flow now that the phone is on file.
-                  setTimeout(() => {
-                    const required = requiredRoomCount(items as any);
-                    const hasDocs = (guestDocs?.length ?? 0) > 0;
-                    const fullyAssigned = (assignments?.length ?? 0) >= required;
-                    if (hasDocs && fullyAssigned) { status.mutate("Checked-In" as any); return; }
-                    if (hasDocs) { setChangingAssignmentId(null); setCheckinFlowOpen(true); return; }
-                    setGuestDocsMode("checkin");
-                    setGuestDocsOpen(true);
-                  }, 100);
-                } catch (err: any) {
-                  toast.error(err.message ?? "Could not save mobile");
-                } finally {
-                  setPhoneGateSaving(false);
-                }
-              }}
-            >
-              {phoneGateSaving ? "Saving…" : "Save & Continue"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Shared Check-In flow — OTA phone, documents, room assignment, commit. */}
+      {checkIn.dialogs}
     </>
   );
 }
