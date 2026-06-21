@@ -9,7 +9,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
+import { useCheckInController } from "@/lib/check-in-flow";
 
 /**
  * Night Audit dialog.
