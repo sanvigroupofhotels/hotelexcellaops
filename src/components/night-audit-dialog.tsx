@@ -21,7 +21,7 @@ import { useCheckInController } from "@/lib/check-in-flow";
  *  - Check-In opens the same Room Assignment / Check-In flow used elsewhere — no redirection.
  *  - Cancel opens a confirmation; on Yes, booking → Cancelled (Due becomes ₹0), action item disappears.
  */
-export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function NightAuditDialog({ open, onClose, inline = false }: { open: boolean; onClose: () => void; inline?: boolean }) {
   const qc = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
@@ -123,10 +123,19 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
   const co = data?.pendingCheckOuts ?? [];
   const clear = !isLoading && ci.length === 0 && co.length === 0;
 
+  const Outer: any = inline ? "div" : "div";
+  const outerClass = inline
+    ? ""
+    : "fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm";
+  const innerClass = inline
+    ? "p-5 space-y-4"
+    : "luxe-card rounded-xl w-full max-w-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto";
+
   return (
     <>
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="luxe-card rounded-xl w-full max-w-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <Outer className={outerClass} onClick={inline ? undefined : onClose}>
+      <div className={innerClass} onClick={(e) => e.stopPropagation()}>
+        {!inline && (
         <div className="flex items-start justify-between">
           <div>
             <h3 className="font-display text-xl flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-gold" /> Night Audit</h3>
@@ -136,6 +145,7 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
           </div>
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
         </div>
+        )}
 
         {isLoading && <div className="p-8 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>}
 
