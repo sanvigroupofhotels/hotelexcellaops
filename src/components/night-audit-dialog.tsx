@@ -9,7 +9,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
+import { useCheckInController } from "@/lib/check-in-flow";
 
 /**
  * Night Audit dialog.
@@ -24,7 +24,6 @@ import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [checkinBookingId, setCheckinBookingId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
@@ -32,6 +31,14 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
     queryFn: () => getPendingForAudit(),
     enabled: open,
     refetchOnWindowFocus: false,
+  });
+
+  const checkIn = useCheckInController({
+    note: "From Night Audit",
+    onCheckedIn: () => {
+      qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
+      void refetch();
+    },
   });
 
   const setStatus = useMutation({
@@ -81,27 +88,9 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
     bulk.mutate({ ids, status });
   };
 
-  // Smart Check-In: if rooms already assigned, set status directly; else open Room Assignment flow.
-  const handleCheckIn = async (bookingId: string) => {
-    try {
-      setBusyId(bookingId);
-      const [{ listAssignments, requiredRoomCount }, { listBookingItems }] = await Promise.all([
-        import("@/lib/booking-room-assignments-api"),
-        import("@/lib/booking-items-api"),
-      ]);
-      const [assignments, items] = await Promise.all([listAssignments(bookingId), listBookingItems(bookingId)]);
-      const required = requiredRoomCount(items as any);
-      if (assignments.length < required) {
-        setCheckinBookingId(bookingId);
-        setBusyId(null);
-        return;
-      }
-      await setStatus.mutateAsync({ id: bookingId, status: "Checked-In" });
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not start Check-In");
-    } finally {
-      setBusyId(null);
-    }
+  // Delegate to the shared Check-In controller (OTA phone → docs → rooms → commit).
+  const handleCheckIn = (bookingId: string) => {
+    checkIn.start(bookingId);
   };
 
   const perform = useMutation({
@@ -258,20 +247,8 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
       </div>
     </div>
 
-    {/* Inline Check-In flow — same Room Assignment dialog used on the Booking page and House View popup. */}
-    {checkinBookingId && (
-      <RoomAssignmentDialog
-        bookingId={checkinBookingId}
-        open={!!checkinBookingId}
-        onClose={() => setCheckinBookingId(null)}
-        mode="checkin-flow"
-        onAllAssigned={async () => {
-          const id = checkinBookingId;
-          setCheckinBookingId(null);
-          if (id) await setStatus.mutateAsync({ id, status: "Checked-In" });
-        }}
-      />
-    )}
+    {/* Shared Check-In flow — identical to Booking page & House View (OTA phone → docs → rooms → commit). */}
+    {checkIn.dialogs}
 
     {/* Cancel confirmation — same outcome as the booking-page cancel flow (status=Cancelled, Due=0). */}
     <AlertDialog open={!!cancelTarget} onOpenChange={(o) => { if (!o) setCancelTarget(null); }}>
