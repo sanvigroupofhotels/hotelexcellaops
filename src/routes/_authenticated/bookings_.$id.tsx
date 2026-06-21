@@ -255,9 +255,6 @@ function BookingDetail() {
   const [refundRef, setRefundRef] = useState<string>("");
   const [refundBy, setRefundBy] = useState<string>("");
   const [refundAfterAction, setRefundAfterAction] = useState<"checkout" | null>(null);
-  const [phoneGateOpen, setPhoneGateOpen] = useState(false);
-  const [phoneGateValue, setPhoneGateValue] = useState("");
-  const [phoneGateSaving, setPhoneGateSaving] = useState(false);
 
   const refundMut = useMutation({
     mutationFn: async () => {
