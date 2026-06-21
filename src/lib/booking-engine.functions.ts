@@ -661,3 +661,31 @@ export const getConfirmation = createServerFn({ method: "POST" })
       token: (tok as any)?.token ?? null,
     };
   });
+
+// ----------------------------------------------------------------------------
+// getDraftPricing — lightweight read of a draft booking's pricing
+// Used by Step 4 (Review) to display Pay Now / Pay Later amounts.
+// ----------------------------------------------------------------------------
+export const getDraftPricing = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ booking_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: b } = await supabaseAdmin
+      .from("bookings")
+      .select("id,amount,subtotal,taxes,booking_reference,status,draft_expires_at,room_details,check_in,check_out,guests,source_channel")
+      .eq("id", data.booking_id).maybeSingle();
+    if (!b) throw new Error("Booking not found");
+    if ((b as any).source_channel !== SOURCE) throw new Error("Invalid booking source");
+    return {
+      amount: Number((b as any).amount) || 0,
+      subtotal: Number((b as any).subtotal) || 0,
+      taxes: Number((b as any).taxes) || 0,
+      reference: (b as any).booking_reference,
+      status: (b as any).status,
+      draft_expires_at: (b as any).draft_expires_at,
+      room_type: (b as any).room_details,
+      check_in: (b as any).check_in,
+      check_out: (b as any).check_out,
+      guests: (b as any).guests,
+    };
+  });
