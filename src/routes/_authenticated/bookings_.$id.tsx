@@ -641,7 +641,7 @@ function BookingDetail() {
 
             <PaymentsLedger bookingId={id} bookingAmount={Number(b.amount)} chargesTotal={chargesTotal} advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id} />
 
-            <GuestDocumentsSummary bookingId={id} onOpen={() => { setGuestDocsMode("manage"); setGuestDocsOpen(true); }} />
+            <GuestDocumentsSummary bookingId={id} onOpen={() => { setGuestDocsOpen(true); }} />
 
 
             {b.source_quote_id && (
