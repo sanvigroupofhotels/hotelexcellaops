@@ -1,16 +1,18 @@
 /**
- * Booking Engine — search results.
- * Shows per-room-type availability and pricing for the chosen window.
+ * Booking Engine — Step 2 (Choose Room).
+ * Shows per-room-type cards with MRP, fixed feature list, and per-night
+ * inventory price. "Continue" navigates to Step 3 (Guest Details).
  */
 import { createFileRoute, useNavigate, useSearch, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getAvailability } from "@/lib/booking-engine.functions";
+import { getRoomMeta } from "@/lib/booking-engine-rooms";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BedDouble, CalendarDays, ArrowLeft, Users } from "lucide-react";
+import { BedDouble, CalendarDays, ArrowLeft, Users, Check } from "lucide-react";
 
 const SearchSchema = z.object({
   check_in: z.string(),
@@ -55,11 +57,11 @@ function SearchPage() {
         <span className="text-muted-foreground">· {q.data?.nights ?? "—"} night{(q.data?.nights ?? 0) > 1 ? "s" : ""}</span>
       </div>
 
-      <h1 className="mt-4 font-display text-2xl">Available rooms</h1>
+      <h1 className="mt-4 font-display text-2xl">Choose your room</h1>
 
       {q.isLoading ? (
         <div className="mt-5 space-y-3">
-          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-36 w-full rounded-md" />)}
+          {[0, 1].map((i) => <Skeleton key={i} className="h-72 w-full rounded-md" />)}
         </div>
       ) : q.isError ? (
         <Card className="mt-5 p-6 text-sm text-destructive">
@@ -72,57 +74,57 @@ function SearchPage() {
         </Card>
       ) : (
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          {(q.data?.results ?? []).filter((r) => r.subtotal > 0).map((r) => (
-            <Card key={r.type} className="p-4 flex flex-col">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-display text-lg text-gold flex items-center gap-2">
-                    <BedDouble className="h-5 w-5" /> {r.type}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {r.available > 0 ? `${r.available} room${r.available > 1 ? "s" : ""} left` : "Sold out"}
-                  </p>
+          {(q.data?.results ?? []).filter((r) => r.subtotal > 0).map((r) => {
+            const meta = getRoomMeta(r.type);
+            const perNight = Math.round(r.subtotal / r.nights);
+            const soldOut = r.available <= 0;
+            return (
+              <Card key={r.type} className="p-5 flex flex-col">
+                <div className="flex items-center gap-2">
+                  <BedDouble className="h-5 w-5 text-gold" />
+                  <p className="font-display text-xl text-gold">{r.type}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-display">{inr(r.subtotal / r.nights)}</p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">per night</p>
-                </div>
-              </div>
+                <p className="text-sm text-muted-foreground mt-1">{meta.tagline}</p>
 
-              <div className="mt-3 text-sm border-t border-border pt-3 space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{r.nights} night{r.nights > 1 ? "s" : ""}</span>
-                  <span>{inr(r.subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Taxes ({Math.round(r.tax_rate * 100)}%)</span>
-                  <span>{inr(r.taxes)}</span>
-                </div>
-                <div className="flex justify-between font-medium pt-1 border-t border-border mt-1">
-                  <span>Total</span>
-                  <span>{inr(r.total)}</span>
-                </div>
-              </div>
+                <ul className="mt-4 space-y-1.5 text-sm">
+                  {meta.features.map((f) => (
+                    <li key={f} className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-gold shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
 
-              <Button
-                className="mt-4 gold-gradient text-charcoal hover:opacity-90"
-                disabled={r.available <= 0}
-                onClick={() =>
-                  navigate({
-                    to: "/booking-engine/checkout",
-                    search: {
-                      check_in: search.check_in,
-                      check_out: search.check_out,
-                      guests: search.guests,
-                      room_type: r.type,
-                    } as any,
-                  })
-                }
-              >
-                {r.available <= 0 ? "Sold out" : "Reserve"}
-              </Button>
-            </Card>
-          ))}
+                <div className="mt-5 border-t border-border pt-4 flex items-end justify-between gap-3">
+                  <div>
+                    {meta.mrp > 0 && (
+                      <p className="text-sm text-muted-foreground line-through">{inr(meta.mrp)}</p>
+                    )}
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-0.5">From</p>
+                    <p className="font-display text-2xl text-foreground leading-tight">{inr(perNight)}</p>
+                    <p className="text-[11px] text-muted-foreground">Per night (Pay Now)</p>
+                  </div>
+                  <Button
+                    className="gold-gradient text-charcoal hover:opacity-90 px-5 h-10"
+                    disabled={soldOut}
+                    onClick={() =>
+                      navigate({
+                        to: "/booking-engine/checkout",
+                        search: {
+                          check_in: search.check_in,
+                          check_out: search.check_out,
+                          guests: search.guests,
+                          room_type: r.type,
+                        } as any,
+                      })
+                    }
+                  >
+                    {soldOut ? "Sold out" : "Continue →"}
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
