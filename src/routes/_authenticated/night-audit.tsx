@@ -176,10 +176,8 @@ function NightAuditPage() {
         </div>
       </div>
 
-      {/* Step 1-4 — Arrivals, In-House, Departures, Dues — currently shown via existing dialog content embedded as a section. */}
-      <div className="rounded-lg border border-border bg-card/40 print:border-0">
-        <NightAuditDialog open={true} onClose={() => navigate({ to: "/" })} />
-      </div>
+      {/* Stepper — Arrivals · In-House · Departures · Dues · Reconcile · Review · EOD */}
+      <NightAuditStepper businessDate={businessDate} />
 
       {/* Decisions log */}
       <div className="rounded-lg border border-border bg-card/40 p-4 print:border-0">
