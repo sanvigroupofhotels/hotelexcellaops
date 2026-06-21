@@ -575,13 +575,16 @@ export const confirmBookingEnginePayment = createServerFn({ method: "POST" })
 // confirmPayAtHotel — finalize draft without payment
 // ----------------------------------------------------------------------------
 export const confirmPayAtHotel = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({ booking_id: z.string().uuid() }).parse(input))
+  .inputValidator((input) => z.object({
+    booking_id: z.string().uuid(),
+    pay_later: z.boolean().optional(),
+  }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: b } = await supabaseAdmin
       .from("bookings")
-      .select("id,user_id,booking_reference,status,source_channel,draft_expires_at")
+      .select("id,user_id,booking_reference,status,source_channel,draft_expires_at,amount,subtotal,taxes,notes")
       .eq("id", data.booking_id).maybeSingle();
     if (!b) throw new Error("Booking not found");
     if ((b as any).source_channel !== SOURCE) throw new Error("Invalid booking source");
@@ -590,12 +593,27 @@ export const confirmPayAtHotel = createServerFn({ method: "POST" })
       throw new Error("Your 15-minute hold has expired. Please start again.");
     }
 
-    await supabaseAdmin.from("bookings").update({
+    const update: Record<string, any> = {
       status: "Confirmed",
       payment_status: "Pending Payment",
       pay_at_hotel: true,
       draft_expires_at: null,
-    } as any).eq("id", (b as any).id);
+    };
+    // Apply 5% Pay-at-Hotel surcharge on top of the inventory price.
+    if (data.pay_later) {
+      const baseAmount = Number((b as any).amount) || 0;
+      const baseSub = Number((b as any).subtotal) || 0;
+      const newAmount = Math.round(baseAmount * 1.05);
+      const newSub = Math.round(baseSub * 1.05);
+      const newTax = Math.max(0, newAmount - newSub);
+      update.amount = newAmount;
+      update.subtotal = newSub;
+      update.taxes = newTax;
+      const note = `Pay-at-Hotel surcharge (5%) applied. Inventory total ₹${baseAmount} → Payable ₹${newAmount}.`;
+      update.notes = ((b as any).notes ? (b as any).notes + "\n" : "") + note;
+    }
+
+    await supabaseAdmin.from("bookings").update(update as any).eq("id", (b as any).id);
 
     const token = randomToken();
     const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
