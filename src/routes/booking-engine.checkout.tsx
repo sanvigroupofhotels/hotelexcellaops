@@ -1,20 +1,17 @@
 /**
- * Booking Engine — checkout.
- * Single-scroll: guest details → price summary → Pay Now (Razorpay) / Pay at Hotel.
- * On createDraftBooking, a 15-minute hold reserves inventory.
+ * Booking Engine — Step 3 (Guest Details).
+ * No pricing shown here. On Proceed:
+ *   1. Upsert Lead (best-effort)
+ *   2. Create draft booking (creates/links Customer via existing logic; holds inventory)
+ *   3. Navigate to Step 4 (Review price & choose payment).
  */
 import { createFileRoute, useNavigate, useSearch, Link } from "@tanstack/react-router";
 import { z } from "zod";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import {
-  createDraftBooking,
-  createBookingEngineOrder,
-  confirmBookingEnginePayment,
-  confirmPayAtHotel,
-} from "@/lib/booking-engine.functions";
+import { createDraftBooking } from "@/lib/booking-engine.functions";
 import { upsertLeadFromBookingEngine } from "@/lib/leads.functions";
 import { useEngineConfig } from "./booking-engine";
 import { Button } from "@/components/ui/button";
@@ -22,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Clock, Loader2, Shield, BedDouble, CalendarDays, Users } from "lucide-react";
+import { ArrowLeft, Loader2, BedDouble, CalendarDays, Users } from "lucide-react";
 
 const Schema = z.object({
   check_in: z.string(),
@@ -36,15 +33,8 @@ export const Route = createFileRoute("/booking-engine/checkout")({
   validateSearch: (raw) => Schema.parse(raw),
 });
 
-const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const dateLabel = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
-
-declare global {
-  interface Window {
-    Razorpay?: any;
-  }
-}
 
 function CheckoutPage() {
   const search = useSearch({ from: "/booking-engine/checkout" });
@@ -55,42 +45,11 @@ function CheckoutPage() {
   const [phone, setPhone] = useState("+91");
   const [email, setEmail] = useState("");
   const [requests, setRequests] = useState("");
-  const [draft, setDraft] = useState<{ booking_id: string; reference: string; total: number; subtotal: number; taxes: number; tax_rate: number; nights: number; draft_expires_at: string } | null>(null);
-  const [remainingSec, setRemainingSec] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  // Razorpay script
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.Razorpay) return;
-    const s = document.createElement("script");
-    s.src = "https://checkout.razorpay.com/v1/checkout.js";
-    s.async = true;
-    document.body.appendChild(s);
-  }, []);
-
-  // Hold-timer
-  useEffect(() => {
-    if (!draft) return;
-    const tick = () => {
-      const ms = new Date(draft.draft_expires_at).getTime() - Date.now();
-      setRemainingSec(Math.max(0, Math.round(ms / 1000)));
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [draft]);
 
   const createDraft = useServerFn(createDraftBooking);
-  const createOrder = useServerFn(createBookingEngineOrder);
-  const confirmPay = useServerFn(confirmBookingEnginePayment);
-  const confirmPah = useServerFn(confirmPayAtHotel);
   const upsertLead = useServerFn(upsertLeadFromBookingEngine);
 
-  // -------------------------------------------------------------------------
-  // Step A (lead capture): fire upsert when name + valid phone are entered.
-  // Debounced; only once per (name, phone, dates, room_type) combination.
-  // -------------------------------------------------------------------------
+  // Lead capture — debounced; only once per (name, phone, dates, room_type).
   const lastLeadKeyRef = useRef<string>("");
   useEffect(() => {
     const n = name.trim(); const p = phone.trim();
@@ -109,7 +68,7 @@ function CheckoutPage() {
         adults: search.guests,
         rooms: 1,
         room_type_name: search.room_type,
-      } }).catch(() => { /* best-effort; never block the user */ });
+      } }).catch(() => { /* best-effort */ });
     }, 900);
     return () => clearTimeout(t);
   }, [name, phone, email, search.check_in, search.check_out, search.room_type, search.guests, upsertLead]);
@@ -128,8 +87,19 @@ function CheckoutPage() {
           special_requests: requests.trim(),
         },
       }),
-    onSuccess: (r) => setDraft(r),
-    onError: (e: any) => toast.error(e?.message ?? "Could not hold this room. Please try again."),
+    onSuccess: (r) => {
+      navigate({
+        to: "/booking-engine/review",
+        search: {
+          booking_id: r.booking_id,
+          room_type: search.room_type,
+          check_in: search.check_in,
+          check_out: search.check_out,
+          guests: search.guests,
+        } as any,
+      });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not continue. Please try again."),
   });
 
   function validate(): boolean {
@@ -139,92 +109,19 @@ function CheckoutPage() {
     return true;
   }
 
-  async function ensureDraft(): Promise<typeof draft> {
-    if (draft) return draft;
-    if (!validate()) return null;
-    const r = await draftMut.mutateAsync();
-    return r;
+  function proceed() {
+    if (!validate()) return;
+    draftMut.mutate();
   }
-
-  async function payNow() {
-    setBusy(true);
-    try {
-      const d = await ensureDraft();
-      if (!d) return;
-      const order = await createOrder({ data: { booking_id: d.booking_id, intent: "full", amount: d.total } });
-
-      await new Promise<void>((resolve) => {
-        // Wait for SDK
-        let tries = 0;
-        const wait = () => {
-          if (window.Razorpay) return resolve();
-          if (++tries > 40) return resolve();
-          setTimeout(wait, 50);
-        };
-        wait();
-      });
-
-      if (!window.Razorpay) {
-        toast.error("Payment SDK could not load. Please try again or choose Pay at Hotel.");
-        return;
-      }
-
-      const rz = new window.Razorpay({
-        key: order.keyId,
-        order_id: order.orderId,
-        amount: order.amount,
-        currency: order.currency,
-        name: cfg?.hotel.name || "Hotel Excella",
-        description: `Booking ${order.bookingReference}`,
-        prefill: { name: order.guestName, contact: order.phone, email },
-        theme: { color: "#caa264" },
-        handler: async (resp: any) => {
-          try {
-            const r = await confirmPay({
-              data: {
-                booking_id: d.booking_id,
-                razorpay_order_id: resp.razorpay_order_id,
-                razorpay_payment_id: resp.razorpay_payment_id,
-                razorpay_signature: resp.razorpay_signature,
-              },
-            });
-            navigate({ to: "/booking-engine/confirmation/$ref", params: { ref: r.reference } });
-          } catch (e: any) {
-            toast.error(e?.message ?? "Payment verification failed");
-          }
-        },
-        modal: { ondismiss: () => setBusy(false) },
-      });
-      rz.open();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not initiate payment");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function payAtHotel() {
-    setBusy(true);
-    try {
-      const d = await ensureDraft();
-      if (!d) return;
-      const r = await confirmPah({ data: { booking_id: d.booking_id } });
-      navigate({ to: "/booking-engine/confirmation/$ref", params: { ref: r.reference } });
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not confirm. Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const mm = remainingSec != null ? String(Math.floor(remainingSec / 60)).padStart(2, "0") : "--";
-  const ss = remainingSec != null ? String(remainingSec % 60).padStart(2, "0") : "--";
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-32">
-      <Link to="/booking-engine/search" search={{ check_in: search.check_in, check_out: search.check_out, guests: search.guests } as any}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to results
+      <Link
+        to="/booking-engine/search"
+        search={{ check_in: search.check_in, check_out: search.check_out, guests: search.guests } as any}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" /> Back to rooms
       </Link>
 
       <h1 className="mt-3 font-display text-2xl">Complete your booking</h1>
@@ -246,7 +143,7 @@ function CheckoutPage() {
         <p className="font-display text-lg">Guest details</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <Label className="text-xs">Full name *</Label>
+            <Label className="text-xs">Full Name *</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="As per ID" autoComplete="name" />
           </div>
           <div>
@@ -259,72 +156,22 @@ function CheckoutPage() {
           </div>
         </div>
         <div>
-          <Label className="text-xs">Special requests</Label>
+          <Label className="text-xs">Special Requests</Label>
           <Textarea value={requests} onChange={(e) => setRequests(e.target.value)} placeholder="Early check-in, high floor, etc. (optional)" rows={2} />
         </div>
       </Card>
 
-      {/* Hold notice */}
-      {draft && remainingSec !== null && remainingSec > 0 && (
-        <Card className="mt-4 p-3 flex items-center gap-2 border-gold/40 bg-gold/5">
-          <Clock className="h-4 w-4 text-gold" />
-          <span className="text-sm">
-            This room is reserved for you for the next <b>{mm}:{ss}</b>.
-          </span>
-        </Card>
-      )}
-
-      {/* Price summary */}
-      <Card className="mt-4 p-4">
-        <p className="font-display text-lg">Price summary</p>
-        {!draft ? (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Enter your details and continue to see the final amount and payment options.
-          </p>
-        ) : (
-          <div className="mt-3 space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span>{draft.nights} night{draft.nights > 1 ? "s" : ""} × {search.room_type}</span>
-              <span>{inr(draft.subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Taxes ({Math.round(draft.tax_rate * 100)}%)</span>
-              <span>{inr(draft.taxes)}</span>
-            </div>
-            <div className="flex justify-between font-medium pt-2 border-t border-border mt-2 text-base">
-              <span>Grand Total</span>
-              <span>{inr(draft.total)}</span>
-            </div>
-          </div>
-        )}
-      </Card>
-
       {/* Sticky CTA */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur z-30">
-        <div className="mx-auto max-w-3xl px-4 py-3 flex flex-col sm:flex-row gap-2">
-          {cfg?.payment.allow_full_payment !== false && (
-            <Button
-              onClick={payNow}
-              disabled={busy || draftMut.isPending}
-              className="flex-1 gold-gradient text-charcoal hover:opacity-90 h-11"
-            >
-              {busy || draftMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Pay Now {draft ? `· ${inr(draft.total)}` : ""}</>}
-            </Button>
-          )}
-          {cfg?.payment.allow_pay_at_hotel !== false && (
-            <Button
-              variant="outline"
-              onClick={payAtHotel}
-              disabled={busy || draftMut.isPending}
-              className="flex-1 h-11 border-gold/40"
-            >
-              {busy || draftMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pay at Hotel"}
-            </Button>
-          )}
+        <div className="mx-auto max-w-3xl px-4 py-3">
+          <Button
+            onClick={proceed}
+            disabled={draftMut.isPending}
+            className="w-full gold-gradient text-charcoal hover:opacity-90 h-11"
+          >
+            {draftMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Proceed →"}
+          </Button>
         </div>
-        <p className="text-[10px] text-center text-muted-foreground pb-2 flex items-center justify-center gap-1">
-          <Shield className="h-3 w-3" /> Secure payments by Razorpay · TLS encrypted
-        </p>
       </div>
     </div>
   );
