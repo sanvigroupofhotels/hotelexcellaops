@@ -239,9 +239,9 @@ function BookingDetail() {
   const [addPaymentForCheckoutOpen, setAddPaymentForCheckoutOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [guestDocsOpen, setGuestDocsOpen] = useState(false);
-  const [guestDocsMode, setGuestDocsMode] = useState<"checkin" | "manage">("manage");
+  // Manage-mode only — Check-In flow's documents gate lives in useCheckInController.
   const [assignRoomOpen, setAssignRoomOpen] = useState(false);
-  const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
+  const checkIn = useCheckInController();
   // When set, the Assign dialog acts as a "Change" — confirming swaps the named assignment.
   const [changingAssignmentId, setChangingAssignmentId] = useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
