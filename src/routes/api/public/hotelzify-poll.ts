@@ -12,6 +12,7 @@
  *   - Dedupe via external_bookings (integration_id, external_ref).
  */
 import { createFileRoute } from "@tanstack/react-router";
+import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
 
 const GMAIL_BASE = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
 
@@ -197,14 +198,8 @@ function parseGeneric(
   const isReception = cleanedPhone ? RECEPTION_NUMBERS.has(cleanedPhone) : false;
   let guestPhone: string | null = null;
   if (cleanedPhone && !isReception) {
-    try {
-      // Lazy import to avoid bundling client code in this route in case of cycle.
-      const { normalizePhoneNumber, validatePhoneNumber } = await import("@/lib/phone");
-      const n = normalizePhoneNumber(cleanedPhone);
-      guestPhone = validatePhoneNumber(n) ? n : null;
-    } catch {
-      guestPhone = null;
-    }
+    const n = normalizePhoneNumber(cleanedPhone);
+    guestPhone = validatePhoneNumber(n) ? n : null;
   }
 
   return {
