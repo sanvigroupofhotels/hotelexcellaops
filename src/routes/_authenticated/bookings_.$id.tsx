@@ -552,7 +552,7 @@ function BookingDetail() {
                 const canCheckIn = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any)
                   && toLocalYMD() >= b.check_in;
                 const canMarkNoShow = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any)
-                  && toLocalYMD() > b.check_in;
+                  && !!businessDate && b.check_out < businessDate;
                 const canCheckOut = b.status === "Checked-In";
                 const canCancel = !["Checked-In", "Checked-Out", "Cancelled", "No-Show"].includes(b.status as any);
                 const handleCheckOutClick = () => {
