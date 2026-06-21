@@ -58,43 +58,14 @@ function ReviewPage() {
   const { data: cfg } = useEngineConfig();
   const [busy, setBusy] = useState<"now" | "later" | null>(null);
 
-  const getInfo = useServerFn(getConfirmation);
+  const getPricing = useServerFn(getDraftPricing);
   const createOrder = useServerFn(createBookingEngineOrder);
   const confirmPay = useServerFn(confirmBookingEnginePayment);
   const confirmPah = useServerFn(confirmPayAtHotel);
 
-  // Load draft pricing via getConfirmation (works for Draft too — it just
-  // selects by reference + source). We need the inventory amount.
-  // The reference is unknown here; instead read the booking by id via a thin
-  // helper: we already have createOrder which fetches by id internally for
-  // pricing, but cleaner — derive total from a small query keyed on booking_id.
-  // For now, use the per-night display the user already saw: fetch via
-  // a lightweight read. We re-use getConfirmation by reference once we have it;
-  // simpler path: get the order pre-create with intent=full to learn amount.
-  // To avoid an extra round-trip, we just query an `amount` snapshot via
-  // getConfirmation-equivalent: load by ID through createOrder is destructive.
-  // Cleanest: a tiny new server fn would be ideal, but we can reuse
-  // createBookingEngineOrder safely — it does NOT mutate booking pricing.
-
-  // Use a dedicated lightweight query: we issue a "preview" by fetching
-  // confirmation data by ID through a small inline read.
   const q = useQuery({
     queryKey: ["be", "review", search.booking_id],
-    queryFn: async () => {
-      // Reuse getConfirmation by reference would require the reference; instead
-      // we use createBookingEngineOrder side-effect-free preview. But that
-      // creates a Razorpay order — undesirable for a preview. So we read via
-      // a public client query instead.
-      const { supabase } = await import("@/integrations/supabase/client");
-      const { data, error } = await supabase
-        .from("bookings")
-        .select("amount,subtotal,taxes,booking_reference,status,draft_expires_at")
-        .eq("id", search.booking_id)
-        .maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error("Booking not found");
-      return data as any;
-    },
+    queryFn: () => getPricing({ data: { booking_id: search.booking_id } }),
     staleTime: 30_000,
   });
 
