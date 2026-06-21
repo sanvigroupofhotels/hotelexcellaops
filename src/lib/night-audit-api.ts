@@ -9,8 +9,8 @@ import { toLocalYMD } from "@/lib/utils";
  * automatically until pending check-ins / check-outs are resolved.
  *
  * Pending check-ins  : status NOT IN (Checked-In, Checked-Out, Cancelled, Stay Completed, No-Show)
- *                      AND check_in <= business_date
- * Pending check-outs : status = Checked-In AND check_out <= business_date
+ *                      AND check_in < business_date   (strict: today's arrivals are NOT pending)
+ * Pending check-outs : status = Checked-In AND check_out < business_date  (strict)
  */
 
 export interface PendingBooking {
