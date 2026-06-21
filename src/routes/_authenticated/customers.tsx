@@ -292,9 +292,36 @@ function CustomersPage() {
             );
           })}
         </div>
+        )}
       </div>
       <CustomerEditDialog open={newOpen} onClose={() => setNewOpen(false)} customer={null} />
       <ExportCustomersDialog open={exportOpen} onOpenChange={setExportOpen} customers={customers} />
+
+      {/* Mark Lost dialog */}
+      <Dialog open={!!lostDialog} onOpenChange={(o) => !o && setLostDialog(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Mark lead as Lost</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">{lostDialog?.name}</p>
+          <textarea value={lostReason} onChange={(e) => setLostReason(e.target.value)}
+            rows={3} placeholder="Reason (e.g. price too high, dates not available, chose competitor)"
+            className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm" />
+          <DialogFooter>
+            <button onClick={() => setLostDialog(null)} className="px-3 py-1.5 rounded-md border border-border text-sm">Cancel</button>
+            <button
+              onClick={async () => {
+                if (!lostDialog) return;
+                if (lostReason.trim().length < 2) { toast.error("Please enter a reason"); return; }
+                try {
+                  await markLost({ data: { id: lostDialog.id, reason: lostReason.trim() } });
+                  qc.invalidateQueries({ queryKey: ["leads"] });
+                  toast.success("Marked as Lost");
+                  setLostDialog(null);
+                } catch (e: any) { toast.error(e?.message ?? "Failed"); }
+              }}
+              className="px-3 py-1.5 rounded-md bg-destructive text-destructive-foreground text-sm">Mark Lost</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
