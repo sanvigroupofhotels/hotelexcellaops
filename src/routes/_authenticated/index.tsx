@@ -5,21 +5,18 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { MetricCard, Money } from "@/components/money";
 import { Topbar } from "@/components/topbar";
-import { listBookings, setBookingStatus } from "@/lib/bookings-api";
+import { listBookings } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listComplaints } from "@/lib/complaints-api";
 import { getCurrentCashBalance, listCashTx } from "@/lib/cash-api";
 import { listRooms } from "@/lib/rooms-api";
-import { listBookingItems } from "@/lib/booking-items-api";
-import { listAssignments, requiredRoomCount } from "@/lib/booking-room-assignments-api";
-import { logBookingActivity } from "@/lib/booking-activities-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
 import { buildDailyCashReport, computeOpeningBalance } from "@/lib/cash-report";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
-import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
+import { useCheckInController } from "@/lib/check-in-flow";
 import { useMasterData } from "@/hooks/use-master-data";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { groupStayAssignments, groupStayItems, pairStaySlotsToRooms, segmentCoversDate } from "@/lib/stay-segments";
@@ -55,7 +52,7 @@ function HomePage() {
   const [paymentTarget, setPaymentTarget] = useState<InHouseRoomOption | null>(null);
   const [chargeTarget, setChargeTarget] = useState<InHouseRoomOption | null>(null);
   const [arrivalsOpen, setArrivalsOpen] = useState(false);
-  const [checkInBookingId, setCheckInBookingId] = useState<string | null>(null);
+  const checkIn = useCheckInController();
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: complaints = [] } = useQuery({ queryKey: ["complaints"], queryFn: () => listComplaints() });
@@ -329,26 +326,9 @@ function HomePage() {
               {todaysArrivals.map((b: any) => (
                 <button
                   key={b.id}
-                  onClick={async () => {
+                  onClick={() => {
                     setArrivalsOpen(false);
-                    // Decide: open assignment dialog OR check-in directly if all rooms already assigned.
-                    try {
-                      const [items, assigns] = await Promise.all([listBookingItems(b.id), listAssignments(b.id)]);
-                      const required = requiredRoomCount(items as any);
-                      if (assigns.length >= required && required > 0) {
-                        await setBookingStatus(b.id, "Checked-In" as any);
-                        await logBookingActivity({
-                          booking_id: b.id, action: "check_in",
-                          from_status: b.status ?? null, to_status: "Checked-In",
-                        });
-                        toast.success(`Checked In: ${b.guest_name}`);
-                        qc.invalidateQueries({ queryKey: ["bookings"] });
-                      } else {
-                        setCheckInBookingId(b.id);
-                      }
-                    } catch (e: any) {
-                      toast.error(e?.message ?? "Could not start check-in");
-                    }
+                    checkIn.start(b.id);
                   }}
                   className="w-full text-left px-3 py-3 hover:bg-secondary/40 flex items-center justify-between gap-3"
                 >
@@ -368,32 +348,7 @@ function HomePage() {
         </DialogContent>
       </Dialog>
 
-      {checkInBookingId && (
-        <RoomAssignmentDialog
-          bookingId={checkInBookingId}
-          open={!!checkInBookingId}
-          mode="checkin-flow"
-          onClose={() => setCheckInBookingId(null)}
-          onAllAssigned={async () => {
-            const bid = checkInBookingId;
-            setCheckInBookingId(null);
-            if (!bid) return;
-            try {
-              const b = bookings.find((x: any) => x.id === bid);
-              await setBookingStatus(bid, "Checked-In" as any);
-              await logBookingActivity({
-                booking_id: bid, action: "check_in",
-                from_status: b?.status ?? null, to_status: "Checked-In",
-              });
-              toast.success("Checked-In Successfully");
-              qc.invalidateQueries({ queryKey: ["bookings"] });
-              qc.invalidateQueries({ queryKey: ["booking-room-assignments-all-home"] });
-            } catch (e: any) {
-              toast.error(e?.message ?? "Check-in failed");
-            }
-          }}
-        />
-      )}
+      {checkIn.dialogs}
     </>
   );
 }

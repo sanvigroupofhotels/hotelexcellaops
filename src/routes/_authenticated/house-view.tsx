@@ -19,7 +19,7 @@ import { bookingWhatsAppLink, paymentReminderMessage } from "@/lib/booking-messa
 import { issueBookingToken } from "@/lib/portal.functions";
 import { publicOrigin } from "@/lib/public-url";
 import { BlockRoomDialog } from "@/components/block-room-dialog";
-import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
+import { useCheckInController } from "@/lib/check-in-flow";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useMasterData } from "@/hooks/use-master-data";
 import { MetricCard, Money } from "@/components/money";
@@ -651,7 +651,6 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
   const issueToken = useServerFn(issueBookingToken);
   const { values: chargeCategories } = useMasterData("in_house_charge", [
@@ -681,23 +680,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
     enabled: invoiceOpen,
   });
 
-  const performCheckIn = useMutation({
-    mutationFn: async () => {
-      const { setBookingStatus } = await import("@/lib/bookings-api");
-      await setBookingStatus(b.id, "Checked-In" as any);
-    },
-    onSuccess: async () => {
-      // Fetch fresh assignments to list room numbers
-      const { listAssignments } = await import("@/lib/booking-room-assignments-api");
-      const latest = await listAssignments(b.id);
-      const nums = latest.map((a: any) => rooms.find((r) => r.id === a.room_id)?.room_number).filter(Boolean).join(", ");
-      toast.success(`Checked In Successfully${nums ? ` · Assigned Rooms: ${nums}` : ""}`);
-      qc.invalidateQueries({ queryKey: ["bookings"] });
-      qc.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
-      onClose();
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
+  const checkIn = useCheckInController({ onCheckedIn: () => onClose() });
   const checkOutMut = useMutation({
     mutationFn: async () => {
       const { setBookingStatus } = await import("@/lib/bookings-api");
@@ -723,16 +706,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
     onError: (e: any) => toast.error(e.message),
   });
 
-  const handleCheckIn = async () => {
-    const { requiredRoomCount } = await import("@/lib/booking-room-assignments-api");
-    const required = requiredRoomCount(itemsForBooking as any);
-    if (assignmentsForBooking.length < required) {
-      toast.error("Please assign all rooms before Check-In.");
-      setCheckinFlowOpen(true);
-      return;
-    }
-    performCheckIn.mutate();
-  };
+  const handleCheckIn = () => checkIn.start(b.id);
 
   // Dynamic action button:
   //   Case 1: Balance > 0 (not yet checked-out)  → Add Payment
@@ -850,9 +824,9 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
           )}
           {primary && (
             <button onClick={primary.onClick}
-              disabled={performCheckIn.isPending || checkOutMut.isPending || noShowMut.isPending}
+              disabled={checkIn.isWorking || checkOutMut.isPending || noShowMut.isPending}
               className={cn("flex-1 text-center rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60", toneCls(primary.tone))}>
-              {(performCheckIn.isPending || checkOutMut.isPending) ? "Working…" : primary.label}
+              {(checkIn.isWorking || checkOutMut.isPending) ? "Working…" : primary.label}
             </button>
           )}
           {canTransact && status !== "Checked-In" && today > b.check_out && (
@@ -888,13 +862,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
       categories={chargeCategories}
       editing={null}
     />
-    <RoomAssignmentDialog
-      bookingId={b.id}
-      open={checkinFlowOpen}
-      onClose={() => setCheckinFlowOpen(false)}
-      mode="checkin-flow"
-      onAllAssigned={() => performCheckIn.mutate()}
-    />
+    {checkIn.dialogs}
     </>
   );
 }
