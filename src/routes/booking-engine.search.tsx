@@ -76,7 +76,7 @@ function SearchPage() {
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           {(q.data?.results ?? []).filter((r) => r.subtotal > 0).map((r) => {
             const meta = getRoomMeta(r.type);
-            const perNight = Math.round(r.subtotal / r.nights);
+            const perNight = Math.round(r.total / r.nights);
             const soldOut = r.available <= 0;
             return (
               <Card key={r.type} className="p-5 flex flex-col">
