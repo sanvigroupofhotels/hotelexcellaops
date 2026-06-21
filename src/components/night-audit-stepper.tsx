@@ -28,7 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCheckInController } from "@/lib/check-in-flow";
 import { setBookingStatus } from "@/lib/bookings-api";
 import { logBookingActivity } from "@/lib/booking-activities-api";
-import { getOpenSession, logDecision } from "@/lib/night-audit-sessions-api";
+import { getOpenSession, logDecision, saveSessionDraft } from "@/lib/night-audit-sessions-api";
 import { useUserRole } from "@/hooks/use-role";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import {
@@ -269,14 +269,52 @@ export function NightAuditStepper({ businessDate }: { businessDate: string }) {
     };
   }, [paymentsToday.data, cashToday.data, inhouseRows, rooms.data, duesRows]);
 
-  /* ────── Lifted reconcile/review state ────── */
+  /* ────── Lifted reconcile/review state (persisted to session.totals.draft) ────── */
   const [recon, setRecon] = useState<ReconcileState>({ declaredCash: null, varianceReason: "", acknowledged: false });
   const [review, setReview] = useState<ReviewState>({ overrideReason: "" });
+  const [hydrated, setHydrated] = useState(false);
+
+  // Hydrate from persisted draft on session load (browser refresh, re-login, resume)
+  useEffect(() => {
+    if (hydrated) return;
+    const draft = (session.data?.totals as any)?.draft;
+    if (draft && typeof draft === "object") {
+      if ("declaredCash" in draft || "varianceReason" in draft || "acknowledged" in draft) {
+        setRecon({
+          declaredCash: draft.declaredCash ?? null,
+          varianceReason: draft.varianceReason ?? "",
+          acknowledged: !!draft.acknowledged,
+        });
+      }
+      if ("overrideReason" in draft) {
+        setReview({ overrideReason: draft.overrideReason ?? "" });
+      }
+    }
+    if (session.data) setHydrated(true);
+  }, [session.data, hydrated]);
+
+  // Persist (debounced) whenever recon/review change after hydration
+  useEffect(() => {
+    if (!hydrated || !sessionId) return;
+    const t = setTimeout(() => {
+      void saveSessionDraft({
+        sessionId,
+        draft: {
+          declaredCash: recon.declaredCash,
+          varianceReason: recon.varianceReason,
+          acknowledged: recon.acknowledged,
+          overrideReason: review.overrideReason,
+        },
+      }).catch(() => { /* non-fatal */ });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [hydrated, sessionId, recon.declaredCash, recon.varianceReason, recon.acknowledged, review.overrideReason]);
 
   const cashVariance = useMemo(() => {
     if (recon.declaredCash == null) return null;
     return recon.declaredCash - totals.cashNetToday;
   }, [recon.declaredCash, totals.cashNetToday]);
+
 
   /* ------------------------------------------------------------------ */
   /* Pending counts per step                                            */

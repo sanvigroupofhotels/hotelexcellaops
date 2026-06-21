@@ -157,7 +157,38 @@ export async function closeSession(opts: {
   return { newBusinessDate: next };
 }
 
-/** Reopen the most recently closed session for an admin-led correction. */
+/** Persist in-progress reconciliation/review draft into session.totals. */
+export async function saveSessionDraft(opts: {
+  sessionId: string;
+  draft: Record<string, any>;
+}): Promise<void> {
+  // Merge with existing totals so we don't blow away a final close payload.
+  const { data: existing, error: rErr } = await supabase
+    .from("night_audit_sessions" as any)
+    .select("totals,status")
+    .eq("id", opts.sessionId)
+    .maybeSingle();
+  if (rErr) throw rErr;
+  if (!existing) return;
+  if ((existing as any).status !== "open") return; // only persist while open
+
+  const next = {
+    ...(((existing as any).totals as Record<string, any>) ?? {}),
+    draft: { ...opts.draft, updated_at: new Date().toISOString() },
+  };
+
+  const { error } = await supabase
+    .from("night_audit_sessions" as any)
+    .update({ totals: next } as any)
+    .eq("id", opts.sessionId)
+    .eq("status", "open");
+  if (error) throw error;
+}
+
+/** Reopen the most recently closed session for an admin-led correction.
+ *  Concurrency-safe: only the writer that flips closed→reopened proceeds to
+ *  log + roll back the business date. A simultaneous second reopen sees
+ *  zero rows updated and throws cleanly with no duplicate side effects. */
 export async function reopenLastClosedSession(opts: {
   reason: string;
   actorName?: string | null;
@@ -179,12 +210,11 @@ export async function reopenLastClosedSession(opts: {
   const uid = userRes?.user?.id ?? null;
 
   const bd = (last as any).business_date as string;
-  const prevBd = addDays(bd, -1);
-  void prevBd;
-  // Roll BD back to this session's business_date.
-  await setBusinessDate(bd);
 
-  const { data: upd, error: uErr } = await supabase
+  // Concurrency guard — only the writer that actually flips closed→reopened
+  // proceeds. Filter on status='closed' so a racing second reopen finds zero
+  // rows and we throw without duplicating logs or rolling BD back twice.
+  const { data: updRows, error: uErr } = await supabase
     .from("night_audit_sessions" as any)
     .update({
       status: "reopened",
@@ -194,9 +224,16 @@ export async function reopenLastClosedSession(opts: {
       closed_by_name: null,
     } as any)
     .eq("id", (last as any).id)
-    .select("*")
-    .single();
+    .eq("status", "closed")
+    .select("*");
   if (uErr) throw uErr;
+  if (!updRows || (updRows as any[]).length === 0) {
+    throw new Error("Session already reopened by another user. Refresh to see the latest state.");
+  }
+  const upd = (updRows as any[])[0];
+
+  // Only after we won the race: roll BD back to this session's business_date.
+  await setBusinessDate(bd);
 
   await logDecision({
     sessionId: (last as any).id,
@@ -208,6 +245,7 @@ export async function reopenLastClosedSession(opts: {
 
   return upd as any;
 }
+
 
 /** Append an immutable decision to the session log. */
 export async function logDecision(opts: {
