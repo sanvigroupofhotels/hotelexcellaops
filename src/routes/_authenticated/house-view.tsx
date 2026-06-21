@@ -652,7 +652,6 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [checkinFlowOpen, setCheckinFlowOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
   const issueToken = useServerFn(issueBookingToken);
   const { values: chargeCategories } = useMasterData("in_house_charge", [
@@ -682,23 +681,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
     enabled: invoiceOpen,
   });
 
-  const performCheckIn = useMutation({
-    mutationFn: async () => {
-      const { setBookingStatus } = await import("@/lib/bookings-api");
-      await setBookingStatus(b.id, "Checked-In" as any);
-    },
-    onSuccess: async () => {
-      // Fetch fresh assignments to list room numbers
-      const { listAssignments } = await import("@/lib/booking-room-assignments-api");
-      const latest = await listAssignments(b.id);
-      const nums = latest.map((a: any) => rooms.find((r) => r.id === a.room_id)?.room_number).filter(Boolean).join(", ");
-      toast.success(`Checked In Successfully${nums ? ` · Assigned Rooms: ${nums}` : ""}`);
-      qc.invalidateQueries({ queryKey: ["bookings"] });
-      qc.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
-      onClose();
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
+  const checkIn = useCheckInController({ onCheckedIn: () => onClose() });
   const checkOutMut = useMutation({
     mutationFn: async () => {
       const { setBookingStatus } = await import("@/lib/bookings-api");
@@ -724,16 +707,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
     onError: (e: any) => toast.error(e.message),
   });
 
-  const handleCheckIn = async () => {
-    const { requiredRoomCount } = await import("@/lib/booking-room-assignments-api");
-    const required = requiredRoomCount(itemsForBooking as any);
-    if (assignmentsForBooking.length < required) {
-      toast.error("Please assign all rooms before Check-In.");
-      setCheckinFlowOpen(true);
-      return;
-    }
-    performCheckIn.mutate();
-  };
+  const handleCheckIn = () => checkIn.start(b.id);
 
   // Dynamic action button:
   //   Case 1: Balance > 0 (not yet checked-out)  → Add Payment
