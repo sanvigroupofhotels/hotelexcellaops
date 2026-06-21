@@ -305,3 +305,28 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
     </div>
   );
 }
+
+function LeadTimeline({ customerId }: { customerId: string }) {
+  const fetchActs = useServerFn(listLeadActivitiesByCustomer);
+  const { data: acts = [], isLoading } = useQuery({
+    queryKey: ["lead-activities", customerId],
+    queryFn: () => fetchActs({ data: { customer_id: customerId } }),
+  });
+  if (isLoading) return null;
+  if (!acts.length) return null;
+  return (
+    <Panel title="Lead Activity">
+      <div className="space-y-2 max-h-72 overflow-y-auto">
+        {acts.map((a: any) => (
+          <div key={a.id} className="text-[11px] leading-snug border-l-2 border-gold/40 pl-2">
+            <div className="text-muted-foreground">
+              {new Date(a.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+              {a.actor_name ? ` · ${a.actor_name}` : ""}
+            </div>
+            <div>{a.summary ?? a.action}</div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
