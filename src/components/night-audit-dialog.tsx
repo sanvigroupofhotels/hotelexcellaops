@@ -255,7 +255,7 @@ export function NightAuditDialog({ open, onClose, inline = false }: { open: bool
           </>
         )}
       </div>
-    </div>
+    </Outer>
 
     {/* Shared Check-In flow — identical to Booking page & House View (OTA phone → docs → rooms → commit). */}
     {checkIn.dialogs}
