@@ -89,41 +89,15 @@ export interface PerformAuditResult {
   newBusinessDate?: string;
 }
 
-export async function performNightAudit(opts: { mode?: "manual" | "auto"; actorName?: string | null } = {}): Promise<PerformAuditResult> {
-  const { data: { user } } = await supabase.auth.getUser();
-  const bd = await getBusinessDate();
-  const { pendingCheckIns, pendingCheckOuts } = await getPendingForAudit(bd);
-
-  if (pendingCheckIns.length > 0) {
-    return { ok: false, reason: "pending_check_ins", pendingCheckIns: pendingCheckIns.length, pendingCheckOuts: pendingCheckOuts.length, previousBusinessDate: bd };
-  }
-  if (pendingCheckOuts.length > 0) {
-    return { ok: false, reason: "pending_check_outs", pendingCheckIns: 0, pendingCheckOuts: pendingCheckOuts.length, previousBusinessDate: bd };
-  }
-
-  const next = addDaysYMD(bd, 1);
-
-  // Idempotency lock: insert audit row first; UNIQUE(previous_business_date) prevents double-advance.
-  const { error: insErr } = await supabase.from("night_audit_runs" as any).insert({
-    user_id: user?.id ?? null,
-    actor_name: opts.actorName ?? user?.email ?? "system",
-    mode: opts.mode ?? "manual",
-    previous_business_date: bd,
-    new_business_date: next,
-    pending_check_ins_resolved: 0,
-    pending_check_outs_resolved: 0,
-    notes: null,
-  } as any);
-  if (insErr) {
-    const msg = (insErr as any).message ?? "";
-    if (msg.includes("night_audit_runs_prev_date_unique") || (insErr as any).code === "23505") {
-      return { ok: false, reason: "already_done", previousBusinessDate: bd };
-    }
-    throw insErr;
-  }
-
-  await setBusinessDate(next);
-  return { ok: true, previousBusinessDate: bd, newBusinessDate: next };
+/**
+ * @deprecated Business Date advancement is owned exclusively by
+ * `closeSession()` in `night-audit-sessions-api.ts`. This legacy entry
+ * point now throws so no other code path can advance the business date.
+ */
+export async function performNightAudit(_opts: { mode?: "manual" | "auto"; actorName?: string | null } = {}): Promise<PerformAuditResult> {
+  throw new Error(
+    "performNightAudit() is disabled. Business Date can only be advanced by closing a Night Audit session (Night Audit → Review → Close Session).",
+  );
 }
 
 /** Bulk operations used by the Night Audit dialog. */

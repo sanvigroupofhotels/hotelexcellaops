@@ -83,7 +83,17 @@ export async function openOrResumeSession(
     } as any)
     .select("*")
     .single();
-  if (error) throw error;
+
+  // Concurrency: a partial unique index on (business_date) WHERE status='open'
+  // guarantees only one open session per BD. If another user beat us to it,
+  // resume that session instead of surfacing the unique violation.
+  if (error) {
+    if ((error as any).code === "23505") {
+      const resumed = await getOpenSession(bd);
+      if (resumed) return resumed;
+    }
+    throw error;
+  }
   return data as any;
 }
 
@@ -111,7 +121,10 @@ export async function closeSession(opts: {
   const bd = (session as any).business_date as string;
   const next = addDays(bd, 1);
 
-  const { error: uErr } = await supabase
+  // Concurrency guard: filter on status='open' so only the writer that
+  // actually flipped open→closed proceeds to advance the business date.
+  // A simultaneous second close gets an empty rowset and errors out cleanly.
+  const { data: closedRows, error: uErr } = await supabase
     .from("night_audit_sessions" as any)
     .update({
       status: "closed",
@@ -121,8 +134,13 @@ export async function closeSession(opts: {
       totals: opts.totals ?? {},
       eod_html: opts.eodHtml ?? null,
     } as any)
-    .eq("id", opts.sessionId);
+    .eq("id", opts.sessionId)
+    .eq("status", "open")
+    .select("id");
   if (uErr) throw uErr;
+  if (!closedRows || (closedRows as any[]).length === 0) {
+    throw new Error("Session was already closed by another user. Refresh to see the latest state.");
+  }
 
   // Log advance decision BEFORE bumping BD so the decision row carries the old BD.
   await logDecision({
