@@ -25,19 +25,20 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
   const qc = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
-  const checkIn = useCheckInController({
-    note: "From Night Audit",
-    onCheckedIn: () => {
-      qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
-      refetch();
-    },
-  });
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["night-audit-pending"],
     queryFn: () => getPendingForAudit(),
     enabled: open,
     refetchOnWindowFocus: false,
+  });
+
+  const checkIn = useCheckInController({
+    note: "From Night Audit",
+    onCheckedIn: () => {
+      qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
+      void refetch();
+    },
   });
 
   const setStatus = useMutation({
