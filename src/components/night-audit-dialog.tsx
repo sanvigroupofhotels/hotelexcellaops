@@ -247,20 +247,8 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
       </div>
     </div>
 
-    {/* Inline Check-In flow — same Room Assignment dialog used on the Booking page and House View popup. */}
-    {checkinBookingId && (
-      <RoomAssignmentDialog
-        bookingId={checkinBookingId}
-        open={!!checkinBookingId}
-        onClose={() => setCheckinBookingId(null)}
-        mode="checkin-flow"
-        onAllAssigned={async () => {
-          const id = checkinBookingId;
-          setCheckinBookingId(null);
-          if (id) await setStatus.mutateAsync({ id, status: "Checked-In" });
-        }}
-      />
-    )}
+    {/* Shared Check-In flow — identical to Booking page & House View (OTA phone → docs → rooms → commit). */}
+    {checkIn.dialogs}
 
     {/* Cancel confirmation — same outcome as the booking-page cancel flow (status=Cancelled, Due=0). */}
     <AlertDialog open={!!cancelTarget} onOpenChange={(o) => { if (!o) setCancelTarget(null); }}>
