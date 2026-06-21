@@ -1,261 +1,334 @@
-# Booking Engine + Guest Portal Expansion — Design Proposal
 
-This is a design-only document. No code will be written until you approve.
+# CRM & Booking Engine Lead Capture — Architecture Proposal
 
----
-
-## 1. Architecture Overview
-
-Single Lovable project + single Supabase DB. Host-header routing in `src/routes/__root.tsx` selects which "app" renders:
-
-```
-ops.hotelexcella.in    -> PMS (existing _authenticated tree)
-book.hotelexcella.in   -> Booking Engine (new /be/* routes, host-rewritten to /)
-guest.hotelexcella.in  -> Guest Portal (rewrites / -> /portal landing, /:token -> existing portal)
-ops.hotelexcella.in/portal/<token>  -> KEEPS WORKING (no break)
-```
-
-Why one project: shared rooms, rates, bookings, customers, payments tables. Zero sync. OTA push-pull later plugs into the same inventory layer.
+This is a design-only document. Nothing is implemented yet. Approve sections individually or as a whole; I'll then build in phases.
 
 ---
 
-## 2. Route Structure
+## 1. Database Schema Changes
 
-### Booking Engine (book.hotelexcella.in)
+### 1.1 New table: `leads`
+
 ```
-/                      Landing — hero, dates picker, "Search"
-/search                Results — room cards, prices, availability
-/rooms/$slug           Room detail — gallery, amenities, policies
-/checkout              Guest details + add-ons + tax breakup
-/checkout/payment      Payment method (Pay Now / Pay at Hotel)
-/checkout/processing   Razorpay callback handler
-/confirmation/$ref     Success page + portal link + WhatsApp share
-/policies, /contact, /faq
+leads
+  id                uuid PK
+  user_id           uuid                       -- owning tenant user (audit)
+  customer_id       uuid  FK customers(id)     -- nullable; set when matched/created
+  booking_id        uuid  FK bookings(id)      -- nullable; set on conversion
+
+  -- Captured details
+  guest_name        text  NOT NULL
+  phone             text  NOT NULL             -- E.164 normalized, business key
+  email             text  NULL
+  check_in          date  NULL
+  check_out         date  NULL
+  adults            int   NULL
+  children          int   NULL
+  rooms             int   NULL
+  room_type_id      uuid  NULL
+  estimated_total   numeric(12,2) NULL         -- snapshot of quoted price
+
+  -- Lifecycle
+  status            lead_status NOT NULL DEFAULT 'Interested'
+                    -- enum: Interested | Abandoned | Converted | Lost
+  source_channel    text  NOT NULL DEFAULT 'BookingEngine'
+                    -- BookingEngine | WhatsApp | Phone | Walk-In | OTA | Other
+  lost_reason       text  NULL
+  notes             text  NULL
+
+  -- Activity tracking (drives Abandoned detection)
+  last_activity_at  timestamptz NOT NULL DEFAULT now()
+  abandoned_at      timestamptz NULL
+  converted_at      timestamptz NULL
+  lost_at           timestamptz NULL
+
+  created_at        timestamptz NOT NULL DEFAULT now()
+  updated_at        timestamptz NOT NULL DEFAULT now()
+
+INDEXES:
+  (phone), (status), (customer_id), (booking_id), (last_activity_at)
 ```
 
-### Guest Portal (guest.hotelexcella.in)
+### 1.2 New enum: `lead_status`
+`Interested`, `Abandoned`, `Converted`, `Lost`.
+
+### 1.3 `bookings` — additive
+- `lead_id uuid NULL FK leads(id)` — back-link when booking originated from a lead.
+- Existing `source_channel` already supports `BookingEngine`.
+
+### 1.4 `customers` — additive
+- `first_lead_at timestamptz NULL` — when the customer first appeared as a lead.
+- `lead_count int NOT NULL DEFAULT 0` — denormalized counter for the Customers UI.
+- Re-use existing `lead_source` (do NOT overwrite when customer already exists — same rule as today).
+
+### 1.5 New table: `lead_activities` (audit)
+
 ```
-/                      Marketing splash → "Enter your booking link"
-/$token                Portal home (mirrors current ops/portal/<token>)
-/$token/documents      Upload ID
-/$token/pay            Pay due
-/$token/food           Order food (during stay)
-/$token/complaint      Raise complaint
-/$token/extend         Extend stay request
-/$token/charges        In-house charges
-/$token/invoice        Download invoice / proforma
-/$token/review         Post-stay review
+lead_activities
+  id, lead_id, actor_id, actor_name, actor_role,
+  action ('created'|'updated'|'status_changed'|'converted'|'lost'|'note'),
+  field, old_value, new_value, summary, created_at
 ```
 
-Legacy `ops.hotelexcella.in/portal/<token>` continues to work — same route file, same token, no DB change.
+### 1.6 New table: `crm_settings` (single-row JSON, or rows in `app_settings`)
+- `abandon_minutes int DEFAULT 10`
+- `notify_owner_phones text[]`
+- `notify_reception_emails text[]`
+- `notify_on_lead boolean DEFAULT true`
+- `notify_on_abandon boolean DEFAULT true`
+
+(Will likely be stored as a single `app_settings` row `crm` to avoid a new table — calling it out for review.)
+
+### 1.7 Triggers / functions
+- `leads_set_updated_at` — standard.
+- `leads_link_or_create_customer` — on INSERT/UPDATE, when `customer_id IS NULL` and `phone` set: match by phone, else create. Mirrors `link_or_create_customer` for bookings.
+- `bookings_auto_convert_lead` — on INSERT of a booking with a phone that matches an open lead (Interested/Abandoned), set `booking.lead_id`, update `lead.status='Converted'`, `lead.booking_id`, `converted_at`.
+- `leads_recompute_customer_counters` — keeps `customers.lead_count` / `first_lead_at`.
+- `sweep_abandoned_leads()` SECURITY DEFINER — flips `Interested` → `Abandoned` when `last_activity_at < now() - abandon_minutes` AND no booking yet. Run via `pg_cron` every minute.
+
+### 1.8 RLS / GRANTS
+- `leads`: SELECT/INSERT/UPDATE/DELETE to `authenticated`; ALL to `service_role`. No anon. Booking-Engine writes go through a `createServerFn` using publishable-key client → policy must allow anon? **Decision needed (see §9 Q1).** Proposal: writes go through an unauthenticated server function using `supabaseAdmin` (server-side), so no anon grant needed.
+- `lead_activities`: SELECT authenticated; INSERT via triggers (security definer).
 
 ---
 
-## 3. UX Flow
+## 2. Lead Lifecycle
 
-### Booking Engine (mobile-first, 4 thumb-taps to book)
 ```
-[Landing]
-  Dates + Guests (sticky bottom CTA "Check Availability")
-       ↓
-[Search Results]
-  Filter chips • Room cards (image, price/night, "Select")
-       ↓
-[Room Detail] (optional skip)
-  Gallery • Amenities • Inclusions • "Book Now"
-       ↓
-[Checkout — single scroll page]
-  • Guest details (name, phone OTP-light, email)
-  • Special requests
-  • Price summary (sticky)
-  • Pay Now / Pay at Hotel toggle
-       ↓
-[Payment]  →  Razorpay Checkout (UPI/Card/Netbanking)
-       ↓
-[Confirmation]
-  • Booking ref • WhatsApp share • "Open Guest Portal" deep link
-  • Auto-send WhatsApp + Email with portal token
+                +-------------+
+   create  -->  | Interested  |
+                +------+------+
+                       |
+   no activity 10m     |    booking created (any channel, same phone)
+        |              v
+        v        +-----------+        +-----------+
+   +---------+   | Converted |<-------|  Booking  |
+   |Abandoned|-->+-----------+        +-----------+
+   +----+----+         ^
+        |              |  (manual: reception creates booking from lead)
+        | reception marks lost / no response after N days
+        v
+   +-------+
+   | Lost  |
+   +---+---+
+       |
+       | new lead with same phone arrives later
+       v
+   new Interested lead (history preserved on customer)
 ```
 
-Pay-at-Hotel path: skips Razorpay, confirms booking immediately with `status='Confirmed'`, `advance_paid=0`, portal link issued.
+Rules:
+- `Interested → Abandoned`: automatic, sweep job, 10 min default (configurable).
+- `Interested|Abandoned → Converted`: automatic when a booking is created with the same phone, OR explicit "Create Booking from Lead".
+- `Interested|Abandoned → Lost`: manual only, with `lost_reason`.
+- `Lost` is terminal for *that* lead row. A new inquiry from the same phone creates a NEW lead (linked to same customer).
+- `Converted` is terminal.
 
 ---
 
-## 4. Database Changes
+## 3. Customer Lifecycle
 
-Minimal — reuses existing `bookings`, `rooms`, `room_rates`, `rate_overrides`, `booking_payments`, `booking_tokens`, `customers`.
-
-### New columns (additive)
-```sql
-ALTER TABLE bookings ADD COLUMN source_channel text DEFAULT 'PMS';
-  -- 'PMS' | 'BookingEngine' | 'Hotelzify' | 'FabHotels' | 'BookingCom' ...
-ALTER TABLE bookings ADD COLUMN pay_at_hotel boolean DEFAULT false;
-ALTER TABLE bookings ADD COLUMN gateway_order_id text;
-ALTER TABLE bookings ADD COLUMN gateway_payment_id text;
+```
+  Booking Engine inquiry          Reception walk-in / call
+          |                                  |
+          v                                  v
+       Lead (Interested) ----+         Customer (no Lead)
+          |                  |               |
+          | match/create     |               | booking created directly
+          v                  |               v
+       Customer  <-----------+         Customer (no Lead, has Bookings)
+          |
+          | booking created          
+          v
+       Customer + Booking (Converted Lead)
+          |
+          | >= 2 completed stays
+          v
+       Repeat Guest (derived, not a status column)
 ```
 
-### New tables (future-ready, optional now)
-```sql
--- Promo codes / coupons (schema only, not enforced yet)
-public.promo_codes(code, type, value, valid_from, valid_to,
-                   min_nights, applicable_room_types text[], max_uses, used_count)
-
--- Seasonal / dynamic pricing layer (above rate_overrides)
-public.rate_seasons(name, start_date, end_date, room_type, multiplier, priority)
-
--- OTA channel inventory map (future)
-public.channel_inventory(channel, room_type, date, allotment, stop_sell)
-```
-
-### Public read access
-Booking Engine runs unauthenticated. Add narrow `TO anon SELECT` policies on:
-- `rooms` (only active, public-safe columns)
-- `room_rates`, `rate_overrides`
-- `app_settings` (branding subset)
-
-All writes (create booking, create payment) go through a **server function** with input validation — never direct anon insert.
+Key rules:
+- Customer is the **canonical identity**. Lead and Booking both point at it.
+- "Repeat Guest" is **derived**: `customers.total_bookings >= 2 AND last_stay_date IS NOT NULL` — no schema field needed.
+- A Customer can exist without any Lead (legacy / direct bookings).
+- A Customer can have many Leads (every inquiry is its own row; history shown on profile).
 
 ---
 
-## 5. Inventory & Availability Rules
+## 4. Booking Engine Flow (revised)
 
-**Occupied** (block the room/date):
-- Bookings with status ∈ {`Pending`, `Confirmed`, `Advance Paid`, `Full Paid`, `Checked-In`}
-- `room_maintenance` rows where `active=true`
-- Future: `channel_inventory.stop_sell=true`
-
-**Available** (free the room/date):
-- `Cancelled`, `No-Show`, `Checked-Out`, `Stay Completed` (already enforced in DB triggers ✓)
-
-**Availability query** (room-type level, not room-id level — Booking Engine sells *types*, PMS assigns specific rooms at check-in):
 ```
-available(type, date) =
-  total_active_rooms_of_type
-  - count(active bookings of type overlapping date)
-  - count(maintenance overlapping date)
-  - channel_inventory.allotment_consumed (future)
+/booking-engine            -> dates + guests
+/booking-engine/search     -> room type cards (no detailed price yet)
+/booking-engine/checkout   -> NEW step layout:
+
+   Step A: Contact details (REQUIRED first)
+     Name *  | Mobile * (E.164) | Email (optional)
+     [Continue]
+        |
+        | onSubmit -> server fn  createLeadFromBookingEngine({...})
+        |   -> upsert lead by (phone, open-status)
+        |   -> link/create customer
+        |   -> set last_activity_at = now()
+        |   -> fire notification (owner WA/SMS, reception email)
+        |
+        v
+   Step B: Price summary visible
+     Room, dates, nights, line items, taxes, total
+     Pay Now (Razorpay)  |  Pay at Hotel
+        |
+        | any further activity -> updateLeadActivity(lead_id)
+        v
+   Booking created -> trigger flips lead.status = Converted
 ```
 
-Server function `getAvailability(checkIn, checkOut, guests)` returns per-type:
-`{ type, available_count, nightly_breakdown[], total, taxes, grand_total }`.
+- Price is **revealed only after Step A**, satisfying the new requirement.
+- Lead row exists *before* any payment intent or draft booking.
+- Draft booking creation (existing flow) still works; it now also stamps `bookings.lead_id`.
+- If guest abandons before pressing Pay Now / Pay at Hotel, the sweep job marks the lead `Abandoned` after 10 min.
 
-OTA-ready: same function will later subtract `channel_inventory` and respect stop-sell.
+### Abandonment detection
+- Every interaction in checkout (price view, payment-option click) calls a tiny `touchLead` server fn updating `last_activity_at`.
+- `sweep_abandoned_leads()` cron: `Interested AND last_activity_at < now() - interval '10 minutes' AND booking_id IS NULL` → `Abandoned`.
+
+### Notifications
+- Triggered server-side (not client) so closing the browser doesn't matter:
+  - On lead create → optional WhatsApp/SMS to Owner, Email to Reception.
+  - On `Abandoned` flip → same recipients, different template.
+- Recipients configurable in **Settings → CRM → Notifications**.
+- Phase 1: log to a `lead_notifications` table + email via existing mailer; WhatsApp via existing integration if present, else stub with TODO.
 
 ---
 
-## 6. Rates & Pricing
+## 5. Lead → Booking Flow
 
-Single source of truth chain:
+Reception opens a Lead → **[Create Booking from Lead]** button:
+1. Navigates to `/bookings/new?lead_id=<id>` with pre-filled:
+   - guest_name, phone, email
+   - check_in, check_out, adults, children, rooms, room_type
+   - source_channel = `Lead` (or original source preserved)
+2. Reception completes the rest (room assignment, payment, etc.) as today.
+3. On booking insert:
+   - trigger sets `lead.status = 'Converted'`, `lead.booking_id`, `converted_at`.
+   - `link_or_create_customer` (existing) ensures customer link.
+   - `bookings.lead_id` stamped.
+
+Auto conversion also works when reception creates a booking *without* using the button — phone match converts the open lead automatically.
+
+---
+
+## 6. Cross-linking Rules — explicit cases
+
+| Case | Customer | Lead | Booking | Behavior |
+|---|---|---|---|---|
+| Customer without Lead | ✓ | – | optional | Legacy / walk-in. Untouched. |
+| Booking without Lead | ✓ | – | ✓ | Direct booking. `bookings.lead_id` null. Allowed. |
+| Lead without Booking | ✓ | ✓ | – | Inquiry only. Stays `Interested`/`Abandoned`/`Lost`. |
+| Lead → Customer → Booking | ✓ | ✓ | ✓ | Standard funnel. Auto-converts. |
+| Lost Lead → Converted later | ✓ | Lost (old) + new lead | ✓ | New lead row, same customer; old `Lost` preserved for history. Booking links to the new lead. |
+| Mobile collision (two different names, same phone) | ✓ (1) | ✓ (n) | ✓ | Customer matched by phone (existing behaviour). Lead keeps captured `guest_name` for record; customer name not overwritten. Reception sees both names in lead history. |
+
+**Mobile number is the business key** for all matching:
+- Normalize to E.164 on write (`src/lib/phone.ts` exists).
+- `customers.phone` already enforces uniqueness via the existing `link_or_create_customer` matching.
+- `leads.phone` is NOT unique (one customer can have many leads).
+
+---
+
+## 7. Notifications
+
+| Event | Channel(s) | Default Recipient | Configurable? |
+|---|---|---|---|
+| Lead created (BookingEngine) | WhatsApp/SMS, Email | Owner phones, Reception emails | Yes |
+| Lead abandoned | WhatsApp/SMS, Email | Owner phones, Reception emails | Yes |
+| Lead converted | (silent, in-app activity) | — | — |
+| Lead marked Lost | in-app activity | — | — |
+
+Settings → CRM page:
+- multi-input phone list (Owner)
+- multi-input email list (Reception)
+- toggles per event
+- abandon timeout (minutes)
+
+---
+
+## 8. UI Structure
+
+### `/customers` becomes a tabbed shell
+
 ```
-rate_overrides (date-specific)  >  rate_seasons (range)  >  room_rates (default/weekday/weekend)
-```
-Resolver already exists in `src/hooks/use-resolved-rate.ts` / `src/lib/rates.ts` — extend it server-side for the engine.
-
-Tax breakup displayed at checkout:
-- Pulled from `app_settings` (GST slabs by tariff — already configured in PMS)
-- Line items: Room × nights, Extra guest, Taxes (CGST/SGST split), Grand total
-
----
-
-## 7. Payment Flow
-
-**Gateway: Razorpay** (already wired — `RAZORPAY_KEY_ID`, `_SECRET`, `_WEBHOOK_SECRET` exist in secrets, webhook route already lives at `/api/public/razorpay-webhook`).
-
-```
-Checkout → createServerFn createDraftBooking()
-                ↓ returns {booking_id, amount}
-         → Razorpay Checkout (client SDK, key_id only)
-                ↓ on success: payment_id, order_id, signature
-         → createServerFn confirmPayment() verifies signature
-                ↓
-         → booking.status = 'Advance Paid' or 'Full Paid'
-         → portal token issued, WhatsApp + email dispatched
+Customers
+├── All           (everyone: leads + customers + repeat — search across)
+├── Leads         (status in Interested/Abandoned, sub-filter)
+├── Customers     (has >= 1 booking, not repeat)
+├── Repeat Guests (total_bookings >= 2)
+└── Lost Leads    (status = Lost; no active booking)
 ```
 
-**Pay at Hotel:** skip gateway, booking goes to `Confirmed` directly, `advance_paid=0`.
+Each row links to the unified `customers/$id` profile, which now has sections:
+- Overview (contact, lead_source, totals)
+- Leads (lead_activities timeline)
+- Bookings (existing)
+- Payments / Dues (existing)
+- Notes
 
-**Failure handling:**
-- Draft booking held with `status='Draft'` for 15 min (TTL sweep job)
-- On payment failure → confirmation page shows "Retry" → re-opens Razorpay with same order
-- Webhook is the source of truth; client callback is best-effort
-- Idempotent: webhook upserts by `gateway_payment_id`
+### Cross-navigation
+- Lead row → "Open Customer" + "Open Latest Booking" (if any).
+- Booking detail → "Originating Lead" link when `lead_id` set.
+- House View room click → opens `/bookings/new?room_id=<id>` with pre-selected room (separate small change — calling out as part of this shipment).
 
-**Retry:** if user closes browser, the draft booking holds inventory 15 min. WhatsApp "complete your booking" link uses same draft.
-
----
-
-## 8. Guest Portal Integration
-
-Zero DB changes. Reuse `booking_tokens` table and existing `src/routes/portal.$token.tsx`.
-
-- `guest.hotelexcella.in/$token` → renders existing portal component
-- `ops.hotelexcella.in/portal/$token` → continues to work (no redirect — both paths render)
-- Booking Engine confirmation auto-issues a token and shares the **guest.** URL going forward
-- Old WhatsApp links with ops/portal continue to work indefinitely
-
-New portal sections (Food, Complaint, Extend, Charges, Review) reuse existing PMS tables (`tasks`, `complaints`, `booking_charges`). New tiny table only for reviews:
-```sql
-public.guest_reviews(booking_id, rating, comment, would_recommend, created_at)
-```
+### New routes
+- `/_authenticated/leads.tsx` — list (or merge into customers tabs; proposal: **merge** for simplicity, single Customers shell).
+- `/_authenticated/customers_.$id.tsx` — extend existing.
+- `/_authenticated/settings.crm.tsx` — notification config.
 
 ---
 
-## 9. Mobile-First Design Approach
+## 9. Open Questions for Approval
 
-- **Tailwind v4 breakpoints**: design at 360px first, enhance at md/lg
-- **Sticky bottom CTA** on every booking step (thumb zone)
-- **Single-column** everywhere; no horizontal scrolling
-- **Skeleton loaders** for slow networks; cached availability per session
-- **Inline date picker** (no modal) on mobile
-- **WhatsApp-safe**: meta tags for rich previews; portal pages render < 1s on 3G
-- **Premium feel**: hospitality typography (serif display + clean sans body), generous whitespace, hero photography
-- **PWA**: installable, offline-tolerant for portal "view booking"
-
----
-
-## 10. Open Questions / Assumptions
-
-**Please confirm:**
-
-1. **Branding for book.** — Use Hotel Excella visual identity from PMS settings (logo, colors, hero image), or do you want a separate design pass with 2-3 prototype directions before build?
-2. **Inventory granularity** — Sell by **room type** (recommended; OTA-standard) or by **specific room number**? PMS already assigns specific rooms at/before check-in.
-3. **Draft booking TTL** — 15 minutes acceptable to hold inventory during payment?
-4. **Phone verification** — OTP at checkout (extra friction, less spam) or just collect phone (faster, current PMS behavior)? Recommend: skip OTP for v1, add later if abuse seen.
-5. **Guest portal landing** (`guest.hotelexcella.in/`) — Marketing splash, or redirect to hotelexcella.in marketing site, or 404 unless token present?
-6. **Reviews** — Public on website, or internal-only for now?
-7. **Cancellation policy** — Self-serve cancel from portal, or "Contact hotel" only? Refund rules?
-8. **Multi-room bookings** — Allow booking 2+ rooms in one transaction in v1, or single-room only and iterate?
-9. **Promo codes** — Schema only now, UI in v2? Or include a simple flat-discount field at v1?
-10. **Email/SMS** — WhatsApp via existing pipeline is fine; do we also send transactional email at confirmation (you have Google Mail connector)?
-
-**Assumptions I'll make unless you object:**
-- Razorpay for payments (already wired)
-- Room-type level inventory
-- 15-min draft TTL with cron sweep
-- No OTP at v1
-- guest. landing = marketing splash with "Enter booking link" input
-- Self-serve cancel disabled at v1 ("Contact hotel")
-- Single-room bookings at v1
-- Promo codes = schema only, no UI at v1
-- WhatsApp + Email confirmation
+1. **Booking-Engine write path** — confirm: lead creation runs via a public `createServerFn` using `supabaseAdmin` (no anon RLS surface). ✅ recommended.
+2. **Leads as separate top-level nav?** — proposal: **no**, keep inside Customers tabs (less nav clutter). Confirm.
+3. **Abandon timeout default 10 min** — confirm or pick another value.
+4. **Lost auto-rule?** — should `Abandoned` auto-flip to `Lost` after e.g. 7 days, or stay manual? Proposal: **manual only** in Phase 1.
+5. **WhatsApp provider** — use existing integration (Hotelzify? Twilio? other) or stub? Please confirm what's already wired.
+6. **Email sender** — reuse existing transactional sender? (Need to confirm one exists.)
+7. **Repeat guest threshold** — `total_bookings >= 2` OR `>= 2 completed stays`? Proposal: completed stays.
 
 ---
 
-## 11. Phased Delivery Plan
+## 10. Deep UAT Scenarios (to run before sign-off)
 
-**Phase 1 (Booking Engine MVP)** — search → checkout → Razorpay → confirmation → portal link
-**Phase 2 (Guest Portal expansion)** — guest. subdomain wiring, document upload, pay due, charges view
-**Phase 3 (In-stay features)** — food order, complaint, extend stay
-**Phase 4 (Post-stay)** — invoice download, reviews
-**Phase 5 (OTA-ready)** — channel_inventory layer, stop-sell, allotment sync hooks
-
-Each phase ends with Deep UAT before the next.
+1. New guest enters name+mobile → Lead `Interested`, customer created, owner gets WA, reception gets email, price visible.
+2. Same guest abandons → 10 min later status = `Abandoned`, second notification sent.
+3. Same guest returns, completes Pay-at-Hotel → lead auto-converts, booking has `lead_id`, customer `total_bookings` +1.
+4. Reception creates booking from Abandoned lead via button → prefill correct, auto-converts on save.
+5. Reception creates booking via PMS for a phone that has an open lead → lead auto-converts (no button used).
+6. Mark lead `Lost` with reason → appears in Lost Leads tab, customer profile shows it in history.
+7. Lost lead's phone returns weeks later → new `Interested` lead row, same customer, old Lost preserved.
+8. Existing customer (no prior lead) walks in → direct booking, no lead row created. Customer tab still shows them.
+9. Same phone, different name in inquiry vs walk-in → customer name unchanged; lead retains inquiry name; activity log shows both.
+10. House View → click empty room → `/bookings/new?room_id=…` opens with room pre-selected and room_type derived.
+11. Settings → CRM: change owner phones / reception emails / toggles → next event uses new config.
+12. Disable both notification toggles → events still record activity but no outbound message.
+13. Sweep job downtime: bring it back, multiple stale Interested leads flip to Abandoned in one pass.
+14. Concurrency: two booking inserts for same phone within seconds — only one lead conversion wins, no duplicate.
+15. Booking cancelled after conversion → lead stays `Converted` (historical); customer counters re-computed by existing trigger.
 
 ---
 
-Please review and:
-1. Answer the open questions
-2. Confirm/adjust the architecture
-3. Approve phasing
+## 11. Phasing (proposed)
 
-I'll then write the Phase 1 implementation plan and start building.
+- **Phase 1**: schema + triggers + sweep cron + Booking Engine Step A + auto-conversion + Customer tabs + Lead activity log. (No external notifications yet — in-app only.)
+- **Phase 2**: Settings → CRM + WhatsApp/Email notifications wired.
+- **Phase 3**: House View pre-select room + Lead-to-Booking deep prefill polish + reports (funnel: Leads → Converted → Revenue).
+
+---
+
+Please review and confirm:
+- §1 schema shape
+- §2/§3 lifecycle rules
+- §6 cross-linking table (especially Lost → new lead behavior)
+- §8 Customers tabs (vs separate Leads nav)
+- §9 open questions (1–7)
+
+Once approved I'll implement Phase 1 end-to-end and run the §10 UAT before handing back.
