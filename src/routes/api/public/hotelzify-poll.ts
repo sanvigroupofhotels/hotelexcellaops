@@ -191,9 +191,21 @@ function parseGeneric(
   const emailMatch = emailVal?.match(/[\w.+-]+@[\w.-]+\.\w+/);
 
   // Safeguard — never store the hotel's reception number as a guest phone.
+  // Canonicalize to +91XXXXXXXXXX so OTA imports honour the same invariant as the rest of the PMS.
   const RECEPTION_NUMBERS = new Set(["9985908131", "09985908131", "+919985908131", "919985908131"]);
   const cleanedPhone = mobile ? mobile.replace(/[\s\-()]/g, "") : null;
-  const guestPhone = cleanedPhone && !RECEPTION_NUMBERS.has(cleanedPhone) ? cleanedPhone : null;
+  const isReception = cleanedPhone ? RECEPTION_NUMBERS.has(cleanedPhone) : false;
+  let guestPhone: string | null = null;
+  if (cleanedPhone && !isReception) {
+    try {
+      // Lazy import to avoid bundling client code in this route in case of cycle.
+      const { normalizePhoneNumber, validatePhoneNumber } = await import("@/lib/phone");
+      const n = normalizePhoneNumber(cleanedPhone);
+      guestPhone = validatePhoneNumber(n) ? n : null;
+    } catch {
+      guestPhone = null;
+    }
+  }
 
   return {
     booking: {

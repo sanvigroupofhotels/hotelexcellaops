@@ -1,4 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeOrThrow } from "@/lib/phone";
+
+/** Canonicalize a guest_mobile in-place. Empty/undefined passes through. Invalid throws. */
+function canonicalizeCashPhone<T extends { guest_mobile?: string | null }>(input: T): T {
+  if (input.guest_mobile && String(input.guest_mobile).trim() !== "") {
+    return { ...input, guest_mobile: normalizeOrThrow(input.guest_mobile) };
+  }
+  return input;
+}
 
 export const COLLECTION_TYPES = [
   "Room Rent",
@@ -140,11 +149,12 @@ function validate(input: Partial<CashTxInput> & { kind: "collection"|"expense"; 
 export async function createCashTx(input: CashTxInput) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
-  validate(input);
+  const normalized = canonicalizeCashPhone(input);
+  validate(normalized);
   const row: any = {
     user_id: user.id, modified_by: user.id,
-    occurred_at: input.occurred_at ?? new Date().toISOString(),
-    ...input,
+    occurred_at: normalized.occurred_at ?? new Date().toISOString(),
+    ...normalized,
   };
   const { data, error } = await supabase.from("cash_transactions" as any).insert(row).select().single();
   if (error) throw error;
@@ -154,8 +164,9 @@ export async function createCashTx(input: CashTxInput) {
 export async function updateCashTx(id: string, patch: Partial<CashTxInput>) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
-  const merged: any = { ...patch, modified_by: user.id };
-  if (patch.occurred_at) merged.occurred_at = new Date(patch.occurred_at).toISOString();
+  const normalized = canonicalizeCashPhone(patch);
+  const merged: any = { ...normalized, modified_by: user.id };
+  if (normalized.occurred_at) merged.occurred_at = new Date(normalized.occurred_at).toISOString();
   const { data, error } = await supabase.from("cash_transactions" as any).update(merged).eq("id", id).select().single();
   if (error) throw error;
   return data as unknown as CashTxRow;
