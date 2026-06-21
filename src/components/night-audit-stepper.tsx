@@ -28,7 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCheckInController } from "@/lib/check-in-flow";
 import { setBookingStatus } from "@/lib/bookings-api";
 import { logBookingActivity } from "@/lib/booking-activities-api";
-import { getOpenSession, logDecision } from "@/lib/night-audit-sessions-api";
+import { getOpenSession, logDecision, saveSessionDraft } from "@/lib/night-audit-sessions-api";
 import { useUserRole } from "@/hooks/use-role";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import {
