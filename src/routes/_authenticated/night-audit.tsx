@@ -1,10 +1,10 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, Lock, Unlock, Printer, RotateCcw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
-import { NightAuditDialog } from "@/components/night-audit-dialog";
+import { NightAuditStepper } from "@/components/night-audit-stepper";
 import { useNightAuditStatus } from "@/hooks/use-night-audit-status";
 import { useUserRole } from "@/hooks/use-role";
 import {
@@ -33,7 +33,6 @@ export const Route = createFileRoute("/_authenticated/night-audit")({
 
 function NightAuditPage() {
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const { isAdmin, canManage } = useUserRole();
   const canCloseOrReopen = isAdmin || canManage;
 
@@ -177,10 +176,8 @@ function NightAuditPage() {
         </div>
       </div>
 
-      {/* Step 1-4 — Arrivals, In-House, Departures, Dues — currently shown via existing dialog content embedded as a section. */}
-      <div className="rounded-lg border border-border bg-card/40 print:border-0">
-        <NightAuditDialog open={true} onClose={() => navigate({ to: "/" })} />
-      </div>
+      {/* Stepper — Arrivals · In-House · Departures · Dues · Reconcile · Review · EOD */}
+      <NightAuditStepper businessDate={businessDate} />
 
       {/* Decisions log */}
       <div className="rounded-lg border border-border bg-card/40 p-4 print:border-0">
