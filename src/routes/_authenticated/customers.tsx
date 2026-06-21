@@ -1,17 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
 import { listCustomers, deleteCustomer } from "@/lib/customers-api";
 import { listQuotes } from "@/lib/quotes-api";
+import { listLeads, markLeadLost, reopenLead } from "@/lib/leads.functions";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { downloadCSV } from "@/lib/csv";
 import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
 import { useMasterData } from "@/hooks/use-master-data";
 import {
   Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, Mail, Plus, X,
-  FilePlus, BedDouble,
+  FilePlus, BedDouble, Sparkles, AlertCircle, CheckCircle2, RotateCcw,
 } from "lucide-react";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
@@ -29,15 +31,24 @@ export const Route = createFileRoute("/_authenticated/customers")({
   component: CustomersPage,
 });
 
+type Tab = "all" | "leads" | "customers" | "repeat" | "lost";
+
 function CustomersPage() {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
-  useRealtimeInvalidate(["customers", "quotes"], ["customers", "quotes"], "customers");
+  useRealtimeInvalidate(["customers", "quotes", "leads"], ["customers", "quotes", "leads"], "customers");
   const { data: customers = [], isLoading } = useQuery({ queryKey: ["customers"], queryFn: listCustomers });
   const { data: quotes = [] } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
+  const fetchLeads = useServerFn(listLeads);
+  const { data: leads = [] } = useQuery({ queryKey: ["leads"], queryFn: () => fetchLeads() });
+  const markLost = useServerFn(markLeadLost);
+  const reopen = useServerFn(reopenLead);
   const [q, setQ] = useState("");
+  const [tab, setTab] = useState<Tab>("all");
   const [newOpen, setNewOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [lostDialog, setLostDialog] = useState<{ id: string; name: string } | null>(null);
+  const [lostReason, setLostReason] = useState("");
 
   const del = useMutation({
     mutationFn: deleteCustomer,
