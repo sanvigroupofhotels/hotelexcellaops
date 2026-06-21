@@ -24,8 +24,14 @@ import { useCheckInController } from "@/lib/check-in-flow";
 export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [checkinBookingId, setCheckinBookingId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
+  const checkIn = useCheckInController({
+    note: "From Night Audit",
+    onCheckedIn: () => {
+      qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
+      refetch();
+    },
+  });
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["night-audit-pending"],
