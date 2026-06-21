@@ -75,6 +75,11 @@ function BookingDetail() {
     queryKey: ["customer", b?.customer_id], queryFn: () => getCustomer(b!.customer_id), enabled: !!b?.customer_id,
   });
   const { data: rooms = [] } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
+  const { data: businessDate } = useQuery({
+    queryKey: ["business-date"],
+    queryFn: async () => (await import("@/lib/night-audit-api")).getBusinessDate(),
+    staleTime: 30_000,
+  });
 
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ["booking", id] });
@@ -547,7 +552,7 @@ function BookingDetail() {
                 const canCheckIn = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any)
                   && toLocalYMD() >= b.check_in;
                 const canMarkNoShow = ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any)
-                  && toLocalYMD() > b.check_in;
+                  && !!businessDate && b.check_out < businessDate;
                 const canCheckOut = b.status === "Checked-In";
                 const canCancel = !["Checked-In", "Checked-Out", "Cancelled", "No-Show"].includes(b.status as any);
                 const handleCheckOutClick = () => {
