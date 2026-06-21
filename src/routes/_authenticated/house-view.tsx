@@ -83,8 +83,10 @@ function HouseView() {
   const [anchorBound, setAnchorBound] = useState(false);
   if (!anchorBound && businessDate) {
     setAnchorBound(true);
+    // Show one day BEFORE business date so reception can still complete
+    // pending check-outs / actions from the previous day.
     const d = new Date(businessDate + "T00:00:00");
-    if (!isNaN(d.getTime())) setAnchor(d);
+    if (!isNaN(d.getTime())) { d.setDate(d.getDate() - 1); setAnchor(d); }
   }
   const [selected, setSelected] = useState<any | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<any | null>(null);
