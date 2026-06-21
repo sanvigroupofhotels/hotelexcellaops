@@ -9,6 +9,8 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { normalizeOrThrow } from "@/lib/phone";
+
 
 const DRAFT_TTL_MIN = 15;
 const SOURCE = "BookingEngine";
