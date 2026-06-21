@@ -855,7 +855,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
               {(performCheckIn.isPending || checkOutMut.isPending) ? "Working…" : primary.label}
             </button>
           )}
-          {canTransact && status !== "Checked-In" && today > b.check_in && (
+          {canTransact && status !== "Checked-In" && today > b.check_out && (
             <button
               onClick={() => {
                 if (!confirm("Mark this booking as No-Show?")) return;
