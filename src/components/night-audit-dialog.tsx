@@ -88,27 +88,9 @@ export function NightAuditDialog({ open, onClose }: { open: boolean; onClose: ()
     bulk.mutate({ ids, status });
   };
 
-  // Smart Check-In: if rooms already assigned, set status directly; else open Room Assignment flow.
-  const handleCheckIn = async (bookingId: string) => {
-    try {
-      setBusyId(bookingId);
-      const [{ listAssignments, requiredRoomCount }, { listBookingItems }] = await Promise.all([
-        import("@/lib/booking-room-assignments-api"),
-        import("@/lib/booking-items-api"),
-      ]);
-      const [assignments, items] = await Promise.all([listAssignments(bookingId), listBookingItems(bookingId)]);
-      const required = requiredRoomCount(items as any);
-      if (assignments.length < required) {
-        setCheckinBookingId(bookingId);
-        setBusyId(null);
-        return;
-      }
-      await setStatus.mutateAsync({ id: bookingId, status: "Checked-In" });
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not start Check-In");
-    } finally {
-      setBusyId(null);
-    }
+  // Delegate to the shared Check-In controller (OTA phone → docs → rooms → commit).
+  const handleCheckIn = (bookingId: string) => {
+    checkIn.start(bookingId);
   };
 
   const perform = useMutation({
