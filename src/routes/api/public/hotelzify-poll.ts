@@ -12,6 +12,7 @@
  *   - Dedupe via external_bookings (integration_id, external_ref).
  */
 import { createFileRoute } from "@tanstack/react-router";
+import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
 
 const GMAIL_BASE = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
 
@@ -191,9 +192,15 @@ function parseGeneric(
   const emailMatch = emailVal?.match(/[\w.+-]+@[\w.-]+\.\w+/);
 
   // Safeguard — never store the hotel's reception number as a guest phone.
+  // Canonicalize to +91XXXXXXXXXX so OTA imports honour the same invariant as the rest of the PMS.
   const RECEPTION_NUMBERS = new Set(["9985908131", "09985908131", "+919985908131", "919985908131"]);
   const cleanedPhone = mobile ? mobile.replace(/[\s\-()]/g, "") : null;
-  const guestPhone = cleanedPhone && !RECEPTION_NUMBERS.has(cleanedPhone) ? cleanedPhone : null;
+  const isReception = cleanedPhone ? RECEPTION_NUMBERS.has(cleanedPhone) : false;
+  let guestPhone: string | null = null;
+  if (cleanedPhone && !isReception) {
+    const n = normalizePhoneNumber(cleanedPhone);
+    guestPhone = validatePhoneNumber(n) ? n : null;
+  }
 
   return {
     booking: {

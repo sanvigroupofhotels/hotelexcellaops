@@ -2747,6 +2747,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_cash_tx_locked: { Args: { p_occurred_at: string }; Returns: boolean }
       my_permissions: { Args: never; Returns: string[] }
+      normalize_phone_in: { Args: { p: string }; Returns: string }
       recompute_booking_advance: {
         Args: { p_booking_id: string }
         Returns: undefined
