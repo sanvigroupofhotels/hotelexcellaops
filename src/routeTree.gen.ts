@@ -19,6 +19,7 @@ import { Route as BeIndexRouteImport } from './routes/be.index'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as BookingEngineSearchRouteImport } from './routes/booking-engine.search'
+import { Route as BookingEngineReviewRouteImport } from './routes/booking-engine.review'
 import { Route as BookingEngineCheckoutRouteImport } from './routes/booking-engine.checkout'
 import { Route as BeSplatRouteImport } from './routes/be.$'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
@@ -128,6 +129,11 @@ const PortalTokenRoute = PortalTokenRouteImport.update({
 const BookingEngineSearchRoute = BookingEngineSearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => BookingEngineRoute,
+} as any)
+const BookingEngineReviewRoute = BookingEngineReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
   getParentRoute: () => BookingEngineRoute,
 } as any)
 const BookingEngineCheckoutRoute = BookingEngineCheckoutRouteImport.update({
@@ -500,6 +506,7 @@ export interface FileRoutesByFullPath {
   '/users': typeof AuthenticatedUsersRouteWithChildren
   '/be/$': typeof BeSplatRoute
   '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
+  '/booking-engine/review': typeof BookingEngineReviewRoute
   '/booking-engine/search': typeof BookingEngineSearchRoute
   '/portal/$token': typeof PortalTokenRoute
   '/be/': typeof BeIndexRoute
@@ -568,6 +575,7 @@ export interface FileRoutesByTo {
   '/users': typeof AuthenticatedUsersRouteWithChildren
   '/be/$': typeof BeSplatRoute
   '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
+  '/booking-engine/review': typeof BookingEngineReviewRoute
   '/booking-engine/search': typeof BookingEngineSearchRoute
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
@@ -642,6 +650,7 @@ export interface FileRoutesById {
   '/_authenticated/users': typeof AuthenticatedUsersRouteWithChildren
   '/be/$': typeof BeSplatRoute
   '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
+  '/booking-engine/review': typeof BookingEngineReviewRoute
   '/booking-engine/search': typeof BookingEngineSearchRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -717,6 +726,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/be/$'
     | '/booking-engine/checkout'
+    | '/booking-engine/review'
     | '/booking-engine/search'
     | '/portal/$token'
     | '/be/'
@@ -785,6 +795,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/be/$'
     | '/booking-engine/checkout'
+    | '/booking-engine/review'
     | '/booking-engine/search'
     | '/portal/$token'
     | '/'
@@ -858,6 +869,7 @@ export interface FileRouteTypes {
     | '/_authenticated/users'
     | '/be/$'
     | '/booking-engine/checkout'
+    | '/booking-engine/review'
     | '/booking-engine/search'
     | '/portal/$token'
     | '/_authenticated/'
@@ -981,6 +993,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/booking-engine/search'
       preLoaderRoute: typeof BookingEngineSearchRouteImport
+      parentRoute: typeof BookingEngineRoute
+    }
+    '/booking-engine/review': {
+      id: '/booking-engine/review'
+      path: '/review'
+      fullPath: '/booking-engine/review'
+      preLoaderRoute: typeof BookingEngineReviewRouteImport
       parentRoute: typeof BookingEngineRoute
     }
     '/booking-engine/checkout': {
@@ -1587,6 +1606,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 
 interface BookingEngineRouteChildren {
   BookingEngineCheckoutRoute: typeof BookingEngineCheckoutRoute
+  BookingEngineReviewRoute: typeof BookingEngineReviewRoute
   BookingEngineSearchRoute: typeof BookingEngineSearchRoute
   BookingEngineIndexRoute: typeof BookingEngineIndexRoute
   BookingEngineConfirmationRefRoute: typeof BookingEngineConfirmationRefRoute
@@ -1594,6 +1614,7 @@ interface BookingEngineRouteChildren {
 
 const BookingEngineRouteChildren: BookingEngineRouteChildren = {
   BookingEngineCheckoutRoute: BookingEngineCheckoutRoute,
+  BookingEngineReviewRoute: BookingEngineReviewRoute,
   BookingEngineSearchRoute: BookingEngineSearchRoute,
   BookingEngineIndexRoute: BookingEngineIndexRoute,
   BookingEngineConfirmationRefRoute: BookingEngineConfirmationRefRoute,
