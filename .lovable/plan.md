@@ -1,334 +1,189 @@
+# CRM & Booking Engine Lead Capture — Approved Architecture (v2)
 
-# CRM & Booking Engine Lead Capture — Architecture Proposal
-
-This is a design-only document. Nothing is implemented yet. Approve sections individually or as a whole; I'll then build in phases.
+User approved on Jun 21, 2026 with modifications. This document supersedes v1.
 
 ---
 
-## 1. Database Schema Changes
+## A. Approved decisions (deltas from v1)
 
-### 1.1 New table: `leads`
+| § | Decision |
+|---|---|
+| 9.1 | Booking Engine writes → public `createServerFn` using `supabaseAdmin`. No anon RLS. |
+| 9.2 | Single CRM area inside `/customers` (tabs). No separate Leads nav. |
+| 9.3 | Abandon timeout default = **10 min**. Configurable from Settings → CRM. |
+| 9.4 | **Lost is automatic.** Rule: `status ∈ (Interested, Abandoned)` AND `current_date > check_out` AND no booking for same mobile → `Lost`. |
+| 9.5 | Phase 1 = in-app activity + Email. WhatsApp = Phase 2. Notification dispatcher kept extensible. |
+| 9.6 | Email notifications **in Phase 1**. Default recipient: `hotelexcellaoperations@gmail.com`. Additional emails configurable in Settings → CRM. |
+| 9.7 | Repeat Guest = `completed_stays >= 2`. Cancelled / No-Show / Draft do **not** count. |
 
+### Big modeling change (§B)
+**ONE mobile → ONE lead row.** `leads.phone` is **UNIQUE**. Lifecycle history lives in `lead_activities`, not in multiple lead rows. When a guest returns, the existing lead is updated (status, dates, room_type, estimated_total, last_activity_at).
+
+### Hard rule (§D)
+`lead.phone == customer.phone == booking.phone` always. If staff changes booking.phone, re-link/create customer.
+
+---
+
+## 1. Schema (final)
+
+### 1.1 `lead_status` enum
+`Interested | Abandoned | Converted | Lost`
+
+### 1.2 `public.leads`
 ```
-leads
-  id                uuid PK
-  user_id           uuid                       -- owning tenant user (audit)
-  customer_id       uuid  FK customers(id)     -- nullable; set when matched/created
-  booking_id        uuid  FK bookings(id)      -- nullable; set on conversion
+id              uuid PK
+user_id         uuid          -- audit owner
+customer_id     uuid FK customers(id)   -- always set after first save
+booking_id      uuid FK bookings(id)    -- latest booking for this lead
 
-  -- Captured details
-  guest_name        text  NOT NULL
-  phone             text  NOT NULL             -- E.164 normalized, business key
-  email             text  NULL
-  check_in          date  NULL
-  check_out         date  NULL
-  adults            int   NULL
-  children          int   NULL
-  rooms             int   NULL
-  room_type_id      uuid  NULL
-  estimated_total   numeric(12,2) NULL         -- snapshot of quoted price
+guest_name      text NOT NULL
+phone           text NOT NULL UNIQUE    -- E.164, business key
+email           text
+check_in        date
+check_out       date
+adults          int
+children        int
+rooms           int
+room_type_id    uuid
+estimated_total numeric(12,2)
 
-  -- Lifecycle
-  status            lead_status NOT NULL DEFAULT 'Interested'
-                    -- enum: Interested | Abandoned | Converted | Lost
-  source_channel    text  NOT NULL DEFAULT 'BookingEngine'
-                    -- BookingEngine | WhatsApp | Phone | Walk-In | OTA | Other
-  lost_reason       text  NULL
-  notes             text  NULL
+status          lead_status NOT NULL DEFAULT 'Interested'
+source_channel  text NOT NULL DEFAULT 'BookingEngine'
+lost_reason     text
+notes           text
 
-  -- Activity tracking (drives Abandoned detection)
-  last_activity_at  timestamptz NOT NULL DEFAULT now()
-  abandoned_at      timestamptz NULL
-  converted_at      timestamptz NULL
-  lost_at           timestamptz NULL
+last_activity_at timestamptz NOT NULL DEFAULT now()
+abandoned_at    timestamptz
+converted_at    timestamptz
+lost_at         timestamptz
 
-  created_at        timestamptz NOT NULL DEFAULT now()
-  updated_at        timestamptz NOT NULL DEFAULT now()
+created_at      timestamptz NOT NULL DEFAULT now()
+updated_at      timestamptz NOT NULL DEFAULT now()
+```
+Indexes: `(phone) UNIQUE`, `(status)`, `(customer_id)`, `(booking_id)`, `(last_activity_at)`.
 
-INDEXES:
-  (phone), (status), (customer_id), (booking_id), (last_activity_at)
+### 1.3 `public.lead_activities`
+```
+id, lead_id FK leads(id) ON DELETE CASCADE,
+actor_id, actor_name, actor_role,
+action ('created'|'updated'|'status_changed'|'converted'|'lost'|'reopened'|'note'|'notification_sent'),
+field, old_value, new_value, summary,
+created_at
 ```
 
-### 1.2 New enum: `lead_status`
-`Interested`, `Abandoned`, `Converted`, `Lost`.
+### 1.4 `bookings` (additive)
+- `lead_id uuid FK leads(id)` — back-link when a lead exists.
 
-### 1.3 `bookings` — additive
-- `lead_id uuid NULL FK leads(id)` — back-link when booking originated from a lead.
-- Existing `source_channel` already supports `BookingEngine`.
+### 1.5 `customers` (additive)
+- `first_lead_at timestamptz`
+- `lead_count int NOT NULL DEFAULT 0` (denormalized for tabs)
 
-### 1.4 `customers` — additive
-- `first_lead_at timestamptz NULL` — when the customer first appeared as a lead.
-- `lead_count int NOT NULL DEFAULT 0` — denormalized counter for the Customers UI.
-- Re-use existing `lead_source` (do NOT overwrite when customer already exists — same rule as today).
+### 1.6 `app_settings` key = `crm`
+JSON `{ abandon_minutes:10, notify_reception_emails:["hotelexcellaoperations@gmail.com"], notify_owner_phones:[], notify_on_lead:true, notify_on_abandon:true, notify_on_lost:false }`.
 
-### 1.5 New table: `lead_activities` (audit)
-
-```
-lead_activities
-  id, lead_id, actor_id, actor_name, actor_role,
-  action ('created'|'updated'|'status_changed'|'converted'|'lost'|'note'),
-  field, old_value, new_value, summary, created_at
-```
-
-### 1.6 New table: `crm_settings` (single-row JSON, or rows in `app_settings`)
-- `abandon_minutes int DEFAULT 10`
-- `notify_owner_phones text[]`
-- `notify_reception_emails text[]`
-- `notify_on_lead boolean DEFAULT true`
-- `notify_on_abandon boolean DEFAULT true`
-
-(Will likely be stored as a single `app_settings` row `crm` to avoid a new table — calling it out for review.)
-
-### 1.7 Triggers / functions
-- `leads_set_updated_at` — standard.
-- `leads_link_or_create_customer` — on INSERT/UPDATE, when `customer_id IS NULL` and `phone` set: match by phone, else create. Mirrors `link_or_create_customer` for bookings.
-- `bookings_auto_convert_lead` — on INSERT of a booking with a phone that matches an open lead (Interested/Abandoned), set `booking.lead_id`, update `lead.status='Converted'`, `lead.booking_id`, `converted_at`.
-- `leads_recompute_customer_counters` — keeps `customers.lead_count` / `first_lead_at`.
-- `sweep_abandoned_leads()` SECURITY DEFINER — flips `Interested` → `Abandoned` when `last_activity_at < now() - abandon_minutes` AND no booking yet. Run via `pg_cron` every minute.
+### 1.7 Functions / triggers
+- `leads_set_updated_at`
+- `leads_link_or_create_customer` — on INSERT/UPDATE if customer_id null and phone present, match by phone else create. Also: when phone changes, re-link.
+- `bookings_auto_convert_lead` — AFTER INSERT/UPDATE on bookings: if a lead exists for same phone in (Interested, Abandoned), set lead.status=Converted, lead.booking_id, lead.customer_id, converted_at=now(); stamp bookings.lead_id.
+- `lead_activities_audit` — on lead INSERT/UPDATE writes activity rows for status changes & material field edits.
+- `sweep_abandoned_leads()` SECURITY DEFINER — Interested AND last_activity_at < now() - abandon_minutes AND no current booking → Abandoned.
+- `sweep_lost_leads()` SECURITY DEFINER — status ∈ (Interested, Abandoned) AND check_out IS NOT NULL AND check_out < current_date AND booking_id IS NULL → Lost.
+- Recompute `customers.lead_count`, `first_lead_at` via lead-side trigger.
 
 ### 1.8 RLS / GRANTS
-- `leads`: SELECT/INSERT/UPDATE/DELETE to `authenticated`; ALL to `service_role`. No anon. Booking-Engine writes go through a `createServerFn` using publishable-key client → policy must allow anon? **Decision needed (see §9 Q1).** Proposal: writes go through an unauthenticated server function using `supabaseAdmin` (server-side), so no anon grant needed.
-- `lead_activities`: SELECT authenticated; INSERT via triggers (security definer).
+- `leads`: SELECT/INSERT/UPDATE/DELETE → authenticated; ALL → service_role. No anon. Booking-Engine writes use `supabaseAdmin`.
+- `lead_activities`: SELECT → authenticated; INSERT via SECURITY DEFINER triggers.
 
 ---
 
-## 2. Lead Lifecycle
+## 2. Lead lifecycle (one row per mobile)
 
 ```
-                +-------------+
-   create  -->  | Interested  |
-                +------+------+
-                       |
-   no activity 10m     |    booking created (any channel, same phone)
-        |              v
-        v        +-----------+        +-----------+
-   +---------+   | Converted |<-------|  Booking  |
-   |Abandoned|-->+-----------+        +-----------+
-   +----+----+         ^
-        |              |  (manual: reception creates booking from lead)
-        | reception marks lost / no response after N days
-        v
-   +-------+
-   | Lost  |
-   +---+---+
-       |
-       | new lead with same phone arrives later
-       v
-   new Interested lead (history preserved on customer)
+        (booking engine inquiry for new phone)
+                       │
+                       ▼
+                 ┌───────────┐  10m inactivity   ┌───────────┐
+                 │Interested │ ────────────────► │ Abandoned │
+                 └─────┬─────┘                   └─────┬─────┘
+                       │                               │
+        booking same phone (any channel)               │
+                       ▼                               ▼
+                 ┌───────────┐                  past check_out + no booking
+                 │ Converted │                         │
+                 └─────┬─────┘                         ▼
+                       │                          ┌───────┐
+   new inquiry same phone (update, no new row)    │ Lost  │
+                       ▼                          └───┬───┘
+                  status ← Interested  ◄──────────────┘
+                  (lead_activities records reopened)
 ```
 
-Rules:
-- `Interested → Abandoned`: automatic, sweep job, 10 min default (configurable).
-- `Interested|Abandoned → Converted`: automatic when a booking is created with the same phone, OR explicit "Create Booking from Lead".
-- `Interested|Abandoned → Lost`: manual only, with `lost_reason`.
-- `Lost` is terminal for *that* lead row. A new inquiry from the same phone creates a NEW lead (linked to same customer).
-- `Converted` is terminal.
+Same row, lifetime audit in `lead_activities`. No multi-row history.
 
 ---
 
-## 3. Customer Lifecycle
+## 3-7. (unchanged from v1 except as noted in §A)
+
+---
+
+## 8. UI
 
 ```
-  Booking Engine inquiry          Reception walk-in / call
-          |                                  |
-          v                                  v
-       Lead (Interested) ----+         Customer (no Lead)
-          |                  |               |
-          | match/create     |               | booking created directly
-          v                  |               v
-       Customer  <-----------+         Customer (no Lead, has Bookings)
-          |
-          | booking created          
-          v
-       Customer + Booking (Converted Lead)
-          |
-          | >= 2 completed stays
-          v
-       Repeat Guest (derived, not a status column)
+/customers
+├── All
+├── Leads          (status in Interested/Abandoned)
+├── Customers      (has ≥1 booking, completed_stays < 2)
+├── Repeat Guests  (completed_stays ≥ 2)
+└── Lost Leads     (status = Lost, no current open booking)
 ```
-
-Key rules:
-- Customer is the **canonical identity**. Lead and Booking both point at it.
-- "Repeat Guest" is **derived**: `customers.total_bookings >= 2 AND last_stay_date IS NOT NULL` — no schema field needed.
-- A Customer can exist without any Lead (legacy / direct bookings).
-- A Customer can have many Leads (every inquiry is its own row; history shown on profile).
+- `/customers/$id` profile: Overview · **Leads (lead_activities timeline)** · Bookings · Payments · Notes.
+- `/settings/crm` (new): abandon timeout, notification recipients (emails/phones), toggles.
 
 ---
 
-## 4. Booking Engine Flow (revised)
+## H/I. House View + Business Date rules (Phase 1)
 
-```
-/booking-engine            -> dates + guests
-/booking-engine/search     -> room type cards (no detailed price yet)
-/booking-engine/checkout   -> NEW step layout:
+- House View always shows `business_date - 1` as the first column. Reason: previous-day actions remain visible until Night Audit closes.
+- Business Date does NOT auto-advance at midnight. It moves only when Night Audit completes (existing `/api/public/night-audit` already does this — confirm no auto cron is bumping it).
+- Every operational screen reads `business_date` from `app_settings`, not system date.
 
-   Step A: Contact details (REQUIRED first)
-     Name *  | Mobile * (E.164) | Email (optional)
-     [Continue]
-        |
-        | onSubmit -> server fn  createLeadFromBookingEngine({...})
-        |   -> upsert lead by (phone, open-status)
-        |   -> link/create customer
-        |   -> set last_activity_at = now()
-        |   -> fire notification (owner WA/SMS, reception email)
-        |
-        v
-   Step B: Price summary visible
-     Room, dates, nights, line items, taxes, total
-     Pay Now (Razorpay)  |  Pay at Hotel
-        |
-        | any further activity -> updateLeadActivity(lead_id)
-        v
-   Booking created -> trigger flips lead.status = Converted
-```
-
-- Price is **revealed only after Step A**, satisfying the new requirement.
-- Lead row exists *before* any payment intent or draft booking.
-- Draft booking creation (existing flow) still works; it now also stamps `bookings.lead_id`.
-- If guest abandons before pressing Pay Now / Pay at Hotel, the sweep job marks the lead `Abandoned` after 10 min.
-
-### Abandonment detection
-- Every interaction in checkout (price view, payment-option click) calls a tiny `touchLead` server fn updating `last_activity_at`.
-- `sweep_abandoned_leads()` cron: `Interested AND last_activity_at < now() - interval '10 minutes' AND booking_id IS NULL` → `Abandoned`.
-
-### Notifications
-- Triggered server-side (not client) so closing the browser doesn't matter:
-  - On lead create → optional WhatsApp/SMS to Owner, Email to Reception.
-  - On `Abandoned` flip → same recipients, different template.
-- Recipients configurable in **Settings → CRM → Notifications**.
-- Phase 1: log to a `lead_notifications` table + email via existing mailer; WhatsApp via existing integration if present, else stub with TODO.
+## J. House View → New Booking room pre-selection
+- Click empty room → `/bookings/new?room_id=<id>&room_type_id=<id>` with room + room type pre-filled. Editable.
 
 ---
 
-## 5. Lead → Booking Flow
+## Phase 1 deliverables
 
-Reception opens a Lead → **[Create Booking from Lead]** button:
-1. Navigates to `/bookings/new?lead_id=<id>` with pre-filled:
-   - guest_name, phone, email
-   - check_in, check_out, adults, children, rooms, room_type
-   - source_channel = `Lead` (or original source preserved)
-2. Reception completes the rest (room assignment, payment, etc.) as today.
-3. On booking insert:
-   - trigger sets `lead.status = 'Converted'`, `lead.booking_id`, `converted_at`.
-   - `link_or_create_customer` (existing) ensures customer link.
-   - `bookings.lead_id` stamped.
-
-Auto conversion also works when reception creates a booking *without* using the button — phone match converts the open lead automatically.
-
----
-
-## 6. Cross-linking Rules — explicit cases
-
-| Case | Customer | Lead | Booking | Behavior |
-|---|---|---|---|---|
-| Customer without Lead | ✓ | – | optional | Legacy / walk-in. Untouched. |
-| Booking without Lead | ✓ | – | ✓ | Direct booking. `bookings.lead_id` null. Allowed. |
-| Lead without Booking | ✓ | ✓ | – | Inquiry only. Stays `Interested`/`Abandoned`/`Lost`. |
-| Lead → Customer → Booking | ✓ | ✓ | ✓ | Standard funnel. Auto-converts. |
-| Lost Lead → Converted later | ✓ | Lost (old) + new lead | ✓ | New lead row, same customer; old `Lost` preserved for history. Booking links to the new lead. |
-| Mobile collision (two different names, same phone) | ✓ (1) | ✓ (n) | ✓ | Customer matched by phone (existing behaviour). Lead keeps captured `guest_name` for record; customer name not overwritten. Reception sees both names in lead history. |
-
-**Mobile number is the business key** for all matching:
-- Normalize to E.164 on write (`src/lib/phone.ts` exists).
-- `customers.phone` already enforces uniqueness via the existing `link_or_create_customer` matching.
-- `leads.phone` is NOT unique (one customer can have many leads).
+1. Migration (above schema, GRANTS, triggers, sweeps).
+2. `pg_cron` jobs: `sweep_abandoned_leads()` every minute; `sweep_lost_leads()` daily 02:00 IST.
+3. Booking Engine checkout: Step A (Name + Mobile required) → server fn `upsertLeadFromBookingEngine` → Step B reveals pricing.
+4. `touchLead` server fn called on price view + payment click.
+5. Auto-conversion trigger when any booking (PMS / BE / Hotelzify) inserts.
+6. Customers route: tabs (All / Leads / Customers / Repeat Guests / Lost Leads), counts via SQL views.
+7. Customer profile: Leads timeline (lead_activities).
+8. Settings → CRM: timeout, reception emails (default `hotelexcellaoperations@gmail.com`), toggles.
+9. Email notifications via existing Lovable email infra (template: lead created, lead abandoned). Includes name, mobile, room, check_in/out, quoted amount, open-lead URL.
+10. House View: show business_date-1 as first column; click empty room navigates to /bookings/new with room_id pre-selected.
+11. Confirm business_date advances only via night-audit endpoint (no other writer).
 
 ---
 
-## 7. Notifications
+## Deep UAT (run before sign-off)
 
-| Event | Channel(s) | Default Recipient | Configurable? |
-|---|---|---|---|
-| Lead created (BookingEngine) | WhatsApp/SMS, Email | Owner phones, Reception emails | Yes |
-| Lead abandoned | WhatsApp/SMS, Email | Owner phones, Reception emails | Yes |
-| Lead converted | (silent, in-app activity) | — | — |
-| Lead marked Lost | in-app activity | — | — |
+1. BE: new phone → Lead Interested → email to reception → pricing visible after Step A.
+2. Same phone returns (Interested) → 10 min later → Abandoned → email.
+3. Same phone completes Pay-at-Hotel → Converted, booking.lead_id set, customer.total_bookings++.
+4. Reception creates PMS booking for phone with open Lead → auto-Converted (no button).
+5. Lead Abandoned, check_out passes, no booking → next sweep marks Lost (logged in activity).
+6. Lost lead's phone returns weeks later → **same row** reopens to Interested; activity timeline shows full history.
+7. Walk-in (no lead): direct booking → no lead row, customer exists, appears under Customers tab.
+8. Mobile collision: same phone, different name → customer name unchanged; lead.guest_name updates; activity logs the rename.
+9. Booking phone edited → customer re-linked or created; lead phone stays its own UNIQUE key.
+10. House View first column = business_date - 1; clicking room 203 opens new booking with 203 pre-selected.
+11. Settings → CRM: change abandon_minutes to 5 → next stale Interested flips at 5 min.
+12. Toggle notify_on_abandon=false → no email on abandon flip; activity row still recorded.
+13. Two concurrent bookings same phone within seconds → exactly one Converted; second booking still gets lead_id.
+14. Booking cancelled after conversion → lead stays Converted (history); customer counters re-derived.
+15. Business date does not change at midnight. Only changes after night-audit run.
 
-Settings → CRM page:
-- multi-input phone list (Owner)
-- multi-input email list (Reception)
-- toggles per event
-- abandon timeout (minutes)
-
----
-
-## 8. UI Structure
-
-### `/customers` becomes a tabbed shell
-
-```
-Customers
-├── All           (everyone: leads + customers + repeat — search across)
-├── Leads         (status in Interested/Abandoned, sub-filter)
-├── Customers     (has >= 1 booking, not repeat)
-├── Repeat Guests (total_bookings >= 2)
-└── Lost Leads    (status = Lost; no active booking)
-```
-
-Each row links to the unified `customers/$id` profile, which now has sections:
-- Overview (contact, lead_source, totals)
-- Leads (lead_activities timeline)
-- Bookings (existing)
-- Payments / Dues (existing)
-- Notes
-
-### Cross-navigation
-- Lead row → "Open Customer" + "Open Latest Booking" (if any).
-- Booking detail → "Originating Lead" link when `lead_id` set.
-- House View room click → opens `/bookings/new?room_id=<id>` with pre-selected room (separate small change — calling out as part of this shipment).
-
-### New routes
-- `/_authenticated/leads.tsx` — list (or merge into customers tabs; proposal: **merge** for simplicity, single Customers shell).
-- `/_authenticated/customers_.$id.tsx` — extend existing.
-- `/_authenticated/settings.crm.tsx` — notification config.
-
----
-
-## 9. Open Questions for Approval
-
-1. **Booking-Engine write path** — confirm: lead creation runs via a public `createServerFn` using `supabaseAdmin` (no anon RLS surface). ✅ recommended.
-2. **Leads as separate top-level nav?** — proposal: **no**, keep inside Customers tabs (less nav clutter). Confirm.
-3. **Abandon timeout default 10 min** — confirm or pick another value.
-4. **Lost auto-rule?** — should `Abandoned` auto-flip to `Lost` after e.g. 7 days, or stay manual? Proposal: **manual only** in Phase 1.
-5. **WhatsApp provider** — use existing integration (Hotelzify? Twilio? other) or stub? Please confirm what's already wired.
-6. **Email sender** — reuse existing transactional sender? (Need to confirm one exists.)
-7. **Repeat guest threshold** — `total_bookings >= 2` OR `>= 2 completed stays`? Proposal: completed stays.
-
----
-
-## 10. Deep UAT Scenarios (to run before sign-off)
-
-1. New guest enters name+mobile → Lead `Interested`, customer created, owner gets WA, reception gets email, price visible.
-2. Same guest abandons → 10 min later status = `Abandoned`, second notification sent.
-3. Same guest returns, completes Pay-at-Hotel → lead auto-converts, booking has `lead_id`, customer `total_bookings` +1.
-4. Reception creates booking from Abandoned lead via button → prefill correct, auto-converts on save.
-5. Reception creates booking via PMS for a phone that has an open lead → lead auto-converts (no button used).
-6. Mark lead `Lost` with reason → appears in Lost Leads tab, customer profile shows it in history.
-7. Lost lead's phone returns weeks later → new `Interested` lead row, same customer, old Lost preserved.
-8. Existing customer (no prior lead) walks in → direct booking, no lead row created. Customer tab still shows them.
-9. Same phone, different name in inquiry vs walk-in → customer name unchanged; lead retains inquiry name; activity log shows both.
-10. House View → click empty room → `/bookings/new?room_id=…` opens with room pre-selected and room_type derived.
-11. Settings → CRM: change owner phones / reception emails / toggles → next event uses new config.
-12. Disable both notification toggles → events still record activity but no outbound message.
-13. Sweep job downtime: bring it back, multiple stale Interested leads flip to Abandoned in one pass.
-14. Concurrency: two booking inserts for same phone within seconds — only one lead conversion wins, no duplicate.
-15. Booking cancelled after conversion → lead stays `Converted` (historical); customer counters re-computed by existing trigger.
-
----
-
-## 11. Phasing (proposed)
-
-- **Phase 1**: schema + triggers + sweep cron + Booking Engine Step A + auto-conversion + Customer tabs + Lead activity log. (No external notifications yet — in-app only.)
-- **Phase 2**: Settings → CRM + WhatsApp/Email notifications wired.
-- **Phase 3**: House View pre-select room + Lead-to-Booking deep prefill polish + reports (funnel: Leads → Converted → Revenue).
-
----
-
-Please review and confirm:
-- §1 schema shape
-- §2/§3 lifecycle rules
-- §6 cross-linking table (especially Lost → new lead behavior)
-- §8 Customers tabs (vs separate Leads nav)
-- §9 open questions (1–7)
-
-Once approved I'll implement Phase 1 end-to-end and run the §10 UAT before handing back.
+Implementation proceeds in this order: (1) Migration → (2) backend triggers/functions → (3) BE checkout Step A → (4) Customers tabs & profile timeline → (5) Settings → CRM → (6) Email sender → (7) House View tweaks → (8) Run UAT.
