@@ -1016,6 +1016,56 @@ export type Database = {
           },
         ]
       }
+      crm_outbound_emails: {
+        Row: {
+          body_html: string | null
+          body_text: string
+          created_at: string
+          error: string | null
+          event: string
+          id: string
+          lead_id: string | null
+          recipients: Json
+          sent_at: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          body_html?: string | null
+          body_text: string
+          created_at?: string
+          error?: string | null
+          event: string
+          id?: string
+          lead_id?: string | null
+          recipients?: Json
+          sent_at?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          body_html?: string | null
+          body_text?: string
+          created_at?: string
+          error?: string | null
+          event?: string
+          id?: string
+          lead_id?: string | null
+          recipients?: Json
+          sent_at?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_outbound_emails_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           anniversary: string | null

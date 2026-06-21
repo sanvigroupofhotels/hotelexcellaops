@@ -15,6 +15,7 @@ import {
   confirmBookingEnginePayment,
   confirmPayAtHotel,
 } from "@/lib/booking-engine.functions";
+import { upsertLeadFromBookingEngine } from "@/lib/leads.functions";
 import { useEngineConfig } from "./booking-engine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,6 +85,34 @@ function CheckoutPage() {
   const createOrder = useServerFn(createBookingEngineOrder);
   const confirmPay = useServerFn(confirmBookingEnginePayment);
   const confirmPah = useServerFn(confirmPayAtHotel);
+  const upsertLead = useServerFn(upsertLeadFromBookingEngine);
+
+  // -------------------------------------------------------------------------
+  // Step A (lead capture): fire upsert when name + valid phone are entered.
+  // Debounced; only once per (name, phone, dates, room_type) combination.
+  // -------------------------------------------------------------------------
+  const lastLeadKeyRef = useRef<string>("");
+  useEffect(() => {
+    const n = name.trim(); const p = phone.trim();
+    if (n.length < 2) return;
+    if (!/^\+?\d{10,14}$/.test(p)) return;
+    const key = `${n}|${p}|${search.check_in}|${search.check_out}|${search.room_type}`;
+    if (key === lastLeadKeyRef.current) return;
+    const t = setTimeout(() => {
+      lastLeadKeyRef.current = key;
+      upsertLead({ data: {
+        guest_name: n,
+        phone: p,
+        email: email.trim() || undefined,
+        check_in: search.check_in,
+        check_out: search.check_out,
+        adults: search.guests,
+        rooms: 1,
+        room_type_name: search.room_type,
+      } }).catch(() => { /* best-effort; never block the user */ });
+    }, 900);
+    return () => clearTimeout(t);
+  }, [name, phone, email, search.check_in, search.check_out, search.room_type, search.guests, upsertLead]);
 
   const draftMut = useMutation({
     mutationFn: () =>

@@ -64,6 +64,7 @@ import { Route as AuthenticatedSettingsOperationsRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings.general'
 import { Route as AuthenticatedSettingsDocumentsRouteImport } from './routes/_authenticated/settings.documents'
+import { Route as AuthenticatedSettingsCrmRouteImport } from './routes/_authenticated/settings.crm'
 import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_authenticated/settings.branding'
 import { Route as AuthenticatedReportingStaffRouteImport } from './routes/_authenticated/reporting.staff'
 import { Route as AuthenticatedReportingPaymentsRouteImport } from './routes/_authenticated/reporting.payments'
@@ -370,6 +371,12 @@ const AuthenticatedSettingsDocumentsRoute =
     path: '/documents',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsCrmRoute =
+  AuthenticatedSettingsCrmRouteImport.update({
+    id: '/crm',
+    path: '/crm',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsBrandingRoute =
   AuthenticatedSettingsBrandingRouteImport.update({
     id: '/branding',
@@ -501,6 +508,7 @@ export interface FileRoutesByFullPath {
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
+  '/settings/crm': typeof AuthenticatedSettingsCrmRoute
   '/settings/documents': typeof AuthenticatedSettingsDocumentsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
@@ -568,6 +576,7 @@ export interface FileRoutesByTo {
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
+  '/settings/crm': typeof AuthenticatedSettingsCrmRoute
   '/settings/documents': typeof AuthenticatedSettingsDocumentsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
@@ -640,6 +649,7 @@ export interface FileRoutesById {
   '/_authenticated/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/_authenticated/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/_authenticated/settings/branding': typeof AuthenticatedSettingsBrandingRoute
+  '/_authenticated/settings/crm': typeof AuthenticatedSettingsCrmRoute
   '/_authenticated/settings/documents': typeof AuthenticatedSettingsDocumentsRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
@@ -712,6 +722,7 @@ export interface FileRouteTypes {
     | '/reporting/payments'
     | '/reporting/staff'
     | '/settings/branding'
+    | '/settings/crm'
     | '/settings/documents'
     | '/settings/general'
     | '/settings/integrations'
@@ -779,6 +790,7 @@ export interface FileRouteTypes {
     | '/reporting/payments'
     | '/reporting/staff'
     | '/settings/branding'
+    | '/settings/crm'
     | '/settings/documents'
     | '/settings/general'
     | '/settings/integrations'
@@ -850,6 +862,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reporting/payments'
     | '/_authenticated/reporting/staff'
     | '/_authenticated/settings/branding'
+    | '/_authenticated/settings/crm'
     | '/_authenticated/settings/documents'
     | '/_authenticated/settings/general'
     | '/_authenticated/settings/integrations'
@@ -1273,6 +1286,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsDocumentsRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/crm': {
+      id: '/_authenticated/settings/crm'
+      path: '/crm'
+      fullPath: '/settings/crm'
+      preLoaderRoute: typeof AuthenticatedSettingsCrmRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/branding': {
       id: '/_authenticated/settings/branding'
       path: '/branding'
@@ -1397,6 +1417,7 @@ const AuthenticatedReportingRouteWithChildren =
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsBrandingRoute: typeof AuthenticatedSettingsBrandingRoute
+  AuthenticatedSettingsCrmRoute: typeof AuthenticatedSettingsCrmRoute
   AuthenticatedSettingsDocumentsRoute: typeof AuthenticatedSettingsDocumentsRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSettingsIntegrationsRoute: typeof AuthenticatedSettingsIntegrationsRoute
@@ -1407,6 +1428,7 @@ interface AuthenticatedSettingsRouteChildren {
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsBrandingRoute: AuthenticatedSettingsBrandingRoute,
+  AuthenticatedSettingsCrmRoute: AuthenticatedSettingsCrmRoute,
   AuthenticatedSettingsDocumentsRoute: AuthenticatedSettingsDocumentsRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
   AuthenticatedSettingsIntegrationsRoute:

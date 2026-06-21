@@ -83,8 +83,10 @@ function HouseView() {
   const [anchorBound, setAnchorBound] = useState(false);
   if (!anchorBound && businessDate) {
     setAnchorBound(true);
+    // Show one day BEFORE business date so reception can still complete
+    // pending check-outs / actions from the previous day.
     const d = new Date(businessDate + "T00:00:00");
-    if (!isNaN(d.getTime())) setAnchor(d);
+    if (!isNaN(d.getTime())) { d.setDate(d.getDate() - 1); setAnchor(d); }
   }
   const [selected, setSelected] = useState<any | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<any | null>(null);
@@ -386,7 +388,7 @@ function HouseView() {
             <span className="hidden md:inline text-sm font-medium">House Overview</span>
             <input type="date" value={dateKey(anchor)} onChange={(e) => { const d = new Date(e.target.value); if (!isNaN(d.getTime())) setAnchor(d); }}
               className="bg-input/60 border border-border rounded-md px-3 py-1.5 text-sm" />
-            <button onClick={() => { const d = businessDate ? new Date(businessDate + "T00:00:00") : new Date(); d.setHours(0,0,0,0); setAnchor(d); }}
+            <button onClick={() => { const d = businessDate ? new Date(businessDate + "T00:00:00") : new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - 1); setAnchor(d); }}
               className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Business Date</button>
             <button onClick={() => setStatsOpen(true)}
               className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5">

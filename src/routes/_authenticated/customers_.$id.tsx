@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { listLeadActivitiesByCustomer } from "@/lib/leads.functions";
 import { Topbar } from "@/components/topbar";
 import { getCustomer, listCustomerQuotes, updateCustomer } from "@/lib/customers-api";
 import { listCustomerBookings } from "@/lib/bookings-api";
@@ -276,6 +278,8 @@ function CustomerDetail() {
                 {!c.phone && !c.email && <div className="italic">No contact details</div>}
               </div>
             </Panel>
+
+            <LeadTimeline customerId={c.id} />
           </div>
         </div>
       </div>
@@ -299,5 +303,30 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
       <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{title}</h4>
       {children}
     </div>
+  );
+}
+
+function LeadTimeline({ customerId }: { customerId: string }) {
+  const fetchActs = useServerFn(listLeadActivitiesByCustomer);
+  const { data: acts = [], isLoading } = useQuery({
+    queryKey: ["lead-activities", customerId],
+    queryFn: () => fetchActs({ data: { customer_id: customerId } }),
+  });
+  if (isLoading) return null;
+  if (!acts.length) return null;
+  return (
+    <Panel title="Lead Activity">
+      <div className="space-y-2 max-h-72 overflow-y-auto">
+        {acts.map((a: any) => (
+          <div key={a.id} className="text-[11px] leading-snug border-l-2 border-gold/40 pl-2">
+            <div className="text-muted-foreground">
+              {new Date(a.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+              {a.actor_name ? ` · ${a.actor_name}` : ""}
+            </div>
+            <div>{a.summary ?? a.action}</div>
+          </div>
+        ))}
+      </div>
+    </Panel>
   );
 }
