@@ -863,13 +863,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
       categories={chargeCategories}
       editing={null}
     />
-    <RoomAssignmentDialog
-      bookingId={b.id}
-      open={checkinFlowOpen}
-      onClose={() => setCheckinFlowOpen(false)}
-      mode="checkin-flow"
-      onAllAssigned={() => performCheckIn.mutate()}
-    />
+    {checkIn.dialogs}
     </>
   );
 }
