@@ -15,6 +15,7 @@ import {
   ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Calendar, Star,
   FilePlus, MessageCircle, Pencil, BedDouble,
 } from "lucide-react";
+import { CustomerDocumentsCard } from "@/components/customer-documents-card";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 import { phoneToWaDigits } from "@/lib/phone";
@@ -236,6 +237,8 @@ function CustomerDetail() {
                   className="text-xs text-gold hover:underline">+ New Booking for this customer</Link>
               </div>
             </div>
+
+            <CustomerDocumentsCard customerId={c.id} />
 
             {/* P10 — Stacked order: Internal Notes ↓ Tag ↓ Lead Source */}
             <div className="luxe-card rounded-xl p-5">

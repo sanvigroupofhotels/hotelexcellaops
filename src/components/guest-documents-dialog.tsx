@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Camera, Upload, Trash2, Eye, Loader2, FileImage, Clock } from "lucide-react";
 import {
   GUEST_DOC_TYPES, type GuestDocType,
-  createGuestDocument, listGuestDocuments, softDeleteGuestDocument, signedUrlForPath,
+  createGuestDocument, listGuestDocuments, listCustomerGuestDocuments,
+  softDeleteGuestDocument, signedUrlForPath,
   type GuestDocumentRow,
 } from "@/lib/guest-documents-api";
 import { useUserRole } from "@/hooks/use-role";
@@ -18,7 +19,9 @@ import { useAuth } from "@/lib/auth";
 type Mode = "checkin" | "manage";
 
 interface Props {
-  bookingId: string;
+  /** Provide one of bookingId or customerId. Booking takes precedence when both set. */
+  bookingId?: string | null;
+  customerId?: string | null;
   open: boolean;
   onClose: () => void;
   mode: Mode;
@@ -26,15 +29,20 @@ interface Props {
   onComplete?: () => void;
 }
 
-export function GuestDocumentsDialog({ bookingId, open, onClose, mode, onComplete }: Props) {
+export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mode, onComplete }: Props) {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
   const { user } = useAuth();
 
+  const scopeKey = bookingId
+    ? ["guest-documents", bookingId]
+    : ["guest-documents", "customer", customerId];
   const { data: docs = [], isLoading } = useQuery({
-    queryKey: ["guest-documents", bookingId],
-    queryFn: () => listGuestDocuments(bookingId),
-    enabled: open,
+    queryKey: scopeKey,
+    queryFn: () => (bookingId
+      ? listGuestDocuments(bookingId)
+      : listCustomerGuestDocuments(customerId!)),
+    enabled: open && !!(bookingId || customerId),
   });
 
   const [docType, setDocType] = useState<GuestDocType>("Aadhaar");
@@ -44,8 +52,7 @@ export function GuestDocumentsDialog({ bookingId, open, onClose, mode, onComplet
   const [notes, setNotes] = useState("");
 
   // If a previously uploaded doc already has a Front Side on file, the
-  // mandatory-front requirement is treated as satisfied — staff may add Back
-  // or Selfie alone without being forced to re-upload Front.
+  // mandatory-front requirement is treated as satisfied.
   const hasExistingFront = docs.some((d) => !!d.front_path);
 
   useEffect(() => {
@@ -56,12 +63,13 @@ export function GuestDocumentsDialog({ bookingId, open, onClose, mode, onComplet
 
   const save = useMutation({
     mutationFn: () => createGuestDocument({
-      bookingId, docType, front, back, selfie, notes,
+      bookingId: bookingId ?? null, customerId: customerId ?? null,
+      docType, front, back, selfie, notes,
       uploadedByName: user?.email ?? "Staff",
       allowMissingFront: hasExistingFront,
     }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["guest-documents", bookingId] });
+      qc.invalidateQueries({ queryKey: ["guest-documents"] });
       toast.success("Document uploaded");
       setFront(null); setBack(null); setSelfie(null); setNotes("");
       if (mode === "checkin") { onComplete?.(); onClose(); }
@@ -72,7 +80,7 @@ export function GuestDocumentsDialog({ bookingId, open, onClose, mode, onComplet
   const del = useMutation({
     mutationFn: (id: string) => softDeleteGuestDocument(id, user?.email ?? "Staff"),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["guest-documents", bookingId] });
+      qc.invalidateQueries({ queryKey: ["guest-documents"] });
       toast.success("Document removed");
     },
     onError: (e: any) => toast.error(e?.message ?? "Delete failed"),

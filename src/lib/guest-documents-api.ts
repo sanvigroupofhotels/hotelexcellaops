@@ -6,7 +6,8 @@ export type GuestDocType = (typeof GUEST_DOC_TYPES)[number];
 
 export interface GuestDocumentRow {
   id: string;
-  booking_id: string;
+  booking_id: string | null;
+  customer_id: string | null;
   user_id: string;
   doc_type: string;
   front_path: string | null;
@@ -24,11 +25,41 @@ export interface GuestDocumentRow {
   updated_at: string;
 }
 
+/**
+ * List documents for a booking. Includes:
+ *   - documents directly attached to this booking
+ *   - documents attached to the booking's customer (so prior IDs auto-appear
+ *     on new bookings for the same customer — single source of truth).
+ */
 export async function listGuestDocuments(bookingId: string): Promise<GuestDocumentRow[]> {
+  // Look up the booking's customer first so we can union both views.
+  const { data: b } = await supabase
+    .from("bookings" as any)
+    .select("customer_id")
+    .eq("id", bookingId)
+    .maybeSingle();
+  const customerId = (b as any)?.customer_id as string | null | undefined;
+
+  let q = supabase
+    .from("guest_documents" as any)
+    .select("*")
+    .is("deleted_at", null);
+  q = customerId
+    ? q.or(`booking_id.eq.${bookingId},customer_id.eq.${customerId}`)
+    : q.eq("booking_id", bookingId);
+  const { data, error } = await q.order("uploaded_at", { ascending: false });
+  if (error) throw error;
+  // De-dupe by id (in case both filters match the same row).
+  const rows = (data ?? []) as unknown as GuestDocumentRow[];
+  const seen = new Set<string>();
+  return rows.filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+}
+
+export async function listCustomerGuestDocuments(customerId: string): Promise<GuestDocumentRow[]> {
   const { data, error } = await supabase
     .from("guest_documents" as any)
     .select("*")
-    .eq("booking_id", bookingId)
+    .eq("customer_id", customerId)
     .is("deleted_at", null)
     .order("uploaded_at", { ascending: false });
   if (error) throw error;
@@ -40,8 +71,8 @@ function extOf(file: File) {
   return (m?.[1] || "jpg").toLowerCase();
 }
 
-async function uploadOne(bookingId: string, docId: string, kind: "front" | "back" | "selfie", file: File): Promise<string> {
-  const path = `${bookingId}/${docId}/${kind}.${extOf(file)}`;
+async function uploadOne(scope: string, docId: string, kind: "front" | "back" | "selfie", file: File): Promise<string> {
+  const path = `${scope}/${docId}/${kind}.${extOf(file)}`;
   const { error } = await supabase.storage.from(GUEST_DOC_BUCKET).upload(path, file, {
     upsert: true, cacheControl: "3600", contentType: file.type || "image/jpeg",
   });
@@ -50,27 +81,33 @@ async function uploadOne(bookingId: string, docId: string, kind: "front" | "back
 }
 
 export interface CreateGuestDocumentInput {
-  bookingId: string;
+  /** At least one of bookingId or customerId must be provided. */
+  bookingId?: string | null;
+  customerId?: string | null;
   docType: GuestDocType | string;
   front?: File | null;
   back?: File | null;
   selfie?: File | null;
   notes?: string;
   uploadedByName?: string;
-  /** Set to true when a previously uploaded doc on this booking already has a Front Side on file. */
+  /** Set true when a previously uploaded doc already has a Front Side on file. */
   allowMissingFront?: boolean;
 }
 
 export async function createGuestDocument(input: CreateGuestDocumentInput): Promise<GuestDocumentRow> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
+  if (!input.bookingId && !input.customerId) {
+    throw new Error("Document must be linked to a booking or a customer");
+  }
   if (!input.front && !input.allowMissingFront) throw new Error("Front side is mandatory");
   if (!input.front && !input.back && !input.selfie) throw new Error("Please choose at least one file to upload");
 
   const insertRes = await supabase
     .from("guest_documents" as any)
     .insert({
-      booking_id: input.bookingId,
+      booking_id: input.bookingId ?? null,
+      customer_id: input.customerId ?? null,
       doc_type: input.docType,
       notes: input.notes ?? null,
       uploaded_by: user.id,
@@ -82,13 +119,15 @@ export async function createGuestDocument(input: CreateGuestDocumentInput): Prom
   if (insertRes.error) throw insertRes.error;
   const row = insertRes.data as unknown as GuestDocumentRow;
 
+  // Path prefix: use the booking when present, otherwise the customer.
+  const scope = input.bookingId ? `${input.bookingId}` : `customer/${input.customerId}`;
+
   const patch: Record<string, string> = {};
   try {
-    if (input.front) patch.front_path = await uploadOne(input.bookingId, row.id, "front", input.front);
-    if (input.back) patch.back_path = await uploadOne(input.bookingId, row.id, "back", input.back);
-    if (input.selfie) patch.selfie_path = await uploadOne(input.bookingId, row.id, "selfie", input.selfie);
+    if (input.front) patch.front_path = await uploadOne(scope, row.id, "front", input.front);
+    if (input.back) patch.back_path = await uploadOne(scope, row.id, "back", input.back);
+    if (input.selfie) patch.selfie_path = await uploadOne(scope, row.id, "selfie", input.selfie);
   } catch (e) {
-    // rollback the row if upload fails
     await supabase.from("guest_documents" as any).delete().eq("id", row.id);
     throw e;
   }
