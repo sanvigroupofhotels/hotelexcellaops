@@ -68,6 +68,7 @@ export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mod
       bookingId: bookingId ?? null, customerId: customerId ?? null,
       docType, front, back, selfie, notes,
       uploadedByName: user?.email ?? "Staff",
+      source: source ?? "Reception",
       allowMissingFront: hasExistingFront,
     }),
     onSuccess: () => {
