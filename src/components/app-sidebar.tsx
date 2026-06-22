@@ -123,6 +123,11 @@ function ExpandableGroup({
         )}
         <Icon className={cn("relative h-4 w-4 shrink-0", sectionActive && "text-gold")} />
         <span className="relative flex-1 text-left">{label}</span>
+        {typeof badge === "number" && badge > 0 && (
+          <span className="relative inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold tabular-nums">
+            {badge}
+          </span>
+        )}
         <ChevronDown className={cn("relative h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
       </button>
 
