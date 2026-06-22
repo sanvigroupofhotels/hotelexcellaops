@@ -80,7 +80,7 @@ export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mod
   const del = useMutation({
     mutationFn: (id: string) => softDeleteGuestDocument(id, user?.email ?? "Staff"),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["guest-documents", bookingId] });
+      qc.invalidateQueries({ queryKey: ["guest-documents"] });
       toast.success("Document removed");
     },
     onError: (e: any) => toast.error(e?.message ?? "Delete failed"),
