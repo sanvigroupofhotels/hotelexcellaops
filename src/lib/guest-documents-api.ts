@@ -20,7 +20,8 @@ export interface GuestDocumentRow {
   deleted_by: string | null;
   deleted_by_name: string | null;
   deleted_at: string | null;
-  expires_at: string;
+  expires_at: string | null;
+  source: string | null;
   created_at: string;
   updated_at: string;
 }
