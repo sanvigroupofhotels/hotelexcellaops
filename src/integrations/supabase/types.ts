@@ -1314,8 +1314,9 @@ export type Database = {
       guest_documents: {
         Row: {
           back_path: string | null
-          booking_id: string
+          booking_id: string | null
           created_at: string
+          customer_id: string | null
           deleted_at: string | null
           deleted_by: string | null
           deleted_by_name: string | null
@@ -1333,8 +1334,9 @@ export type Database = {
         }
         Insert: {
           back_path?: string | null
-          booking_id: string
+          booking_id?: string | null
           created_at?: string
+          customer_id?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           deleted_by_name?: string | null
@@ -1352,8 +1354,9 @@ export type Database = {
         }
         Update: {
           back_path?: string | null
-          booking_id?: string
+          booking_id?: string | null
           created_at?: string
+          customer_id?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           deleted_by_name?: string | null
@@ -1375,6 +1378,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_documents_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
         ]
