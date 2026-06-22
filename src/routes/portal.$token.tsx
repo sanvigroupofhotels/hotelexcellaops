@@ -1,11 +1,16 @@
 /**
- * Public Guest Portal — view booking, update details, and pay via Razorpay.
+ * Public Guest Portal — view booking, update details, pay, manage documents,
+ * order food, raise complaints, give reviews, and self-cancel (when eligible).
  */
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare, Save, ChevronDown } from "lucide-react";
+import {
+  Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare,
+  Save, ChevronDown, FileCheck, UtensilsCrossed, MessageCircleWarning, Star, XCircle,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "sonner";
 import { validatePhoneNumber, normalizePhoneNumber } from "@/lib/phone";
 import {
@@ -14,9 +19,14 @@ import {
   recordPayAtHotelIntent,
   updateGuestPortalDetails,
   confirmRazorpayPayment,
+  listPortalDocuments,
+  cancelPortalBooking,
+  submitPortalComplaint,
+  submitPortalReview,
 } from "@/lib/portal.functions";
 import { useOpsTimeLabels } from "@/lib/check-times";
 import { PortalPaymentOptions, type PortalPaymentChoice } from "@/components/portal/payment-options";
+import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 
 export const Route = createFileRoute("/portal/$token")({
   component: GuestPortal,
@@ -68,6 +78,7 @@ function GuestPortal() {
   const createOrder = useServerFn(createRazorpayOrder);
   const recordIntent = useServerFn(recordPayAtHotelIntent);
   const confirmPayment = useServerFn(confirmRazorpayPayment);
+  const fetchDocs = useServerFn(listPortalDocuments);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<null | "paid" | "pay_at_hotel">(null);
 
@@ -75,6 +86,12 @@ function GuestPortal() {
     queryKey: ["portal-booking", token],
     queryFn: () => fetchBooking({ data: { token } }),
     retry: false,
+  });
+
+  const docsQ = useQuery({
+    queryKey: ["guest-documents", "portal", token],
+    queryFn: () => fetchDocs({ data: { token } }),
+    enabled: !!q.data,
   });
 
   if (q.isLoading) {
@@ -102,7 +119,6 @@ function GuestPortal() {
         prefill: { name: order.guestName, contact: order.phone || "" },
         theme: { color: "#D4AF37" },
         handler: async (resp: any) => {
-          // Persist via signed server confirmation; the dashboard webhook stays as a backup.
           try {
             await confirmPayment({
               data: {
@@ -131,16 +147,31 @@ function GuestPortal() {
     } finally { setBusy(false); }
   };
 
-  // ---- Profile completion (only Guest Name, Mobile, Email) ----
-  const score = (() => {
-    const checks = [!!b.guestName?.trim(), !!b.phone?.trim(), !!b.email?.trim()];
-    const pts = checks.filter(Boolean).length;
-    return { pct: Math.round((pts / checks.length) * 100), missing: [
-      ...(!b.guestName?.trim() ? ["Guest Name"] : []),
-      ...(!b.phone?.trim() ? ["Mobile Number"] : []),
-      ...(!b.email?.trim() ? ["Email Address"] : []),
-    ]};
+  // ---- Profile completion: Email + Expected Arrival Time + Verified Document ----
+  const docs = (docsQ.data ?? []) as any[];
+  const hasVerifiedDoc = docs.some((d) => !!d.verified_at);
+  const hasAnyDoc = docs.some((d) => !!d.front_path);
+  const docComplete = hasVerifiedDoc || hasAnyDoc; // graceful fallback when verification not yet done
+  const arrivalHasTime = (() => {
+    if (!b.expectedArrivalAt) return false;
+    // We treat a meaningful arrival time as anything not at midnight.
+    const d = new Date(b.expectedArrivalAt);
+    return !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0);
   })();
+  const score = useMemo(() => {
+    const checks = [
+      { label: "Email Address", ok: !!b.email?.trim() },
+      { label: "Expected Arrival Time", ok: arrivalHasTime },
+      { label: "Guest Documents", ok: docComplete },
+    ];
+    const pts = checks.filter((c) => c.ok).length;
+    return {
+      pct: Math.round((pts / checks.length) * 100),
+      missing: checks.filter((c) => !c.ok).map((c) => c.label),
+    };
+  }, [b.email, arrivalHasTime, docComplete]);
+
+  const isCancelled = b.status === "Cancelled";
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
@@ -161,13 +192,45 @@ function GuestPortal() {
           {b.charges && b.charges.length > 0 && <ChargesBreakdown charges={b.charges} total={b.chargesTotal} />}
         </div>
 
-        {/* Profile Completion */}
-        <ProfileCompletion pct={score.pct} missing={score.missing} />
+        {isCancelled && (
+          <div className="luxe-card rounded-xl p-5 text-center space-y-1">
+            <XCircle className="h-8 w-8 text-destructive mx-auto" />
+            <h3 className="font-display text-lg">Booking Cancelled</h3>
+            <p className="text-xs text-muted-foreground">This booking has been cancelled. For any queries, please contact reception.</p>
+          </div>
+        )}
 
-        {/* Guest Details + Arrival + Emergency + Special Requests */}
-        <GuestDetailsForm token={token} initial={b} onSaved={() => q.refetch()} />
+        {!isCancelled && <ProfileCompletion pct={score.pct} missing={score.missing} />}
 
-        {done ? (
+        {!isCancelled && (
+          <GuestDetailsForm token={token} initial={b} onSaved={() => q.refetch()} />
+        )}
+
+        {!isCancelled && (
+          <DocumentsCard
+            token={token}
+            count={docs.length}
+            verified={hasVerifiedDoc}
+            onChanged={() => docsQ.refetch()}
+          />
+        )}
+
+        {!isCancelled && <OrderFoodCard />}
+
+        {!isCancelled && <ReportComplaintCard token={token} />}
+
+        {!isCancelled && <ReviewsCard token={token} />}
+
+        {!isCancelled && (
+          <CancelBookingCard
+            token={token}
+            checkIn={b.checkIn}
+            advancePaid={b.advancePaid}
+            onCancelled={() => q.refetch()}
+          />
+        )}
+
+        {!isCancelled && (done ? (
           <div className="luxe-card rounded-xl p-6 text-center space-y-2">
             <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
             <h3 className="font-display text-lg">
@@ -193,7 +256,7 @@ function GuestPortal() {
           <div className="luxe-card rounded-xl p-5 text-center text-sm text-emerald-600">
             <CheckCircle2 className="h-6 w-6 mx-auto mb-2" /> No balance due.
           </div>
-        )}
+        ))}
 
         <p className="text-[10px] text-center text-muted-foreground pt-4">
           Secured by Razorpay · Your payment details never touch our servers.
@@ -212,11 +275,6 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * Stay-date field that joins the standard hotel check-in/out time from
- * Operations settings to the date, so the guest always sees both
- * "17-Jun-2026" AND "1:00 PM" — never date alone.
- */
 function StayField({ label, date, kind }: { label: string; date: string; kind: "in" | "out" }) {
   const t = useOpsTimeLabels();
   const formatted = date ? new Date(date + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "";
@@ -231,19 +289,21 @@ function StayField({ label, date, kind }: { label: string; date: string; kind: "
 }
 
 function ProfileCompletion({ pct, missing }: { pct: number; missing: string[] }) {
-  // Single-line indicator with quarter-circle glyph — no progress bar.
   const glyph = pct >= 100 ? "●" : pct >= 75 ? "◕" : pct >= 50 ? "◑" : pct >= 25 ? "◔" : "○";
   return (
     <div className="luxe-card rounded-xl p-4 space-y-2">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-medium">Booking Profile</div>
+        <div className="text-sm font-medium">Profile Completion</div>
         <div className="text-sm text-gold font-medium tabular-nums">
           <span className="mr-1.5">{glyph}</span>{pct}% Complete
         </div>
       </div>
       {missing.length > 0 && (
-        <div className="text-xs text-muted-foreground">
-          Missing: <span className="text-foreground">{missing.join(", ")}</span>
+        <div className="text-xs text-muted-foreground space-y-1">
+          <div>Missing:</div>
+          <ul className="list-disc pl-5 text-foreground space-y-0.5">
+            {missing.map((m) => <li key={m}>{m}</li>)}
+          </ul>
         </div>
       )}
     </div>
@@ -255,7 +315,6 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
   const [name, setName] = useState(initial.guestName ?? "");
   const [phone, setPhone] = useState(initial.phone ?? "");
   const [email, setEmail] = useState(initial.email ?? "");
-  // Expected arrival split into date (auto-populated from check-in) and time (optional, empty by default).
   const initialArrivalDate = initial.expectedArrivalAt
     ? new Date(initial.expectedArrivalAt).toISOString().slice(0, 10)
     : initial.checkIn;
@@ -270,7 +329,6 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
   const [optionalOpen, setOptionalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Re-init if refetch changes the source
   useEffect(() => {
     setName(initial.guestName ?? "");
     setPhone(initial.phone ?? "");
@@ -292,7 +350,6 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
     if (!arrivalDate) return toast.error("Please provide your expected arrival date.");
     setSaving(true);
     try {
-      // Time is optional — default to 14:00 (standard check-in) when blank.
       const timePart = arrivalTime || "14:00";
       const arrivalIso = new Date(`${arrivalDate}T${timePart}`).toISOString();
       await update({
@@ -395,6 +452,349 @@ function Input({ label, icon, value, onChange, type = "text" }: {
   );
 }
 
+// =============================== New cards =================================
+
+function DocumentsCard({ token, count, verified, onChanged }: { token: string; count: number; verified: boolean; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="luxe-card rounded-xl p-5 space-y-3">
+      <h3 className="font-display text-base flex items-center gap-2"><FileCheck className="h-4 w-4 text-gold" /> Guest Documents</h3>
+      <p className="text-xs text-muted-foreground">
+        Upload your ID once and it will be available for this stay and your future bookings.
+      </p>
+      <div className="text-xs">
+        <span className="text-muted-foreground">On file:</span>{" "}
+        <span className="text-foreground">{count} document{count === 1 ? "" : "s"}</span>
+        {verified && (
+          <span className="ml-2 rounded-full border border-success/40 bg-success/10 text-success text-[10px] px-2 py-0.5">Verified</span>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal"
+      >
+        {count > 0 ? "Manage Documents" : "Upload Documents"}
+      </button>
+      {open && (
+        <GuestDocumentsDialog
+          portalToken={token}
+          mode="manage"
+          open={open}
+          onClose={() => { setOpen(false); onChanged(); }}
+          source="Guest Portal"
+        />
+      )}
+    </div>
+  );
+}
+
+function OrderFoodCard() {
+  return (
+    <div className="luxe-card rounded-xl p-5 space-y-3">
+      <h3 className="font-display text-base flex items-center gap-2">
+        <UtensilsCrossed className="h-4 w-4 text-gold" /> Order Food
+      </h3>
+      <p className="text-xs text-muted-foreground">
+        Order delicious food directly to your room.
+      </p>
+      <a
+        href="https://hotelexcella.in/orderfood"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal"
+      >
+        Order Now <ExternalLink className="h-3.5 w-3.5" />
+      </a>
+    </div>
+  );
+}
+
+const COMPLAINT_CATEGORIES = [
+  "Room Cleanliness",
+  "AC / Electrical",
+  "Plumbing",
+  "WiFi / TV",
+  "Food Quality",
+  "Staff Service",
+  "Noise",
+  "Other",
+];
+
+function ReportComplaintCard({ token }: { token: string }) {
+  const submit = useServerFn(submitPortalComplaint);
+  const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState(COMPLAINT_CATEGORIES[0]);
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const onSubmit = async () => {
+    if (description.trim().length < 3) return toast.error("Please describe the issue (at least 3 characters)");
+    setSubmitting(true);
+    try {
+      await submit({ data: { token, category, description: description.trim() } });
+      setSubmitted(true);
+      toast.success("Complaint submitted. Our team will respond shortly.");
+      setOpen(false);
+      setDescription("");
+    } catch (e: any) {
+      toast.error(errMsg(e, "Could not submit complaint"));
+    } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div className="luxe-card rounded-xl p-5 space-y-3">
+      <h3 className="font-display text-base flex items-center gap-2">
+        <MessageCircleWarning className="h-4 w-4 text-gold" /> Report Complaint
+      </h3>
+      <p className="text-xs text-muted-foreground">
+        Raise a complaint or request assistance. Our team will follow up promptly.
+      </p>
+      {submitted ? (
+        <div className="text-xs text-emerald-600 flex items-center gap-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5" /> Complaint submitted — thank you.
+        </div>
+      ) : !open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/40 px-4 py-2.5 text-sm font-medium hover:bg-gold-soft/60"
+        >
+          Report a Complaint
+        </button>
+      ) : (
+        <div className="space-y-3">
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Category</span>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            >
+              {COMPLAINT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Describe the issue</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              placeholder="Please describe what happened"
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setOpen(false); setDescription(""); }}
+              className="flex-1 rounded-md border border-border bg-card px-3 py-2 text-sm"
+            >Cancel</button>
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={onSubmit}
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-3 py-2 text-sm font-medium text-charcoal disabled:opacity-50"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Submit
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReviewsCard({ token }: { token: string }) {
+  const submit = useServerFn(submitPortalReview);
+  const [rating, setRating] = useState<number>(0);
+  const [whatWent, setWhatWent] = useState("");
+  const [additional, setAdditional] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState<null | "external" | "feedback">(null);
+
+  const onPick = async (r: number) => {
+    setRating(r);
+    if (r >= 4) {
+      // Submit immediately and redirect
+      setSubmitting(true);
+      try {
+        const res = await submit({ data: { token, rating: r } });
+        setSubmitted("external");
+        if ((res as any)?.externalReviewUrl) {
+          window.open((res as any).externalReviewUrl, "_blank", "noopener,noreferrer");
+        }
+      } catch (e: any) {
+        toast.error(errMsg(e, "Could not record rating"));
+      } finally { setSubmitting(false); }
+    }
+  };
+
+  const onSubmitFeedback = async () => {
+    if (rating < 1) return;
+    setSubmitting(true);
+    try {
+      await submit({
+        data: {
+          token, rating,
+          feedback_what_went_wrong: whatWent.trim(),
+          feedback_additional_comments: additional.trim(),
+        },
+      });
+      setSubmitted("feedback");
+    } catch (e: any) {
+      toast.error(errMsg(e, "Could not submit feedback"));
+    } finally { setSubmitting(false); }
+  };
+
+  if (submitted === "external") {
+    return (
+      <div className="luxe-card rounded-xl p-5 text-center space-y-1">
+        <CheckCircle2 className="h-6 w-6 mx-auto text-emerald-500" />
+        <div className="text-sm">Thank you for your rating!</div>
+        <div className="text-xs text-muted-foreground">A new tab opened so you can share your review publicly.</div>
+      </div>
+    );
+  }
+  if (submitted === "feedback") {
+    return (
+      <div className="luxe-card rounded-xl p-5 text-center space-y-1">
+        <CheckCircle2 className="h-6 w-6 mx-auto text-emerald-500" />
+        <div className="text-sm">Thank you for your feedback.</div>
+        <div className="text-xs text-muted-foreground">We take your concerns seriously and our team may contact you to help resolve the issue.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="luxe-card rounded-xl p-5 space-y-3">
+      <h3 className="font-display text-base flex items-center gap-2"><Star className="h-4 w-4 text-gold" /> Reviews & Feedback</h3>
+      <p className="text-xs text-muted-foreground">How was your stay?</p>
+      <div className="flex items-center justify-center gap-1.5">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            disabled={submitting}
+            onClick={() => onPick(n)}
+            className="p-1"
+            aria-label={`${n} star${n === 1 ? "" : "s"}`}
+          >
+            <Star className={`h-7 w-7 ${rating >= n ? "fill-gold text-gold" : "text-muted-foreground"}`} />
+          </button>
+        ))}
+      </div>
+      {rating > 0 && rating <= 3 && (
+        <div className="space-y-3 border-t border-border/40 pt-3">
+          <p className="text-xs text-muted-foreground">We're sorry your stay didn't meet expectations. Please tell us more so we can do better.</p>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">What went wrong?</span>
+            <textarea
+              value={whatWent}
+              onChange={(e) => setWhatWent(e.target.value)}
+              rows={3}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Additional comments</span>
+            <textarea
+              value={additional}
+              onChange={(e) => setAdditional(e.target.value)}
+              rows={3}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={onSubmitFeedback}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-50"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Submit Feedback
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CancelBookingCard({ token, checkIn, advancePaid, onCancelled }: {
+  token: string; checkIn: string; advancePaid: number; onCancelled: () => void;
+}) {
+  const cancel = useServerFn(cancelPortalBooking);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // 24h cutoff vs check-in (14:00 IST)
+  const checkInIso = `${checkIn}T14:00:00+05:30`;
+  const within24h = (new Date(checkInIso).getTime() - 24 * 60 * 60 * 1000) < Date.now();
+  const hasPaid = Number(advancePaid || 0) > 0;
+  const eligible = !hasPaid && !within24h;
+
+  const onConfirm = async () => {
+    setBusy(true);
+    try {
+      await cancel({ data: { token } });
+      toast.success("Booking cancelled.");
+      onCancelled();
+    } catch (e: any) {
+      toast.error(errMsg(e, "Could not cancel booking"));
+    } finally { setBusy(false); setConfirming(false); }
+  };
+
+  if (!eligible) {
+    return (
+      <div className="luxe-card rounded-xl p-5 space-y-2">
+        <h3 className="font-display text-base flex items-center gap-2"><XCircle className="h-4 w-4 text-gold" /> Cancel Booking</h3>
+        <p className="text-xs text-muted-foreground">Please contact reception to cancel your booking.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="luxe-card rounded-xl p-5 space-y-3">
+      <h3 className="font-display text-base flex items-center gap-2"><XCircle className="h-4 w-4 text-gold" /> Cancel Booking</h3>
+      {!confirming ? (
+        <>
+          <p className="text-xs text-muted-foreground">Free cancellation available up to 24 hours before check-in.</p>
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            className="w-full rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-4 py-2.5 text-sm font-medium hover:bg-destructive/20"
+          >
+            Cancel Booking
+          </button>
+        </>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-xs">Are you sure you want to cancel this booking? This action cannot be undone.</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="flex-1 rounded-md border border-border bg-card px-3 py-2 text-sm"
+            >Keep Booking</button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onConfirm}
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-destructive text-destructive-foreground px-3 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Yes, Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================ Pricing helpers =============================
+
 function PricingBreakdown({ b }: { b: any }) {
   const [open, setOpen] = useState(false);
   const taxRate = Number(b.taxRate || 0);
@@ -457,4 +857,3 @@ function Row({ label, value, strong, tone }: { label: string; value: string; str
     </div>
   );
 }
-
