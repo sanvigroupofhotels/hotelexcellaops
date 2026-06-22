@@ -27,9 +27,11 @@ interface Props {
   mode: Mode;
   /** Called when the user completes (uploaded OR chose Upload Later) in check-in mode. */
   onComplete?: () => void;
+  /** Origin label stored against the document. Defaults to "Reception". */
+  source?: string;
 }
 
-export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mode, onComplete }: Props) {
+export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mode, onComplete, source }: Props) {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
   const { user } = useAuth();
@@ -66,6 +68,7 @@ export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mod
       bookingId: bookingId ?? null, customerId: customerId ?? null,
       docType, front, back, selfie, notes,
       uploadedByName: user?.email ?? "Staff",
+      source: source ?? "Reception",
       allowMissingFront: hasExistingFront,
     }),
     onSuccess: () => {

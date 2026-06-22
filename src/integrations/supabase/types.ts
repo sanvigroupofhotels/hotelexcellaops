@@ -1321,11 +1321,12 @@ export type Database = {
           deleted_by: string | null
           deleted_by_name: string | null
           doc_type: string
-          expires_at: string
+          expires_at: string | null
           front_path: string | null
           id: string
           notes: string | null
           selfie_path: string | null
+          source: string | null
           updated_at: string
           uploaded_at: string
           uploaded_by: string | null
@@ -1341,11 +1342,12 @@ export type Database = {
           deleted_by?: string | null
           deleted_by_name?: string | null
           doc_type: string
-          expires_at?: string
+          expires_at?: string | null
           front_path?: string | null
           id?: string
           notes?: string | null
           selfie_path?: string | null
+          source?: string | null
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null
@@ -1361,11 +1363,12 @@ export type Database = {
           deleted_by?: string | null
           deleted_by_name?: string | null
           doc_type?: string
-          expires_at?: string
+          expires_at?: string | null
           front_path?: string | null
           id?: string
           notes?: string | null
           selfie_path?: string | null
+          source?: string | null
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null
