@@ -15,6 +15,7 @@ import {
   ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Calendar, Star,
   FilePlus, MessageCircle, Pencil, BedDouble,
 } from "lucide-react";
+import { CustomerDocumentsCard } from "@/components/customer-documents-card";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 import { phoneToWaDigits } from "@/lib/phone";
