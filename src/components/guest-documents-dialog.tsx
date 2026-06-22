@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -13,6 +14,10 @@ import {
   softDeleteGuestDocument, signedUrlForPath,
   type GuestDocumentRow,
 } from "@/lib/guest-documents-api";
+import {
+  listPortalDocuments, uploadPortalDocument,
+  softDeletePortalDocument, signPortalDocumentUrl,
+} from "@/lib/portal.functions";
 import { useUserRole } from "@/hooks/use-role";
 import { useAuth } from "@/lib/auth";
 
@@ -22,29 +27,61 @@ interface Props {
   /** Provide one of bookingId or customerId. Booking takes precedence when both set. */
   bookingId?: string | null;
   customerId?: string | null;
+  /** When provided, the dialog operates in Guest Portal mode (no auth required;
+   *  uses signed token-scoped server functions). */
+  portalToken?: string | null;
   open: boolean;
   onClose: () => void;
   mode: Mode;
   /** Called when the user completes (uploaded OR chose Upload Later) in check-in mode. */
   onComplete?: () => void;
-  /** Origin label stored against the document. Defaults to "Reception". */
+  /** Origin label stored against the document. Defaults to "Reception" (PMS) or "Guest Portal" (portal). */
   source?: string;
 }
 
-export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mode, onComplete, source }: Props) {
+async function fileToBase64(file: File): Promise<{ name: string; mime: string; base64: string }> {
+  const buf = await file.arrayBuffer();
+  // Convert ArrayBuffer → base64 in the browser without Buffer.
+  let binary = "";
+  const bytes = new Uint8Array(buf);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+  }
+  const base64 = typeof btoa !== "undefined" ? btoa(binary) : Buffer.from(binary, "binary").toString("base64");
+  return { name: file.name, mime: file.type || "image/jpeg", base64 };
+}
+
+export function GuestDocumentsDialog({ bookingId, customerId, portalToken, open, onClose, mode, onComplete, source }: Props) {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
   const { user } = useAuth();
+  const isPortal = !!portalToken;
 
-  const scopeKey = bookingId
-    ? ["guest-documents", bookingId]
-    : ["guest-documents", "customer", customerId];
+  // Server functions for portal mode
+  const portalList = useServerFn(listPortalDocuments);
+  const portalUpload = useServerFn(uploadPortalDocument);
+  const portalDel = useServerFn(softDeletePortalDocument);
+  const portalSign = useServerFn(signPortalDocumentUrl);
+
+  const scopeKey = isPortal
+    ? ["guest-documents", "portal", portalToken]
+    : bookingId
+      ? ["guest-documents", bookingId]
+      : ["guest-documents", "customer", customerId];
+
   const { data: docs = [], isLoading } = useQuery({
     queryKey: scopeKey,
-    queryFn: () => (bookingId
-      ? listGuestDocuments(bookingId)
-      : listCustomerGuestDocuments(customerId!)),
-    enabled: open && !!(bookingId || customerId),
+    queryFn: async () => {
+      if (isPortal) {
+        const rows = await portalList({ data: { token: portalToken! } });
+        return rows as unknown as GuestDocumentRow[];
+      }
+      return bookingId
+        ? listGuestDocuments(bookingId)
+        : listCustomerGuestDocuments(customerId!);
+    },
+    enabled: open && (isPortal ? !!portalToken : !!(bookingId || customerId)),
   });
 
   const [docType, setDocType] = useState<GuestDocType>("Aadhaar");
@@ -53,8 +90,6 @@ export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mod
   const [selfie, setSelfie] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
 
-  // If a previously uploaded doc already has a Front Side on file, the
-  // mandatory-front requirement is treated as satisfied.
   const hasExistingFront = docs.some((d) => !!d.front_path);
 
   useEffect(() => {
@@ -64,13 +99,28 @@ export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mod
   }, [open]);
 
   const save = useMutation({
-    mutationFn: () => createGuestDocument({
-      bookingId: bookingId ?? null, customerId: customerId ?? null,
-      docType, front, back, selfie, notes,
-      uploadedByName: user?.email ?? "Staff",
-      source: source ?? "Reception",
-      allowMissingFront: hasExistingFront,
-    }),
+    mutationFn: async () => {
+      if (isPortal) {
+        if (!front && !back && !selfie) throw new Error("Please choose at least one file to upload");
+        if (!front && !hasExistingFront) throw new Error("Front side is mandatory");
+        const payload: any = {
+          token: portalToken!,
+          doc_type: docType,
+          notes,
+        };
+        if (front) payload.front = await fileToBase64(front);
+        if (back) payload.back = await fileToBase64(back);
+        if (selfie) payload.selfie = await fileToBase64(selfie);
+        return portalUpload({ data: payload });
+      }
+      return createGuestDocument({
+        bookingId: bookingId ?? null, customerId: customerId ?? null,
+        docType, front, back, selfie, notes,
+        uploadedByName: user?.email ?? "Staff",
+        source: source ?? "Reception",
+        allowMissingFront: hasExistingFront,
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["guest-documents"] });
       toast.success("Document uploaded");
@@ -81,7 +131,10 @@ export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mod
   });
 
   const del = useMutation({
-    mutationFn: (id: string) => softDeleteGuestDocument(id, user?.email ?? "Staff"),
+    mutationFn: async (id: string) => {
+      if (isPortal) return portalDel({ data: { token: portalToken!, doc_id: id } });
+      return softDeleteGuestDocument(id, user?.email ?? "Staff");
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["guest-documents"] });
       toast.success("Document removed");
@@ -89,8 +142,23 @@ export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mod
     onError: (e: any) => toast.error(e?.message ?? "Delete failed"),
   });
 
-  const canManage = isAdmin || true; // any signed-in staff allowed per spec
+  const openSignedUrl = async (path: string) => {
+    if (isPortal) {
+      try {
+        const { url } = await portalSign({ data: { token: portalToken!, path } });
+        if (url) window.open(url, "_blank");
+        else toast.error("Could not generate file link");
+      } catch (e: any) {
+        toast.error(e?.message ?? "Could not generate file link");
+      }
+      return;
+    }
+    const url = await signedUrlForPath(path);
+    if (url) window.open(url, "_blank");
+    else toast.error("Could not generate file link");
+  };
 
+  const canManage = isPortal ? true : (isAdmin || true);
   const anyPicked = !!(front || back || selfie);
   const canUpload = anyPicked && (!!front || hasExistingFront);
 
@@ -102,7 +170,9 @@ export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mod
           <DialogDescription>
             {mode === "checkin"
               ? "Capture or upload Guest ID. You may skip and upload later — Check-In is not blocked."
-              : "Upload, view, or remove guest identity documents. Files auto-purge after 60 days."}
+              : isPortal
+                ? "Upload your ID securely. Uploaded documents stay on your profile for future stays."
+                : "Upload, view, or remove guest identity documents."}
           </DialogDescription>
         </DialogHeader>
 
@@ -116,7 +186,7 @@ export function GuestDocumentsDialog({ bookingId, customerId, open, onClose, mod
           ) : (
             <div className="space-y-2">
               {docs.map((d) => (
-                <DocRow key={d.id} doc={d} onDelete={canManage ? () => del.mutate(d.id) : undefined} />
+                <DocRow key={d.id} doc={d} onOpen={openSignedUrl} onDelete={canManage ? () => del.mutate(d.id) : undefined} />
               ))}
             </div>
           )}
@@ -210,22 +280,25 @@ function FileSlot({
   );
 }
 
-function DocRow({ doc, onDelete }: { doc: GuestDocumentRow; onDelete?: () => void }) {
-  const open = async (path: string | null) => {
-    if (!path) return;
-    const url = await signedUrlForPath(path);
-    if (url) window.open(url, "_blank");
-    else toast.error("Could not generate file link");
-  };
+function DocRow({ doc, onOpen, onDelete }: { doc: GuestDocumentRow; onOpen: (path: string) => void; onDelete?: () => void }) {
   const files = [
     { key: "Front", path: doc.front_path },
     { key: "Back", path: doc.back_path },
     { key: "Selfie", path: doc.selfie_path },
-  ].filter((f) => f.path);
+  ].filter((f) => !!f.path) as { key: string; path: string }[];
+  const verified = !!(doc as any).verified_at;
   return (
     <div className="rounded-md border border-border bg-card/30 p-3 text-xs space-y-1.5">
       <div className="flex items-center justify-between gap-2">
-        <div className="font-medium text-sm">{doc.doc_type}</div>
+        <div className="font-medium text-sm flex items-center gap-2">
+          {doc.doc_type}
+          {verified && (
+            <span className="rounded-full border border-success/40 bg-success/10 text-success text-[10px] px-2 py-0.5">Verified</span>
+          )}
+          {(doc as any).source && (
+            <span className="rounded-full border border-border bg-card text-muted-foreground text-[10px] px-2 py-0.5">{(doc as any).source}</span>
+          )}
+        </div>
         <div className="text-[10px] text-muted-foreground">
           By {doc.uploaded_by_name ?? "—"} · {new Date(doc.uploaded_at).toLocaleString("en-IN")}
         </div>
@@ -233,7 +306,7 @@ function DocRow({ doc, onDelete }: { doc: GuestDocumentRow; onDelete?: () => voi
       <div className="flex flex-wrap gap-1.5">
         {files.length === 0 && <span className="text-muted-foreground italic">No files attached</span>}
         {files.map((f) => (
-          <button key={f.key} type="button" onClick={() => open(f.path)}
+          <button key={f.key} type="button" onClick={() => onOpen(f.path)}
             className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 hover:border-gold/40">
             <Eye className="h-3 w-3" /> {f.key}
           </button>
