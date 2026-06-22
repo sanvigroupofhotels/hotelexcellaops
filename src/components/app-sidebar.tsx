@@ -5,7 +5,7 @@ import {
   MessageSquareWarning, Building2, Database,
   Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
   Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
-  BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound, Moon,
+  BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound, Moon, AlertTriangle,
 } from "lucide-react";
 import { useNightAuditStatus } from "@/hooks/use-night-audit-status";
 
@@ -26,12 +26,17 @@ const nav: NavItem[] = [
   { to: "/customers", label: "Customers", icon: Users, permission: "customers.view" },
   { to: "/dues", label: "Due Collection", icon: Receipt, permission: "dues.view" },
   { to: "/cash", label: "CashBook", icon: Wallet, permission: "cash.view" },
-  { to: "/night-audit", label: "Night Audit", icon: Moon, permission: "house_view.view" },
-  // Reporting is rendered separately as an expandable group below.
+  // End of Day group rendered separately below.
   { to: "/staff-management", label: "Staff Management", icon: UserCog, anyOf: ["staff.master", "staff.attendance", "staff.salary"] },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, permission: "complaints.view" },
   { to: "/master-data", label: "Master Data", icon: Database, anyOf: ["master.rooms", "master.rates", "master.others"] },
 ];
+
+const endOfDayChildren = [
+  { to: "/night-audit",                   label: "Dashboard",        icon: Home,        permission: "house_view.view" },
+  { to: "/night-audit/critical-tasks",    label: "Critical Tasks",   icon: AlertTriangle, permission: "house_view.view" },
+  { to: "/night-audit/eod-report",        label: "End of Day Report",icon: FileBarChart, permission: "house_view.view" },
+] as const;
 
 const reportingChildren = [
   { to: "/reporting/analytics",   label: "Analytics",            icon: BarChart3, permission: "reporting.analytics.view" },
@@ -76,7 +81,7 @@ function Logo() {
  * child routes; the parent has no page of its own.
  */
 function ExpandableGroup({
-  label, icon: Icon, prefix, children, onNavigate, pathname,
+  label, icon: Icon, prefix, children, onNavigate, pathname, badge,
 }: {
   label: string;
   icon: any;
@@ -84,6 +89,7 @@ function ExpandableGroup({
   children: ReadonlyArray<{ to: string; label: string; icon: any; adminOnly?: boolean; permission?: string; anyOf?: string[] }>;
   onNavigate?: () => void;
   pathname: string;
+  badge?: number;
 }) {
   const { isAdmin } = useUserRole();
   const { has, hasAny, isLoading } = usePermissions();
@@ -117,6 +123,11 @@ function ExpandableGroup({
         )}
         <Icon className={cn("relative h-4 w-4 shrink-0", sectionActive && "text-gold")} />
         <span className="relative flex-1 text-left">{label}</span>
+        {typeof badge === "number" && badge > 0 && (
+          <span className="relative inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold tabular-nums">
+            {badge}
+          </span>
+        )}
         <ChevronDown className={cn("relative h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
       </button>
 
@@ -167,9 +178,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
       {visible.map((item, i) => {
         const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to));
         const Icon = item.icon;
-        const isNA = item.to === "/night-audit";
         const pending = naStatus.data?.pendingCount ?? 0;
-        const sessionOpen = naStatus.data?.sessionStatus === "open";
         return (
           <motion.div
             key={item.to}
@@ -194,22 +203,16 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
               )}
               <Icon className={cn("relative h-4 w-4 shrink-0", active && "text-gold")} />
               <span className="relative flex-1">{item.label}</span>
-              {isNA && (
-                <span className="relative flex items-center gap-1">
-                  {sessionOpen && (
-                    <span className="text-[9px] uppercase tracking-wider text-emerald-500 font-medium">Open</span>
-                  )}
-                  {pending > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold tabular-nums">
-                      {pending}
-                    </span>
-                  )}
-                </span>
-              )}
             </Link>
           </motion.div>
         );
       })}
+      {/* End of Day — expandable group (Dashboard · Critical Tasks · EOD Report) */}
+      <ExpandableGroup
+        label="End of Day" icon={Moon} prefix="/night-audit"
+        children={endOfDayChildren} onNavigate={onNavigate} pathname={pathname}
+        badge={(naStatus.data?.pendingCount ?? 0) > 0 ? naStatus.data!.pendingCount : undefined}
+      />
       {/* Reporting group — visible to all signed-in staff (admin-only children are filtered inside) */}
       <ExpandableGroup
         label="Reporting" icon={FileBarChart} prefix="/reporting"
