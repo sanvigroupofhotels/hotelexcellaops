@@ -736,7 +736,7 @@ export const submitPortalComplaint = createServerFn({ method: "POST" })
   });
 
 // --- submitPortalReview ------------------------------------------------------
-const DEFAULT_EXTERNAL_REVIEW_URL = "https://hotelexcella.in/review";
+const DEFAULT_EXTERNAL_REVIEW_URL = "https://search.google.com/local/writereview?placeid=ChIJH-C8eTZbOToRDi7ckoJipcQ";
 
 export const submitPortalReview = createServerFn({ method: "POST" })
   .inputValidator((input) =>
