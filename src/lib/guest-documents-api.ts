@@ -91,6 +91,8 @@ export interface CreateGuestDocumentInput {
   selfie?: File | null;
   notes?: string;
   uploadedByName?: string;
+  /** Where the upload originated: Reception, Guest Portal, Booking Engine, OTA, Walk-in, etc. */
+  source?: string | null;
   /** Set true when a previously uploaded doc already has a Front Side on file. */
   allowMissingFront?: boolean;
 }
@@ -113,6 +115,7 @@ export async function createGuestDocument(input: CreateGuestDocumentInput): Prom
       notes: input.notes ?? null,
       uploaded_by: user.id,
       uploaded_by_name: input.uploadedByName ?? user.email ?? "Staff",
+      source: input.source ?? "Reception",
       user_id: user.id,
     } as any)
     .select()
