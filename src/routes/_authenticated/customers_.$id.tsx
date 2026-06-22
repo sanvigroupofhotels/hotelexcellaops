@@ -238,6 +238,8 @@ function CustomerDetail() {
               </div>
             </div>
 
+            <CustomerDocumentsCard customerId={c.id} />
+
             {/* P10 — Stacked order: Internal Notes ↓ Tag ↓ Lead Source */}
             <div className="luxe-card rounded-xl p-5">
               <h3 className="font-display text-lg mb-3">Internal Notes</h3>
