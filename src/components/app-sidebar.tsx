@@ -81,7 +81,7 @@ function Logo() {
  * child routes; the parent has no page of its own.
  */
 function ExpandableGroup({
-  label, icon: Icon, prefix, children, onNavigate, pathname,
+  label, icon: Icon, prefix, children, onNavigate, pathname, badge,
 }: {
   label: string;
   icon: any;
@@ -89,6 +89,7 @@ function ExpandableGroup({
   children: ReadonlyArray<{ to: string; label: string; icon: any; adminOnly?: boolean; permission?: string; anyOf?: string[] }>;
   onNavigate?: () => void;
   pathname: string;
+  badge?: number;
 }) {
   const { isAdmin } = useUserRole();
   const { has, hasAny, isLoading } = usePermissions();
