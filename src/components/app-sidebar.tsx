@@ -172,9 +172,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
       {visible.map((item, i) => {
         const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to));
         const Icon = item.icon;
-        const isNA = item.to === "/night-audit";
         const pending = naStatus.data?.pendingCount ?? 0;
-        const sessionOpen = naStatus.data?.sessionStatus === "open";
         return (
           <motion.div
             key={item.to}
@@ -199,22 +197,16 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
               )}
               <Icon className={cn("relative h-4 w-4 shrink-0", active && "text-gold")} />
               <span className="relative flex-1">{item.label}</span>
-              {isNA && (
-                <span className="relative flex items-center gap-1">
-                  {sessionOpen && (
-                    <span className="text-[9px] uppercase tracking-wider text-emerald-500 font-medium">Open</span>
-                  )}
-                  {pending > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold tabular-nums">
-                      {pending}
-                    </span>
-                  )}
-                </span>
-              )}
             </Link>
           </motion.div>
         );
       })}
+      {/* End of Day — expandable group (Dashboard · Critical Tasks · EOD Report) */}
+      <ExpandableGroup
+        label="End of Day" icon={Moon} prefix="/night-audit"
+        children={endOfDayChildren} onNavigate={onNavigate} pathname={pathname}
+        badge={(naStatus.data?.pendingCount ?? 0) > 0 ? naStatus.data!.pendingCount : undefined}
+      />
       {/* Reporting group — visible to all signed-in staff (admin-only children are filtered inside) */}
       <ExpandableGroup
         label="Reporting" icon={FileBarChart} prefix="/reporting"
