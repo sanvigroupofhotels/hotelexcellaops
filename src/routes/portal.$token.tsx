@@ -94,12 +94,35 @@ function GuestPortal() {
     enabled: !!q.data,
   });
 
+  // ---- Profile completion (compute BEFORE any early return to keep hooks order stable) ----
+  const b: any = q.data ?? {};
+  const docs = (docsQ.data ?? []) as any[];
+  const hasVerifiedDoc = docs.some((d) => !!d.verified_at);
+  const hasAnyDoc = docs.some((d) => !!d.front_path);
+  const docComplete = hasVerifiedDoc || hasAnyDoc;
+  const arrivalHasTime = (() => {
+    if (!b.expectedArrivalAt) return false;
+    const d = new Date(b.expectedArrivalAt);
+    return !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0);
+  })();
+  const score = useMemo(() => {
+    const checks = [
+      { label: "Email Address", ok: !!b.email?.trim() },
+      { label: "Expected Arrival Time", ok: arrivalHasTime },
+      { label: "Guest Documents", ok: docComplete },
+    ];
+    const pts = checks.filter((c) => c.ok).length;
+    return {
+      pct: Math.round((pts / checks.length) * 100),
+      missing: checks.filter((c) => !c.ok).map((c) => c.label),
+    };
+  }, [b.email, arrivalHasTime, docComplete]);
+
   if (q.isLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
   }
   if (q.error) throw q.error instanceof Error ? q.error : new Error(errMsg(q.error, "Booking link not found"));
   if (!q.data) throw new Error("Booking link not found");
-  const b = q.data;
 
   const onChoose = async (choice: PortalPaymentChoice) => {
     setBusy(true);
@@ -147,29 +170,7 @@ function GuestPortal() {
     } finally { setBusy(false); }
   };
 
-  // ---- Profile completion: Email + Expected Arrival Time + Verified Document ----
-  const docs = (docsQ.data ?? []) as any[];
-  const hasVerifiedDoc = docs.some((d) => !!d.verified_at);
-  const hasAnyDoc = docs.some((d) => !!d.front_path);
-  const docComplete = hasVerifiedDoc || hasAnyDoc; // graceful fallback when verification not yet done
-  const arrivalHasTime = (() => {
-    if (!b.expectedArrivalAt) return false;
-    // We treat a meaningful arrival time as anything not at midnight.
-    const d = new Date(b.expectedArrivalAt);
-    return !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0);
-  })();
-  const score = useMemo(() => {
-    const checks = [
-      { label: "Email Address", ok: !!b.email?.trim() },
-      { label: "Expected Arrival Time", ok: arrivalHasTime },
-      { label: "Guest Documents", ok: docComplete },
-    ];
-    const pts = checks.filter((c) => c.ok).length;
-    return {
-      pct: Math.round((pts / checks.length) * 100),
-      missing: checks.filter((c) => !c.ok).map((c) => c.label),
-    };
-  }, [b.email, arrivalHasTime, docComplete]);
+
 
   const isCancelled = b.status === "Cancelled";
 
