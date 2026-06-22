@@ -74,6 +74,7 @@ import { Route as AuthenticatedReportingPaymentsRouteImport } from './routes/_au
 import { Route as AuthenticatedReportingNightAuditRouteImport } from './routes/_authenticated/reporting.night-audit'
 import { Route as AuthenticatedReportingAnalyticsRouteImport } from './routes/_authenticated/reporting.analytics'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
+import { Route as AuthenticatedNightAuditEodReportRouteImport } from './routes/_authenticated/night-audit.eod-report'
 import { Route as AuthenticatedNightAuditCriticalTasksRouteImport } from './routes/_authenticated/night-audit.critical-tasks'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
 import { Route as AuthenticatedComplaintsIdRouteImport } from './routes/_authenticated/complaints_.$id'
@@ -432,6 +433,12 @@ const AuthenticatedQuoteIdRoute = AuthenticatedQuoteIdRouteImport.update({
   path: '/quote/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedNightAuditEodReportRoute =
+  AuthenticatedNightAuditEodReportRouteImport.update({
+    id: '/eod-report',
+    path: '/eod-report',
+    getParentRoute: () => AuthenticatedNightAuditRoute,
+  } as any)
 const AuthenticatedNightAuditCriticalTasksRoute =
   AuthenticatedNightAuditCriticalTasksRouteImport.update({
     id: '/critical-tasks',
@@ -531,6 +538,7 @@ export interface FileRoutesByFullPath {
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
+  '/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
@@ -602,6 +610,7 @@ export interface FileRoutesByTo {
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
+  '/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
@@ -679,6 +688,7 @@ export interface FileRoutesById {
   '/_authenticated/complaints_/$id': typeof AuthenticatedComplaintsIdRoute
   '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
   '/_authenticated/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
+  '/_authenticated/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/_authenticated/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/_authenticated/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
@@ -756,6 +766,7 @@ export interface FileRouteTypes {
     | '/complaints/$id'
     | '/customers/$id'
     | '/night-audit/critical-tasks'
+    | '/night-audit/eod-report'
     | '/quote/$id'
     | '/reporting/analytics'
     | '/reporting/night-audit'
@@ -827,6 +838,7 @@ export interface FileRouteTypes {
     | '/complaints/$id'
     | '/customers/$id'
     | '/night-audit/critical-tasks'
+    | '/night-audit/eod-report'
     | '/quote/$id'
     | '/reporting/analytics'
     | '/reporting/night-audit'
@@ -903,6 +915,7 @@ export interface FileRouteTypes {
     | '/_authenticated/complaints_/$id'
     | '/_authenticated/customers_/$id'
     | '/_authenticated/night-audit/critical-tasks'
+    | '/_authenticated/night-audit/eod-report'
     | '/_authenticated/quote/$id'
     | '/_authenticated/reporting/analytics'
     | '/_authenticated/reporting/night-audit'
@@ -1404,6 +1417,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedQuoteIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/night-audit/eod-report': {
+      id: '/_authenticated/night-audit/eod-report'
+      path: '/eod-report'
+      fullPath: '/night-audit/eod-report'
+      preLoaderRoute: typeof AuthenticatedNightAuditEodReportRouteImport
+      parentRoute: typeof AuthenticatedNightAuditRoute
+    }
     '/_authenticated/night-audit/critical-tasks': {
       id: '/_authenticated/night-audit/critical-tasks'
       path: '/critical-tasks'
@@ -1472,6 +1492,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedNightAuditRouteChildren {
   AuthenticatedNightAuditCriticalTasksRoute: typeof AuthenticatedNightAuditCriticalTasksRoute
+  AuthenticatedNightAuditEodReportRoute: typeof AuthenticatedNightAuditEodReportRoute
   AuthenticatedNightAuditIndexRoute: typeof AuthenticatedNightAuditIndexRoute
 }
 
@@ -1479,6 +1500,8 @@ const AuthenticatedNightAuditRouteChildren: AuthenticatedNightAuditRouteChildren
   {
     AuthenticatedNightAuditCriticalTasksRoute:
       AuthenticatedNightAuditCriticalTasksRoute,
+    AuthenticatedNightAuditEodReportRoute:
+      AuthenticatedNightAuditEodReportRoute,
     AuthenticatedNightAuditIndexRoute: AuthenticatedNightAuditIndexRoute,
   }
 
