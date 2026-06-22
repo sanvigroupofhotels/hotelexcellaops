@@ -1332,6 +1332,8 @@ export type Database = {
           uploaded_by: string | null
           uploaded_by_name: string | null
           user_id: string
+          verified_at: string | null
+          verified_by_name: string | null
         }
         Insert: {
           back_path?: string | null
@@ -1353,6 +1355,8 @@ export type Database = {
           uploaded_by?: string | null
           uploaded_by_name?: string | null
           user_id?: string
+          verified_at?: string | null
+          verified_by_name?: string | null
         }
         Update: {
           back_path?: string | null
@@ -1374,6 +1378,8 @@ export type Database = {
           uploaded_by?: string | null
           uploaded_by_name?: string | null
           user_id?: string
+          verified_at?: string | null
+          verified_by_name?: string | null
         }
         Relationships: [
           {
@@ -1397,11 +1403,16 @@ export type Database = {
           booking_id: string
           comment: string | null
           created_at: string
+          customer_id: string | null
+          feedback_additional_comments: string | null
+          feedback_what_went_wrong: string | null
           guest_name: string | null
           id: string
           is_public: boolean
           moderated_at: string | null
           rating: number
+          routed_to_external: boolean
+          source: string | null
           updated_at: string
           would_recommend: boolean | null
         }
@@ -1409,11 +1420,16 @@ export type Database = {
           booking_id: string
           comment?: string | null
           created_at?: string
+          customer_id?: string | null
+          feedback_additional_comments?: string | null
+          feedback_what_went_wrong?: string | null
           guest_name?: string | null
           id?: string
           is_public?: boolean
           moderated_at?: string | null
           rating: number
+          routed_to_external?: boolean
+          source?: string | null
           updated_at?: string
           would_recommend?: boolean | null
         }
@@ -1421,11 +1437,16 @@ export type Database = {
           booking_id?: string
           comment?: string | null
           created_at?: string
+          customer_id?: string | null
+          feedback_additional_comments?: string | null
+          feedback_what_went_wrong?: string | null
           guest_name?: string | null
           id?: string
           is_public?: boolean
           moderated_at?: string | null
           rating?: number
+          routed_to_external?: boolean
+          source?: string | null
           updated_at?: string
           would_recommend?: boolean | null
         }
@@ -1435,6 +1456,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_reviews_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
         ]

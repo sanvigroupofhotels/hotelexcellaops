@@ -489,3 +489,294 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
     }
     return { ok: true, alreadyRecorded: false };
   });
+
+// ===========================================================================
+// Guest Portal — Documents, Cancellation, Complaint, Review (Batch B)
+// ===========================================================================
+
+const GUEST_DOC_BUCKET = "guest-documents";
+
+async function tokenToBooking(token: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: tok } = await supabaseAdmin
+    .from("booking_tokens")
+    .select("booking_id, revoked_at, expires_at")
+    .eq("token", token)
+    .maybeSingle();
+  if (!tok || (tok as any).revoked_at || ((tok as any).expires_at && new Date((tok as any).expires_at).getTime() < Date.now())) {
+    throw new Error("Link is invalid or expired");
+  }
+  const { data: b } = await supabaseAdmin
+    .from("bookings")
+    .select("id, user_id, customer_id, check_in, advance_paid, status, booking_reference, guest_name")
+    .eq("id", (tok as any).booking_id)
+    .maybeSingle();
+  if (!b) throw new Error("Booking not found");
+  return { supabaseAdmin, booking: b as any };
+}
+
+// --- listPortalDocuments -----------------------------------------------------
+export const listPortalDocuments = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ token: z.string().min(8).max(128) }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
+    const filters: string[] = [`booking_id.eq.${booking.id}`];
+    if (booking.customer_id) filters.push(`customer_id.eq.${booking.customer_id}`);
+    const { data: rows, error } = await supabaseAdmin
+      .from("guest_documents")
+      .select("*")
+      .or(filters.join(","))
+      .is("deleted_at", null)
+      .order("uploaded_at", { ascending: false });
+    if (error) throw error;
+    const seen = new Set<string>();
+    return (rows ?? []).filter((r: any) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+  });
+
+// --- signPortalDocumentUrl ---------------------------------------------------
+export const signPortalDocumentUrl = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z.object({ token: z.string().min(8).max(128), path: z.string().min(1).max(512) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
+    // The path must reference a document attached to this booking or its customer.
+    const { data: rows } = await supabaseAdmin
+      .from("guest_documents")
+      .select("id, booking_id, customer_id, front_path, back_path, selfie_path")
+      .or([
+        `booking_id.eq.${booking.id}`,
+        ...(booking.customer_id ? [`customer_id.eq.${booking.customer_id}`] : []),
+      ].join(","));
+    const ok = (rows ?? []).some((r: any) =>
+      r.front_path === data.path || r.back_path === data.path || r.selfie_path === data.path,
+    );
+    if (!ok) throw new Error("File not found");
+    const { data: signed, error } = await supabaseAdmin.storage
+      .from(GUEST_DOC_BUCKET)
+      .createSignedUrl(data.path, 300);
+    if (error || !signed) throw new Error("Could not generate file link");
+    return { url: signed.signedUrl };
+  });
+
+// --- uploadPortalDocument ----------------------------------------------------
+// Files are passed as { name, mime, base64 } chunks. ID photos are small enough.
+const FileBlob = z.object({
+  name: z.string().min(1).max(200),
+  mime: z.string().min(1).max(120),
+  base64: z.string().min(8).max(8_000_000), // ~6MB binary cap
+}).optional().nullable();
+
+export const uploadPortalDocument = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z.object({
+      token: z.string().min(8).max(128),
+      doc_type: z.enum(["Aadhaar", "PAN", "Passport", "Driving License", "Other"]),
+      notes: z.string().max(2000).optional().default(""),
+      front: FileBlob,
+      back: FileBlob,
+      selfie: FileBlob,
+      uploaded_by_name: z.string().max(200).optional(),
+    }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
+    if (!data.front && !data.back && !data.selfie) {
+      throw new Error("Please choose at least one file to upload");
+    }
+    // Determine if existing doc already has a Front
+    const { data: existing } = await supabaseAdmin
+      .from("guest_documents")
+      .select("front_path")
+      .or([
+        `booking_id.eq.${booking.id}`,
+        ...(booking.customer_id ? [`customer_id.eq.${booking.customer_id}`] : []),
+      ].join(","))
+      .is("deleted_at", null);
+    const hasExistingFront = (existing ?? []).some((r: any) => !!r.front_path);
+    if (!data.front && !hasExistingFront) throw new Error("Front side is mandatory");
+
+    const insertRes = await supabaseAdmin
+      .from("guest_documents")
+      .insert({
+        booking_id: booking.id,
+        customer_id: booking.customer_id ?? null,
+        doc_type: data.doc_type,
+        notes: data.notes || null,
+        uploaded_by: null,
+        uploaded_by_name: data.uploaded_by_name || booking.guest_name || "Guest (Portal)",
+        source: "Guest Portal",
+        user_id: booking.user_id,
+      } as any)
+      .select()
+      .single();
+    if (insertRes.error) throw insertRes.error;
+    const row = insertRes.data as any;
+
+    const scope = booking.id;
+    const patch: Record<string, string> = {};
+    const upload = async (kind: "front" | "back" | "selfie", blob: { name: string; mime: string; base64: string } | null | undefined) => {
+      if (!blob) return;
+      const extMatch = blob.name.match(/\.([a-z0-9]+)$/i);
+      const ext = (extMatch?.[1] || (blob.mime.split("/")[1] ?? "jpg")).toLowerCase();
+      const bin = Buffer.from(blob.base64, "base64");
+      const path = `${scope}/${row.id}/${kind}.${ext}`;
+      const { error } = await supabaseAdmin.storage
+        .from(GUEST_DOC_BUCKET)
+        .upload(path, bin, { upsert: true, cacheControl: "3600", contentType: blob.mime || "image/jpeg" });
+      if (error) throw error;
+      patch[`${kind}_path`] = path;
+    };
+    try {
+      await upload("front", data.front ?? null);
+      await upload("back", data.back ?? null);
+      await upload("selfie", data.selfie ?? null);
+    } catch (e) {
+      await supabaseAdmin.from("guest_documents").delete().eq("id", row.id);
+      throw e;
+    }
+    if (Object.keys(patch).length > 0) {
+      const { data: updated, error } = await supabaseAdmin
+        .from("guest_documents").update(patch as any).eq("id", row.id).select().single();
+      if (error) throw error;
+      return updated;
+    }
+    return row;
+  });
+
+// --- softDeletePortalDocument -----------------------------------------------
+export const softDeletePortalDocument = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z.object({ token: z.string().min(8).max(128), doc_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
+    const { data: doc } = await supabaseAdmin
+      .from("guest_documents")
+      .select("id, booking_id, customer_id")
+      .eq("id", data.doc_id)
+      .maybeSingle();
+    if (!doc) throw new Error("Document not found");
+    const owns =
+      (doc as any).booking_id === booking.id ||
+      (booking.customer_id && (doc as any).customer_id === booking.customer_id);
+    if (!owns) throw new Error("Not allowed");
+    const { error } = await supabaseAdmin
+      .from("guest_documents")
+      .update({
+        deleted_at: new Date().toISOString(),
+        deleted_by_name: booking.guest_name || "Guest (Portal)",
+      } as any)
+      .eq("id", data.doc_id);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+// --- cancelPortalBooking -----------------------------------------------------
+export const cancelPortalBooking = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ token: z.string().min(8).max(128) }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
+    if (["Cancelled", "Checked-In", "Checked-Out", "Stay Completed", "No-Show"].includes(booking.status)) {
+      throw new Error("This booking cannot be cancelled from the portal. Please contact reception.");
+    }
+    if (Number(booking.advance_paid || 0) > 0) {
+      throw new Error("Payment already recorded — please contact reception to cancel your booking.");
+    }
+    // Cut-off: now <= check-in 14:00 IST - 24h
+    const checkInIso = `${booking.check_in}T14:00:00+05:30`;
+    const cutoff = new Date(checkInIso).getTime() - 24 * 60 * 60 * 1000;
+    if (Date.now() > cutoff) {
+      throw new Error("Cancellation window closed (within 24h of check-in) — please contact reception.");
+    }
+    const { error } = await supabaseAdmin
+      .from("bookings")
+      .update({
+        status: "Cancelled",
+        cancel_reason: "Guest self-cancelled (Guest Portal)",
+      } as any)
+      .eq("id", booking.id);
+    if (error) throw error;
+    await supabaseAdmin.from("booking_activities" as any).insert({
+      booking_id: booking.id,
+      actor_name: "Guest (Portal)",
+      actor_role: "guest",
+      action: "cancelled",
+      notes: "Booking cancelled by guest via portal",
+    } as any);
+    return { ok: true };
+  });
+
+// --- submitPortalComplaint --------------------------------------------------
+export const submitPortalComplaint = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z.object({
+      token: z.string().min(8).max(128),
+      category: z.string().min(1).max(120),
+      description: z.string().min(3).max(4000),
+    }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
+    const { error } = await supabaseAdmin.from("complaints" as any).insert({
+      user_id: booking.user_id,
+      complaint_type: "General",
+      booking_id: booking.id,
+      customer_id: booking.customer_id ?? null,
+      category: data.category,
+      priority: "Medium",
+      status: "Open",
+      entered_by_name: `${booking.guest_name || "Guest"} (Portal)`,
+      description: data.description,
+      issue_type: "Guest Complaint",
+      guest_impacted: true,
+    } as any);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+// --- submitPortalReview ------------------------------------------------------
+const DEFAULT_EXTERNAL_REVIEW_URL = "https://hotelexcella.in/review";
+
+export const submitPortalReview = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z.object({
+      token: z.string().min(8).max(128),
+      rating: z.number().int().min(1).max(5),
+      comment: z.string().max(4000).optional().default(""),
+      feedback_what_went_wrong: z.string().max(4000).optional().default(""),
+      feedback_additional_comments: z.string().max(4000).optional().default(""),
+    }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
+    // Read external review URL setting (best-effort)
+    let externalUrl = DEFAULT_EXTERNAL_REVIEW_URL;
+    try {
+      const { data: row } = await supabaseAdmin
+        .from("app_settings")
+        .select("value")
+        .eq("key", "external_review_url")
+        .maybeSingle();
+      const v = (row as any)?.value;
+      if (typeof v === "string" && v.startsWith("http")) externalUrl = v;
+      else if (v && typeof v === "object" && typeof v.url === "string") externalUrl = v.url;
+    } catch { /* ignore */ }
+
+    const route = data.rating >= 4 ? "external" : "feedback";
+    const { error } = await supabaseAdmin.from("guest_reviews" as any).insert({
+      booking_id: booking.id,
+      customer_id: booking.customer_id ?? null,
+      rating: data.rating,
+      comment: data.comment || null,
+      feedback_what_went_wrong: data.feedback_what_went_wrong || null,
+      feedback_additional_comments: data.feedback_additional_comments || null,
+      guest_name: booking.guest_name,
+      source: "Guest Portal",
+      routed_to_external: route === "external",
+      would_recommend: data.rating >= 4,
+      is_public: false,
+    } as any);
+    if (error) throw error;
+    return { ok: true, route, externalReviewUrl: route === "external" ? externalUrl : null };
+  });
