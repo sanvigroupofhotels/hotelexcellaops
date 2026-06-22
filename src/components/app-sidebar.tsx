@@ -26,12 +26,17 @@ const nav: NavItem[] = [
   { to: "/customers", label: "Customers", icon: Users, permission: "customers.view" },
   { to: "/dues", label: "Due Collection", icon: Receipt, permission: "dues.view" },
   { to: "/cash", label: "CashBook", icon: Wallet, permission: "cash.view" },
-  { to: "/night-audit", label: "Night Audit", icon: Moon, permission: "house_view.view" },
-  // Reporting is rendered separately as an expandable group below.
+  // End of Day group rendered separately below.
   { to: "/staff-management", label: "Staff Management", icon: UserCog, anyOf: ["staff.master", "staff.attendance", "staff.salary"] },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, permission: "complaints.view" },
   { to: "/master-data", label: "Master Data", icon: Database, anyOf: ["master.rooms", "master.rates", "master.others"] },
 ];
+
+const endOfDayChildren = [
+  { to: "/night-audit",                   label: "Dashboard",        icon: Home,        permission: "house_view.view" },
+  { to: "/night-audit/critical-tasks",    label: "Critical Tasks",   icon: AlertTriangle, permission: "house_view.view" },
+  { to: "/night-audit/eod-report",        label: "End of Day Report",icon: FileBarChart, permission: "house_view.view" },
+] as const;
 
 const reportingChildren = [
   { to: "/reporting/analytics",   label: "Analytics",            icon: BarChart3, permission: "reporting.analytics.view" },
