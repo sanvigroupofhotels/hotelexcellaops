@@ -50,6 +50,7 @@ import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAccessSettingsRouteImport } from './routes/_authenticated/access-settings'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
+import { Route as AuthenticatedNightAuditIndexRouteImport } from './routes/_authenticated/night-audit.index'
 import { Route as BookingEngineConfirmationRefRouteImport } from './routes/booking-engine.confirmation.$ref'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
 import { Route as ApiPublicNightAuditRouteImport } from './routes/api/public/night-audit'
@@ -290,6 +291,12 @@ const AuthenticatedSettingsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedNightAuditIndexRoute =
+  AuthenticatedNightAuditIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedNightAuditRoute,
+  } as any)
 const BookingEngineConfirmationRefRoute =
   BookingEngineConfirmationRefRouteImport.update({
     id: '/confirmation/$ref',
@@ -492,7 +499,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
-  '/night-audit': typeof AuthenticatedNightAuditRoute
+  '/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/rates': typeof AuthenticatedRatesRoute
   '/reporting': typeof AuthenticatedReportingRouteWithChildren
@@ -539,6 +546,7 @@ export interface FileRoutesByFullPath {
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/booking-engine/confirmation/$ref': typeof BookingEngineConfirmationRefRoute
+  '/night-audit/': typeof AuthenticatedNightAuditIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -562,7 +570,6 @@ export interface FileRoutesByTo {
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
-  '/night-audit': typeof AuthenticatedNightAuditRoute
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/rates': typeof AuthenticatedRatesRoute
   '/reporting': typeof AuthenticatedReportingRouteWithChildren
@@ -609,6 +616,7 @@ export interface FileRoutesByTo {
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/booking-engine/confirmation/$ref': typeof BookingEngineConfirmationRefRoute
+  '/night-audit': typeof AuthenticatedNightAuditIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -636,7 +644,7 @@ export interface FileRoutesById {
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/house-view': typeof AuthenticatedHouseViewRoute
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
-  '/_authenticated/night-audit': typeof AuthenticatedNightAuditRoute
+  '/_authenticated/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
   '/_authenticated/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/_authenticated/rates': typeof AuthenticatedRatesRoute
   '/_authenticated/reporting': typeof AuthenticatedReportingRouteWithChildren
@@ -684,6 +692,7 @@ export interface FileRoutesById {
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/booking-engine/confirmation/$ref': typeof BookingEngineConfirmationRefRoute
+  '/_authenticated/night-audit/': typeof AuthenticatedNightAuditIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -759,6 +768,7 @@ export interface FileRouteTypes {
     | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
     | '/booking-engine/confirmation/$ref'
+    | '/night-audit/'
     | '/settings/'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
@@ -782,7 +792,6 @@ export interface FileRouteTypes {
     | '/history'
     | '/house-view'
     | '/master-data'
-    | '/night-audit'
     | '/payments-reports'
     | '/rates'
     | '/reporting'
@@ -829,6 +838,7 @@ export interface FileRouteTypes {
     | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
     | '/booking-engine/confirmation/$ref'
+    | '/night-audit'
     | '/settings'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
@@ -903,6 +913,7 @@ export interface FileRouteTypes {
     | '/api/public/night-audit'
     | '/api/public/razorpay-webhook'
     | '/booking-engine/confirmation/$ref'
+    | '/_authenticated/night-audit/'
     | '/_authenticated/settings/'
     | '/_authenticated/bookings_/$id_/edit'
     | '/_authenticated/quote/$id_/edit'
@@ -1212,6 +1223,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/night-audit/': {
+      id: '/_authenticated/night-audit/'
+      path: '/'
+      fullPath: '/night-audit/'
+      preLoaderRoute: typeof AuthenticatedNightAuditIndexRouteImport
+      parentRoute: typeof AuthenticatedNightAuditRoute
+    }
     '/booking-engine/confirmation/$ref': {
       id: '/booking-engine/confirmation/$ref'
       path: '/confirmation/$ref'
@@ -1432,6 +1450,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedNightAuditRouteChildren {
+  AuthenticatedNightAuditIndexRoute: typeof AuthenticatedNightAuditIndexRoute
+}
+
+const AuthenticatedNightAuditRouteChildren: AuthenticatedNightAuditRouteChildren =
+  {
+    AuthenticatedNightAuditIndexRoute: AuthenticatedNightAuditIndexRoute,
+  }
+
+const AuthenticatedNightAuditRouteWithChildren =
+  AuthenticatedNightAuditRoute._addFileChildren(
+    AuthenticatedNightAuditRouteChildren,
+  )
+
 interface AuthenticatedReportingRouteChildren {
   AuthenticatedReportingAnalyticsRoute: typeof AuthenticatedReportingAnalyticsRoute
   AuthenticatedReportingNightAuditRoute: typeof AuthenticatedReportingNightAuditRoute
@@ -1534,7 +1566,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedHouseViewRoute: typeof AuthenticatedHouseViewRoute
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
-  AuthenticatedNightAuditRoute: typeof AuthenticatedNightAuditRoute
+  AuthenticatedNightAuditRoute: typeof AuthenticatedNightAuditRouteWithChildren
   AuthenticatedPaymentsReportsRoute: typeof AuthenticatedPaymentsReportsRoute
   AuthenticatedRatesRoute: typeof AuthenticatedRatesRoute
   AuthenticatedReportingRoute: typeof AuthenticatedReportingRouteWithChildren
@@ -1574,7 +1606,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedHouseViewRoute: AuthenticatedHouseViewRoute,
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
-  AuthenticatedNightAuditRoute: AuthenticatedNightAuditRoute,
+  AuthenticatedNightAuditRoute: AuthenticatedNightAuditRouteWithChildren,
   AuthenticatedPaymentsReportsRoute: AuthenticatedPaymentsReportsRoute,
   AuthenticatedRatesRoute: AuthenticatedRatesRoute,
   AuthenticatedReportingRoute: AuthenticatedReportingRouteWithChildren,
