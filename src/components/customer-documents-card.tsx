@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { FileImage, Plus, Eye, Loader2 } from "lucide-react";
 import { listCustomerGuestDocuments, signedUrlForPath, type GuestDocumentRow } from "@/lib/guest-documents-api";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export function CustomerDocumentsCard({ customerId }: { customerId: string }) {
@@ -10,6 +11,24 @@ export function CustomerDocumentsCard({ customerId }: { customerId: string }) {
   const { data: docs = [], isLoading } = useQuery({
     queryKey: ["guest-documents", "customer", customerId],
     queryFn: () => listCustomerGuestDocuments(customerId),
+  });
+
+  // Resolve booking_reference for any docs that have a booking_id, so we can
+  // show "Booking HEXB-XXXXX" instead of a UUID.
+  const bookingIds = Array.from(new Set(docs.map((d) => d.booking_id).filter(Boolean) as string[]));
+  const { data: bookingRefs = {} } = useQuery({
+    queryKey: ["guest-documents", "booking-refs", bookingIds.sort().join(",")],
+    queryFn: async () => {
+      if (bookingIds.length === 0) return {} as Record<string, string>;
+      const { data } = await supabase
+        .from("bookings" as any)
+        .select("id, booking_reference")
+        .in("id", bookingIds);
+      const map: Record<string, string> = {};
+      for (const b of (data ?? []) as any[]) map[b.id] = b.booking_reference;
+      return map;
+    },
+    enabled: bookingIds.length > 0,
   });
 
   const openFile = async (path: string | null) => {
@@ -46,7 +65,9 @@ export function CustomerDocumentsCard({ customerId }: { customerId: string }) {
         </div>
       ) : (
         <div className="divide-y divide-border/50">
-          {docs.map((d) => <DocRow key={d.id} doc={d} onOpen={openFile} />)}
+          {docs.map((d) => (
+            <DocRow key={d.id} doc={d} bookingRef={d.booking_id ? bookingRefs[d.booking_id] : undefined} onOpen={openFile} />
+          ))}
         </div>
       )}
 
@@ -61,20 +82,32 @@ export function CustomerDocumentsCard({ customerId }: { customerId: string }) {
   );
 }
 
-function DocRow({ doc, onOpen }: { doc: GuestDocumentRow; onOpen: (p: string | null) => void }) {
+function uploadedFromLabel(doc: GuestDocumentRow, bookingRef?: string): string {
+  // Prefer explicit source captured at upload time. Fall back to inferring
+  // from the link: booking → "Booking <ref>"; otherwise → Customer Profile.
+  if (doc.booking_id) {
+    return bookingRef ? `Booking ${bookingRef}` : "Booking";
+  }
+  return doc.source && doc.source.trim() ? doc.source : "Customer Profile";
+}
+
+function DocRow({ doc, bookingRef, onOpen }: { doc: GuestDocumentRow; bookingRef?: string; onOpen: (p: string | null) => void }) {
   const files = [
     { key: "Front", path: doc.front_path },
     { key: "Back", path: doc.back_path },
     { key: "Selfie", path: doc.selfie_path },
   ].filter((f) => f.path);
-  const source = doc.booking_id ? `Booking` : "Customer Profile";
+  const uploadedFrom = uploadedFromLabel(doc, bookingRef);
   return (
     <div className="px-5 py-3 flex flex-wrap items-center gap-3 text-xs">
       <FileImage className="h-4 w-4 text-gold shrink-0" />
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium truncate">{doc.doc_type}</div>
         <div className="text-[11px] text-muted-foreground">
-          {new Date(doc.uploaded_at).toLocaleString("en-IN")} · By {doc.uploaded_by_name ?? "—"} · Source: {source}
+          {new Date(doc.uploaded_at).toLocaleString("en-IN")} · By {doc.uploaded_by_name ?? "—"}
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">
+          Uploaded from: <span className="text-foreground font-medium">{uploadedFrom}</span>
         </div>
       </div>
       <div className="flex flex-wrap gap-1.5">
