@@ -700,9 +700,9 @@ function HouseView() {
                                         .catch(() => { /* highlighting is optional */ });
                                     }}
                                     onDragEnd={() => setDragAvail(null)}
-                                    onTouchStart={() => { if (dragEnabled && isMobile) startLongPress(b, r.id); }}
+                                    onTouchStart={(e) => { if (dragEnabled && isMobile) startLongPress(b, r.id, e); }}
                                     onTouchEnd={cancelLongPress}
-                                    onTouchMove={cancelLongPress}
+                                    onTouchMove={moveLongPress}
                                     onTouchCancel={cancelLongPress}
                                     className={cn(
                                       "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
