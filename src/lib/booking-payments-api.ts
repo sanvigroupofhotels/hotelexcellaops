@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import { logActivity } from "@/lib/activity-log";
+
 
 export const PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Card", "Hotelzify", "OTA"] as const;
 export type PaymentMode = (typeof PAYMENT_MODES)[number] | string;
@@ -71,7 +73,26 @@ export async function createBookingPayment(input: BookingPaymentInput) {
   };
   const { data, error } = await supabase.from("booking_payments" as any).insert(row).select().single();
   if (error) throw error;
-  return data as unknown as BookingPaymentRow;
+  const created = data as unknown as BookingPaymentRow;
+  void logActivity({
+    page: "Payments",
+    action: created.is_refund ? "payment_refunded" : "payment_recorded",
+    entity_type: "booking_payment",
+    entity_id: created.id,
+    entity_reference: input.payment_mode,
+    summary: `${created.is_refund ? "Refund" : "Payment"} · ₹${created.amount} · ${created.payment_mode} · by ${created.collected_by}`,
+    after: {
+      booking_id: created.booking_id,
+      amount: created.amount,
+      payment_mode: created.payment_mode,
+      collected_by: created.collected_by,
+      is_refund: !!created.is_refund,
+      refund_reason: created.refund_reason ?? null,
+    },
+    metadata: { booking_id: created.booking_id },
+    source: "manual",
+  });
+  return created;
 }
 
 export async function updateBookingPayment(id: string, patch: Partial<BookingPaymentInput>) {
