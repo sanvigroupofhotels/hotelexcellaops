@@ -430,10 +430,10 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
       <div className="grid grid-cols-1 gap-3">
         <Input label="Full Name *" icon={<User className="h-3.5 w-3.5" />} value={name} onChange={setName} />
         <Input label="Mobile Number *" icon={<Phone className="h-3.5 w-3.5" />} value={phone} onChange={setPhone} />
-        <Input label="Email Address" icon={<Mail className="h-3.5 w-3.5" />} value={email} onChange={setEmail} type="email" />
+        <Input id="portal-email" label="Email Address" icon={<Mail className="h-3.5 w-3.5" />} value={email} onChange={setEmail} type="email" />
       </div>
 
-      <div className="border-t border-border/40 pt-4 space-y-3">
+      <div id="portal-arrival" className="border-t border-border/40 pt-4 space-y-3 scroll-mt-24">
         <h4 className="text-xs font-medium flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-gold" /> Expected Arrival</h4>
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
