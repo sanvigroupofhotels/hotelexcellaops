@@ -65,7 +65,7 @@ export function Analytics() {
 
   return (
     <>
-      <Topbar title="Analytics" subtitle="Sales pipeline, revenue forecast & lead intelligence" />
+      <Topbar title="CRM Analytics" subtitle="Sales pipeline, revenue forecast & lead intelligence" />
       <div className="px-4 md:px-8 py-6 md:py-8 space-y-6 max-w-[1400px]">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <KPI icon={TrendingUp} label="Conversion" value={`${conversion}%`} />
