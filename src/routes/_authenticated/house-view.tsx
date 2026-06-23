@@ -44,7 +44,20 @@ export const Route = createFileRoute("/_authenticated/house-view")({
 const DAY_COUNT = 7;
 const CELL_W = 170;
 const CELL_W_MOB = 150;
-const ROOM_COL_W = 120;
+const ROOM_COL_W = 72;
+const LONG_PRESS_DELAY_MS = 500;
+const LONG_PRESS_MOVE_TOLERANCE = 14; // px — ignore normal finger jitter on real phones
+
+const MOVE_ELIGIBLE_STATUSES = new Set([
+  "pending",
+  "confirmed",
+  "advance paid",
+  "full paid",
+  "checked in",
+  "draft",
+  "reserved",
+]);
+const MOVE_CLOSED_STATUSES = new Set(["checked out", "cancelled", "no show", "stay completed"]);
 
 function dateKey(d: Date) {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
@@ -53,6 +66,20 @@ function dateKey(d: Date) {
 function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 function fmtShort(d: Date) { return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }); }
 function fmtFull(d: string) { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); }
+function normalizeMoveStatus(status: string | null | undefined) {
+  return String(status ?? "").toLowerCase().replace(/[\s-]+/g, " ").trim();
+}
+
+function todayKolkataKey() {
+  const parts = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
 
 /** YYYY-MM-DD arithmetic helpers for drag-and-drop date shifts. */
 function ymdAddDays(ymd: string, n: number): string {
@@ -139,28 +166,34 @@ function HouseView() {
   } | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressStart = useRef<{ x: number; y: number } | null>(null);
-  const LONG_PRESS_MOVE_TOLERANCE = 10; // px — ignore minor finger jitter
-  function startLongPress(b: any, roomId: string, e?: React.TouchEvent) {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    const t = e?.touches?.[0];
-    longPressStart.current = t ? { x: t.clientX, y: t.clientY } : null;
-    longPressTimer.current = setTimeout(() => {
-      setMoveDialog({
-        bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
-        checkIn: b.check_in, checkOut: b.check_out, status: b.status,
-      });
-      // Soft haptic if available
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        try { (navigator as any).vibrate?.(40); } catch { /* noop */ }
-      }
-    }, 500);
+  const longPressTriggered = useRef(false);
+  const longPressBookingId = useRef<string | null>(null);
+  function openMoveDialogForBooking(b: any, roomId: string) {
+    setMoveDialog({
+      bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
+      checkIn: b.check_in, checkOut: b.check_out, status: b.status,
+    });
+    // Soft haptic if available
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try { (navigator as any).vibrate?.(40); } catch { /* noop */ }
+    }
   }
-  function moveLongPress(e: React.TouchEvent) {
+  function startLongPress(b: any, roomId: string, point?: { x: number; y: number }) {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTriggered.current = false;
+    longPressBookingId.current = b.id;
+    longPressStart.current = point ?? null;
+    longPressTimer.current = setTimeout(() => {
+      longPressTimer.current = null;
+      longPressTriggered.current = true;
+      openMoveDialogForBooking(b, roomId);
+    }, LONG_PRESS_DELAY_MS);
+  }
+  function moveLongPress(point?: { x: number; y: number }) {
     if (!longPressTimer.current || !longPressStart.current) return;
-    const t = e.touches?.[0];
-    if (!t) return;
-    const dx = Math.abs(t.clientX - longPressStart.current.x);
-    const dy = Math.abs(t.clientY - longPressStart.current.y);
+    if (!point) return;
+    const dx = Math.abs(point.x - longPressStart.current.x);
+    const dy = Math.abs(point.y - longPressStart.current.y);
     if (dx > LONG_PRESS_MOVE_TOLERANCE || dy > LONG_PRESS_MOVE_TOLERANCE) {
       cancelLongPress();
     }
@@ -168,6 +201,10 @@ function HouseView() {
   function cancelLongPress() {
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
     longPressStart.current = null;
+    longPressBookingId.current = null;
+    if (longPressTriggered.current) {
+      window.setTimeout(() => { longPressTriggered.current = false; }, 350);
+    }
   }
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
@@ -394,6 +431,27 @@ function HouseView() {
     }
   }
 
+  function getMoveEligibility(b: any, roomId: string) {
+    const status = normalizeMoveStatus(b.status);
+    if (MOVE_CLOSED_STATUSES.has(status)) {
+      return { eligible: false, reason: "Closed bookings cannot be moved" };
+    }
+    if (!MOVE_ELIGIBLE_STATUSES.has(status)) {
+      return { eligible: false, reason: `Status ${b.status || "—"} is not movable` };
+    }
+    if (b._virtual) {
+      return { eligible: false, reason: "Assign a real room before moving this booking" };
+    }
+    const effectivePairedCount = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]).paired.length;
+    if (effectivePairedCount !== 1) {
+      return { eligible: false, reason: "Multi-room bookings must be edited from booking details" };
+    }
+    if (!roomId) {
+      return { eligible: false, reason: "Missing current room assignment" };
+    }
+    return { eligible: true, reason: "Long-press to move" };
+  }
+
 
 
 
@@ -563,7 +621,7 @@ function HouseView() {
               <thead>
                 <tr>
                   <th
-                    className="sticky left-0 top-0 z-40 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-left"
+                    className="sticky left-0 top-0 z-40 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center"
                     style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                   >Room</th>
                   {days.map((d, i) => {
@@ -571,12 +629,12 @@ function HouseView() {
                     const isLast = i === days.length - 1;
                     return (
                       <th key={d.toISOString()}
-                        className={cn("sticky top-0 z-30 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
-                          isToday ? "text-gold bg-gold-soft/40" : "text-muted-foreground",
+                        className={cn("sticky top-0 z-30 border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
+                          isToday ? "house-business-date-header border-gold/60" : "bg-card text-muted-foreground",
                           isLast && "border-r-0")}
                         style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
-                        <div className="font-medium">{d.toLocaleDateString("en-IN", { weekday: "short" })}</div>
-                        <div className="text-foreground text-xs">{fmtShort(d)}</div>
+                        <div className="font-semibold">{isToday ? "TODAY" : d.toLocaleDateString("en-IN", { weekday: "short" })}</div>
+                        <div className={cn("text-xs", isToday ? "text-current" : "text-foreground")}>{fmtShort(d)}</div>
                       </th>
                     );
                   })}
@@ -616,7 +674,7 @@ function HouseView() {
                           <td key={i}
                             className={cn(
                               "relative border-b border-r border-border align-top h-14 p-0 group/cell",
-                              isToday && "bg-gold-soft/10",
+                              isToday && "house-business-date-cell",
                               i % 2 === 0 && !isToday && "bg-secondary/10",
                               i === days.length - 1 && "border-r-0",
                               dragHL,
@@ -663,15 +721,25 @@ function HouseView() {
                                 const cellW = CELL_W_MOB;
                                 const hasBreakfast = breakfastByBooking.get(b.id);
                                 const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
-                                // Drag enabled only for real (non-virtual), single-room, active bookings.
-                                // Multi-room bookings would be ambiguous to move from a single pill,
-                                // and past/cancelled stays must not be edited via drag.
-                                const pairedCount = (assignmentsByBooking.get(b.id)?.length ?? 0);
-                                const lockedStatus = ["Checked-Out", "Stay Completed", "Cancelled", "No-Show"].includes(b.status);
-                                const dragEnabled = !b._virtual && pairedCount === 1 && !lockedStatus;
+                                // Move enabled only for real, single-room, active bookings.
+                                // Uses effective pairing so legacy bookings that only have bookings.room_id
+                                // (and no booking_room_assignments row) are still movable.
+                                const moveEligibility = getMoveEligibility(b, r.id);
+                                const dragEnabled = moveEligibility.eligible;
                                 return (
-                                  <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={() => setSelected(b)}
+                                  <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={(e) => {
+                                      if (longPressTriggered.current && longPressBookingId.current === b.id) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        longPressTriggered.current = false;
+                                        longPressBookingId.current = null;
+                                        return;
+                                      }
+                                      setSelected(b);
+                                    }}
                                     data-booking-pill={b.id}
+                                    data-move-eligible={dragEnabled ? "true" : "false"}
+                                    data-booking-status={b.status}
                                     draggable={dragEnabled && !isMobile}
                                     onDragStart={(e) => {
                                       if (!dragEnabled || isMobile) { e.preventDefault(); return; }
@@ -700,19 +768,30 @@ function HouseView() {
                                         .catch(() => { /* highlighting is optional */ });
                                     }}
                                     onDragEnd={() => setDragAvail(null)}
-                                    onTouchStart={(e) => { if (dragEnabled && isMobile) startLongPress(b, r.id, e); }}
-                                    onTouchEnd={cancelLongPress}
-                                    onTouchMove={moveLongPress}
-                                    onTouchCancel={cancelLongPress}
+                                    onPointerDown={(e) => {
+                                      if (!dragEnabled || !isMobile || e.pointerType === "mouse") return;
+                                      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* noop */ }
+                                      startLongPress(b, r.id, { x: e.clientX, y: e.clientY });
+                                    }}
+                                    onPointerMove={(e) => {
+                                      if (!isMobile || e.pointerType === "mouse") return;
+                                      moveLongPress({ x: e.clientX, y: e.clientY });
+                                    }}
+                                    onPointerUp={cancelLongPress}
+                                    onPointerCancel={cancelLongPress}
+                                    onContextMenu={(e) => {
+                                      if (dragEnabled && isMobile) e.preventDefault();
+                                    }}
                                     className={cn(
                                       "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
                                       blockClasses(b),
                                       b._virtual && "border-dashed",
                                       dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
+                                      dragEnabled && isMobile && "touch-manipulation",
                                       highlightId === b.id && "ring-4 ring-gold animate-pulse",
                                     )}
                                     style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: highlightId === b.id ? 10 : 5 }}
-                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ""}`}>
+                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveEligibility.reason}`}`}>
 
                                     {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
                                     {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
@@ -793,6 +872,7 @@ function HouseView() {
       {moveDialog && (
         <MoveBookingDialog
           state={moveDialog}
+          minCheckInDate={todayKolkataKey()}
           submitting={moveMutation.isPending}
           onClose={() => setMoveDialog(null)}
           onSubmit={(target) => {
@@ -1220,9 +1300,10 @@ interface MoveDialogState {
 }
 
 function MoveBookingDialog({
-  state, submitting, onClose, onSubmit,
+  state, minCheckInDate, submitting, onClose, onSubmit,
 }: {
   state: MoveDialogState;
+  minCheckInDate: string;
   submitting: boolean;
   onClose: () => void;
   onSubmit: (v: { newRoomId: string; newCheckIn: string; newCheckOut: string }) => void;
@@ -1231,7 +1312,6 @@ function MoveBookingDialog({
   const [newCheckIn, setNewCheckIn] = useState(state.checkIn);
   const [newCheckOut, setNewCheckOut] = useState(state.checkOut);
   const [newRoomId, setNewRoomId] = useState(state.oldRoomId);
-  const today = new Date().toISOString().slice(0, 10);
 
   // Only offer rooms that are actually available for the selected stay window.
   const { data: avail = [], isLoading } = useQuery({
@@ -1275,7 +1355,7 @@ function MoveBookingDialog({
               <Input
                 type="date"
                 value={newCheckIn}
-                min={isCheckedIn ? undefined : today}
+                min={isCheckedIn ? undefined : minCheckInDate}
                 disabled={isCheckedIn}
                 onChange={(e) => setNewCheckIn(e.target.value)}
               />
@@ -1285,7 +1365,7 @@ function MoveBookingDialog({
               <Input
                 type="date"
                 value={newCheckOut}
-                min={newCheckIn || today}
+                min={newCheckIn || minCheckInDate}
                 onChange={(e) => setNewCheckOut(e.target.value)}
               />
             </div>
