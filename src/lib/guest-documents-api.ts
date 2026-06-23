@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import { logActivity } from "@/lib/activity-log";
+
 
 export const GUEST_DOC_BUCKET = "guest-documents";
 export const GUEST_DOC_TYPES = ["Aadhaar", "PAN", "Passport", "Driving License", "Other"] as const;
@@ -144,8 +146,29 @@ export async function createGuestDocument(input: CreateGuestDocumentInput): Prom
       .select()
       .single();
     if (error) throw error;
-    return data as unknown as GuestDocumentRow;
+    const updated = data as unknown as GuestDocumentRow;
+    void logActivity({
+      page: "Guest Documents",
+      action: "customer_documents_uploaded",
+      entity_type: "guest_document",
+      entity_id: updated.id,
+      entity_reference: updated.doc_type,
+      summary: `Uploaded ${updated.doc_type}`,
+      metadata: { booking_id: updated.booking_id, customer_id: updated.customer_id },
+      source: "manual",
+    });
+    return updated;
   }
+  void logActivity({
+    page: "Guest Documents",
+    action: "customer_documents_uploaded",
+    entity_type: "guest_document",
+    entity_id: row.id,
+    entity_reference: row.doc_type,
+    summary: `Created ${row.doc_type} record`,
+    metadata: { booking_id: row.booking_id, customer_id: row.customer_id },
+    source: "manual",
+  });
   return row;
 }
 
