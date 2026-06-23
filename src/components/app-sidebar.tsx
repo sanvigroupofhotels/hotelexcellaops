@@ -17,18 +17,19 @@ import { UserMenu } from "@/components/user-menu";
 
 type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; managerOnly?: boolean; permission?: string; anyOf?: string[] };
 
+// Order matters — items hidden by permission are skipped silently, so a single
+// admin-order list also yields the correct Reception order (Bookings hidden).
 const nav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: Home, permission: "dashboard.view" },
-  // Bookings list — only Owner/Admin (Reception/Staff use House View). Direct URL
-  // is also blocked by a beforeLoad gate on the /bookings route.
-  { to: "/bookings", label: "Bookings", icon: BedDouble, permission: "bookings.view" },
   { to: "/house-view", label: "House View", icon: Building2, permission: "house_view.view" },
-  { to: "/customers", label: "Customers", icon: Users, permission: "customers.view" },
+  // Bookings list — only Owner/Admin (Reception/Staff use House View).
+  { to: "/bookings", label: "Bookings", icon: BedDouble, permission: "bookings.view" },
+  // End of Day group is rendered inline below (between Bookings and Due Collection).
   { to: "/dues", label: "Due Collection", icon: Receipt, permission: "dues.view" },
   { to: "/cash", label: "CashBook", icon: Wallet, permission: "cash.view" },
-  // End of Day group rendered separately below.
-  { to: "/staff-management", label: "Staff Management", icon: UserCog, anyOf: ["staff.master", "staff.attendance", "staff.salary"] },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, permission: "complaints.view" },
+  { to: "/customers", label: "Customers", icon: Users, permission: "customers.view" },
+  { to: "/staff-management", label: "Staff Management", icon: UserCog, anyOf: ["staff.master", "staff.attendance", "staff.salary"] },
   { to: "/master-data", label: "Master Data", icon: Database, anyOf: ["master.rooms", "master.rates", "master.others"] },
 ];
 
