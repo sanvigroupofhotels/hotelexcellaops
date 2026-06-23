@@ -168,11 +168,30 @@ function ReviewPage() {
     }
   }
 
+  // Modify Stay mutation — same booking_id, repriced server-side.
+  const modifyMut = useMutation({
+    mutationFn: (vars: { check_in: string; check_out: string; guests: number; room_type: string }) =>
+      modifyStay({ data: { booking_id: search.booking_id, ...vars } }),
+    onSuccess: (_data, vars) => {
+      toast.success("Stay updated. Price refreshed.");
+      qc.invalidateQueries({ queryKey: ["be", "review", search.booking_id] });
+      // Reflect new dates/category in the URL so refresh / share / back-nav stays consistent.
+      navigate({
+        to: "/booking-engine/review",
+        search: { booking_id: search.booking_id, ...vars } as any,
+        replace: true,
+      });
+      setModifying(false);
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not update stay."),
+  });
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-12">
       <Link
         to="/booking-engine/checkout"
         search={{
+          booking_id: search.booking_id,
           check_in: search.check_in,
           check_out: search.check_out,
           guests: search.guests,
@@ -180,22 +199,48 @@ function ReviewPage() {
         } as any}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to guest details
+        <ArrowLeft className="h-4 w-4" /> Edit guest details
       </Link>
 
       <h1 className="mt-3 font-display text-2xl">Review your price</h1>
       <p className="text-sm text-muted-foreground">Choose how you would like to pay.</p>
 
-      {/* Stay summary */}
+      {/* Stay summary + Modify */}
       <Card className="mt-4 p-4">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-          <span className="inline-flex items-center gap-1.5"><BedDouble className="h-4 w-4 text-gold" /> {search.room_type}</span>
-          <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4 text-gold" /> {dateLabel(search.check_in)} → {dateLabel(search.check_out)}</span>
-          <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-gold" /> {search.guests} guest{search.guests > 1 ? "s" : ""}</span>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <span className="inline-flex items-center gap-1.5"><BedDouble className="h-4 w-4 text-gold" /> {search.room_type}</span>
+            <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4 text-gold" /> {dateLabel(search.check_in)} → {dateLabel(search.check_out)}</span>
+            <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-gold" /> {search.guests} guest{search.guests > 1 ? "s" : ""}</span>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setModifying((v) => !v)}
+            className="shrink-0 gap-1 h-8 text-xs"
+          >
+            <Pencil className="h-3 w-3" /> {modifying ? "Cancel" : "Modify"}
+          </Button>
         </div>
         <div className="mt-3 text-xs text-muted-foreground">
           Check-in from {cfg?.ops.check_in_time ?? "13:00"} · Check-out by {cfg?.ops.check_out_time ?? "11:00"}
         </div>
+
+        {modifying && (
+          <ModifyStayPanel
+            initial={{
+              check_in: search.check_in,
+              check_out: search.check_out,
+              guests: search.guests,
+              room_type: search.room_type,
+            }}
+            roomTypes={engineCfg.data?.room_types ?? []}
+            loading={engineCfg.isLoading}
+            submitting={modifyMut.isPending}
+            onSubmit={(v) => modifyMut.mutate(v)}
+          />
+        )}
       </Card>
 
       {/* Pay Now / Pay Later */}
