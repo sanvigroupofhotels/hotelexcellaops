@@ -140,6 +140,20 @@ function NightAuditDashboard() {
         Dues will not block Night Audit. You can proceed.
       </div>
 
+      {/* Optional operational notes — appears in Audit History & EOD Report */}
+      <div className="rounded-lg border border-border bg-card/40 p-4 space-y-2">
+        <Label htmlFor="audit-notes" className="text-xs">Notes (optional)</Label>
+        <Textarea
+          id="audit-notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          placeholder="e.g. Generator failed 2pm–4pm · Room 203 AC under maintenance · Late checkout approved for Room 104"
+          className="text-sm"
+        />
+        <p className="text-[10px] text-muted-foreground">These notes will appear in Audit History and the End of Day Report for {fmtDate(businessDate)}.</p>
+      </div>
+
       {/* Perform Night Audit CTA */}
       <Button
         onClick={onPerform}
