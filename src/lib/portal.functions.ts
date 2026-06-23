@@ -747,7 +747,7 @@ export const listPortalComplaints = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(20);
     if (error) throw error;
-    return (rows ?? []) as Array<{
+    return ((rows ?? []) as unknown) as Array<{
       id: string; category: string; status: string; description: string;
       created_at: string; complaint_number?: string | null;
     }>;
