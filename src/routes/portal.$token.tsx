@@ -509,7 +509,7 @@ function Input({ id, label, icon, value, onChange, type = "text" }: {
 function DocumentsCard({ token, count, verified, onChanged }: { token: string; count: number; verified: boolean; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="luxe-card rounded-xl p-5 space-y-3">
+    <div id="portal-documents" className="luxe-card rounded-xl p-5 space-y-3 scroll-mt-24">
       <h3 className="font-display text-base flex items-center gap-2"><FileCheck className="h-4 w-4 text-gold" /> Guest Documents</h3>
       <p className="text-xs text-muted-foreground">
         Upload your ID once and it will be available for this stay and your future bookings.
@@ -541,7 +541,16 @@ function DocumentsCard({ token, count, verified, onChanged }: { token: string; c
   );
 }
 
-function OrderFoodCard() {
+function OrderFoodCard({ bookingReference, guestName, roomNumber, phone }: {
+  bookingReference?: string; guestName?: string; roomNumber?: string; phone?: string;
+}) {
+  const params = new URLSearchParams();
+  if (bookingReference) params.set("ref", bookingReference);
+  if (guestName) params.set("name", guestName);
+  if (roomNumber) params.set("room", roomNumber);
+  if (phone) params.set("mobile", phone);
+  const qs = params.toString();
+  const href = `https://hotelexcella.in/orderfood${qs ? `?${qs}` : ""}`;
   return (
     <div className="luxe-card rounded-xl p-5 space-y-3">
       <h3 className="font-display text-base flex items-center gap-2">
@@ -551,9 +560,7 @@ function OrderFoodCard() {
         Order delicious food directly to your room.
       </p>
       <a
-        href="https://hotelexcella.in/orderfood"
-        target="_blank"
-        rel="noopener noreferrer"
+        href={href}
         className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal"
       >
         Order Now <ExternalLink className="h-3.5 w-3.5" />
