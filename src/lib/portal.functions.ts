@@ -126,6 +126,18 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     }));
     const chargesTotal = charges.reduce((s, r) => s + r.amount, 0);
 
+    // Assigned room number (first active assignment)
+    let roomNumber = "";
+    try {
+      const { data: asgn } = await supabaseAdmin
+        .from("booking_room_assignments")
+        .select("rooms ( room_number )")
+        .eq("booking_id", (b as any).id)
+        .limit(1)
+        .maybeSingle();
+      roomNumber = (asgn as any)?.rooms?.room_number ?? "";
+    } catch { /* ignore */ }
+
     // Booking line items (separate room charges from extras)
     const { data: itemRows } = await supabaseAdmin
       .from("booking_items")
@@ -159,6 +171,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       checkIn: (b as any).check_in,
       checkOut: (b as any).check_out,
       roomType: (b as any).room_details ?? "",
+      roomNumber,
       guests: (b as any).guests,
       breakfastIncluded: false,
       totalAmount: total,
@@ -733,6 +746,24 @@ export const submitPortalComplaint = createServerFn({ method: "POST" })
     } as any);
     if (error) throw error;
     return { ok: true };
+  });
+
+// --- listPortalComplaints ---------------------------------------------------
+export const listPortalComplaints = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ token: z.string().min(8).max(128) }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
+    const { data: rows, error } = await supabaseAdmin
+      .from("complaints" as any)
+      .select("id, category, status, description, created_at, complaint_number")
+      .eq("booking_id", booking.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    return ((rows ?? []) as unknown) as Array<{
+      id: string; category: string; status: string; description: string;
+      created_at: string; complaint_number?: string | null;
+    }>;
   });
 
 // --- submitPortalReview ------------------------------------------------------

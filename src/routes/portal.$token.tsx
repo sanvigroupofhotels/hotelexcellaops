@@ -9,7 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare,
   Save, ChevronDown, FileCheck, UtensilsCrossed, MessageCircleWarning, Star, XCircle,
-  ExternalLink,
+  ExternalLink, CreditCard, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { validatePhoneNumber, normalizePhoneNumber } from "@/lib/phone";
@@ -20,6 +20,7 @@ import {
   updateGuestPortalDetails,
   confirmRazorpayPayment,
   listPortalDocuments,
+  listPortalComplaints,
   cancelPortalBooking,
   submitPortalComplaint,
   submitPortalReview,
@@ -201,12 +202,15 @@ function GuestPortal() {
           </div>
         )}
 
+        {/* 2. Profile Completion */}
         {!isCancelled && <ProfileCompletion pct={score.pct} missing={score.missing} />}
 
+        {/* 3. Your Details (includes Expected Arrival inside) */}
         {!isCancelled && (
           <GuestDetailsForm token={token} initial={b} onSaved={() => q.refetch()} />
         )}
 
+        {/* 5. Guest Documents */}
         {!isCancelled && (
           <DocumentsCard
             token={token}
@@ -216,48 +220,68 @@ function GuestPortal() {
           />
         )}
 
-        {!isCancelled && <OrderFoodCard />}
+        {/* 6. Complete Your Booking — payment */}
+        {!isCancelled && (
+          <section id="portal-payment" className="space-y-3">
+            <h2 className="font-display text-base flex items-center gap-2 px-1">
+              <CreditCard className="h-4 w-4 text-gold" /> Complete Your Booking
+            </h2>
+            {done ? (
+              <div className="luxe-card rounded-xl p-6 text-center space-y-2">
+                <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
+                <h3 className="font-display text-lg">
+                  {done === "paid" ? "Thank you — payment received" : "We'll see you at check-in"}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {done === "paid" ? "Your booking will reflect the updated balance shortly." : "Please complete your remaining payment when you arrive."}
+                </p>
+              </div>
+            ) : b.balanceDue > 0 ? (
+              <PortalPaymentOptions
+                totalAmount={b.payable}
+                advancePaid={b.advancePaid}
+                minPartPayment={b.minPartPayment}
+                allowFull={b.allowFullPayment}
+                allowPart={b.allowPartPayment}
+                allowPayAtHotel={b.allowPayAtHotel}
+                defaultPartPercent={b.defaultPartPercent}
+                busy={busy}
+                onChoose={onChoose}
+              />
+            ) : (
+              <div className="luxe-card rounded-xl p-5 text-center text-sm text-emerald-600">
+                <CheckCircle2 className="h-6 w-6 mx-auto mb-2" /> No balance due.
+              </div>
+            )}
+          </section>
+        )}
 
+        {/* 7. Additional Services — Order Food */}
+        {!isCancelled && (
+          <OrderFoodCard
+            bookingReference={b.reference}
+            guestName={b.guestName}
+            roomNumber={b.roomNumber}
+            phone={b.phone}
+          />
+        )}
+
+        {/* 8. Report Complaint */}
         {!isCancelled && <ReportComplaintCard token={token} />}
 
+        {/* 9. Reviews & Feedback */}
         {!isCancelled && <ReviewsCard token={token} />}
 
+        {/* 10. Cancel Booking */}
         {!isCancelled && (
           <CancelBookingCard
             token={token}
+            bookingReference={b.reference}
             checkIn={b.checkIn}
             advancePaid={b.advancePaid}
             onCancelled={() => q.refetch()}
           />
         )}
-
-        {!isCancelled && (done ? (
-          <div className="luxe-card rounded-xl p-6 text-center space-y-2">
-            <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
-            <h3 className="font-display text-lg">
-              {done === "paid" ? "Thank you — payment received" : "We'll see you at check-in"}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {done === "paid" ? "Your booking will reflect the updated balance shortly." : "Please complete your remaining payment when you arrive."}
-            </p>
-          </div>
-        ) : b.balanceDue > 0 ? (
-          <PortalPaymentOptions
-            totalAmount={b.payable}
-            advancePaid={b.advancePaid}
-            minPartPayment={b.minPartPayment}
-            allowFull={b.allowFullPayment}
-            allowPart={b.allowPartPayment}
-            allowPayAtHotel={b.allowPayAtHotel}
-            defaultPartPercent={b.defaultPartPercent}
-            busy={busy}
-            onChoose={onChoose}
-          />
-        ) : (
-          <div className="luxe-card rounded-xl p-5 text-center text-sm text-emerald-600">
-            <CheckCircle2 className="h-6 w-6 mx-auto mb-2" /> No balance due.
-          </div>
-        ))}
 
         <p className="text-[10px] text-center text-muted-foreground pt-4">
           Secured by Razorpay · Your payment details never touch our servers.
@@ -291,6 +315,23 @@ function StayField({ label, date, kind }: { label: string; date: string; kind: "
 
 function ProfileCompletion({ pct, missing }: { pct: number; missing: string[] }) {
   const glyph = pct >= 100 ? "●" : pct >= 75 ? "◕" : pct >= 50 ? "◑" : pct >= 25 ? "◔" : "○";
+  const anchorFor = (label: string) =>
+    label === "Email Address" ? "portal-email"
+      : label === "Expected Arrival Time" ? "portal-arrival"
+      : label === "Guest Documents" ? "portal-documents"
+      : null;
+  const scrollTo = (label: string) => {
+    const id = anchorFor(label); if (!id) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Soft focus highlight
+    el.classList.add("ring-2", "ring-gold/60", "rounded-md");
+    setTimeout(() => el.classList.remove("ring-2", "ring-gold/60", "rounded-md"), 1600);
+    if (el instanceof HTMLInputElement || el instanceof HTMLButtonElement) {
+      try { el.focus({ preventScroll: true }); } catch { /* noop */ }
+    }
+  };
   return (
     <div className="luxe-card rounded-xl p-4 space-y-2">
       <div className="flex items-center justify-between">
@@ -302,8 +343,18 @@ function ProfileCompletion({ pct, missing }: { pct: number; missing: string[] })
       {missing.length > 0 && (
         <div className="text-xs text-muted-foreground space-y-1">
           <div>Missing:</div>
-          <ul className="list-disc pl-5 text-foreground space-y-0.5">
-            {missing.map((m) => <li key={m}>{m}</li>)}
+          <ul className="list-disc pl-5 space-y-0.5">
+            {missing.map((m) => (
+              <li key={m}>
+                <button
+                  type="button"
+                  onClick={() => scrollTo(m)}
+                  className="text-foreground hover:text-gold underline-offset-2 hover:underline"
+                >
+                  {m}
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
       )}
@@ -379,10 +430,10 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
       <div className="grid grid-cols-1 gap-3">
         <Input label="Full Name *" icon={<User className="h-3.5 w-3.5" />} value={name} onChange={setName} />
         <Input label="Mobile Number *" icon={<Phone className="h-3.5 w-3.5" />} value={phone} onChange={setPhone} />
-        <Input label="Email Address" icon={<Mail className="h-3.5 w-3.5" />} value={email} onChange={setEmail} type="email" />
+        <Input id="portal-email" label="Email Address" icon={<Mail className="h-3.5 w-3.5" />} value={email} onChange={setEmail} type="email" />
       </div>
 
-      <div className="border-t border-border/40 pt-4 space-y-3">
+      <div id="portal-arrival" className="border-t border-border/40 pt-4 space-y-3 scroll-mt-24">
         <h4 className="text-xs font-medium flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-gold" /> Expected Arrival</h4>
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
@@ -441,13 +492,13 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
   );
 }
 
-function Input({ label, icon, value, onChange, type = "text" }: {
-  label: string; icon?: React.ReactNode; value: string; onChange: (v: string) => void; type?: string;
+function Input({ id, label, icon, value, onChange, type = "text" }: {
+  id?: string; label: string; icon?: React.ReactNode; value: string; onChange: (v: string) => void; type?: string;
 }) {
   return (
-    <label className="block">
+    <label className="block scroll-mt-24" htmlFor={id}>
       <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">{icon}{label}</span>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)}
+      <input id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)}
         className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
     </label>
   );
@@ -458,7 +509,7 @@ function Input({ label, icon, value, onChange, type = "text" }: {
 function DocumentsCard({ token, count, verified, onChanged }: { token: string; count: number; verified: boolean; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="luxe-card rounded-xl p-5 space-y-3">
+    <div id="portal-documents" className="luxe-card rounded-xl p-5 space-y-3 scroll-mt-24">
       <h3 className="font-display text-base flex items-center gap-2"><FileCheck className="h-4 w-4 text-gold" /> Guest Documents</h3>
       <p className="text-xs text-muted-foreground">
         Upload your ID once and it will be available for this stay and your future bookings.
@@ -490,7 +541,16 @@ function DocumentsCard({ token, count, verified, onChanged }: { token: string; c
   );
 }
 
-function OrderFoodCard() {
+function OrderFoodCard({ bookingReference, guestName, roomNumber, phone }: {
+  bookingReference?: string; guestName?: string; roomNumber?: string; phone?: string;
+}) {
+  const params = new URLSearchParams();
+  if (bookingReference) params.set("ref", bookingReference);
+  if (guestName) params.set("name", guestName);
+  if (roomNumber) params.set("room", roomNumber);
+  if (phone) params.set("mobile", phone);
+  const qs = params.toString();
+  const href = `https://hotelexcella.in/orderfood${qs ? `?${qs}` : ""}`;
   return (
     <div className="luxe-card rounded-xl p-5 space-y-3">
       <h3 className="font-display text-base flex items-center gap-2">
@@ -500,9 +560,7 @@ function OrderFoodCard() {
         Order delicious food directly to your room.
       </p>
       <a
-        href="https://hotelexcella.in/orderfood"
-        target="_blank"
-        rel="noopener noreferrer"
+        href={href}
         className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal"
       >
         Order Now <ExternalLink className="h-3.5 w-3.5" />
@@ -524,24 +582,42 @@ const COMPLAINT_CATEGORIES = [
 
 function ReportComplaintCard({ token }: { token: string }) {
   const submit = useServerFn(submitPortalComplaint);
+  const fetchList = useServerFn(listPortalComplaints);
+  const listQ = useQuery({
+    queryKey: ["portal-complaints", token],
+    queryFn: () => fetchList({ data: { token } }),
+  });
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState(COMPLAINT_CATEGORIES[0]);
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+
+  const list = listQ.data ?? [];
+  const openCount = list.filter((c) => c.status !== "Resolved" && c.status !== "Closed").length;
 
   const onSubmit = async () => {
     if (description.trim().length < 3) return toast.error("Please describe the issue (at least 3 characters)");
     setSubmitting(true);
     try {
       await submit({ data: { token, category, description: description.trim() } });
-      setSubmitted(true);
       toast.success("Complaint submitted. Our team will respond shortly.");
       setOpen(false);
       setDescription("");
+      listQ.refetch();
     } catch (e: any) {
       toast.error(errMsg(e, "Could not submit complaint"));
     } finally { setSubmitting(false); }
+  };
+
+  const statusBadge = (s: string) => {
+    const isResolved = s === "Resolved" || s === "Closed";
+    const isProgress = s === "In Progress";
+    const cls = isResolved
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
+      : isProgress
+      ? "border-gold/40 bg-gold-soft/40 text-foreground"
+      : "border-destructive/40 bg-destructive/10 text-destructive";
+    return <span className={`rounded-full border text-[10px] px-2 py-0.5 ${cls}`}>{s}</span>;
   };
 
   return (
@@ -549,21 +625,47 @@ function ReportComplaintCard({ token }: { token: string }) {
       <h3 className="font-display text-base flex items-center gap-2">
         <MessageCircleWarning className="h-4 w-4 text-gold" /> Report Complaint
       </h3>
-      <p className="text-xs text-muted-foreground">
-        Raise a complaint or request assistance. Our team will follow up promptly.
-      </p>
-      {submitted ? (
-        <div className="text-xs text-emerald-600 flex items-center gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5" /> Complaint submitted — thank you.
+
+      {list.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs text-muted-foreground">
+            {openCount > 0 ? `Open Complaints (${openCount})` : `Past Complaints (${list.length})`}
+          </div>
+          <ul className="space-y-2">
+            {list.map((c) => (
+              <li key={c.id} className="rounded-md border border-border/60 bg-input/40 p-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-medium truncate">{c.category}</div>
+                  {statusBadge(c.status)}
+                </div>
+                {c.description && (
+                  <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{c.description}</div>
+                )}
+                <div className="text-[10px] text-muted-foreground mt-1">
+                  {new Date(c.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                  {c.complaint_number ? ` · ${c.complaint_number}` : ""}
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
-      ) : !open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/40 px-4 py-2.5 text-sm font-medium hover:bg-gold-soft/60"
-        >
-          Report a Complaint
-        </button>
+      )}
+
+      {!open ? (
+        <>
+          {list.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Raise a complaint or request assistance. Our team will follow up promptly.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/40 px-4 py-2.5 text-sm font-medium hover:bg-gold-soft/60"
+          >
+            {list.length > 0 ? "Report Another Complaint" : "Report a Complaint"}
+          </button>
+        </>
       ) : (
         <div className="space-y-3">
           <label className="block">
@@ -723,8 +825,11 @@ function ReviewsCard({ token }: { token: string }) {
   );
 }
 
-function CancelBookingCard({ token, checkIn, advancePaid, onCancelled }: {
-  token: string; checkIn: string; advancePaid: number; onCancelled: () => void;
+const RECEPTION_PHONE = "+919985908131";
+const RECEPTION_PHONE_DISPLAY = "+91 9985908131";
+
+function CancelBookingCard({ token, bookingReference, checkIn, advancePaid, onCancelled }: {
+  token: string; bookingReference?: string; checkIn: string; advancePaid: number; onCancelled: () => void;
 }) {
   const cancel = useServerFn(cancelPortalBooking);
   const [confirming, setConfirming] = useState(false);
@@ -748,10 +853,33 @@ function CancelBookingCard({ token, checkIn, advancePaid, onCancelled }: {
   };
 
   if (!eligible) {
+    const refTxt = bookingReference ? ` ${bookingReference}` : "";
+    const waMsg = `Hi Hotel Excella, I would like to cancel my booking${refTxt}`;
+    const waHref = `https://wa.me/919985908131?text=${encodeURIComponent(waMsg)}`;
     return (
-      <div className="luxe-card rounded-xl p-5 space-y-2">
+      <div className="luxe-card rounded-xl p-5 space-y-3">
         <h3 className="font-display text-base flex items-center gap-2"><XCircle className="h-4 w-4 text-gold" /> Cancel Booking</h3>
         <p className="text-xs text-muted-foreground">Please contact reception to cancel your booking.</p>
+        <div className="flex items-center gap-2 text-sm">
+          <Phone className="h-3.5 w-3.5 text-gold" />
+          <span className="tabular-nums">{RECEPTION_PHONE_DISPLAY}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <a
+            href={waHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 px-3 py-2 text-sm font-medium hover:bg-emerald-500/20"
+          >
+            <MessageCircle className="h-4 w-4" /> WhatsApp Us
+          </a>
+          <a
+            href={`tel:${RECEPTION_PHONE}`}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-gold/40 bg-gold-soft/40 px-3 py-2 text-sm font-medium hover:bg-gold-soft/60"
+          >
+            <Phone className="h-4 w-4" /> Call Reception
+          </a>
+        </div>
       </div>
     );
   }
