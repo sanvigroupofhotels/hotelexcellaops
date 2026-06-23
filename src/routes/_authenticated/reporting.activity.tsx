@@ -112,11 +112,12 @@ function ActivityTracking() {
               </Select></div>
             <div><label className="text-xs text-muted-foreground">Action</label>
               <div className="flex gap-2">
-                <Select value={action} onValueChange={(v) => setAction(v === "__custom__" ? action : v)}>
-                  <SelectTrigger className="w-[160px]"><SelectValue placeholder="Any" /></SelectTrigger>
+                <Select value={action || "__any__"} onValueChange={(v) => setAction(v === "__any__" ? "" : v)}>
+                  <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
                   <SelectContent className="max-h-72">
-                    {ACTION_OPTIONS.map((a) => (
-                      <SelectItem key={a || "any"} value={a || "__any__"}>{a || "Any"}</SelectItem>
+                    <SelectItem value="__any__">Any</SelectItem>
+                    {ACTION_OPTIONS.filter(Boolean).map((a) => (
+                      <SelectItem key={a} value={a}>{a}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
