@@ -793,12 +793,17 @@ function BookingDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Process Refund (overpayment) — opens from Check-Out validation */}
+      {/* Process Refund — opens from Check-Out overpayment validation or
+          standalone from the Payments ledger. */}
       {refundOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setRefundOpen(false)}>
           <div className="luxe-card rounded-xl w-full max-w-md p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-display text-lg">Process Refund</h3>
-            <p className="text-xs text-muted-foreground">Refund the overpaid balance, then continue with check-out.</p>
+            <p className="text-xs text-muted-foreground">
+              {refundAfterAction === "checkout"
+                ? "Refund the overpaid balance, then continue with check-out."
+                : "Issue a refund against this booking. It will reflect in Payments, CashBook (if Cash) and Payment Reports."}
+            </p>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <label className="space-y-1">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Amount</div>
@@ -812,6 +817,12 @@ function BookingDetail() {
                   className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5">
                   <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
                 </select>
+              </label>
+              <label className="col-span-2 space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Reason</div>
+                <input type="text" value={refundReason} onChange={(e) => setRefundReason(e.target.value)}
+                  placeholder="e.g. Overpayment refund, Service issue, Early checkout"
+                  className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5" />
               </label>
               <label className="col-span-2 space-y-1">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Reference (UTR / Txn ID / Notes)</div>
@@ -829,6 +840,7 @@ function BookingDetail() {
               <button
                 onClick={() => {
                   if (refundAmount <= 0) { toast.error("Enter refund amount"); return; }
+                  if (!refundReason.trim()) { toast.error("Enter refund reason"); return; }
                   if (!refundBy.trim()) { toast.error("Enter staff name"); return; }
                   refundMut.mutate();
                 }}
