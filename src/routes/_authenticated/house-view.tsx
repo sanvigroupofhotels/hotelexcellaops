@@ -667,7 +667,22 @@ function HouseView() {
                                       });
                                       e.dataTransfer.setData("application/x-booking-move", payload);
                                       e.dataTransfer.effectAllowed = "move";
+                                      // Compute valid destination rooms for this booking's
+                                      // CURRENT dates so cells can highlight green/red.
+                                      listAvailableRoomsForStay({
+                                        check_in: orig.check_in,
+                                        check_out: orig.check_out,
+                                        exclude_booking_id: b.id,
+                                      })
+                                        .then((rs: AvailableRoomRow[]) => {
+                                          setDragAvail({
+                                            bookingId: b.id,
+                                            availableRoomIds: new Set(rs.map((x) => x.id)),
+                                          });
+                                        })
+                                        .catch(() => { /* highlighting is optional */ });
                                     }}
+                                    onDragEnd={() => setDragAvail(null)}
                                     onTouchStart={() => { if (dragEnabled && isMobile) startLongPress(b, r.id); }}
                                     onTouchEnd={cancelLongPress}
                                     onTouchMove={cancelLongPress}
