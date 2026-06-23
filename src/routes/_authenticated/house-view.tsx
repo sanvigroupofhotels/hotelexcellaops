@@ -602,7 +602,7 @@ function HouseView() {
                             onDragOver={(e) => {
                               if (e.dataTransfer.types.includes("application/x-booking-move")) {
                                 e.preventDefault();
-                                e.dataTransfer.dropEffect = "move";
+                                e.dataTransfer.dropEffect = dragAvail && !dragAvail.availableRoomIds.has(r.id) ? "none" : "move";
                               }
                             }}
                             onDrop={(e) => {
@@ -610,6 +610,7 @@ function HouseView() {
                               if (!payload) return;
                               e.preventDefault();
                               handleDropOnCell(r.id, dk, payload);
+                              setDragAvail(null);
                             }}
                           >
                             <div className="relative h-full" style={{ minHeight: 56 }}>
