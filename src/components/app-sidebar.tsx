@@ -22,6 +22,7 @@ type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; mana
 const nav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: Home, permission: "dashboard.view" },
   { to: "/house-view", label: "House View", icon: Building2, permission: "house_view.view" },
+  { to: "/calendar", label: "Calendar", icon: CalendarDays, adminOnly: true },
   // Bookings list — only Owner/Admin (Reception/Staff use House View).
   { to: "/bookings", label: "Bookings", icon: BedDouble, permission: "bookings.view" },
   // End of Day group is rendered inline below (between Bookings and Due Collection).
