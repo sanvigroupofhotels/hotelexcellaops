@@ -121,6 +121,23 @@ export async function closeSession(opts: {
   const bd = (session as any).business_date as string;
   const next = addDays(bd, 1);
 
+  // Business Date can NEVER move into the future. The same rule is enforced
+  // at the database level (trigger on app_settings.business_date), but we
+  // surface a friendlier error here before flipping the session row.
+  const todayLocal = (() => {
+    // Use Asia/Kolkata to match the server-side guard.
+    const fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+    });
+    return fmt.format(new Date()); // YYYY-MM-DD
+  })();
+  if (next > todayLocal) {
+    throw new Error(
+      `Night Audit cannot advance Business Date to ${next} because it would exceed today's calendar date (${todayLocal}). Wait until tomorrow to close this session.`,
+    );
+  }
+
+
   // Concurrency guard: filter on status='open' so only the writer that
   // actually flipped open→closed proceeds to advance the business date.
   // A simultaneous second close gets an empty rowset and errors out cleanly.
