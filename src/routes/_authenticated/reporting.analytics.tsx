@@ -1,7 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Analytics } from "./analytics";
-import { PermissionGate } from "@/components/permission-gate";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 
+/**
+ * Legacy route — redirects to the renamed CRM Analytics page so existing
+ * bookmarks keep working.
+ */
 export const Route = createFileRoute("/_authenticated/reporting/analytics")({
-  component: () => <PermissionGate permission="reporting.analytics.view"><Analytics /></PermissionGate>,
+  component: () => <Navigate to="/reporting/crm-analytics" replace />,
 });
