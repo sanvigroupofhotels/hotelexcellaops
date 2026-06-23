@@ -611,6 +611,7 @@ function BookingDetail() {
                             <p className="text-[10px] text-warning">Overpayment ₹{overpaid.toLocaleString("en-IN")} — refund the excess before check-out.</p>
                             <button onClick={() => {
                               setRefundAmount(overpaid); setRefundMode("Cash"); setRefundRef(""); setRefundBy("");
+                              setRefundReason("Overpayment refund");
                               setRefundAfterAction("checkout"); setRefundOpen(true);
                             }} className="w-full rounded-md gold-gradient text-charcoal px-2 py-1 text-[11px] font-medium">
                               Process Refund
