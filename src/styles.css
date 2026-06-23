@@ -228,6 +228,19 @@
   .gold-gradient {
     background: linear-gradient(135deg, oklch(0.86 0.13 85), oklch(0.72 0.14 75));
   }
+  .house-business-date-header {
+    background: linear-gradient(135deg, oklch(0.72 0.14 75), oklch(0.86 0.13 85));
+    color: oklch(0.99 0.005 85);
+    box-shadow: 0 8px 22px -14px oklch(0.86 0.13 85 / 0.9), inset 0 1px 0 oklch(1 0 0 / 0.2);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+  .house-business-date-cell {
+    background:
+      linear-gradient(180deg, oklch(0.82 0.13 82 / 0.16), oklch(0.82 0.13 82 / 0.06));
+    box-shadow:
+      inset 2px 0 0 oklch(0.82 0.13 82 / 0.45),
+      inset -2px 0 0 oklch(0.82 0.13 82 / 0.3);
+  }
   .gold-text-gradient {
     background: linear-gradient(135deg, oklch(0.9 0.12 88), oklch(0.74 0.14 75));
     -webkit-background-clip: text;
