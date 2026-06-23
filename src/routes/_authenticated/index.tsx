@@ -280,9 +280,10 @@ function HomePage() {
               >
                 <MetricCard
                   label={s.label}
-                  value={s.value}
+                  value={s.label === "Occupancy %" ? `${s.value}%` : s.value}
                   icon={<s.icon className="h-4 w-4" />}
                   emoji={s.emoji}
+                  currency={s.currency}
                   onClick={() => navigate({ to: s.to as any })}
                 />
               </motion.div>
