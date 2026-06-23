@@ -22,6 +22,7 @@ export type Database = {
           actor_role: string | null
           after_state: Json | null
           before_state: Json | null
+          correlation_id: string | null
           created_at: string
           entity_id: string | null
           entity_reference: string | null
@@ -41,6 +42,7 @@ export type Database = {
           actor_role?: string | null
           after_state?: Json | null
           before_state?: Json | null
+          correlation_id?: string | null
           created_at?: string
           entity_id?: string | null
           entity_reference?: string | null
@@ -60,6 +62,7 @@ export type Database = {
           actor_role?: string | null
           after_state?: Json | null
           before_state?: Json | null
+          correlation_id?: string | null
           created_at?: string
           entity_id?: string | null
           entity_reference?: string | null
@@ -2957,37 +2960,23 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_cash_tx_locked: { Args: { p_occurred_at: string }; Returns: boolean }
-      log_activity:
-        | {
-            Args: {
-              p_action: string
-              p_after?: Json
-              p_before?: Json
-              p_entity_id?: string
-              p_entity_reference?: string
-              p_entity_type?: string
-              p_metadata?: Json
-              p_page: string
-              p_summary?: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_action: string
-              p_after?: Json
-              p_before?: Json
-              p_entity_id?: string
-              p_entity_reference?: string
-              p_entity_type?: string
-              p_metadata?: Json
-              p_page: string
-              p_property_id?: string
-              p_source?: string
-              p_summary?: string
-            }
-            Returns: string
-          }
+      log_activity: {
+        Args: {
+          p_action: string
+          p_after?: Json
+          p_before?: Json
+          p_correlation_id?: string
+          p_entity_id?: string
+          p_entity_reference?: string
+          p_entity_type?: string
+          p_metadata?: Json
+          p_page: string
+          p_property_id?: string
+          p_source?: string
+          p_summary?: string
+        }
+        Returns: string
+      }
       my_permissions: { Args: never; Returns: string[] }
       normalize_phone_in: { Args: { p: string }; Returns: string }
       recompute_booking_advance: {

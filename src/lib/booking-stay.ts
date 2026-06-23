@@ -36,6 +36,8 @@ export interface UpdateBookingStayInput {
   source?: StayMutationSource;
   /** Optional page label for activity_log (defaults to a sensible value per source). */
   page?: string;
+  /** Optional correlation id to group this event with sibling events in the same business transaction. */
+  correlation_id?: string | null;
 }
 
 export interface UpdateBookingStayResult {
@@ -189,6 +191,7 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
       p_metadata: null,
       p_source: source,
       p_property_id: null,
+      p_correlation_id: input.correlation_id ?? null,
     } as any);
   } catch {
     /* swallow */
