@@ -492,13 +492,13 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
   );
 }
 
-function Input({ label, icon, value, onChange, type = "text" }: {
-  label: string; icon?: React.ReactNode; value: string; onChange: (v: string) => void; type?: string;
+function Input({ id, label, icon, value, onChange, type = "text" }: {
+  id?: string; label: string; icon?: React.ReactNode; value: string; onChange: (v: string) => void; type?: string;
 }) {
   return (
-    <label className="block">
+    <label className="block scroll-mt-24" htmlFor={id}>
       <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">{icon}{label}</span>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)}
+      <input id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)}
         className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
     </label>
   );
