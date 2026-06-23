@@ -10,8 +10,10 @@ import { cn } from "@/lib/utils";
 
 import { AdminOnly } from "@/components/admin-only";
 
+// Legacy /analytics URL — redirect to CRM Analytics so deep links keep working.
+import { Navigate } from "@tanstack/react-router";
 export const Route = createFileRoute("/_authenticated/analytics")({
-  component: () => <AdminOnly><Analytics /></AdminOnly>,
+  component: () => <Navigate to="/reporting/crm-analytics" replace />,
 });
 
 
