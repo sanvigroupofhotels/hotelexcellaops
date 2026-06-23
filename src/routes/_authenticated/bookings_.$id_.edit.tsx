@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, updateBooking } from "@/lib/bookings-api";
+import { updateBookingStay } from "@/lib/booking-stay";
 import { listBookingItems, replaceBookingItems, rowToLineItem } from "@/lib/booking-items-api";
 import { type LineItem, lineSubtotal, nightsOf } from "@/components/line-items-editor";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
