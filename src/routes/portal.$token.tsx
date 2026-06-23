@@ -9,7 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare,
   Save, ChevronDown, FileCheck, UtensilsCrossed, MessageCircleWarning, Star, XCircle,
-  ExternalLink,
+  ExternalLink, CreditCard, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { validatePhoneNumber, normalizePhoneNumber } from "@/lib/phone";
@@ -20,6 +20,7 @@ import {
   updateGuestPortalDetails,
   confirmRazorpayPayment,
   listPortalDocuments,
+  listPortalComplaints,
   cancelPortalBooking,
   submitPortalComplaint,
   submitPortalReview,
