@@ -590,6 +590,11 @@ function HouseView() {
                           const startKey = m.start_date < rangeStart ? rangeStart : m.start_date;
                           return startKey === dk;
                         });
+                        const dragHL = dragAvail
+                          ? (dragAvail.availableRoomIds.has(r.id)
+                              ? "ring-1 ring-inset ring-emerald-500/60 bg-emerald-500/5"
+                              : "ring-1 ring-inset ring-rose-500/50 bg-rose-500/5")
+                          : "";
                         return (
                           <td key={i}
                             className={cn(
@@ -597,6 +602,7 @@ function HouseView() {
                               isToday && "bg-gold-soft/10",
                               i % 2 === 0 && !isToday && "bg-secondary/10",
                               i === days.length - 1 && "border-r-0",
+                              dragHL,
                             )}
                             style={{ minWidth: CELL_W_MOB, width: CELL_W }}
                             onDragOver={(e) => {
