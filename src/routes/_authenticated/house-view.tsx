@@ -1199,21 +1199,45 @@ interface MoveDialogState {
   oldRoomId: string;
   checkIn: string;
   checkOut: string;
+  status: string;
 }
 
 function MoveBookingDialog({
-  rooms, state, submitting, onClose, onSubmit,
+  state, submitting, onClose, onSubmit,
 }: {
-  rooms: any[];
   state: MoveDialogState;
   submitting: boolean;
   onClose: () => void;
-  onSubmit: (v: { newRoomId: string; newCheckIn: string }) => void;
+  onSubmit: (v: { newRoomId: string; newCheckIn: string; newCheckOut: string }) => void;
 }) {
-  const [newRoomId, setNewRoomId] = useState(state.oldRoomId);
+  const isCheckedIn = state.status === "Checked-In";
   const [newCheckIn, setNewCheckIn] = useState(state.checkIn);
-  const nights = Math.max(1, ymdDiffDays(state.checkOut, state.checkIn));
-  const newCheckOut = ymdAddDays(newCheckIn, nights);
+  const [newCheckOut, setNewCheckOut] = useState(state.checkOut);
+  const [newRoomId, setNewRoomId] = useState(state.oldRoomId);
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Only offer rooms that are actually available for the selected stay window.
+  const { data: avail = [], isLoading } = useQuery({
+    queryKey: ["available-rooms", state.bookingId, newCheckIn, newCheckOut],
+    queryFn: () => listAvailableRoomsForStay({
+      check_in: newCheckIn, check_out: newCheckOut, exclude_booking_id: state.bookingId,
+    }),
+    enabled: !!newCheckIn && !!newCheckOut && newCheckIn < newCheckOut,
+    staleTime: 30_000,
+  });
+
+  // Always include the current room as an option, even if conflict-checked queries hide it.
+  const options = useMemo(() => {
+    const set = new Map<string, { id: string; room_number: string; room_type: string | null }>();
+    for (const r of avail) set.set(r.id, { id: r.id, room_number: r.room_number, room_type: r.room_type });
+    if (!set.has(state.oldRoomId)) {
+      set.set(state.oldRoomId, { id: state.oldRoomId, room_number: "(current)", room_type: null });
+    }
+    return Array.from(set.values()).sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }));
+  }, [avail, state.oldRoomId]);
+
+  const validDates = newCheckIn && newCheckOut && newCheckIn < newCheckOut;
+  const nights = validDates ? ymdDiffDays(newCheckOut, newCheckIn) : 0;
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -1223,29 +1247,47 @@ function MoveBookingDialog({
             <Move className="h-4 w-4 text-gold" /> Move Booking
           </DialogTitle>
           <DialogDescription className="text-xs">
-            {state.guestName} · {nights} night{nights === 1 ? "" : "s"}
+            {state.guestName} · {nights || "—"} night{nights === 1 ? "" : "s"}
+            {isCheckedIn && <span className="ml-2 text-amber-600">(Checked-In — check-in date is locked)</span>}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Check-in</Label>
+              <Input
+                type="date"
+                value={newCheckIn}
+                min={isCheckedIn ? undefined : today}
+                disabled={isCheckedIn}
+                onChange={(e) => setNewCheckIn(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Check-out</Label>
+              <Input
+                type="date"
+                value={newCheckOut}
+                min={newCheckIn || today}
+                onChange={(e) => setNewCheckOut(e.target.value)}
+              />
+            </div>
+          </div>
           <div>
-            <Label className="text-xs">Target room</Label>
+            <Label className="text-xs">Target room {isLoading && <span className="text-muted-foreground">· loading…</span>}</Label>
             <select
               value={newRoomId}
               onChange={(e) => setNewRoomId(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              {rooms.map((r) => (
+              {options.map((r) => (
                 <option key={r.id} value={r.id}>
-                  Room {r.room_number} · {r.room_type}{r.id === state.oldRoomId ? " (current)" : ""}
+                  Room {r.room_number}{r.room_type ? ` · ${r.room_type}` : ""}{r.id === state.oldRoomId ? " (current)" : ""}
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <Label className="text-xs">New check-in</Label>
-            <Input type="date" value={newCheckIn} onChange={(e) => setNewCheckIn(e.target.value)} />
             <p className="text-[10px] text-muted-foreground mt-1">
-              Check-out auto-adjusts to {newCheckOut} ({nights} night{nights === 1 ? "" : "s"}).
+              Only available rooms are listed. Occupied and blocked rooms are hidden.
             </p>
           </div>
         </div>
@@ -1253,8 +1295,8 @@ function MoveBookingDialog({
           <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
           <Button
             size="sm"
-            disabled={submitting}
-            onClick={() => onSubmit({ newRoomId, newCheckIn })}
+            disabled={submitting || !validDates}
+            onClick={() => onSubmit({ newRoomId, newCheckIn, newCheckOut })}
             className="gold-gradient text-charcoal hover:opacity-90"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Move"}
@@ -1264,3 +1306,4 @@ function MoveBookingDialog({
     </Dialog>
   );
 }
+
