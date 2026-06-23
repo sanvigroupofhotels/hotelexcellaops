@@ -738,6 +738,32 @@ function HouseView() {
           }}
           onClose={() => setVacantAction(null)} />
       )}
+      {moveDialog && (
+        <MoveBookingDialog
+          rooms={rooms as any[]}
+          state={moveDialog}
+          submitting={moveMutation.isPending}
+          onClose={() => setMoveDialog(null)}
+          onSubmit={(target) => {
+            const nights = ymdDiffDays(moveDialog.checkOut, moveDialog.checkIn);
+            const newCheckIn = target.newCheckIn;
+            const newCheckOut = ymdAddDays(newCheckIn, nights);
+            if (target.newRoomId === moveDialog.oldRoomId && newCheckIn === moveDialog.checkIn) {
+              toast.info("Nothing to change");
+              return;
+            }
+            moveMutation.mutate({
+              bookingId: moveDialog.bookingId,
+              oldRoomId: moveDialog.oldRoomId,
+              newRoomId: target.newRoomId,
+              newCheckIn,
+              newCheckOut,
+            }, {
+              onSuccess: () => setMoveDialog(null),
+            });
+          }}
+        />
+      )}
 
       {statsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setStatsOpen(false)}>
