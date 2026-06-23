@@ -1,12 +1,13 @@
 /**
  * Booking Engine — Step 4 (Review your price).
  * Two-column comparison: Pay Now (inventory price) vs Pay Later (inventory + 5%).
- * Action button lives INSIDE each column.
+ * Includes a collapsible Modify Stay panel that reprices in place without
+ * creating a new booking_id.
  */
 import { createFileRoute, useNavigate, useSearch, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -14,13 +15,16 @@ import {
   createBookingEngineOrder,
   confirmBookingEnginePayment,
   confirmPayAtHotel,
+  updateDraftStay,
 } from "@/lib/booking-engine.functions";
 import { getRoomMeta } from "@/lib/booking-engine-rooms";
 import { useEngineConfig } from "./booking-engine";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  ArrowLeft, BedDouble, CalendarDays, Users, Check, Loader2, Shield,
+  ArrowLeft, BedDouble, CalendarDays, Users, Check, Loader2, Shield, Pencil,
 } from "lucide-react";
 
 const Schema = z.object({
@@ -55,19 +59,26 @@ function nightsBetween(a: string, b: string): number {
 function ReviewPage() {
   const search = useSearch({ from: "/booking-engine/review" });
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { data: cfg } = useEngineConfig();
   const [busy, setBusy] = useState<"now" | "later" | null>(null);
+  const [modifying, setModifying] = useState(false);
 
   const getPricing = useServerFn(getDraftPricing);
   const createOrder = useServerFn(createBookingEngineOrder);
   const confirmPay = useServerFn(confirmBookingEnginePayment);
   const confirmPah = useServerFn(confirmPayAtHotel);
+  const modifyStay = useServerFn(updateDraftStay);
+  
 
   const q = useQuery({
     queryKey: ["be", "review", search.booking_id],
     queryFn: () => getPricing({ data: { booking_id: search.booking_id } }),
-    staleTime: 30_000,
+    staleTime: 5_000,
   });
+
+  // Room types from already-fetched engine config (reused — no second fetch).
+  const engineCfg = { data: cfg ? { room_types: cfg.room_types as any[] } : undefined, isLoading: !cfg } as { data: { room_types: any[] } | undefined; isLoading: boolean };
 
   // Load Razorpay script
   useEffect(() => {
@@ -151,11 +162,30 @@ function ReviewPage() {
     }
   }
 
+  // Modify Stay mutation — same booking_id, repriced server-side.
+  const modifyMut = useMutation({
+    mutationFn: (vars: { check_in: string; check_out: string; guests: number; room_type: string }) =>
+      modifyStay({ data: { booking_id: search.booking_id, ...vars } }),
+    onSuccess: (_data, vars) => {
+      toast.success("Stay updated. Price refreshed.");
+      qc.invalidateQueries({ queryKey: ["be", "review", search.booking_id] });
+      // Reflect new dates/category in the URL so refresh / share / back-nav stays consistent.
+      navigate({
+        to: "/booking-engine/review",
+        search: { booking_id: search.booking_id, ...vars } as any,
+        replace: true,
+      });
+      setModifying(false);
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not update stay."),
+  });
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-12">
       <Link
         to="/booking-engine/checkout"
         search={{
+          booking_id: search.booking_id,
           check_in: search.check_in,
           check_out: search.check_out,
           guests: search.guests,
@@ -163,22 +193,48 @@ function ReviewPage() {
         } as any}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to guest details
+        <ArrowLeft className="h-4 w-4" /> Edit guest details
       </Link>
 
       <h1 className="mt-3 font-display text-2xl">Review your price</h1>
       <p className="text-sm text-muted-foreground">Choose how you would like to pay.</p>
 
-      {/* Stay summary */}
+      {/* Stay summary + Modify */}
       <Card className="mt-4 p-4">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-          <span className="inline-flex items-center gap-1.5"><BedDouble className="h-4 w-4 text-gold" /> {search.room_type}</span>
-          <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4 text-gold" /> {dateLabel(search.check_in)} → {dateLabel(search.check_out)}</span>
-          <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-gold" /> {search.guests} guest{search.guests > 1 ? "s" : ""}</span>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <span className="inline-flex items-center gap-1.5"><BedDouble className="h-4 w-4 text-gold" /> {search.room_type}</span>
+            <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4 text-gold" /> {dateLabel(search.check_in)} → {dateLabel(search.check_out)}</span>
+            <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-gold" /> {search.guests} guest{search.guests > 1 ? "s" : ""}</span>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setModifying((v) => !v)}
+            className="shrink-0 gap-1 h-8 text-xs"
+          >
+            <Pencil className="h-3 w-3" /> {modifying ? "Cancel" : "Modify"}
+          </Button>
         </div>
         <div className="mt-3 text-xs text-muted-foreground">
           Check-in from {cfg?.ops.check_in_time ?? "13:00"} · Check-out by {cfg?.ops.check_out_time ?? "11:00"}
         </div>
+
+        {modifying && (
+          <ModifyStayPanel
+            initial={{
+              check_in: search.check_in,
+              check_out: search.check_out,
+              guests: search.guests,
+              room_type: search.room_type,
+            }}
+            roomTypes={engineCfg.data?.room_types ?? []}
+            loading={engineCfg.isLoading}
+            submitting={modifyMut.isPending}
+            onSubmit={(v) => modifyMut.mutate(v)}
+          />
+        )}
       </Card>
 
       {/* Pay Now / Pay Later */}
@@ -266,6 +322,99 @@ function ReviewPage() {
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+interface ModifyStayValues {
+  check_in: string;
+  check_out: string;
+  guests: number;
+  room_type: string;
+}
+interface RoomTypeOption { type: string; total_rooms: number }
+
+function ModifyStayPanel({
+  initial, roomTypes, loading, submitting, onSubmit,
+}: {
+  initial: ModifyStayValues;
+  roomTypes: RoomTypeOption[];
+  loading: boolean;
+  submitting: boolean;
+  onSubmit: (v: ModifyStayValues) => void;
+}) {
+  const [checkIn, setCheckIn] = useState(initial.check_in);
+  const [checkOut, setCheckOut] = useState(initial.check_out);
+  const [guests, setGuests] = useState(initial.guests);
+  const [roomType, setRoomType] = useState(initial.room_type);
+
+  const dirty =
+    checkIn !== initial.check_in ||
+    checkOut !== initial.check_out ||
+    guests !== initial.guests ||
+    roomType !== initial.room_type;
+
+  function submit() {
+    if (checkOut <= checkIn) {
+      toast.error("Check-out must be after check-in");
+      return;
+    }
+    onSubmit({ check_in: checkIn, check_out: checkOut, guests, room_type: roomType });
+  }
+
+  // Build a display list — make sure the current selection is always present
+  // even if engine config is still loading.
+  const types = (() => {
+    const list = (roomTypes ?? []).map((t) => t.type);
+    if (initial.room_type && !list.includes(initial.room_type)) list.unshift(initial.room_type);
+    return list;
+  })();
+
+  return (
+    <div className="mt-4 rounded-md border border-gold/30 bg-gold-soft/10 p-3 space-y-3">
+      <p className="text-xs uppercase tracking-wider text-gold font-medium">Modify your stay</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label className="text-xs">Check-in</Label>
+          <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Check-out</Label>
+          <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} min={checkIn} />
+        </div>
+        <div>
+          <Label className="text-xs">Guests</Label>
+          <Input
+            type="number" min={1} max={10} value={guests}
+            onChange={(e) => setGuests(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Room category</Label>
+          <select
+            value={roomType}
+            onChange={(e) => setRoomType(e.target.value)}
+            disabled={loading}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            {types.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          onClick={submit}
+          disabled={!dirty || submitting}
+          size="sm"
+          className="gold-gradient text-charcoal hover:opacity-90"
+        >
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update & reprice"}
+        </Button>
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        Your details (name, phone, email, special requests) are preserved.
+      </p>
     </div>
   );
 }

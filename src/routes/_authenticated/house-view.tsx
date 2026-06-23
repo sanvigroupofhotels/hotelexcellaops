@@ -1,13 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { listRooms, listMaintenance } from "@/lib/rooms-api";
 import { listBookings } from "@/lib/bookings-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck, Move } from "lucide-react";
 import { NightAuditDialog } from "@/components/night-audit-dialog";
 import { useOpsTimeLabels } from "@/lib/check-times";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
@@ -23,6 +23,13 @@ import { useCheckInController } from "@/lib/check-in-flow";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useMasterData } from "@/hooks/use-master-data";
 import { MetricCard, Money } from "@/components/money";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   groupStayAssignments, groupStayItems, pairStaySlotsToRooms,
   segmentCoversDate, segmentOverlapsRange, segmentsOverlap, stayRoomTypesMatch, slotEndExclusive,
@@ -122,6 +129,29 @@ function HouseView() {
   const [searchQ, setSearchQ] = useState("");
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
+  // Mobile move-booking dialog (long-press fallback for drag-and-drop)
+  const isMobile = useIsMobile();
+  const [moveDialog, setMoveDialog] = useState<{
+    bookingId: string; guestName: string; oldRoomId: string;
+    checkIn: string; checkOut: string;
+  } | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function startLongPress(b: any, roomId: string) {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTimer.current = setTimeout(() => {
+      setMoveDialog({
+        bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
+        checkIn: b.check_in, checkOut: b.check_out,
+      });
+      // Soft haptic if available
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        try { (navigator as any).vibrate?.(40); } catch { /* noop */ }
+      }
+    }, 500);
+  }
+  function cancelLongPress() {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  }
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
@@ -605,9 +635,9 @@ function HouseView() {
                                 return (
                                   <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={() => setSelected(b)}
                                     data-booking-pill={b.id}
-                                    draggable={dragEnabled}
+                                    draggable={dragEnabled && !isMobile}
                                     onDragStart={(e) => {
-                                      if (!dragEnabled) { e.preventDefault(); return; }
+                                      if (!dragEnabled || isMobile) { e.preventDefault(); return; }
                                       const orig = (bookings as any[]).find((x) => x.id === b.id) ?? b;
                                       const payload = JSON.stringify({
                                         bookingId: b.id,
@@ -618,15 +648,20 @@ function HouseView() {
                                       e.dataTransfer.setData("application/x-booking-move", payload);
                                       e.dataTransfer.effectAllowed = "move";
                                     }}
+                                    onTouchStart={() => { if (dragEnabled && isMobile) startLongPress(b, r.id); }}
+                                    onTouchEnd={cancelLongPress}
+                                    onTouchMove={cancelLongPress}
+                                    onTouchCancel={cancelLongPress}
                                     className={cn(
                                       "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
                                       blockClasses(b),
                                       b._virtual && "border-dashed",
-                                      dragEnabled && "cursor-grab active:cursor-grabbing",
+                                      dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
                                       highlightId === b.id && "ring-4 ring-gold animate-pulse",
                                     )}
                                     style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: highlightId === b.id ? 10 : 5 }}
-                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? " · Drag to move room/dates" : ""}`}>
+                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ""}`}>
+
                                     {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
                                     {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
                                     <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
@@ -702,6 +737,32 @@ function HouseView() {
             setVacantAction(null);
           }}
           onClose={() => setVacantAction(null)} />
+      )}
+      {moveDialog && (
+        <MoveBookingDialog
+          rooms={rooms as any[]}
+          state={moveDialog}
+          submitting={moveMutation.isPending}
+          onClose={() => setMoveDialog(null)}
+          onSubmit={(target) => {
+            const nights = ymdDiffDays(moveDialog.checkOut, moveDialog.checkIn);
+            const newCheckIn = target.newCheckIn;
+            const newCheckOut = ymdAddDays(newCheckIn, nights);
+            if (target.newRoomId === moveDialog.oldRoomId && newCheckIn === moveDialog.checkIn) {
+              toast.info("Nothing to change");
+              return;
+            }
+            moveMutation.mutate({
+              bookingId: moveDialog.bookingId,
+              oldRoomId: moveDialog.oldRoomId,
+              newRoomId: target.newRoomId,
+              newCheckIn,
+              newCheckOut,
+            }, {
+              onSuccess: () => setMoveDialog(null),
+            });
+          }}
+        />
       )}
 
       {statsOpen && (
@@ -1094,5 +1155,77 @@ function NightAuditPendingBanner({ onOpen, businessDate }: { onOpen: () => void;
         Resolve
       </button>
     </div>
+  );
+}
+
+interface MoveDialogState {
+  bookingId: string;
+  guestName: string;
+  oldRoomId: string;
+  checkIn: string;
+  checkOut: string;
+}
+
+function MoveBookingDialog({
+  rooms, state, submitting, onClose, onSubmit,
+}: {
+  rooms: any[];
+  state: MoveDialogState;
+  submitting: boolean;
+  onClose: () => void;
+  onSubmit: (v: { newRoomId: string; newCheckIn: string }) => void;
+}) {
+  const [newRoomId, setNewRoomId] = useState(state.oldRoomId);
+  const [newCheckIn, setNewCheckIn] = useState(state.checkIn);
+  const nights = Math.max(1, ymdDiffDays(state.checkOut, state.checkIn));
+  const newCheckOut = ymdAddDays(newCheckIn, nights);
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Move className="h-4 w-4 text-gold" /> Move Booking
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {state.guestName} · {nights} night{nights === 1 ? "" : "s"}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Target room</Label>
+            <select
+              value={newRoomId}
+              onChange={(e) => setNewRoomId(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  Room {r.room_number} · {r.room_type}{r.id === state.oldRoomId ? " (current)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">New check-in</Label>
+            <Input type="date" value={newCheckIn} onChange={(e) => setNewCheckIn(e.target.value)} />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Check-out auto-adjusts to {newCheckOut} ({nights} night{nights === 1 ? "" : "s"}).
+            </p>
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button
+            size="sm"
+            disabled={submitting}
+            onClick={() => onSubmit({ newRoomId, newCheckIn })}
+            className="gold-gradient text-charcoal hover:opacity-90"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Move"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

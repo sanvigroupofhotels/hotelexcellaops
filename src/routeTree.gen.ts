@@ -71,7 +71,9 @@ import { Route as AuthenticatedSettingsCrmRouteImport } from './routes/_authenti
 import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_authenticated/settings.branding'
 import { Route as AuthenticatedReportingStaffRouteImport } from './routes/_authenticated/reporting.staff'
 import { Route as AuthenticatedReportingPaymentsRouteImport } from './routes/_authenticated/reporting.payments'
+import { Route as AuthenticatedReportingOwnerDashboardRouteImport } from './routes/_authenticated/reporting.owner-dashboard'
 import { Route as AuthenticatedReportingNightAuditRouteImport } from './routes/_authenticated/reporting.night-audit'
+import { Route as AuthenticatedReportingCrmAnalyticsRouteImport } from './routes/_authenticated/reporting.crm-analytics'
 import { Route as AuthenticatedReportingAnalyticsRouteImport } from './routes/_authenticated/reporting.analytics'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedNightAuditHistoryRouteImport } from './routes/_authenticated/night-audit.history'
@@ -417,10 +419,22 @@ const AuthenticatedReportingPaymentsRoute =
     path: '/payments',
     getParentRoute: () => AuthenticatedReportingRoute,
   } as any)
+const AuthenticatedReportingOwnerDashboardRoute =
+  AuthenticatedReportingOwnerDashboardRouteImport.update({
+    id: '/owner-dashboard',
+    path: '/owner-dashboard',
+    getParentRoute: () => AuthenticatedReportingRoute,
+  } as any)
 const AuthenticatedReportingNightAuditRoute =
   AuthenticatedReportingNightAuditRouteImport.update({
     id: '/night-audit',
     path: '/night-audit',
+    getParentRoute: () => AuthenticatedReportingRoute,
+  } as any)
+const AuthenticatedReportingCrmAnalyticsRoute =
+  AuthenticatedReportingCrmAnalyticsRouteImport.update({
+    id: '/crm-analytics',
+    path: '/crm-analytics',
     getParentRoute: () => AuthenticatedReportingRoute,
   } as any)
 const AuthenticatedReportingAnalyticsRoute =
@@ -549,7 +563,9 @@ export interface FileRoutesByFullPath {
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
+  '/reporting/crm-analytics': typeof AuthenticatedReportingCrmAnalyticsRoute
   '/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
+  '/reporting/owner-dashboard': typeof AuthenticatedReportingOwnerDashboardRoute
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -622,7 +638,9 @@ export interface FileRoutesByTo {
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
+  '/reporting/crm-analytics': typeof AuthenticatedReportingCrmAnalyticsRoute
   '/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
+  '/reporting/owner-dashboard': typeof AuthenticatedReportingOwnerDashboardRoute
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -701,7 +719,9 @@ export interface FileRoutesById {
   '/_authenticated/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/_authenticated/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
+  '/_authenticated/reporting/crm-analytics': typeof AuthenticatedReportingCrmAnalyticsRoute
   '/_authenticated/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
+  '/_authenticated/reporting/owner-dashboard': typeof AuthenticatedReportingOwnerDashboardRoute
   '/_authenticated/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/_authenticated/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/_authenticated/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -780,7 +800,9 @@ export interface FileRouteTypes {
     | '/night-audit/history'
     | '/quote/$id'
     | '/reporting/analytics'
+    | '/reporting/crm-analytics'
     | '/reporting/night-audit'
+    | '/reporting/owner-dashboard'
     | '/reporting/payments'
     | '/reporting/staff'
     | '/settings/branding'
@@ -853,7 +875,9 @@ export interface FileRouteTypes {
     | '/night-audit/history'
     | '/quote/$id'
     | '/reporting/analytics'
+    | '/reporting/crm-analytics'
     | '/reporting/night-audit'
+    | '/reporting/owner-dashboard'
     | '/reporting/payments'
     | '/reporting/staff'
     | '/settings/branding'
@@ -931,7 +955,9 @@ export interface FileRouteTypes {
     | '/_authenticated/night-audit/history'
     | '/_authenticated/quote/$id'
     | '/_authenticated/reporting/analytics'
+    | '/_authenticated/reporting/crm-analytics'
     | '/_authenticated/reporting/night-audit'
+    | '/_authenticated/reporting/owner-dashboard'
     | '/_authenticated/reporting/payments'
     | '/_authenticated/reporting/staff'
     | '/_authenticated/settings/branding'
@@ -1409,11 +1435,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportingPaymentsRouteImport
       parentRoute: typeof AuthenticatedReportingRoute
     }
+    '/_authenticated/reporting/owner-dashboard': {
+      id: '/_authenticated/reporting/owner-dashboard'
+      path: '/owner-dashboard'
+      fullPath: '/reporting/owner-dashboard'
+      preLoaderRoute: typeof AuthenticatedReportingOwnerDashboardRouteImport
+      parentRoute: typeof AuthenticatedReportingRoute
+    }
     '/_authenticated/reporting/night-audit': {
       id: '/_authenticated/reporting/night-audit'
       path: '/night-audit'
       fullPath: '/reporting/night-audit'
       preLoaderRoute: typeof AuthenticatedReportingNightAuditRouteImport
+      parentRoute: typeof AuthenticatedReportingRoute
+    }
+    '/_authenticated/reporting/crm-analytics': {
+      id: '/_authenticated/reporting/crm-analytics'
+      path: '/crm-analytics'
+      fullPath: '/reporting/crm-analytics'
+      preLoaderRoute: typeof AuthenticatedReportingCrmAnalyticsRouteImport
       parentRoute: typeof AuthenticatedReportingRoute
     }
     '/_authenticated/reporting/analytics': {
@@ -1534,7 +1574,9 @@ const AuthenticatedNightAuditRouteWithChildren =
 
 interface AuthenticatedReportingRouteChildren {
   AuthenticatedReportingAnalyticsRoute: typeof AuthenticatedReportingAnalyticsRoute
+  AuthenticatedReportingCrmAnalyticsRoute: typeof AuthenticatedReportingCrmAnalyticsRoute
   AuthenticatedReportingNightAuditRoute: typeof AuthenticatedReportingNightAuditRoute
+  AuthenticatedReportingOwnerDashboardRoute: typeof AuthenticatedReportingOwnerDashboardRoute
   AuthenticatedReportingPaymentsRoute: typeof AuthenticatedReportingPaymentsRoute
   AuthenticatedReportingStaffRoute: typeof AuthenticatedReportingStaffRoute
 }
@@ -1542,8 +1584,12 @@ interface AuthenticatedReportingRouteChildren {
 const AuthenticatedReportingRouteChildren: AuthenticatedReportingRouteChildren =
   {
     AuthenticatedReportingAnalyticsRoute: AuthenticatedReportingAnalyticsRoute,
+    AuthenticatedReportingCrmAnalyticsRoute:
+      AuthenticatedReportingCrmAnalyticsRoute,
     AuthenticatedReportingNightAuditRoute:
       AuthenticatedReportingNightAuditRoute,
+    AuthenticatedReportingOwnerDashboardRoute:
+      AuthenticatedReportingOwnerDashboardRoute,
     AuthenticatedReportingPaymentsRoute: AuthenticatedReportingPaymentsRoute,
     AuthenticatedReportingStaffRoute: AuthenticatedReportingStaffRoute,
   }
@@ -1752,13 +1798,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

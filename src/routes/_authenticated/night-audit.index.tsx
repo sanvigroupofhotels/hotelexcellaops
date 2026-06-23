@@ -5,6 +5,8 @@ import { ArrowRight, ChevronRight, Hand, Info, LogIn, LogOut, IndianRupee, Check
 import { toast } from "sonner";
 
 import { EodShell } from "@/components/eod-shell";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -40,6 +42,7 @@ function NightAuditDashboard() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
+  const [notes, setNotes] = useState("");
   const [pendingDialog, setPendingDialog] = useState<{ ci: number; co: number } | null>(null);
   const [successDialog, setSuccessDialog] = useState<{ prev: string; next: string } | null>(null);
 
@@ -64,7 +67,7 @@ function NightAuditDashboard() {
   const onPerform = async () => {
     setBusy(true);
     try {
-      const result = await performNightAuditNow();
+      const result = await performNightAuditNow({ notes });
       if (!result.ok) {
         setPendingDialog({ ci: result.pendingCheckIns ?? 0, co: result.pendingCheckOuts ?? 0 });
         return;
@@ -135,6 +138,20 @@ function NightAuditDashboard() {
       <div className="rounded-md border border-sky-500/30 bg-sky-500/5 text-sky-700 dark:text-sky-300 px-3 py-2 text-xs flex items-center gap-2">
         <Info className="h-3.5 w-3.5 shrink-0" />
         Dues will not block Night Audit. You can proceed.
+      </div>
+
+      {/* Optional operational notes — appears in Audit History & EOD Report */}
+      <div className="rounded-lg border border-border bg-card/40 p-4 space-y-2">
+        <Label htmlFor="audit-notes" className="text-xs">Notes (optional)</Label>
+        <Textarea
+          id="audit-notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          placeholder="e.g. Generator failed 2pm–4pm · Room 203 AC under maintenance · Late checkout approved for Room 104"
+          className="text-sm"
+        />
+        <p className="text-[10px] text-muted-foreground">These notes will appear in Audit History and the End of Day Report for {fmtDate(businessDate)}.</p>
       </div>
 
       {/* Perform Night Audit CTA */}

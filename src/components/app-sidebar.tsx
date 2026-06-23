@@ -5,7 +5,7 @@ import {
   MessageSquareWarning, Building2, Database,
   Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
   Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
-  BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound, Moon, AlertTriangle,
+  BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound, Moon, AlertTriangle, TrendingUp,
 } from "lucide-react";
 import { useNightAuditStatus } from "@/hooks/use-night-audit-status";
 
@@ -41,9 +41,10 @@ const endOfDayChildren = [
 ] as const;
 
 const reportingChildren = [
-  { to: "/reporting/analytics",   label: "Analytics",            icon: BarChart3, permission: "reporting.analytics.view" },
-  { to: "/reporting/payments",    label: "Payment Reports",      icon: IndianRupee, permission: "reporting.payments.view" },
-  { to: "/reporting/staff",       label: "Staff Reporting",      icon: FileBarChart, permission: "reporting.staff.view" },
+  { to: "/reporting/owner-dashboard", label: "Owner Dashboard",     icon: BarChart3, permission: "reporting.analytics.view", adminOnly: true },
+  { to: "/reporting/crm-analytics",   label: "CRM Analytics",       icon: TrendingUp, permission: "reporting.analytics.view" },
+  { to: "/reporting/payments",        label: "Payment Reports",     icon: IndianRupee, permission: "reporting.payments.view" },
+  { to: "/reporting/staff",           label: "Staff Reporting",     icon: FileBarChart, permission: "reporting.staff.view" },
 ] as const;
 
 const usersChildren = [

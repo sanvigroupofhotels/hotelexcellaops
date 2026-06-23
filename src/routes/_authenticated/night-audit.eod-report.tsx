@@ -1,12 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Printer, Loader2 } from "lucide-react";
+import { z } from "zod";
+import { Download, Printer, Loader2, StickyNote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { EodShell } from "@/components/eod-shell";
 import { Button } from "@/components/ui/button";
 
+const Schema = z.object({ session_id: z.string().uuid().optional() });
+
 export const Route = createFileRoute("/_authenticated/night-audit/eod-report")({
   component: EodReportPage,
+  validateSearch: (raw) => Schema.parse(raw),
 });
 
 interface ClosedSession {
@@ -15,6 +19,16 @@ interface ClosedSession {
   closed_at: string | null;
   closed_by_name: string | null;
   totals: Record<string, any> | null;
+}
+
+async function getSessionById(id: string): Promise<ClosedSession | null> {
+  const { data, error } = await supabase
+    .from("night_audit_sessions" as any)
+    .select("id,business_date,closed_at,closed_by_name,totals")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as any) ?? null;
 }
 
 async function getLastClosedSession(): Promise<ClosedSession | null> {
@@ -40,9 +54,15 @@ function fmtDT(iso?: string | null): string {
 }
 
 function EodReportPage() {
-  const q = useQuery({ queryKey: ["eod-last-closed"], queryFn: getLastClosedSession });
+  const search = useSearch({ from: "/_authenticated/night-audit/eod-report" });
+  const sessionId = search.session_id;
+  const q = useQuery({
+    queryKey: ["eod-session", sessionId ?? "last"],
+    queryFn: () => (sessionId ? getSessionById(sessionId) : getLastClosedSession()),
+  });
   const session = q.data;
   const t = (session?.totals ?? {}) as Record<string, any>;
+  const notes = (t.notes as string | undefined) ?? "";
 
   const occupancy = Number(t.occupancy_pct ?? 0);
   const roomsSold = Number(t.rooms_sold ?? 0);
@@ -109,6 +129,16 @@ function EodReportPage() {
               <Row k="Total Collected" v={inr(totalCollected)} bold />
             </Section>
           </div>
+
+          {/* Operational notes (optional) */}
+          {notes && (
+            <div className="rounded-lg border border-gold/30 bg-gold-soft/20 p-4">
+              <div className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                <StickyNote className="h-4 w-4 text-gold" /> Notes
+              </div>
+              <p className="text-sm whitespace-pre-line text-foreground/90">{notes}</p>
+            </div>
+          )}
 
           {/* Audit info */}
           <div className="rounded-lg border border-border bg-card/40 p-4">
