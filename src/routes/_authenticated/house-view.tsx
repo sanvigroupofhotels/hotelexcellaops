@@ -135,7 +135,7 @@ function HouseView() {
   const isMobile = useIsMobile();
   const [moveDialog, setMoveDialog] = useState<{
     bookingId: string; guestName: string; oldRoomId: string;
-    checkIn: string; checkOut: string;
+    checkIn: string; checkOut: string; status: string;
   } | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function startLongPress(b: any, roomId: string) {
@@ -143,7 +143,7 @@ function HouseView() {
     longPressTimer.current = setTimeout(() => {
       setMoveDialog({
         bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
-        checkIn: b.check_in, checkOut: b.check_out,
+        checkIn: b.check_in, checkOut: b.check_out, status: b.status,
       });
       // Soft haptic if available
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
