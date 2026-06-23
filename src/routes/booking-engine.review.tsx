@@ -69,7 +69,7 @@ function ReviewPage() {
   const confirmPay = useServerFn(confirmBookingEnginePayment);
   const confirmPah = useServerFn(confirmPayAtHotel);
   const modifyStay = useServerFn(updateDraftStay);
-  const fetchEngineConfig = useServerFn(getEngineConfig);
+  
 
   const q = useQuery({
     queryKey: ["be", "review", search.booking_id],
