@@ -183,6 +183,18 @@ export async function closeSession(opts: {
   });
 
   await setBusinessDate(next);
+  void logActivity({
+    page: "Night Audit",
+    action: "night_audit_completed",
+    entity_type: "night_audit_session",
+    entity_id: opts.sessionId,
+    entity_reference: bd,
+    summary: `Night audit completed · BD advanced ${bd} → ${next}`,
+    before: { business_date: bd, status: "open" },
+    after: { business_date: next, status: "closed" },
+    metadata: { totals: opts.totals ?? {}, override_reason: opts.overrideReason ?? null },
+    source: "night_audit",
+  });
   return { newBusinessDate: next };
 }
 
@@ -270,6 +282,19 @@ export async function reopenLastClosedSession(opts: {
     action: "session_reopened",
     reason: opts.reason,
     payload: { actor: opts.actorName ?? userRes?.user?.email ?? null, by_id: uid },
+  });
+
+  void logActivity({
+    page: "Night Audit",
+    action: "night_audit_reopened",
+    entity_type: "night_audit_session",
+    entity_id: (last as any).id,
+    entity_reference: bd,
+    summary: `Night audit reopened for ${bd} · ${opts.reason}`,
+    before: { status: "closed" },
+    after: { status: "reopened", business_date: bd },
+    metadata: { reason: opts.reason },
+    source: "night_audit",
   });
 
   return upd as any;
