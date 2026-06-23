@@ -12,6 +12,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { getBusinessDate, setBusinessDate } from "@/lib/night-audit-api";
+import { logActivity } from "@/lib/activity-log";
 
 export type NightAuditSessionStatus = "open" | "closed" | "reopened";
 
@@ -94,7 +95,18 @@ export async function openOrResumeSession(
     }
     throw error;
   }
-  return data as any;
+  const created = data as any;
+  void logActivity({
+    page: "Night Audit",
+    action: "night_audit_started",
+    entity_type: "night_audit_session",
+    entity_id: created.id,
+    entity_reference: bd,
+    summary: `Night audit started for business date ${bd}`,
+    after: { business_date: bd, status: "open" },
+    source: "night_audit",
+  });
+  return created;
 }
 
 /** Close the session and advance the business date by +1. */
