@@ -35,6 +35,17 @@ type Row = {
 };
 
 const SOURCES = ["all", "manual", "house_view", "guest_portal", "ota", "night_audit", "system", "api"];
+const ACTION_OPTIONS = [
+  "",
+  "user_logged_in", "user_logged_out",
+  "booking_created", "booking_updated", "booking_moved", "booking_cancelled", "booking_no_show",
+  "guest_checked_in", "guest_checked_out", "guest_check_in_reverted", "guest_check_out_reverted",
+  "payment_recorded", "payment_refunded", "payment_written_off",
+  "night_audit_started", "night_audit_completed", "night_audit_reopened",
+  "customer_created", "customer_updated", "customer_merged", "customer_documents_uploaded",
+  "user_created", "user_role_changed", "user_permission_granted", "user_permission_revoked",
+  "user_disabled", "user_enabled",
+];
 
 function ActivityTracking() {
   const { canManage } = useUserRole();
@@ -100,7 +111,17 @@ function ActivityTracking() {
                 <SelectContent>{SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
               </Select></div>
             <div><label className="text-xs text-muted-foreground">Action</label>
-              <Input placeholder="e.g. booking_moved" value={action} onChange={(e) => setAction(e.target.value)} /></div>
+              <div className="flex gap-2">
+                <Select value={action} onValueChange={(v) => setAction(v === "__custom__" ? action : v)}>
+                  <SelectTrigger className="w-[160px]"><SelectValue placeholder="Any" /></SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {ACTION_OPTIONS.map((a) => (
+                      <SelectItem key={a || "any"} value={a || "__any__"}>{a || "Any"}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input placeholder="or contains…" value={action} onChange={(e) => setAction(e.target.value)} />
+              </div></div>
             <div><label className="text-xs text-muted-foreground">Page</label>
               <Input placeholder="e.g. House View" value={page} onChange={(e) => setPage(e.target.value)} /></div>
             {canManage && (

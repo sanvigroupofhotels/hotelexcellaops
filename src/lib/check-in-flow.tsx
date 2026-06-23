@@ -96,7 +96,15 @@ export function useCheckInController(
   const commit = async (id: string, prevStatus: string | null) => {
     setStep("committing");
     try {
-      await setBookingStatus(id, "Checked-In" as any);
+      const { transitionBookingStatus } = await import("@/lib/booking-status");
+      await transitionBookingStatus({
+        booking_id: id,
+        kind: "check_in",
+        page: "Check-In",
+        source: "manual",
+        metadata: opts?.note ? { note: opts.note } : null,
+      });
+      // Keep the legacy per-booking activity feed in sync.
       await logBookingActivity({
         booking_id: id,
         action: "check_in",
