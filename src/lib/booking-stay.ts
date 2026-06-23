@@ -15,6 +15,15 @@ import { supabase } from "@/integrations/supabase/client";
  *     this function translates trigger errors into business-friendly messages).
  */
 
+export type StayMutationSource =
+  | "manual"
+  | "house_view"
+  | "guest_portal"
+  | "ota"
+  | "night_audit"
+  | "system"
+  | "api";
+
 export interface UpdateBookingStayInput {
   booking_id: string;
   /** Optional new check-in (YYYY-MM-DD) */
@@ -23,6 +32,10 @@ export interface UpdateBookingStayInput {
   new_check_out?: string;
   /** Optional new room id */
   new_room_id?: string;
+  /** Origin of this mutation. Defaults to 'manual'. Surfaces in activity_log.source. */
+  source?: StayMutationSource;
+  /** Optional page label for activity_log (defaults to a sensible value per source). */
+  page?: string;
 }
 
 export interface UpdateBookingStayResult {
