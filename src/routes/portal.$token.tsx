@@ -582,21 +582,28 @@ const COMPLAINT_CATEGORIES = [
 
 function ReportComplaintCard({ token }: { token: string }) {
   const submit = useServerFn(submitPortalComplaint);
+  const fetchList = useServerFn(listPortalComplaints);
+  const listQ = useQuery({
+    queryKey: ["portal-complaints", token],
+    queryFn: () => fetchList({ data: { token } }),
+  });
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState(COMPLAINT_CATEGORIES[0]);
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+
+  const list = listQ.data ?? [];
+  const openCount = list.filter((c) => c.status !== "Resolved" && c.status !== "Closed").length;
 
   const onSubmit = async () => {
     if (description.trim().length < 3) return toast.error("Please describe the issue (at least 3 characters)");
     setSubmitting(true);
     try {
       await submit({ data: { token, category, description: description.trim() } });
-      setSubmitted(true);
       toast.success("Complaint submitted. Our team will respond shortly.");
       setOpen(false);
       setDescription("");
+      listQ.refetch();
     } catch (e: any) {
       toast.error(errMsg(e, "Could not submit complaint"));
     } finally { setSubmitting(false); }
