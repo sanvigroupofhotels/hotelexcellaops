@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
+import { logActivity } from "@/lib/activity-log";
 
 export interface CustomerRow {
   id: string;
@@ -86,7 +87,18 @@ export async function updateCustomer(id: string, patch: Partial<CustomerInput>) 
   const { data, error } = await supabase
     .from("customers" as any).update(payload as any).eq("id", id).select().single();
   if (error) throw error;
-  return data as unknown as CustomerRow;
+  const row = data as unknown as CustomerRow;
+  void logActivity({
+    page: "Customers",
+    action: "customer_updated",
+    entity_type: "customer",
+    entity_id: row.id,
+    entity_reference: row.guest_name ?? row.phone ?? row.id,
+    summary: `Customer updated · ${row.guest_name ?? ""}`,
+    after: patch as any,
+    source: "manual",
+  });
+  return row;
 }
 
 export async function createCustomer(input: CustomerInput) {
@@ -104,7 +116,18 @@ export async function createCustomer(input: CustomerInput) {
     }
     throw error;
   }
-  return data as unknown as CustomerRow;
+  const row = data as unknown as CustomerRow;
+  void logActivity({
+    page: "Customers",
+    action: "customer_created",
+    entity_type: "customer",
+    entity_id: row.id,
+    entity_reference: row.guest_name ?? row.phone ?? row.id,
+    summary: `Customer created · ${row.guest_name ?? ""}${row.phone ? ` · ${row.phone}` : ""}`,
+    after: { guest_name: row.guest_name, phone: row.phone, email: row.email },
+    source: "manual",
+  });
+  return row;
 }
 
 export async function deleteCustomer(id: string) {
