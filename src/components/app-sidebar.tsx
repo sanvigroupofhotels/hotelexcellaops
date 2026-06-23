@@ -37,13 +37,13 @@ const endOfDayChildren = [
   { to: "/night-audit",                   label: "Dashboard",        icon: Home,        permission: "house_view.view" },
   { to: "/night-audit/critical-tasks",    label: "Critical Tasks",   icon: AlertTriangle, permission: "house_view.view" },
   { to: "/night-audit/eod-report",        label: "End of Day Report",icon: FileBarChart, permission: "house_view.view" },
+  { to: "/night-audit/history",           label: "Audit History",    icon: ShieldCheck, permission: "reporting.night_audit.view" },
 ] as const;
 
 const reportingChildren = [
   { to: "/reporting/analytics",   label: "Analytics",            icon: BarChart3, permission: "reporting.analytics.view" },
   { to: "/reporting/payments",    label: "Payment Reports",      icon: IndianRupee, permission: "reporting.payments.view" },
   { to: "/reporting/staff",       label: "Staff Reporting",      icon: FileBarChart, permission: "reporting.staff.view" },
-  { to: "/reporting/night-audit", label: "Night Audit History",  icon: ShieldCheck, permission: "reporting.night_audit.view" },
 ] as const;
 
 const usersChildren = [

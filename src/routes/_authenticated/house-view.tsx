@@ -58,8 +58,16 @@ function ymdDiffDays(a: string, b: string): number {
   return Math.round((da - db) / (24 * 60 * 60 * 1000));
 }
 
-/** Pill colors keyed by booking status. */
-function blockClasses(status: string): string {
+/**
+ * Pill colors keyed by booking state.
+ *
+ * Blue ("Confirmed & Committed") indicates the booking has crossed the
+ * commitment threshold: either money has changed hands OR the guest has
+ * explicitly chosen Pay-at-Hotel and confirmed. Operationally these are
+ * equivalent — room inventory is held and the guest has committed.
+ */
+function blockClasses(b: { status: string; advance_paid?: number | null; pay_at_hotel?: boolean | null }): string {
+  const status = b.status;
   switch (status) {
     case "Checked-In":
       return "bg-green-500/85 text-white border-green-700";
@@ -73,8 +81,13 @@ function blockClasses(status: string): string {
       return "bg-destructive/40 text-foreground border-destructive/60 line-through";
     case "No-Show":
       return "bg-destructive/60 text-white border-destructive line-through";
-    case "Pending":
     case "Confirmed":
+      // Confirmed + (advance paid OR pay-at-hotel) → committed (blue).
+      if (Number(b.advance_paid || 0) > 0 || b.pay_at_hotel === true) {
+        return "bg-blue-500/85 text-white border-blue-700";
+      }
+      return "bg-white text-gray-900 border-gray-500 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-400";
+    case "Pending":
     default:
       return "bg-white text-gray-900 border-gray-500 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-400";
   }
@@ -607,7 +620,7 @@ function HouseView() {
                                     }}
                                     className={cn(
                                       "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
-                                      blockClasses(b.status),
+                                      blockClasses(b),
                                       b._virtual && "border-dashed",
                                       dragEnabled && "cursor-grab active:cursor-grabbing",
                                       highlightId === b.id && "ring-4 ring-gold animate-pulse",
@@ -651,7 +664,7 @@ function HouseView() {
         {/* Legend */}
         <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
           <Legend cls="bg-white border-gray-500" label="Pending / Confirmed" />
-          <Legend cls="bg-blue-500/85 border-blue-700" label="Advance / Full Paid" />
+          <Legend cls="bg-blue-500/85 border-blue-700" label="Confirmed & Committed" />
           <Legend cls="bg-green-500/85 border-green-700" label="Checked-In" />
           <Legend cls="bg-gray-400/70 border-gray-600" label="Checked-Out / Stay Completed" />
           <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />

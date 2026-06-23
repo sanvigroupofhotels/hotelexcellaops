@@ -5,7 +5,6 @@ const REPORTING_ROUTES = [
   { to: "/reporting/analytics", permission: "reporting.analytics.view" },
   { to: "/reporting/payments", permission: "reporting.payments.view" },
   { to: "/reporting/staff", permission: "reporting.staff.view" },
-  { to: "/reporting/night-audit", permission: "reporting.night_audit.view" },
 ] as const;
 
 export const Route = createFileRoute("/_authenticated/reporting")({
