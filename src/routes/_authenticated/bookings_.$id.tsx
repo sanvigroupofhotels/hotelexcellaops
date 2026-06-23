@@ -642,7 +642,19 @@ function BookingDetail() {
 
             <InHouseChargesSection bookingId={id} />
 
-            <PaymentsLedger bookingId={id} bookingAmount={Number(b.amount)} chargesTotal={chargesTotal} advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id} />
+            <PaymentsLedger
+              bookingId={id} bookingAmount={Number(b.amount)} chargesTotal={chargesTotal}
+              advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id}
+              onRequestRefund={(suggested) => {
+                setRefundAmount(suggested);
+                setRefundMode("Cash");
+                setRefundRef("");
+                setRefundBy("");
+                setRefundReason("");
+                setRefundAfterAction(null);
+                setRefundOpen(true);
+              }}
+            />
 
             <GuestDocumentsSummary bookingId={id} onOpen={() => { setGuestDocsOpen(true); }} />
 
