@@ -78,13 +78,8 @@ function ReviewPage() {
     staleTime: 5_000,
   });
 
-  // Available room types for the Modify Stay panel
-  const engineCfg = useQuery({
-    queryKey: ["be", "engine-config"],
-    queryFn: () => fetchEngineConfig(),
-    staleTime: 60_000,
-    enabled: modifying,
-  });
+  // Room types from already-fetched engine config (reused — no second fetch).
+  const engineCfg = { data: cfg ? { room_types: cfg.room_types as any[] } : undefined, isLoading: !cfg } as { data: { room_types: any[] } | undefined; isLoading: boolean };
 
   // Load Razorpay script
   useEffect(() => {
