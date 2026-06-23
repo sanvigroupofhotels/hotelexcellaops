@@ -67,7 +67,7 @@ function NightAuditDashboard() {
   const onPerform = async () => {
     setBusy(true);
     try {
-      const result = await performNightAuditNow();
+      const result = await performNightAuditNow({ notes });
       if (!result.ok) {
         setPendingDialog({ ci: result.pendingCheckIns ?? 0, co: result.pendingCheckOuts ?? 0 });
         return;
