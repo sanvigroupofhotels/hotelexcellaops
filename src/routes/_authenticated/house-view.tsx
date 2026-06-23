@@ -129,6 +129,29 @@ function HouseView() {
   const [searchQ, setSearchQ] = useState("");
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
+  // Mobile move-booking dialog (long-press fallback for drag-and-drop)
+  const isMobile = useIsMobile();
+  const [moveDialog, setMoveDialog] = useState<{
+    bookingId: string; guestName: string; oldRoomId: string;
+    checkIn: string; checkOut: string;
+  } | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function startLongPress(b: any, roomId: string) {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTimer.current = setTimeout(() => {
+      setMoveDialog({
+        bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
+        checkIn: b.check_in, checkOut: b.check_out,
+      });
+      // Soft haptic if available
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        try { (navigator as any).vibrate?.(40); } catch { /* noop */ }
+      }
+    }, 500);
+  }
+  function cancelLongPress() {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  }
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
