@@ -5,6 +5,8 @@ import { ArrowRight, ChevronRight, Hand, Info, LogIn, LogOut, IndianRupee, Check
 import { toast } from "sonner";
 
 import { EodShell } from "@/components/eod-shell";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
