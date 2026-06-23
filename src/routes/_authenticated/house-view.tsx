@@ -58,8 +58,16 @@ function ymdDiffDays(a: string, b: string): number {
   return Math.round((da - db) / (24 * 60 * 60 * 1000));
 }
 
-/** Pill colors keyed by booking status. */
-function blockClasses(status: string): string {
+/**
+ * Pill colors keyed by booking state.
+ *
+ * Blue ("Confirmed & Committed") indicates the booking has crossed the
+ * commitment threshold: either money has changed hands OR the guest has
+ * explicitly chosen Pay-at-Hotel and confirmed. Operationally these are
+ * equivalent — room inventory is held and the guest has committed.
+ */
+function blockClasses(b: { status: string; advance_paid?: number | null; pay_at_hotel?: boolean | null }): string {
+  const status = b.status;
   switch (status) {
     case "Checked-In":
       return "bg-green-500/85 text-white border-green-700";
@@ -73,8 +81,13 @@ function blockClasses(status: string): string {
       return "bg-destructive/40 text-foreground border-destructive/60 line-through";
     case "No-Show":
       return "bg-destructive/60 text-white border-destructive line-through";
-    case "Pending":
     case "Confirmed":
+      // Confirmed + (advance paid OR pay-at-hotel) → committed (blue).
+      if (Number(b.advance_paid || 0) > 0 || b.pay_at_hotel === true) {
+        return "bg-blue-500/85 text-white border-blue-700";
+      }
+      return "bg-white text-gray-900 border-gray-500 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-400";
+    case "Pending":
     default:
       return "bg-white text-gray-900 border-gray-500 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-400";
   }
