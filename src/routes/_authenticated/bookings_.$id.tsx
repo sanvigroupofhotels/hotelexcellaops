@@ -254,6 +254,7 @@ function BookingDetail() {
   const [refundMode, setRefundMode] = useState<string>("Cash");
   const [refundRef, setRefundRef] = useState<string>("");
   const [refundBy, setRefundBy] = useState<string>("");
+  const [refundReason, setRefundReason] = useState<string>("Overpayment refund");
   const [refundAfterAction, setRefundAfterAction] = useState<"checkout" | null>(null);
 
   const refundMut = useMutation({
@@ -266,8 +267,8 @@ function BookingDetail() {
         payment_mode: refundMode,
         collected_by: refundBy || "—",
         is_refund: true,
-        refund_reason: "Overpayment refund",
-        notes: `Refund · ${refundMode}${refundRef ? ` · Ref ${refundRef}` : ""}`,
+        refund_reason: refundReason || "Refund",
+        notes: `Refund · ${refundReason || "Refund"} · ${refundMode}${refundRef ? ` · Ref ${refundRef}` : ""}`,
       });
     },
     onSuccess: async () => {
