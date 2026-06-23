@@ -126,6 +126,18 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     }));
     const chargesTotal = charges.reduce((s, r) => s + r.amount, 0);
 
+    // Assigned room number (first active assignment)
+    let roomNumber = "";
+    try {
+      const { data: asgn } = await supabaseAdmin
+        .from("booking_room_assignments")
+        .select("rooms ( room_number )")
+        .eq("booking_id", (b as any).id)
+        .limit(1)
+        .maybeSingle();
+      roomNumber = (asgn as any)?.rooms?.room_number ?? "";
+    } catch { /* ignore */ }
+
     // Booking line items (separate room charges from extras)
     const { data: itemRows } = await supabaseAdmin
       .from("booking_items")
