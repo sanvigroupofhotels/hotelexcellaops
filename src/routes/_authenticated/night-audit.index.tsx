@@ -42,6 +42,7 @@ function NightAuditDashboard() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
+  const [notes, setNotes] = useState("");
   const [pendingDialog, setPendingDialog] = useState<{ ci: number; co: number } | null>(null);
   const [successDialog, setSuccessDialog] = useState<{ prev: string; next: string } | null>(null);
 
