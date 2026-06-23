@@ -315,6 +315,23 @@ function StayField({ label, date, kind }: { label: string; date: string; kind: "
 
 function ProfileCompletion({ pct, missing }: { pct: number; missing: string[] }) {
   const glyph = pct >= 100 ? "●" : pct >= 75 ? "◕" : pct >= 50 ? "◑" : pct >= 25 ? "◔" : "○";
+  const anchorFor = (label: string) =>
+    label === "Email Address" ? "portal-email"
+      : label === "Expected Arrival Time" ? "portal-arrival"
+      : label === "Guest Documents" ? "portal-documents"
+      : null;
+  const scrollTo = (label: string) => {
+    const id = anchorFor(label); if (!id) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Soft focus highlight
+    el.classList.add("ring-2", "ring-gold/60", "rounded-md");
+    setTimeout(() => el.classList.remove("ring-2", "ring-gold/60", "rounded-md"), 1600);
+    if (el instanceof HTMLInputElement || el instanceof HTMLButtonElement) {
+      try { el.focus({ preventScroll: true }); } catch { /* noop */ }
+    }
+  };
   return (
     <div className="luxe-card rounded-xl p-4 space-y-2">
       <div className="flex items-center justify-between">
@@ -326,8 +343,18 @@ function ProfileCompletion({ pct, missing }: { pct: number; missing: string[] })
       {missing.length > 0 && (
         <div className="text-xs text-muted-foreground space-y-1">
           <div>Missing:</div>
-          <ul className="list-disc pl-5 text-foreground space-y-0.5">
-            {missing.map((m) => <li key={m}>{m}</li>)}
+          <ul className="list-disc pl-5 space-y-0.5">
+            {missing.map((m) => (
+              <li key={m}>
+                <button
+                  type="button"
+                  onClick={() => scrollTo(m)}
+                  className="text-foreground hover:text-gold underline-offset-2 hover:underline"
+                >
+                  {m}
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
       )}
