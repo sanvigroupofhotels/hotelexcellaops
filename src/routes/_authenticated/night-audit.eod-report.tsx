@@ -130,6 +130,16 @@ function EodReportPage() {
             </Section>
           </div>
 
+          {/* Operational notes (optional) */}
+          {notes && (
+            <div className="rounded-lg border border-gold/30 bg-gold-soft/20 p-4">
+              <div className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                <StickyNote className="h-4 w-4 text-gold" /> Notes
+              </div>
+              <p className="text-sm whitespace-pre-line text-foreground/90">{notes}</p>
+            </div>
+          )}
+
           {/* Audit info */}
           <div className="rounded-lg border border-border bg-card/40 p-4">
             <div className="text-sm font-medium mb-2">Audit Info</div>
