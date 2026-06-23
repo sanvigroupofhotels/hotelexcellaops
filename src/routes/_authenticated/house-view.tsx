@@ -664,7 +664,7 @@ function HouseView() {
         {/* Legend */}
         <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
           <Legend cls="bg-white border-gray-500" label="Pending / Confirmed" />
-          <Legend cls="bg-blue-500/85 border-blue-700" label="Advance / Full Paid" />
+          <Legend cls="bg-blue-500/85 border-blue-700" label="Confirmed & Committed" />
           <Legend cls="bg-green-500/85 border-green-700" label="Checked-In" />
           <Legend cls="bg-gray-400/70 border-gray-600" label="Checked-Out / Stay Completed" />
           <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />
