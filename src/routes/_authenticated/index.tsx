@@ -120,8 +120,19 @@ function HomePage() {
   }, [bookings, itemsByBooking, assignmentsByBooking, rooms, chargeTotals, todayKey]);
 
   const active = bookings.filter((b) => b.status !== "Cancelled" && b.status !== "No-Show");
-  const occupied = active.filter((b) => b.status === "Checked-In").length;
+  // Occupied rooms: count distinct rooms covered today by Checked-In stays
+  // (matches House View logic — multi-room bookings count each assigned room).
+  const occupiedRoomSet = new Set<string>();
+  for (const b of active) {
+    if (b.status !== "Checked-In") continue;
+    const { paired } = pairStaySlotsToRooms(b as any, itemsByBooking, assignmentsByBooking, rooms as any[]);
+    for (const { room_id, slot } of paired) {
+      if (segmentCoversDate(slot, todayKey)) occupiedRoomSet.add(room_id);
+    }
+  }
+  const occupied = occupiedRoomSet.size;
   const arrivalsToday = active.filter((b) => b.check_in === today).length;
+  const departuresToday = active.filter((b) => b.check_out === today).length;
   const pendingCheckins = active.filter((b) => b.check_in <= today && !["Checked-In","Checked-Out"].includes(b.status as string)).length;
   const dueCollection = active
     .filter((b) => b.status !== "Checked-Out")
@@ -147,16 +158,18 @@ function HomePage() {
   const totalRooms = rooms.filter((r: any) => r.active !== false).length;
   const occupancyPct = totalRooms > 0 ? Math.round((occupied / totalRooms) * 100) : 0;
 
-  const stats: Array<{ label: string; value: number | string; icon: any; emoji: string; to: string }> = [
-    { label: "Occupied Rooms",   value: occupied,         icon: BedDouble,            emoji: "🏨", to: "/house-view" },
-    { label: "Arrivals Today",   value: arrivalsToday,    icon: Sunrise,              emoji: "🟢", to: "/bookings" },
-    { label: "Pending Check-ins",value: pendingCheckins,  icon: LogIn,                emoji: "🔴", to: "/bookings" },
-    { label: "Due Collection",   value: `₹${dueCollection.toLocaleString("en-IN")}`, icon: IndianRupee, emoji: "💰", to: "/bookings" },
-    { label: "Revenue Today",    value: `₹${revenueCollectedToday.toLocaleString("en-IN")}`, icon: TrendingUp, emoji: "📈", to: "/payments-reports" },
-    { label: "New Bookings Today", value: newBookingsToday, icon: CalendarPlus,       emoji: "🆕", to: "/bookings" },
-    { label: "Occupancy %",      value: `${occupancyPct}%`, icon: PieChart,            emoji: "📊", to: "/house-view" },
-    { label: "Complaints Open",  value: complaintsOpen,   icon: MessageSquareWarning, emoji: "🛎", to: "/complaints" },
-    { label: "Rooms To Clean",   value: roomsToClean,     icon: Brush,                emoji: "🧹", to: "/house-view" },
+  // Cards: counts render plain numbers (no ₹), currency cards opt-in.
+  const stats: Array<{ label: string; value: number; icon: any; emoji: string; to: string; currency?: boolean }> = [
+    { label: "Occupied Rooms",    value: occupied,                 icon: BedDouble,            emoji: "🏨", to: "/house-view" },
+    { label: "Arrivals Today",    value: arrivalsToday,            icon: Sunrise,              emoji: "🟢", to: "/bookings" },
+    { label: "Departures Today",  value: departuresToday,          icon: LogOut,               emoji: "🚶", to: "/bookings" },
+    { label: "Pending Check-ins", value: pendingCheckins,          icon: LogIn,                emoji: "🔴", to: "/bookings" },
+    { label: "Due Collection",    value: dueCollection,            icon: IndianRupee,          emoji: "💰", to: "/dues", currency: true },
+    { label: "Revenue Today",     value: revenueCollectedToday,    icon: TrendingUp,           emoji: "📈", to: "/payments-reports", currency: true },
+    { label: "New Bookings Today",value: newBookingsToday,         icon: CalendarPlus,         emoji: "🆕", to: "/bookings" },
+    { label: "Occupancy %",       value: occupancyPct,             icon: PieChart,             emoji: "📊", to: "/house-view" },
+    { label: "Complaints Open",   value: complaintsOpen,           icon: MessageSquareWarning, emoji: "🛎", to: "/complaints" },
+    { label: "Rooms To Clean",    value: roomsToClean,             icon: Brush,                emoji: "🧹", to: "/house-view" },
   ];
 
   const quickActions: Array<{ label: string; icon: any; onClick: () => void; emoji: string }> = [
