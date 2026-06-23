@@ -202,12 +202,15 @@ function GuestPortal() {
           </div>
         )}
 
+        {/* 2. Profile Completion */}
         {!isCancelled && <ProfileCompletion pct={score.pct} missing={score.missing} />}
 
+        {/* 3. Your Details (includes Expected Arrival inside) */}
         {!isCancelled && (
           <GuestDetailsForm token={token} initial={b} onSaved={() => q.refetch()} />
         )}
 
+        {/* 5. Guest Documents */}
         {!isCancelled && (
           <DocumentsCard
             token={token}
@@ -217,48 +220,68 @@ function GuestPortal() {
           />
         )}
 
-        {!isCancelled && <OrderFoodCard />}
+        {/* 6. Complete Your Booking — payment */}
+        {!isCancelled && (
+          <section id="portal-payment" className="space-y-3">
+            <h2 className="font-display text-base flex items-center gap-2 px-1">
+              <CreditCard className="h-4 w-4 text-gold" /> Complete Your Booking
+            </h2>
+            {done ? (
+              <div className="luxe-card rounded-xl p-6 text-center space-y-2">
+                <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
+                <h3 className="font-display text-lg">
+                  {done === "paid" ? "Thank you — payment received" : "We'll see you at check-in"}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {done === "paid" ? "Your booking will reflect the updated balance shortly." : "Please complete your remaining payment when you arrive."}
+                </p>
+              </div>
+            ) : b.balanceDue > 0 ? (
+              <PortalPaymentOptions
+                totalAmount={b.payable}
+                advancePaid={b.advancePaid}
+                minPartPayment={b.minPartPayment}
+                allowFull={b.allowFullPayment}
+                allowPart={b.allowPartPayment}
+                allowPayAtHotel={b.allowPayAtHotel}
+                defaultPartPercent={b.defaultPartPercent}
+                busy={busy}
+                onChoose={onChoose}
+              />
+            ) : (
+              <div className="luxe-card rounded-xl p-5 text-center text-sm text-emerald-600">
+                <CheckCircle2 className="h-6 w-6 mx-auto mb-2" /> No balance due.
+              </div>
+            )}
+          </section>
+        )}
 
+        {/* 7. Additional Services — Order Food */}
+        {!isCancelled && (
+          <OrderFoodCard
+            bookingReference={b.reference}
+            guestName={b.guestName}
+            roomNumber={b.roomNumber}
+            phone={b.phone}
+          />
+        )}
+
+        {/* 8. Report Complaint */}
         {!isCancelled && <ReportComplaintCard token={token} />}
 
+        {/* 9. Reviews & Feedback */}
         {!isCancelled && <ReviewsCard token={token} />}
 
+        {/* 10. Cancel Booking */}
         {!isCancelled && (
           <CancelBookingCard
             token={token}
+            bookingReference={b.reference}
             checkIn={b.checkIn}
             advancePaid={b.advancePaid}
             onCancelled={() => q.refetch()}
           />
         )}
-
-        {!isCancelled && (done ? (
-          <div className="luxe-card rounded-xl p-6 text-center space-y-2">
-            <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
-            <h3 className="font-display text-lg">
-              {done === "paid" ? "Thank you — payment received" : "We'll see you at check-in"}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {done === "paid" ? "Your booking will reflect the updated balance shortly." : "Please complete your remaining payment when you arrive."}
-            </p>
-          </div>
-        ) : b.balanceDue > 0 ? (
-          <PortalPaymentOptions
-            totalAmount={b.payable}
-            advancePaid={b.advancePaid}
-            minPartPayment={b.minPartPayment}
-            allowFull={b.allowFullPayment}
-            allowPart={b.allowPartPayment}
-            allowPayAtHotel={b.allowPayAtHotel}
-            defaultPartPercent={b.defaultPartPercent}
-            busy={busy}
-            onChoose={onChoose}
-          />
-        ) : (
-          <div className="luxe-card rounded-xl p-5 text-center text-sm text-emerald-600">
-            <CheckCircle2 className="h-6 w-6 mx-auto mb-2" /> No balance due.
-          </div>
-        ))}
 
         <p className="text-[10px] text-center text-muted-foreground pt-4">
           Secured by Razorpay · Your payment details never touch our servers.
