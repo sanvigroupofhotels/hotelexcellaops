@@ -179,41 +179,45 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
       {visible.map((item, i) => {
         const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to));
         const Icon = item.icon;
-        const pending = naStatus.data?.pendingCount ?? 0;
         return (
-          <motion.div
-            key={item.to}
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.03 * i, duration: 0.3 }}
-          >
-            <Link
-              to={item.to}
-              onClick={onNavigate}
-              className={cn(
-                "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-200 group",
-                active ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60",
-              )}
+          <div key={item.to}>
+            <motion.div
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.03 * i, duration: 0.3 }}
             >
-              {active && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-md bg-gold-soft border border-gold/30"
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                />
-              )}
-              <Icon className={cn("relative h-4 w-4 shrink-0", active && "text-gold")} />
-              <span className="relative flex-1">{item.label}</span>
-            </Link>
-          </motion.div>
+              <Link
+                to={item.to}
+                onClick={onNavigate}
+                className={cn(
+                  "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-200 group",
+                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60",
+                )}
+              >
+                {active && (
+                  <motion.div
+                    layoutId="sidebar-active"
+                    className="absolute inset-0 rounded-md bg-gold-soft border border-gold/30"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <Icon className={cn("relative h-4 w-4 shrink-0", active && "text-gold")} />
+                <span className="relative flex-1">{item.label}</span>
+              </Link>
+            </motion.div>
+            {/* Inject End of Day group right after Bookings (or after House View when
+                Bookings is hidden by permission) so reception sees: House View → End of Day. */}
+            {(item.to === "/bookings"
+              || (item.to === "/house-view" && !visible.some((v) => v.to === "/bookings"))) && (
+              <ExpandableGroup
+                label="End of Day" icon={Moon} prefix="/night-audit"
+                children={endOfDayChildren} onNavigate={onNavigate} pathname={pathname}
+                badge={(naStatus.data?.pendingCount ?? 0) > 0 ? naStatus.data!.pendingCount : undefined}
+              />
+            )}
+          </div>
         );
       })}
-      {/* End of Day — expandable group (Dashboard · Critical Tasks · EOD Report) */}
-      <ExpandableGroup
-        label="End of Day" icon={Moon} prefix="/night-audit"
-        children={endOfDayChildren} onNavigate={onNavigate} pathname={pathname}
-        badge={(naStatus.data?.pendingCount ?? 0) > 0 ? naStatus.data!.pendingCount : undefined}
-      />
       {/* Reporting group — visible to all signed-in staff (admin-only children are filtered inside) */}
       <ExpandableGroup
         label="Reporting" icon={FileBarChart} prefix="/reporting"
