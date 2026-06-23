@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { downloadCsv } from "@/lib/csv";
+import { downloadCSV } from "@/lib/csv";
 import { Download, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/reporting/activity")({
@@ -37,7 +37,7 @@ type Row = {
 const SOURCES = ["all", "manual", "house_view", "guest_portal", "ota", "night_audit", "system", "api"];
 
 function ActivityTracking() {
-  const { isOwnerOrAdmin } = useUserRole();
+  const { canManage } = useUserRole();
   const [from, setFrom] = useState<string>(() => {
     const d = new Date(); d.setDate(d.getDate() - 7);
     return d.toISOString().slice(0, 10);
@@ -50,7 +50,7 @@ function ActivityTracking() {
   const [selected, setSelected] = useState<Row | null>(null);
 
   const { data = [], isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["activity-log", { from, to, source, action, page, actor, isOwnerOrAdmin }],
+    queryKey: ["activity-log", { from, to, source, action, page, actor, canManage }],
     queryFn: async () => {
       let q = supabase
         .from("activity_log" as any)
@@ -62,10 +62,10 @@ function ActivityTracking() {
       if (source !== "all") q = q.eq("source", source);
       if (action.trim()) q = q.ilike("action", `%${action.trim()}%`);
       if (page.trim()) q = q.ilike("page", `%${page.trim()}%`);
-      if (actor.trim() && isOwnerOrAdmin) q = q.ilike("actor_name", `%${actor.trim()}%`);
+      if (actor.trim() && canManage) q = q.ilike("actor_name", `%${actor.trim()}%`);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as Row[];
+      return (data ?? []) as unknown as Row[];
     },
   });
 
@@ -81,7 +81,7 @@ function ActivityTracking() {
       source: r.source,
       summary: r.summary ?? "",
     }));
-    downloadCsv("activity-log", rows);
+    downloadCSV("activity-log", rows);
   };
 
   return (
@@ -103,7 +103,7 @@ function ActivityTracking() {
               <Input placeholder="e.g. booking_moved" value={action} onChange={(e) => setAction(e.target.value)} /></div>
             <div><label className="text-xs text-muted-foreground">Page</label>
               <Input placeholder="e.g. House View" value={page} onChange={(e) => setPage(e.target.value)} /></div>
-            {isOwnerOrAdmin && (
+            {canManage && (
               <div><label className="text-xs text-muted-foreground">Actor</label>
                 <Input placeholder="name" value={actor} onChange={(e) => setActor(e.target.value)} /></div>
             )}
@@ -115,7 +115,7 @@ function ActivityTracking() {
             <Button variant="outline" onClick={exportCsv} disabled={!data.length}>
               <Download className="h-4 w-4 mr-2" />Export CSV
             </Button>
-            {!isOwnerOrAdmin && (
+            {!canManage && (
               <span className="text-xs text-muted-foreground self-center ml-2">Showing your activity only</span>
             )}
           </div>
@@ -131,8 +131,8 @@ function ActivityTracking() {
               <thead className="text-xs uppercase tracking-wider text-muted-foreground border-b border-border/60">
                 <tr>
                   <th className="text-left p-3">Time</th>
-                  {isOwnerOrAdmin && <th className="text-left p-3">Actor</th>}
-                  {isOwnerOrAdmin && <th className="text-left p-3">Role</th>}
+                  {canManage && <th className="text-left p-3">Actor</th>}
+                  {canManage && <th className="text-left p-3">Role</th>}
                   <th className="text-left p-3">Page</th>
                   <th className="text-left p-3">Action</th>
                   <th className="text-left p-3">Entity</th>
@@ -145,8 +145,8 @@ function ActivityTracking() {
                   <tr key={r.id} className="border-b border-border/30 hover:bg-muted/30 cursor-pointer"
                       onClick={() => setSelected(r)}>
                     <td className="p-3 whitespace-nowrap">{new Date(r.occurred_at).toLocaleString()}</td>
-                    {isOwnerOrAdmin && <td className="p-3">{r.actor_name ?? "—"}</td>}
-                    {isOwnerOrAdmin && <td className="p-3"><Badge variant="outline">{r.actor_role ?? "—"}</Badge></td>}
+                    {canManage && <td className="p-3">{r.actor_name ?? "—"}</td>}
+                    {canManage && <td className="p-3"><Badge variant="outline">{r.actor_role ?? "—"}</Badge></td>}
                     <td className="p-3">{r.page ?? "—"}</td>
                     <td className="p-3 font-mono text-xs">{r.action}</td>
                     <td className="p-3">{r.entity_reference ?? r.entity_type ?? "—"}</td>
@@ -170,8 +170,8 @@ function ActivityTracking() {
                 <div><span className="text-muted-foreground">Action</span><div className="font-mono">{selected.action}</div></div>
                 <div><span className="text-muted-foreground">Page</span><div>{selected.page ?? "—"}</div></div>
                 <div><span className="text-muted-foreground">Source</span><div>{selected.source}</div></div>
-                {isOwnerOrAdmin && <div><span className="text-muted-foreground">Actor</span><div>{selected.actor_name ?? "—"}</div></div>}
-                {isOwnerOrAdmin && <div><span className="text-muted-foreground">Role</span><div>{selected.actor_role ?? "—"}</div></div>}
+                {canManage && <div><span className="text-muted-foreground">Actor</span><div>{selected.actor_name ?? "—"}</div></div>}
+                {canManage && <div><span className="text-muted-foreground">Role</span><div>{selected.actor_role ?? "—"}</div></div>}
                 <div className="col-span-2"><span className="text-muted-foreground">Entity</span>
                   <div>{selected.entity_type ?? "—"} · {selected.entity_reference ?? selected.entity_id ?? ""}</div></div>
                 {selected.summary && <div className="col-span-2"><span className="text-muted-foreground">Summary</span><div>{selected.summary}</div></div>}

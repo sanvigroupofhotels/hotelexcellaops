@@ -75,6 +75,7 @@ import { Route as AuthenticatedReportingOwnerDashboardRouteImport } from './rout
 import { Route as AuthenticatedReportingNightAuditRouteImport } from './routes/_authenticated/reporting.night-audit'
 import { Route as AuthenticatedReportingCrmAnalyticsRouteImport } from './routes/_authenticated/reporting.crm-analytics'
 import { Route as AuthenticatedReportingAnalyticsRouteImport } from './routes/_authenticated/reporting.analytics'
+import { Route as AuthenticatedReportingActivityRouteImport } from './routes/_authenticated/reporting.activity'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedNightAuditHistoryRouteImport } from './routes/_authenticated/night-audit.history'
 import { Route as AuthenticatedNightAuditEodReportRouteImport } from './routes/_authenticated/night-audit.eod-report'
@@ -443,6 +444,12 @@ const AuthenticatedReportingAnalyticsRoute =
     path: '/analytics',
     getParentRoute: () => AuthenticatedReportingRoute,
   } as any)
+const AuthenticatedReportingActivityRoute =
+  AuthenticatedReportingActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => AuthenticatedReportingRoute,
+  } as any)
 const AuthenticatedQuoteIdRoute = AuthenticatedQuoteIdRouteImport.update({
   id: '/quote/$id',
   path: '/quote/$id',
@@ -562,6 +569,7 @@ export interface FileRoutesByFullPath {
   '/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/reporting/activity': typeof AuthenticatedReportingActivityRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/crm-analytics': typeof AuthenticatedReportingCrmAnalyticsRoute
   '/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
@@ -637,6 +645,7 @@ export interface FileRoutesByTo {
   '/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/reporting/activity': typeof AuthenticatedReportingActivityRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/crm-analytics': typeof AuthenticatedReportingCrmAnalyticsRoute
   '/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
@@ -718,6 +727,7 @@ export interface FileRoutesById {
   '/_authenticated/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/_authenticated/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
+  '/_authenticated/reporting/activity': typeof AuthenticatedReportingActivityRoute
   '/_authenticated/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/_authenticated/reporting/crm-analytics': typeof AuthenticatedReportingCrmAnalyticsRoute
   '/_authenticated/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
@@ -799,6 +809,7 @@ export interface FileRouteTypes {
     | '/night-audit/eod-report'
     | '/night-audit/history'
     | '/quote/$id'
+    | '/reporting/activity'
     | '/reporting/analytics'
     | '/reporting/crm-analytics'
     | '/reporting/night-audit'
@@ -874,6 +885,7 @@ export interface FileRouteTypes {
     | '/night-audit/eod-report'
     | '/night-audit/history'
     | '/quote/$id'
+    | '/reporting/activity'
     | '/reporting/analytics'
     | '/reporting/crm-analytics'
     | '/reporting/night-audit'
@@ -954,6 +966,7 @@ export interface FileRouteTypes {
     | '/_authenticated/night-audit/eod-report'
     | '/_authenticated/night-audit/history'
     | '/_authenticated/quote/$id'
+    | '/_authenticated/reporting/activity'
     | '/_authenticated/reporting/analytics'
     | '/_authenticated/reporting/crm-analytics'
     | '/_authenticated/reporting/night-audit'
@@ -1463,6 +1476,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportingAnalyticsRouteImport
       parentRoute: typeof AuthenticatedReportingRoute
     }
+    '/_authenticated/reporting/activity': {
+      id: '/_authenticated/reporting/activity'
+      path: '/activity'
+      fullPath: '/reporting/activity'
+      preLoaderRoute: typeof AuthenticatedReportingActivityRouteImport
+      parentRoute: typeof AuthenticatedReportingRoute
+    }
     '/_authenticated/quote/$id': {
       id: '/_authenticated/quote/$id'
       path: '/quote/$id'
@@ -1573,6 +1593,7 @@ const AuthenticatedNightAuditRouteWithChildren =
   )
 
 interface AuthenticatedReportingRouteChildren {
+  AuthenticatedReportingActivityRoute: typeof AuthenticatedReportingActivityRoute
   AuthenticatedReportingAnalyticsRoute: typeof AuthenticatedReportingAnalyticsRoute
   AuthenticatedReportingCrmAnalyticsRoute: typeof AuthenticatedReportingCrmAnalyticsRoute
   AuthenticatedReportingNightAuditRoute: typeof AuthenticatedReportingNightAuditRoute
@@ -1583,6 +1604,7 @@ interface AuthenticatedReportingRouteChildren {
 
 const AuthenticatedReportingRouteChildren: AuthenticatedReportingRouteChildren =
   {
+    AuthenticatedReportingActivityRoute: AuthenticatedReportingActivityRoute,
     AuthenticatedReportingAnalyticsRoute: AuthenticatedReportingAnalyticsRoute,
     AuthenticatedReportingCrmAnalyticsRoute:
       AuthenticatedReportingCrmAnalyticsRoute,
