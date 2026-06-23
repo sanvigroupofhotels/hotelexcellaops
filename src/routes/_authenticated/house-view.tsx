@@ -775,15 +775,15 @@ function HouseView() {
       )}
       {moveDialog && (
         <MoveBookingDialog
-          rooms={rooms as any[]}
           state={moveDialog}
           submitting={moveMutation.isPending}
           onClose={() => setMoveDialog(null)}
           onSubmit={(target) => {
-            const nights = ymdDiffDays(moveDialog.checkOut, moveDialog.checkIn);
-            const newCheckIn = target.newCheckIn;
-            const newCheckOut = ymdAddDays(newCheckIn, nights);
-            if (target.newRoomId === moveDialog.oldRoomId && newCheckIn === moveDialog.checkIn) {
+            if (
+              target.newRoomId === moveDialog.oldRoomId
+              && target.newCheckIn === moveDialog.checkIn
+              && target.newCheckOut === moveDialog.checkOut
+            ) {
               toast.info("Nothing to change");
               return;
             }
@@ -791,8 +791,8 @@ function HouseView() {
               bookingId: moveDialog.bookingId,
               oldRoomId: moveDialog.oldRoomId,
               newRoomId: target.newRoomId,
-              newCheckIn,
-              newCheckOut,
+              newCheckIn: target.newCheckIn,
+              newCheckOut: target.newCheckOut,
             }, {
               onSuccess: () => setMoveDialog(null),
             });
