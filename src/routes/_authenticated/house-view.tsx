@@ -138,8 +138,12 @@ function HouseView() {
     checkIn: string; checkOut: string; status: string;
   } | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function startLongPress(b: any, roomId: string) {
+  const longPressStart = useRef<{ x: number; y: number } | null>(null);
+  const LONG_PRESS_MOVE_TOLERANCE = 10; // px — ignore minor finger jitter
+  function startLongPress(b: any, roomId: string, e?: React.TouchEvent) {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    const t = e?.touches?.[0];
+    longPressStart.current = t ? { x: t.clientX, y: t.clientY } : null;
     longPressTimer.current = setTimeout(() => {
       setMoveDialog({
         bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
@@ -151,8 +155,19 @@ function HouseView() {
       }
     }, 500);
   }
+  function moveLongPress(e: React.TouchEvent) {
+    if (!longPressTimer.current || !longPressStart.current) return;
+    const t = e.touches?.[0];
+    if (!t) return;
+    const dx = Math.abs(t.clientX - longPressStart.current.x);
+    const dy = Math.abs(t.clientY - longPressStart.current.y);
+    if (dx > LONG_PRESS_MOVE_TOLERANCE || dy > LONG_PRESS_MOVE_TOLERANCE) {
+      cancelLongPress();
+    }
+  }
   function cancelLongPress() {
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    longPressStart.current = null;
   }
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
