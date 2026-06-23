@@ -435,11 +435,10 @@ function HouseView() {
                   return (
                     <tr key={r.id} className="group">
                       <td
-                        className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-2 py-3 text-xs align-top"
+                        className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-2 py-3 text-sm align-middle text-center"
                         style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                       >
-                        <div className="font-medium">Room {r.room_number}</div>
-                        <div className="text-[10px] text-muted-foreground">{r.room_type} · F{r.floor}</div>
+                        <div className="font-medium tabular-nums">{r.room_number}</div>
                       </td>
                       {/* Per-day cells with relative wrapper so we can position pills absolutely */}
                       {days.map((d, i) => {
