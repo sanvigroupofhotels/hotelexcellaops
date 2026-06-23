@@ -71,6 +71,7 @@ import { Route as AuthenticatedSettingsCrmRouteImport } from './routes/_authenti
 import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_authenticated/settings.branding'
 import { Route as AuthenticatedReportingStaffRouteImport } from './routes/_authenticated/reporting.staff'
 import { Route as AuthenticatedReportingPaymentsRouteImport } from './routes/_authenticated/reporting.payments'
+import { Route as AuthenticatedReportingOwnerDashboardRouteImport } from './routes/_authenticated/reporting.owner-dashboard'
 import { Route as AuthenticatedReportingNightAuditRouteImport } from './routes/_authenticated/reporting.night-audit'
 import { Route as AuthenticatedReportingAnalyticsRouteImport } from './routes/_authenticated/reporting.analytics'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
@@ -417,6 +418,12 @@ const AuthenticatedReportingPaymentsRoute =
     path: '/payments',
     getParentRoute: () => AuthenticatedReportingRoute,
   } as any)
+const AuthenticatedReportingOwnerDashboardRoute =
+  AuthenticatedReportingOwnerDashboardRouteImport.update({
+    id: '/owner-dashboard',
+    path: '/owner-dashboard',
+    getParentRoute: () => AuthenticatedReportingRoute,
+  } as any)
 const AuthenticatedReportingNightAuditRoute =
   AuthenticatedReportingNightAuditRouteImport.update({
     id: '/night-audit',
@@ -550,6 +557,7 @@ export interface FileRoutesByFullPath {
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
+  '/reporting/owner-dashboard': typeof AuthenticatedReportingOwnerDashboardRoute
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -623,6 +631,7 @@ export interface FileRoutesByTo {
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
+  '/reporting/owner-dashboard': typeof AuthenticatedReportingOwnerDashboardRoute
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -702,6 +711,7 @@ export interface FileRoutesById {
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/_authenticated/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/_authenticated/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
+  '/_authenticated/reporting/owner-dashboard': typeof AuthenticatedReportingOwnerDashboardRoute
   '/_authenticated/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
   '/_authenticated/reporting/staff': typeof AuthenticatedReportingStaffRoute
   '/_authenticated/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -781,6 +791,7 @@ export interface FileRouteTypes {
     | '/quote/$id'
     | '/reporting/analytics'
     | '/reporting/night-audit'
+    | '/reporting/owner-dashboard'
     | '/reporting/payments'
     | '/reporting/staff'
     | '/settings/branding'
@@ -854,6 +865,7 @@ export interface FileRouteTypes {
     | '/quote/$id'
     | '/reporting/analytics'
     | '/reporting/night-audit'
+    | '/reporting/owner-dashboard'
     | '/reporting/payments'
     | '/reporting/staff'
     | '/settings/branding'
@@ -932,6 +944,7 @@ export interface FileRouteTypes {
     | '/_authenticated/quote/$id'
     | '/_authenticated/reporting/analytics'
     | '/_authenticated/reporting/night-audit'
+    | '/_authenticated/reporting/owner-dashboard'
     | '/_authenticated/reporting/payments'
     | '/_authenticated/reporting/staff'
     | '/_authenticated/settings/branding'
@@ -1409,6 +1422,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportingPaymentsRouteImport
       parentRoute: typeof AuthenticatedReportingRoute
     }
+    '/_authenticated/reporting/owner-dashboard': {
+      id: '/_authenticated/reporting/owner-dashboard'
+      path: '/owner-dashboard'
+      fullPath: '/reporting/owner-dashboard'
+      preLoaderRoute: typeof AuthenticatedReportingOwnerDashboardRouteImport
+      parentRoute: typeof AuthenticatedReportingRoute
+    }
     '/_authenticated/reporting/night-audit': {
       id: '/_authenticated/reporting/night-audit'
       path: '/night-audit'
@@ -1535,6 +1555,7 @@ const AuthenticatedNightAuditRouteWithChildren =
 interface AuthenticatedReportingRouteChildren {
   AuthenticatedReportingAnalyticsRoute: typeof AuthenticatedReportingAnalyticsRoute
   AuthenticatedReportingNightAuditRoute: typeof AuthenticatedReportingNightAuditRoute
+  AuthenticatedReportingOwnerDashboardRoute: typeof AuthenticatedReportingOwnerDashboardRoute
   AuthenticatedReportingPaymentsRoute: typeof AuthenticatedReportingPaymentsRoute
   AuthenticatedReportingStaffRoute: typeof AuthenticatedReportingStaffRoute
 }
@@ -1544,6 +1565,8 @@ const AuthenticatedReportingRouteChildren: AuthenticatedReportingRouteChildren =
     AuthenticatedReportingAnalyticsRoute: AuthenticatedReportingAnalyticsRoute,
     AuthenticatedReportingNightAuditRoute:
       AuthenticatedReportingNightAuditRoute,
+    AuthenticatedReportingOwnerDashboardRoute:
+      AuthenticatedReportingOwnerDashboardRoute,
     AuthenticatedReportingPaymentsRoute: AuthenticatedReportingPaymentsRoute,
     AuthenticatedReportingStaffRoute: AuthenticatedReportingStaffRoute,
   }
