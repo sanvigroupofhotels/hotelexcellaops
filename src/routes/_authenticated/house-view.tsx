@@ -323,6 +323,8 @@ function HouseView() {
         new_room_id: opts.newRoomId,
         new_check_in: opts.newCheckIn,
         new_check_out: opts.newCheckOut,
+        source: "house_view",
+        page: "House View",
       });
     },
     onSuccess: () => {

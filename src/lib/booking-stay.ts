@@ -15,6 +15,15 @@ import { supabase } from "@/integrations/supabase/client";
  *     this function translates trigger errors into business-friendly messages).
  */
 
+export type StayMutationSource =
+  | "manual"
+  | "house_view"
+  | "guest_portal"
+  | "ota"
+  | "night_audit"
+  | "system"
+  | "api";
+
 export interface UpdateBookingStayInput {
   booking_id: string;
   /** Optional new check-in (YYYY-MM-DD) */
@@ -23,6 +32,10 @@ export interface UpdateBookingStayInput {
   new_check_out?: string;
   /** Optional new room id */
   new_room_id?: string;
+  /** Origin of this mutation. Defaults to 'manual'. Surfaces in activity_log.source. */
+  source?: StayMutationSource;
+  /** Optional page label for activity_log (defaults to a sensible value per source). */
+  page?: string;
 }
 
 export interface UpdateBookingStayResult {
@@ -153,9 +166,20 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
 
   // Fire-and-forget activity log — never block the move on the log.
   try {
+    const source = input.source ?? "manual";
+    const defaultPage =
+      source === "house_view" ? "House View"
+      : source === "ota" ? "OTA Sync"
+      : source === "guest_portal" ? "Guest Portal"
+      : "Booking";
+    const roomChanged = (newRoom ?? null) !== (oldRoom ?? null);
+    const datesChanged = newIn !== oldIn || newOut !== oldOut;
+    const action = roomChanged && !datesChanged
+      ? "booking_moved"
+      : (datesChanged && !roomChanged ? "booking_updated" : "booking_moved");
     await supabase.rpc("log_activity" as any, {
-      p_page: "House View",
-      p_action: "move_booking",
+      p_page: input.page ?? defaultPage,
+      p_action: action,
       p_entity_type: "booking",
       p_entity_id: booking_id,
       p_entity_reference: (current as any).booking_reference ?? null,
@@ -163,7 +187,9 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
       p_before: before as any,
       p_after: after as any,
       p_metadata: null,
-    });
+      p_source: source,
+      p_property_id: null,
+    } as any);
   } catch {
     /* swallow */
   }

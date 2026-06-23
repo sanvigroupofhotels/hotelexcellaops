@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, updateBooking } from "@/lib/bookings-api";
+import { updateBookingStay } from "@/lib/booking-stay";
 import { listBookingItems, replaceBookingItems, rowToLineItem } from "@/lib/booking-items-api";
 import { type LineItem, lineSubtotal, nightsOf } from "@/components/line-items-editor";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
@@ -98,12 +99,28 @@ function EditBooking() {
 
   const save = useMutation({
     mutationFn: async () => {
+      // Stay mutations (dates/room) go through the single source of truth.
+      // It enforces conflict/maintenance/in-the-past rules and writes activity_log.
+      if (
+        b &&
+        (stay.check_in !== b.check_in ||
+          stay.check_out !== b.check_out ||
+          roomId !== ((b as any).room_id ?? null))
+      ) {
+        await updateBookingStay({
+          booking_id: id,
+          new_check_in: stay.check_in,
+          new_check_out: stay.check_out,
+          new_room_id: roomId ?? undefined,
+          source: "manual",
+          page: "Edit Booking",
+        });
+      }
+      // Remaining fields (guest info, pricing, payment flags) — never dates/room.
       await updateBooking(id, {
         guest_name: stay.guest_name, phone: stay.phone, email: stay.email,
-        check_in: stay.check_in, check_out: stay.check_out,
         adults: stay.adults, children: stay.children, guests: stay.guests,
         room_details: `${stay.room_type} × ${stay.rooms}`,
-        room_id: roomId,
         amount,
         subtotal: pricing.subtotal,
         taxes: pricing.taxes,
