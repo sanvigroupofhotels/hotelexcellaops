@@ -7,6 +7,8 @@ import { listRooms, listMaintenance } from "@/lib/rooms-api";
 import { listBookings } from "@/lib/bookings-api";
 import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
+import { updateBookingStay } from "@/lib/booking-stay";
+import { listAvailableRoomsForStay, type AvailableRoomRow } from "@/lib/room-availability";
 import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck, Move } from "lucide-react";
 import { NightAuditDialog } from "@/components/night-audit-dialog";
 import { useOpsTimeLabels } from "@/lib/check-times";
@@ -133,7 +135,7 @@ function HouseView() {
   const isMobile = useIsMobile();
   const [moveDialog, setMoveDialog] = useState<{
     bookingId: string; guestName: string; oldRoomId: string;
-    checkIn: string; checkOut: string;
+    checkIn: string; checkOut: string; status: string;
   } | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function startLongPress(b: any, roomId: string) {
@@ -141,7 +143,7 @@ function HouseView() {
     longPressTimer.current = setTimeout(() => {
       setMoveDialog({
         bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
-        checkIn: b.check_in, checkOut: b.check_out,
+        checkIn: b.check_in, checkOut: b.check_out, status: b.status,
       });
       // Soft haptic if available
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
@@ -300,11 +302,14 @@ function HouseView() {
   }, [visibleBlocks]);
 
   // -------- Drag & drop: move a booking to a new room and/or new date --------
-  // Only enabled for single-room bookings (one paired assignment). The DB
-  // triggers (`bookings_prevent_room_conflict`, `bookings_prevent_block_conflict`,
-  // `bra_prevent_conflict`) enforce overlap / block rules — any violation throws
-  // and we surface the message; React Query's onError reverts optimistic state.
+  // All move/edit call sites (desktop DnD, mobile dialog, popup, booking page,
+  // edit page) MUST go through `updateBookingStay` — single source of truth.
   const qcMove = useQueryClient();
+  // Drag-target highlighting: while a chip is being dragged we precompute the
+  // set of rooms that are valid destinations for its CURRENT stay dates so cell
+  // backgrounds can show green (available) vs red (occupied/blocked).
+  const [dragAvail, setDragAvail] = useState<{ bookingId: string; availableRoomIds: Set<string> } | null>(null);
+
   const moveMutation = useMutation({
     mutationFn: async (opts: {
       bookingId: string;
@@ -313,19 +318,12 @@ function HouseView() {
       newCheckIn: string;
       newCheckOut: string;
     }) => {
-      // Update bookings first — its triggers enforce room/block conflict rules.
-      const { error: bErr } = await supabase
-        .from("bookings" as any)
-        .update({ check_in: opts.newCheckIn, check_out: opts.newCheckOut, room_id: opts.newRoomId } as any)
-        .eq("id", opts.bookingId);
-      if (bErr) throw bErr;
-      // Repoint the matching assignment row. `bra_prevent_conflict` also enforces overlap.
-      const { error: aErr } = await supabase
-        .from("booking_room_assignments" as any)
-        .update({ room_id: opts.newRoomId } as any)
-        .eq("booking_id", opts.bookingId)
-        .eq("room_id", opts.oldRoomId);
-      if (aErr) throw aErr;
+      return await updateBookingStay({
+        booking_id: opts.bookingId,
+        new_room_id: opts.newRoomId,
+        new_check_in: opts.newCheckIn,
+        new_check_out: opts.newCheckOut,
+      });
     },
     onSuccess: () => {
       toast.success("Booking moved");
@@ -333,15 +331,22 @@ function HouseView() {
       qcMove.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
     },
     onError: (e: any) => {
-      const msg = String(e?.message ?? "Move failed");
-      // Friendlier message for known trigger violations.
-      if (/conflict|blocked|overlapping/i.test(msg)) {
-        toast.error("Move cancelled — " + msg);
-      } else {
-        toast.error(msg);
-      }
+      // Messages from `updateBookingStay` are already business-friendly.
+      toast.error(String(e?.message ?? "Could not move booking"));
     },
   });
+
+  /** Snap a dragged pill back to its origin when the drop is rejected or invalid. */
+  function snapBack(bookingId: string) {
+    const el = document.querySelector(`[data-booking-pill="${bookingId}"]`) as HTMLElement | null;
+    if (!el) return;
+    el.style.transition = "transform 220ms ease";
+    el.style.transform = "translate(0,0)";
+    window.setTimeout(() => {
+      el.style.transition = "";
+      el.style.transform = "";
+    }, 260);
+  }
 
   function handleDropOnCell(targetRoomId: string, targetDate: string, payload: string) {
     try {
@@ -351,19 +356,27 @@ function HouseView() {
       const delta = ymdDiffDays(targetDate, parsed.checkIn);
       const newCheckIn = ymdAddDays(parsed.checkIn, delta);
       const newCheckOut = ymdAddDays(parsed.checkOut, delta);
-      // No-op guard
       if (parsed.oldRoomId === targetRoomId && newCheckIn === parsed.checkIn) return;
+      // Pre-flight visual rejection — keep server-side validation as the source of truth.
+      if (dragAvail && dragAvail.bookingId === parsed.bookingId && !dragAvail.availableRoomIds.has(targetRoomId)) {
+        toast.error("Cannot move booking. Destination room is already occupied or blocked for the selected dates.");
+        snapBack(parsed.bookingId);
+        return;
+      }
       moveMutation.mutate({
         bookingId: parsed.bookingId,
         oldRoomId: parsed.oldRoomId,
         newRoomId: targetRoomId,
         newCheckIn,
         newCheckOut,
+      }, {
+        onError: () => snapBack(parsed.bookingId),
       });
     } catch {
       toast.error("Invalid drag payload");
     }
   }
+
 
 
 
@@ -577,6 +590,11 @@ function HouseView() {
                           const startKey = m.start_date < rangeStart ? rangeStart : m.start_date;
                           return startKey === dk;
                         });
+                        const dragHL = dragAvail
+                          ? (dragAvail.availableRoomIds.has(r.id)
+                              ? "ring-1 ring-inset ring-emerald-500/60 bg-emerald-500/5"
+                              : "ring-1 ring-inset ring-rose-500/50 bg-rose-500/5")
+                          : "";
                         return (
                           <td key={i}
                             className={cn(
@@ -584,12 +602,13 @@ function HouseView() {
                               isToday && "bg-gold-soft/10",
                               i % 2 === 0 && !isToday && "bg-secondary/10",
                               i === days.length - 1 && "border-r-0",
+                              dragHL,
                             )}
                             style={{ minWidth: CELL_W_MOB, width: CELL_W }}
                             onDragOver={(e) => {
                               if (e.dataTransfer.types.includes("application/x-booking-move")) {
                                 e.preventDefault();
-                                e.dataTransfer.dropEffect = "move";
+                                e.dataTransfer.dropEffect = dragAvail && !dragAvail.availableRoomIds.has(r.id) ? "none" : "move";
                               }
                             }}
                             onDrop={(e) => {
@@ -597,6 +616,7 @@ function HouseView() {
                               if (!payload) return;
                               e.preventDefault();
                               handleDropOnCell(r.id, dk, payload);
+                              setDragAvail(null);
                             }}
                           >
                             <div className="relative h-full" style={{ minHeight: 56 }}>
@@ -647,7 +667,22 @@ function HouseView() {
                                       });
                                       e.dataTransfer.setData("application/x-booking-move", payload);
                                       e.dataTransfer.effectAllowed = "move";
+                                      // Compute valid destination rooms for this booking's
+                                      // CURRENT dates so cells can highlight green/red.
+                                      listAvailableRoomsForStay({
+                                        check_in: orig.check_in,
+                                        check_out: orig.check_out,
+                                        exclude_booking_id: b.id,
+                                      })
+                                        .then((rs: AvailableRoomRow[]) => {
+                                          setDragAvail({
+                                            bookingId: b.id,
+                                            availableRoomIds: new Set(rs.map((x) => x.id)),
+                                          });
+                                        })
+                                        .catch(() => { /* highlighting is optional */ });
                                     }}
+                                    onDragEnd={() => setDragAvail(null)}
                                     onTouchStart={() => { if (dragEnabled && isMobile) startLongPress(b, r.id); }}
                                     onTouchEnd={cancelLongPress}
                                     onTouchMove={cancelLongPress}
@@ -740,15 +775,15 @@ function HouseView() {
       )}
       {moveDialog && (
         <MoveBookingDialog
-          rooms={rooms as any[]}
           state={moveDialog}
           submitting={moveMutation.isPending}
           onClose={() => setMoveDialog(null)}
           onSubmit={(target) => {
-            const nights = ymdDiffDays(moveDialog.checkOut, moveDialog.checkIn);
-            const newCheckIn = target.newCheckIn;
-            const newCheckOut = ymdAddDays(newCheckIn, nights);
-            if (target.newRoomId === moveDialog.oldRoomId && newCheckIn === moveDialog.checkIn) {
+            if (
+              target.newRoomId === moveDialog.oldRoomId
+              && target.newCheckIn === moveDialog.checkIn
+              && target.newCheckOut === moveDialog.checkOut
+            ) {
               toast.info("Nothing to change");
               return;
             }
@@ -756,8 +791,8 @@ function HouseView() {
               bookingId: moveDialog.bookingId,
               oldRoomId: moveDialog.oldRoomId,
               newRoomId: target.newRoomId,
-              newCheckIn,
-              newCheckOut,
+              newCheckIn: target.newCheckIn,
+              newCheckOut: target.newCheckOut,
             }, {
               onSuccess: () => setMoveDialog(null),
             });
@@ -1164,21 +1199,45 @@ interface MoveDialogState {
   oldRoomId: string;
   checkIn: string;
   checkOut: string;
+  status: string;
 }
 
 function MoveBookingDialog({
-  rooms, state, submitting, onClose, onSubmit,
+  state, submitting, onClose, onSubmit,
 }: {
-  rooms: any[];
   state: MoveDialogState;
   submitting: boolean;
   onClose: () => void;
-  onSubmit: (v: { newRoomId: string; newCheckIn: string }) => void;
+  onSubmit: (v: { newRoomId: string; newCheckIn: string; newCheckOut: string }) => void;
 }) {
-  const [newRoomId, setNewRoomId] = useState(state.oldRoomId);
+  const isCheckedIn = state.status === "Checked-In";
   const [newCheckIn, setNewCheckIn] = useState(state.checkIn);
-  const nights = Math.max(1, ymdDiffDays(state.checkOut, state.checkIn));
-  const newCheckOut = ymdAddDays(newCheckIn, nights);
+  const [newCheckOut, setNewCheckOut] = useState(state.checkOut);
+  const [newRoomId, setNewRoomId] = useState(state.oldRoomId);
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Only offer rooms that are actually available for the selected stay window.
+  const { data: avail = [], isLoading } = useQuery({
+    queryKey: ["available-rooms", state.bookingId, newCheckIn, newCheckOut],
+    queryFn: () => listAvailableRoomsForStay({
+      check_in: newCheckIn, check_out: newCheckOut, exclude_booking_id: state.bookingId,
+    }),
+    enabled: !!newCheckIn && !!newCheckOut && newCheckIn < newCheckOut,
+    staleTime: 30_000,
+  });
+
+  // Always include the current room as an option, even if conflict-checked queries hide it.
+  const options = useMemo(() => {
+    const set = new Map<string, { id: string; room_number: string; room_type: string | null }>();
+    for (const r of avail) set.set(r.id, { id: r.id, room_number: r.room_number, room_type: r.room_type });
+    if (!set.has(state.oldRoomId)) {
+      set.set(state.oldRoomId, { id: state.oldRoomId, room_number: "(current)", room_type: null });
+    }
+    return Array.from(set.values()).sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }));
+  }, [avail, state.oldRoomId]);
+
+  const validDates = newCheckIn && newCheckOut && newCheckIn < newCheckOut;
+  const nights = validDates ? ymdDiffDays(newCheckOut, newCheckIn) : 0;
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -1188,29 +1247,47 @@ function MoveBookingDialog({
             <Move className="h-4 w-4 text-gold" /> Move Booking
           </DialogTitle>
           <DialogDescription className="text-xs">
-            {state.guestName} · {nights} night{nights === 1 ? "" : "s"}
+            {state.guestName} · {nights || "—"} night{nights === 1 ? "" : "s"}
+            {isCheckedIn && <span className="ml-2 text-amber-600">(Checked-In — check-in date is locked)</span>}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Check-in</Label>
+              <Input
+                type="date"
+                value={newCheckIn}
+                min={isCheckedIn ? undefined : today}
+                disabled={isCheckedIn}
+                onChange={(e) => setNewCheckIn(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Check-out</Label>
+              <Input
+                type="date"
+                value={newCheckOut}
+                min={newCheckIn || today}
+                onChange={(e) => setNewCheckOut(e.target.value)}
+              />
+            </div>
+          </div>
           <div>
-            <Label className="text-xs">Target room</Label>
+            <Label className="text-xs">Target room {isLoading && <span className="text-muted-foreground">· loading…</span>}</Label>
             <select
               value={newRoomId}
               onChange={(e) => setNewRoomId(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              {rooms.map((r) => (
+              {options.map((r) => (
                 <option key={r.id} value={r.id}>
-                  Room {r.room_number} · {r.room_type}{r.id === state.oldRoomId ? " (current)" : ""}
+                  Room {r.room_number}{r.room_type ? ` · ${r.room_type}` : ""}{r.id === state.oldRoomId ? " (current)" : ""}
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <Label className="text-xs">New check-in</Label>
-            <Input type="date" value={newCheckIn} onChange={(e) => setNewCheckIn(e.target.value)} />
             <p className="text-[10px] text-muted-foreground mt-1">
-              Check-out auto-adjusts to {newCheckOut} ({nights} night{nights === 1 ? "" : "s"}).
+              Only available rooms are listed. Occupied and blocked rooms are hidden.
             </p>
           </div>
         </div>
@@ -1218,8 +1295,8 @@ function MoveBookingDialog({
           <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
           <Button
             size="sm"
-            disabled={submitting}
-            onClick={() => onSubmit({ newRoomId, newCheckIn })}
+            disabled={submitting || !validDates}
+            onClick={() => onSubmit({ newRoomId, newCheckIn, newCheckOut })}
             className="gold-gradient text-charcoal hover:opacity-90"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Move"}
@@ -1229,3 +1306,4 @@ function MoveBookingDialog({
     </Dialog>
   );
 }
+
