@@ -735,6 +735,24 @@ export const submitPortalComplaint = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// --- listPortalComplaints ---------------------------------------------------
+export const listPortalComplaints = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ token: z.string().min(8).max(128) }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
+    const { data: rows, error } = await supabaseAdmin
+      .from("complaints" as any)
+      .select("id, category, status, description, created_at, complaint_number")
+      .eq("booking_id", booking.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    return (rows ?? []) as Array<{
+      id: string; category: string; status: string; description: string;
+      created_at: string; complaint_number?: string | null;
+    }>;
+  });
+
 // --- submitPortalReview ------------------------------------------------------
 const DEFAULT_EXTERNAL_REVIEW_URL = "https://search.google.com/local/writereview?placeid=ChIJH-C8eTZbOToRDi7ckoJipcQ";
 
