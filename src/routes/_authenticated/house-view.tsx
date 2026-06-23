@@ -1157,3 +1157,75 @@ function NightAuditPendingBanner({ onOpen, businessDate }: { onOpen: () => void;
     </div>
   );
 }
+
+interface MoveDialogState {
+  bookingId: string;
+  guestName: string;
+  oldRoomId: string;
+  checkIn: string;
+  checkOut: string;
+}
+
+function MoveBookingDialog({
+  rooms, state, submitting, onClose, onSubmit,
+}: {
+  rooms: any[];
+  state: MoveDialogState;
+  submitting: boolean;
+  onClose: () => void;
+  onSubmit: (v: { newRoomId: string; newCheckIn: string }) => void;
+}) {
+  const [newRoomId, setNewRoomId] = useState(state.oldRoomId);
+  const [newCheckIn, setNewCheckIn] = useState(state.checkIn);
+  const nights = Math.max(1, ymdDiffDays(state.checkOut, state.checkIn));
+  const newCheckOut = ymdAddDays(newCheckIn, nights);
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Move className="h-4 w-4 text-gold" /> Move Booking
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {state.guestName} · {nights} night{nights === 1 ? "" : "s"}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Target room</Label>
+            <select
+              value={newRoomId}
+              onChange={(e) => setNewRoomId(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  Room {r.room_number} · {r.room_type}{r.id === state.oldRoomId ? " (current)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">New check-in</Label>
+            <Input type="date" value={newCheckIn} onChange={(e) => setNewCheckIn(e.target.value)} />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Check-out auto-adjusts to {newCheckOut} ({nights} night{nights === 1 ? "" : "s"}).
+            </p>
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button
+            size="sm"
+            disabled={submitting}
+            onClick={() => onSubmit({ newRoomId, newCheckIn })}
+            className="gold-gradient text-charcoal hover:opacity-90"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Move"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
