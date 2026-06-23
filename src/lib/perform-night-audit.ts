@@ -22,7 +22,7 @@ export interface PerformResult {
   reason?: "pending";
 }
 
-export async function performNightAuditNow(): Promise<PerformResult> {
+export async function performNightAuditNow(opts: { notes?: string } = {}): Promise<PerformResult> {
   const pending = await getPendingForAudit();
   if (pending.pendingCheckIns.length > 0 || pending.pendingCheckOuts.length > 0) {
     return {
@@ -34,6 +34,10 @@ export async function performNightAuditNow(): Promise<PerformResult> {
   }
   const bd = pending.businessDate;
   const totals = await snapshotEodTotals(bd);
+  // Optional operational notes (generator down, room under maintenance, etc.)
+  // Persisted into session.totals so they surface in Audit History + EOD Report.
+  const notes = (opts.notes ?? "").trim();
+  if (notes) (totals as any).notes = notes;
   const session = await openOrResumeSession();
   const { newBusinessDate } = await closeSession({
     sessionId: session.id,
