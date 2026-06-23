@@ -1300,9 +1300,10 @@ interface MoveDialogState {
 }
 
 function MoveBookingDialog({
-  state, submitting, onClose, onSubmit,
+  state, minCheckInDate, submitting, onClose, onSubmit,
 }: {
   state: MoveDialogState;
+  minCheckInDate: string;
   submitting: boolean;
   onClose: () => void;
   onSubmit: (v: { newRoomId: string; newCheckIn: string; newCheckOut: string }) => void;
@@ -1311,7 +1312,6 @@ function MoveBookingDialog({
   const [newCheckIn, setNewCheckIn] = useState(state.checkIn);
   const [newCheckOut, setNewCheckOut] = useState(state.checkOut);
   const [newRoomId, setNewRoomId] = useState(state.oldRoomId);
-  const today = new Date().toISOString().slice(0, 10);
 
   // Only offer rooms that are actually available for the selected stay window.
   const { data: avail = [], isLoading } = useQuery({
@@ -1355,7 +1355,7 @@ function MoveBookingDialog({
               <Input
                 type="date"
                 value={newCheckIn}
-                min={isCheckedIn ? undefined : today}
+                min={isCheckedIn ? undefined : minCheckInDate}
                 disabled={isCheckedIn}
                 onChange={(e) => setNewCheckIn(e.target.value)}
               />
@@ -1365,7 +1365,7 @@ function MoveBookingDialog({
               <Input
                 type="date"
                 value={newCheckOut}
-                min={newCheckIn || today}
+                min={newCheckIn || minCheckInDate}
                 onChange={(e) => setNewCheckOut(e.target.value)}
               />
             </div>
