@@ -361,6 +361,7 @@ function SummaryCard({ label, value, icon: Icon, tone }: {
       value={value}
       icon={<Icon className="h-4 w-4" />}
       tone={tone}
+      currency
     />
   );
 }

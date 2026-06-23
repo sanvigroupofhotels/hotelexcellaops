@@ -399,6 +399,7 @@ function StatCard({ label, value, icon: Icon, tone }: { label: string; value: nu
       value={Math.abs(value)}
       icon={<Icon className="h-4 w-4" />}
       tone={mappedTone as any}
+      currency
       sublabel={tone==="gold" && value < 0 ? <span className="text-destructive">Negative — review entries</span> : undefined}
     />
   );

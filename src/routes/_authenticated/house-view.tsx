@@ -45,6 +45,19 @@ function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDat
 function fmtShort(d: Date) { return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }); }
 function fmtFull(d: string) { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); }
 
+/** YYYY-MM-DD arithmetic helpers for drag-and-drop date shifts. */
+function ymdAddDays(ymd: string, n: number): string {
+  const d = new Date(ymd + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return dateKey(d);
+}
+function ymdDiffDays(a: string, b: string): number {
+  // a - b in whole days
+  const da = new Date(a + "T00:00:00").getTime();
+  const db = new Date(b + "T00:00:00").getTime();
+  return Math.round((da - db) / (24 * 60 * 60 * 1000));
+}
+
 /** Pill colors keyed by booking status. */
 function blockClasses(status: string): string {
   switch (status) {
@@ -243,6 +256,74 @@ function HouseView() {
     return m;
   }, [visibleBlocks]);
 
+  // -------- Drag & drop: move a booking to a new room and/or new date --------
+  // Only enabled for single-room bookings (one paired assignment). The DB
+  // triggers (`bookings_prevent_room_conflict`, `bookings_prevent_block_conflict`,
+  // `bra_prevent_conflict`) enforce overlap / block rules — any violation throws
+  // and we surface the message; React Query's onError reverts optimistic state.
+  const qcMove = useQueryClient();
+  const moveMutation = useMutation({
+    mutationFn: async (opts: {
+      bookingId: string;
+      oldRoomId: string;
+      newRoomId: string;
+      newCheckIn: string;
+      newCheckOut: string;
+    }) => {
+      // Update bookings first — its triggers enforce room/block conflict rules.
+      const { error: bErr } = await supabase
+        .from("bookings" as any)
+        .update({ check_in: opts.newCheckIn, check_out: opts.newCheckOut, room_id: opts.newRoomId } as any)
+        .eq("id", opts.bookingId);
+      if (bErr) throw bErr;
+      // Repoint the matching assignment row. `bra_prevent_conflict` also enforces overlap.
+      const { error: aErr } = await supabase
+        .from("booking_room_assignments" as any)
+        .update({ room_id: opts.newRoomId } as any)
+        .eq("booking_id", opts.bookingId)
+        .eq("room_id", opts.oldRoomId);
+      if (aErr) throw aErr;
+    },
+    onSuccess: () => {
+      toast.success("Booking moved");
+      qcMove.invalidateQueries({ queryKey: ["bookings"] });
+      qcMove.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
+    },
+    onError: (e: any) => {
+      const msg = String(e?.message ?? "Move failed");
+      // Friendlier message for known trigger violations.
+      if (/conflict|blocked|overlapping/i.test(msg)) {
+        toast.error("Move cancelled — " + msg);
+      } else {
+        toast.error(msg);
+      }
+    },
+  });
+
+  function handleDropOnCell(targetRoomId: string, targetDate: string, payload: string) {
+    try {
+      const parsed = JSON.parse(payload) as {
+        bookingId: string; oldRoomId: string; checkIn: string; checkOut: string;
+      };
+      const delta = ymdDiffDays(targetDate, parsed.checkIn);
+      const newCheckIn = ymdAddDays(parsed.checkIn, delta);
+      const newCheckOut = ymdAddDays(parsed.checkOut, delta);
+      // No-op guard
+      if (parsed.oldRoomId === targetRoomId && newCheckIn === parsed.checkIn) return;
+      moveMutation.mutate({
+        bookingId: parsed.bookingId,
+        oldRoomId: parsed.oldRoomId,
+        newRoomId: targetRoomId,
+        newCheckIn,
+        newCheckOut,
+      });
+    } catch {
+      toast.error("Invalid drag payload");
+    }
+  }
+
+
+
   // -------- House Overview stats (for selected date = today) --------
   const todayKey = businessDate ?? dateKey(new Date());
   const occupiedRooms = new Set<string>();
@@ -435,11 +516,10 @@ function HouseView() {
                   return (
                     <tr key={r.id} className="group">
                       <td
-                        className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-2 py-3 text-xs align-top"
+                        className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-2 py-3 text-sm align-middle text-center"
                         style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                       >
-                        <div className="font-medium">Room {r.room_number}</div>
-                        <div className="text-[10px] text-muted-foreground">{r.room_type} · F{r.floor}</div>
+                        <div className="font-medium tabular-nums">{r.room_number}</div>
                       </td>
                       {/* Per-day cells with relative wrapper so we can position pills absolutely */}
                       {days.map((d, i) => {
@@ -462,7 +542,20 @@ function HouseView() {
                               i % 2 === 0 && !isToday && "bg-secondary/10",
                               i === days.length - 1 && "border-r-0",
                             )}
-                            style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
+                            style={{ minWidth: CELL_W_MOB, width: CELL_W }}
+                            onDragOver={(e) => {
+                              if (e.dataTransfer.types.includes("application/x-booking-move")) {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = "move";
+                              }
+                            }}
+                            onDrop={(e) => {
+                              const payload = e.dataTransfer.getData("application/x-booking-move");
+                              if (!payload) return;
+                              e.preventDefault();
+                              handleDropOnCell(r.id, dk, payload);
+                            }}
+                          >
                             <div className="relative h-full" style={{ minHeight: 56 }}>
                               {/* Vacant action button — visible when no booking/block covers this day */}
                               {(() => {
@@ -490,17 +583,37 @@ function HouseView() {
                                 const cellW = CELL_W_MOB;
                                 const hasBreakfast = breakfastByBooking.get(b.id);
                                 const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+                                // Drag enabled only for real (non-virtual), single-room, active bookings.
+                                // Multi-room bookings would be ambiguous to move from a single pill,
+                                // and past/cancelled stays must not be edited via drag.
+                                const pairedCount = (assignmentsByBooking.get(b.id)?.length ?? 0);
+                                const lockedStatus = ["Checked-Out", "Stay Completed", "Cancelled", "No-Show"].includes(b.status);
+                                const dragEnabled = !b._virtual && pairedCount === 1 && !lockedStatus;
                                 return (
                                   <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={() => setSelected(b)}
                                     data-booking-pill={b.id}
+                                    draggable={dragEnabled}
+                                    onDragStart={(e) => {
+                                      if (!dragEnabled) { e.preventDefault(); return; }
+                                      const orig = (bookings as any[]).find((x) => x.id === b.id) ?? b;
+                                      const payload = JSON.stringify({
+                                        bookingId: b.id,
+                                        oldRoomId: r.id,
+                                        checkIn: orig.check_in,
+                                        checkOut: orig.check_out,
+                                      });
+                                      e.dataTransfer.setData("application/x-booking-move", payload);
+                                      e.dataTransfer.effectAllowed = "move";
+                                    }}
                                     className={cn(
                                       "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
                                       blockClasses(b.status),
                                       b._virtual && "border-dashed",
+                                      dragEnabled && "cursor-grab active:cursor-grabbing",
                                       highlightId === b.id && "ring-4 ring-gold animate-pulse",
                                     )}
                                     style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: highlightId === b.id ? 10 : 5 }}
-                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}`}>
+                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? " · Drag to move room/dates" : ""}`}>
                                     {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
                                     {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
                                     <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>

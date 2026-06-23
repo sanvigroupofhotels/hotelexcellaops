@@ -109,6 +109,7 @@ export function MetricCard({
   onClick,
   className,
   tone = "default",
+  currency = false,
 }: {
   label: string;
   value: number | string;
@@ -118,6 +119,12 @@ export function MetricCard({
   onClick?: () => void;
   className?: string;
   tone?: "default" | "gold" | "success" | "warning" | "destructive";
+  /**
+   * When true and `value` is numeric, render the value with a ₹ prefix.
+   * Defaults to false so count/quantity cards (rooms, guests, arrivals…) do
+   * NOT show a currency symbol. Set true for revenue/dues/cash cards.
+   */
+  currency?: boolean;
 }) {
   const toneCls =
     tone === "gold" ? "text-gold"
@@ -141,7 +148,16 @@ export function MetricCard({
       </div>
       <div className="mt-3 w-full">
         {typeof value === "number" ? (
-          <Money value={value} size="xl" className={toneCls} />
+          currency ? (
+            <Money value={value} size="xl" className={toneCls} />
+          ) : (
+            <AutoFitText
+              text={(isFinite(value) ? value : 0).toLocaleString("en-IN")}
+              className={cn("stat-num", toneCls)}
+              min={12}
+              max={32}
+            />
+          )
         ) : (
           <AutoFitText text={String(value)} className={cn("stat-num", toneCls)} min={12} max={32} />
         )}
