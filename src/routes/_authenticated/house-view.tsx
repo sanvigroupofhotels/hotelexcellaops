@@ -542,7 +542,20 @@ function HouseView() {
                               i % 2 === 0 && !isToday && "bg-secondary/10",
                               i === days.length - 1 && "border-r-0",
                             )}
-                            style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
+                            style={{ minWidth: CELL_W_MOB, width: CELL_W }}
+                            onDragOver={(e) => {
+                              if (e.dataTransfer.types.includes("application/x-booking-move")) {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = "move";
+                              }
+                            }}
+                            onDrop={(e) => {
+                              const payload = e.dataTransfer.getData("application/x-booking-move");
+                              if (!payload) return;
+                              e.preventDefault();
+                              handleDropOnCell(r.id, dk, payload);
+                            }}
+                          >
                             <div className="relative h-full" style={{ minHeight: 56 }}>
                               {/* Vacant action button — visible when no booking/block covers this day */}
                               {(() => {
@@ -570,17 +583,37 @@ function HouseView() {
                                 const cellW = CELL_W_MOB;
                                 const hasBreakfast = breakfastByBooking.get(b.id);
                                 const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+                                // Drag enabled only for real (non-virtual), single-room, active bookings.
+                                // Multi-room bookings would be ambiguous to move from a single pill,
+                                // and past/cancelled stays must not be edited via drag.
+                                const pairedCount = (assignmentsByBooking.get(b.id)?.length ?? 0);
+                                const lockedStatus = ["Checked-Out", "Stay Completed", "Cancelled", "No-Show"].includes(b.status);
+                                const dragEnabled = !b._virtual && pairedCount === 1 && !lockedStatus;
                                 return (
                                   <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={() => setSelected(b)}
                                     data-booking-pill={b.id}
+                                    draggable={dragEnabled}
+                                    onDragStart={(e) => {
+                                      if (!dragEnabled) { e.preventDefault(); return; }
+                                      const orig = (bookings as any[]).find((x) => x.id === b.id) ?? b;
+                                      const payload = JSON.stringify({
+                                        bookingId: b.id,
+                                        oldRoomId: r.id,
+                                        checkIn: orig.check_in,
+                                        checkOut: orig.check_out,
+                                      });
+                                      e.dataTransfer.setData("application/x-booking-move", payload);
+                                      e.dataTransfer.effectAllowed = "move";
+                                    }}
                                     className={cn(
                                       "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
                                       blockClasses(b.status),
                                       b._virtual && "border-dashed",
+                                      dragEnabled && "cursor-grab active:cursor-grabbing",
                                       highlightId === b.id && "ring-4 ring-gold animate-pulse",
                                     )}
                                     style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: highlightId === b.id ? 10 : 5 }}
-                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}`}>
+                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? " · Drag to move room/dates" : ""}`}>
                                     {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
                                     {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
                                     <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
