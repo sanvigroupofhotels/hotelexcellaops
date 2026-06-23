@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          after_state: Json | null
+          before_state: Json | null
+          created_at: string
+          entity_id: string | null
+          entity_reference: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json | null
+          occurred_at: string
+          page: string
+          summary: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_reference?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          page: string
+          summary?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_reference?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          page?: string
+          summary?: string | null
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -2897,6 +2951,20 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_cash_tx_locked: { Args: { p_occurred_at: string }; Returns: boolean }
+      log_activity: {
+        Args: {
+          p_action: string
+          p_after?: Json
+          p_before?: Json
+          p_entity_id?: string
+          p_entity_reference?: string
+          p_entity_type?: string
+          p_metadata?: Json
+          p_page: string
+          p_summary?: string
+        }
+        Returns: string
+      }
       my_permissions: { Args: never; Returns: string[] }
       normalize_phone_in: { Args: { p: string }; Returns: string }
       recompute_booking_advance: {
