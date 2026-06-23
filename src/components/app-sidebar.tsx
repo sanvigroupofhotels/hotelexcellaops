@@ -46,6 +46,7 @@ const reportingChildren = [
   { to: "/reporting/crm-analytics",   label: "CRM Analytics",       icon: TrendingUp, permission: "reporting.analytics.view" },
   { to: "/reporting/payments",        label: "Payment Reports",     icon: IndianRupee, permission: "reporting.payments.view" },
   { to: "/reporting/staff",           label: "Staff Reporting",     icon: FileBarChart, permission: "reporting.staff.view" },
+  { to: "/reporting/activity",        label: "Activity Tracking",   icon: ShieldCheck },
 ] as const;
 
 const usersChildren = [
