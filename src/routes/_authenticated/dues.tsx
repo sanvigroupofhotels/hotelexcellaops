@@ -256,6 +256,7 @@ function SummaryCard({ label, value, tone }: { label: string; value: number; ton
       value={value}
       icon={<IndianRupee className="h-4 w-4" />}
       tone={mapped as any}
+      currency
     />
   );
 }
