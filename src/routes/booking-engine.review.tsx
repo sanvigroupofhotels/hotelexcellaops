@@ -331,3 +331,96 @@ function ReviewPage() {
     </div>
   );
 }
+
+interface ModifyStayValues {
+  check_in: string;
+  check_out: string;
+  guests: number;
+  room_type: string;
+}
+interface RoomTypeOption { type: string; total_rooms: number }
+
+function ModifyStayPanel({
+  initial, roomTypes, loading, submitting, onSubmit,
+}: {
+  initial: ModifyStayValues;
+  roomTypes: RoomTypeOption[];
+  loading: boolean;
+  submitting: boolean;
+  onSubmit: (v: ModifyStayValues) => void;
+}) {
+  const [checkIn, setCheckIn] = useState(initial.check_in);
+  const [checkOut, setCheckOut] = useState(initial.check_out);
+  const [guests, setGuests] = useState(initial.guests);
+  const [roomType, setRoomType] = useState(initial.room_type);
+
+  const dirty =
+    checkIn !== initial.check_in ||
+    checkOut !== initial.check_out ||
+    guests !== initial.guests ||
+    roomType !== initial.room_type;
+
+  function submit() {
+    if (checkOut <= checkIn) {
+      toast.error("Check-out must be after check-in");
+      return;
+    }
+    onSubmit({ check_in: checkIn, check_out: checkOut, guests, room_type: roomType });
+  }
+
+  // Build a display list — make sure the current selection is always present
+  // even if engine config is still loading.
+  const types = (() => {
+    const list = (roomTypes ?? []).map((t) => t.type);
+    if (initial.room_type && !list.includes(initial.room_type)) list.unshift(initial.room_type);
+    return list;
+  })();
+
+  return (
+    <div className="mt-4 rounded-md border border-gold/30 bg-gold-soft/10 p-3 space-y-3">
+      <p className="text-xs uppercase tracking-wider text-gold font-medium">Modify your stay</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label className="text-xs">Check-in</Label>
+          <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Check-out</Label>
+          <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} min={checkIn} />
+        </div>
+        <div>
+          <Label className="text-xs">Guests</Label>
+          <Input
+            type="number" min={1} max={10} value={guests}
+            onChange={(e) => setGuests(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Room category</Label>
+          <select
+            value={roomType}
+            onChange={(e) => setRoomType(e.target.value)}
+            disabled={loading}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            {types.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          onClick={submit}
+          disabled={!dirty || submitting}
+          size="sm"
+          className="gold-gradient text-charcoal hover:opacity-90"
+        >
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update & reprice"}
+        </Button>
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        Your details (name, phone, email, special requests) are preserved.
+      </p>
+    </div>
+  );
+}
