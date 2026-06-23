@@ -689,3 +689,184 @@ export const getDraftPricing = createServerFn({ method: "POST" })
       guests: (b as any).guests,
     };
   });
+
+// ----------------------------------------------------------------------------
+// getDraftBookingForCheckout — rehydrate guest details + stay on back-nav
+// Returns ONLY safe-to-show fields for an existing Draft booking so the
+// guest never has to re-enter name/phone/email/special_requests.
+// ----------------------------------------------------------------------------
+export const getDraftBookingForCheckout = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ booking_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: b } = await supabaseAdmin
+      .from("bookings")
+      .select("id,guest_name,phone,email,special_requests,check_in,check_out,guests,adults,room_details,status,source_channel,draft_expires_at,amount")
+      .eq("id", data.booking_id).maybeSingle();
+    if (!b) throw new Error("Booking not found");
+    if ((b as any).source_channel !== SOURCE) throw new Error("Invalid booking source");
+    if ((b as any).status !== "Draft") throw new Error("This booking is no longer in draft state");
+    return {
+      booking_id: (b as any).id,
+      guest_name: (b as any).guest_name ?? "",
+      phone: (b as any).phone ?? "",
+      email: (b as any).email ?? "",
+      special_requests: (b as any).special_requests ?? "",
+      check_in: (b as any).check_in,
+      check_out: (b as any).check_out,
+      guests: Number((b as any).guests ?? (b as any).adults ?? 2),
+      room_type: (b as any).room_details ?? "",
+      amount: Number((b as any).amount ?? 0),
+      draft_expires_at: (b as any).draft_expires_at,
+    };
+  });
+
+// ----------------------------------------------------------------------------
+// updateDraftGuestDetails — save edits to name/phone/email/special_requests
+// without re-creating the booking. Preserves booking_id and customer link.
+// ----------------------------------------------------------------------------
+export const updateDraftGuestDetails = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({
+    booking_id: z.string().uuid(),
+    guest_name: z.string().trim().min(2).max(120),
+    phone: z.string().trim().regex(/^\+?\d{10,14}$/i),
+    email: z.string().trim().email().max(255).optional().or(z.literal("")),
+    special_requests: z.string().trim().max(2000).optional().or(z.literal("")),
+  }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const phone = normalizeOrThrow(data.phone);
+    const { data: b } = await supabaseAdmin
+      .from("bookings")
+      .select("id,status,source_channel")
+      .eq("id", data.booking_id).maybeSingle();
+    if (!b) throw new Error("Booking not found");
+    if ((b as any).source_channel !== SOURCE) throw new Error("Invalid booking source");
+    if ((b as any).status !== "Draft") throw new Error("This booking is no longer editable");
+    const { error } = await supabaseAdmin.from("bookings").update({
+      guest_name: data.guest_name,
+      phone,
+      email: data.email || null,
+      special_requests: data.special_requests || null,
+    } as any).eq("id", data.booking_id);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+// ----------------------------------------------------------------------------
+// updateDraftStay — reprice & revalidate inventory after the guest changes
+// dates/category/guests on the Review page. SAME booking_id is preserved.
+// ----------------------------------------------------------------------------
+export const updateDraftStay = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({
+    booking_id: z.string().uuid(),
+    check_in: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    guests: z.number().int().min(1).max(10),
+    room_type: z.string().min(1).max(80),
+  }).parse(input))
+  .handler(async ({ data }) => {
+    if (data.check_out <= data.check_in) throw new Error("Check-out must be after check-in.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: b } = await supabaseAdmin
+      .from("bookings")
+      .select("id,status,source_channel,draft_expires_at")
+      .eq("id", data.booking_id).maybeSingle();
+    if (!b) throw new Error("Booking not found");
+    if ((b as any).source_channel !== SOURCE) throw new Error("Invalid booking source");
+    if ((b as any).status !== "Draft") {
+      throw new Error("This booking is already confirmed and cannot be modified here. Please contact the hotel to amend your stay.");
+    }
+    if ((b as any).draft_expires_at && new Date((b as any).draft_expires_at).getTime() < Date.now()) {
+      throw new Error("Your 15-minute hold has expired. Please start again.");
+    }
+
+    const nights = nightsBetween(data.check_in, data.check_out);
+    const typeIn = data.room_type;
+    const typeStripped = typeIn.replace(/\s+Room$/i, "");
+    const typeCandidates = Array.from(new Set([typeIn, typeStripped, `${typeStripped} Room`]));
+
+    // Revalidate inventory & reprice — same logic as createDraftBooking, but
+    // exclude THIS booking from the occupied count so the same room slot it
+    // already holds is not counted twice.
+    const [{ data: rooms }, { data: ratesAll }, { data: overrides }, { data: bookingRows }, { data: maintRows }, { data: settingRows }] =
+      await Promise.all([
+        supabaseAdmin.from("rooms").select("id,room_type").eq("active", true).in("room_type", typeCandidates),
+        supabaseAdmin.from("room_rates").select("*").in("room_type", typeCandidates),
+        supabaseAdmin.from("rate_overrides").select("room_type,date,rate").in("room_type", typeCandidates).gte("date", data.check_in).lt("date", data.check_out),
+        supabaseAdmin
+          .from("bookings")
+          .select("id,room_id,room_details,check_in,check_out,status,draft_expires_at")
+          .lt("check_in", data.check_out)
+          .gt("check_out", data.check_in)
+          .neq("id", data.booking_id),
+        supabaseAdmin
+          .from("room_maintenance")
+          .select("room_id,active,start_date,end_date")
+          .eq("active", true)
+          .lt("start_date", data.check_out)
+          .gt("end_date", data.check_in),
+        supabaseAdmin.from("app_settings").select("value").eq("key", "tax").maybeSingle(),
+      ]);
+
+    const rates = (ratesAll ?? [])[0] ?? null;
+    const roomsRoomType = (rooms ?? [])[0]?.room_type ?? typeStripped;
+    const tax_rate = Number((settingRows as any)?.value?.rate ?? 0.05);
+    const totalOfType = (rooms ?? []).length;
+    if (totalOfType === 0) throw new Error("That room type is no longer available.");
+
+    const OCCUPIED = new Set(["Pending", "Confirmed", "Advance Paid", "Full Paid", "Checked-In", "Draft"]);
+    const nowMs = Date.now();
+    const blockedRoomIds = new Set<string>(((maintRows ?? []) as any[]).map((m) => m.room_id));
+    let occupied = 0;
+    const occupiedRoomIds = new Set<string>();
+    for (const row of (bookingRows ?? []) as any[]) {
+      if (!OCCUPIED.has(row.status)) continue;
+      if (row.status === "Draft" && row.draft_expires_at && new Date(row.draft_expires_at).getTime() < nowMs) continue;
+      if (row.room_id) occupiedRoomIds.add(row.room_id);
+      else if (row.room_details === data.room_type || row.room_details === roomsRoomType) occupied++;
+    }
+    for (const r of (rooms ?? []) as any[]) {
+      if (occupiedRoomIds.has(r.id) || blockedRoomIds.has(r.id)) occupied++;
+    }
+    const available = Math.max(0, totalOfType - occupied);
+    if (available <= 0) {
+      throw new Error("Sorry, no rooms of that type are available for these dates. Try different dates or category.");
+    }
+
+    const r = (rates ?? {}) as any;
+    let subtotal = 0;
+    for (let i = 0; i < nights; i++) {
+      const d = new Date(data.check_in + "T00:00:00");
+      d.setDate(d.getDate() + i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const ovr = (overrides ?? []).find((o: any) => o.date === iso);
+      let rate: number;
+      if (ovr) rate = Number((ovr as any).rate);
+      else if (isWeekendISO(iso)) rate = Number(r.weekend_rate ?? r.default_rate ?? 0);
+      else rate = Number(r.weekday_rate ?? r.default_rate ?? 0);
+      subtotal += rate;
+    }
+    const taxes = Math.round(subtotal * tax_rate);
+    const total = subtotal + taxes;
+    if (total <= 0) throw new Error("Pricing unavailable for the selected dates. Please contact the hotel.");
+
+    // Extend hold by 15 more minutes when the guest is actively editing.
+    const newExpiry = new Date(Date.now() + DRAFT_TTL_MIN * 60_000).toISOString();
+    const { error } = await supabaseAdmin.from("bookings").update({
+      check_in: data.check_in,
+      check_out: data.check_out,
+      adults: data.guests,
+      guests: data.guests,
+      room_details: data.room_type,
+      amount: total,
+      subtotal,
+      taxes,
+      tax_rate,
+      draft_expires_at: newExpiry,
+    } as any).eq("id", data.booking_id);
+    if (error) throw error;
+
+    return { ok: true, amount: total, subtotal, taxes, nights, draft_expires_at: newExpiry };
+  });
