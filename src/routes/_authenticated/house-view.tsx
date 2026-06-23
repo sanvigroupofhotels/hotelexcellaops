@@ -45,6 +45,19 @@ function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDat
 function fmtShort(d: Date) { return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }); }
 function fmtFull(d: string) { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); }
 
+/** YYYY-MM-DD arithmetic helpers for drag-and-drop date shifts. */
+function ymdAddDays(ymd: string, n: number): string {
+  const d = new Date(ymd + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return dateKey(d);
+}
+function ymdDiffDays(a: string, b: string): number {
+  // a - b in whole days
+  const da = new Date(a + "T00:00:00").getTime();
+  const db = new Date(b + "T00:00:00").getTime();
+  return Math.round((da - db) / (24 * 60 * 60 * 1000));
+}
+
 /** Pill colors keyed by booking status. */
 function blockClasses(status: string): string {
   switch (status) {
