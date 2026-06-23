@@ -1239,14 +1239,23 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
 
   return (
     <div className="luxe-card rounded-xl p-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between gap-2 mb-3">
         <h4 className="font-display text-lg flex items-center gap-2"><Wallet className="h-4 w-4 text-gold" /> Payments</h4>
-        <button
-          onClick={() => setAddOpen(true)}
-          disabled={balance <= 0}
-          className="rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal disabled:opacity-50 disabled:cursor-not-allowed">
-          + Add Payment
-        </button>
+        <div className="flex items-center gap-1.5">
+          {onRequestRefund && advance > 0 && (
+            <button
+              onClick={() => onRequestRefund(0)}
+              className="rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-2.5 py-1.5 text-[11px] font-medium hover:bg-destructive/20">
+              Refund
+            </button>
+          )}
+          <button
+            onClick={() => setAddOpen(true)}
+            disabled={balance <= 0}
+            className="rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal disabled:opacity-50 disabled:cursor-not-allowed">
+            + Add Payment
+          </button>
+        </div>
       </div>
       <div className="space-y-1 text-sm">
         <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Room &amp; Stay Total</span><Money value={bookingAmount} size="sm" /></div>
