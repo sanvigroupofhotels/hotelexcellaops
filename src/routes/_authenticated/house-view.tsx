@@ -302,11 +302,14 @@ function HouseView() {
   }, [visibleBlocks]);
 
   // -------- Drag & drop: move a booking to a new room and/or new date --------
-  // Only enabled for single-room bookings (one paired assignment). The DB
-  // triggers (`bookings_prevent_room_conflict`, `bookings_prevent_block_conflict`,
-  // `bra_prevent_conflict`) enforce overlap / block rules — any violation throws
-  // and we surface the message; React Query's onError reverts optimistic state.
+  // All move/edit call sites (desktop DnD, mobile dialog, popup, booking page,
+  // edit page) MUST go through `updateBookingStay` — single source of truth.
   const qcMove = useQueryClient();
+  // Drag-target highlighting: while a chip is being dragged we precompute the
+  // set of rooms that are valid destinations for its CURRENT stay dates so cell
+  // backgrounds can show green (available) vs red (occupied/blocked).
+  const [dragAvail, setDragAvail] = useState<{ bookingId: string; availableRoomIds: Set<string> } | null>(null);
+
   const moveMutation = useMutation({
     mutationFn: async (opts: {
       bookingId: string;
@@ -315,19 +318,12 @@ function HouseView() {
       newCheckIn: string;
       newCheckOut: string;
     }) => {
-      // Update bookings first — its triggers enforce room/block conflict rules.
-      const { error: bErr } = await supabase
-        .from("bookings" as any)
-        .update({ check_in: opts.newCheckIn, check_out: opts.newCheckOut, room_id: opts.newRoomId } as any)
-        .eq("id", opts.bookingId);
-      if (bErr) throw bErr;
-      // Repoint the matching assignment row. `bra_prevent_conflict` also enforces overlap.
-      const { error: aErr } = await supabase
-        .from("booking_room_assignments" as any)
-        .update({ room_id: opts.newRoomId } as any)
-        .eq("booking_id", opts.bookingId)
-        .eq("room_id", opts.oldRoomId);
-      if (aErr) throw aErr;
+      return await updateBookingStay({
+        booking_id: opts.bookingId,
+        new_room_id: opts.newRoomId,
+        new_check_in: opts.newCheckIn,
+        new_check_out: opts.newCheckOut,
+      });
     },
     onSuccess: () => {
       toast.success("Booking moved");
@@ -335,15 +331,22 @@ function HouseView() {
       qcMove.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
     },
     onError: (e: any) => {
-      const msg = String(e?.message ?? "Move failed");
-      // Friendlier message for known trigger violations.
-      if (/conflict|blocked|overlapping/i.test(msg)) {
-        toast.error("Move cancelled — " + msg);
-      } else {
-        toast.error(msg);
-      }
+      // Messages from `updateBookingStay` are already business-friendly.
+      toast.error(String(e?.message ?? "Could not move booking"));
     },
   });
+
+  /** Snap a dragged pill back to its origin when the drop is rejected or invalid. */
+  function snapBack(bookingId: string) {
+    const el = document.querySelector(`[data-booking-pill="${bookingId}"]`) as HTMLElement | null;
+    if (!el) return;
+    el.style.transition = "transform 220ms ease";
+    el.style.transform = "translate(0,0)";
+    window.setTimeout(() => {
+      el.style.transition = "";
+      el.style.transform = "";
+    }, 260);
+  }
 
   function handleDropOnCell(targetRoomId: string, targetDate: string, payload: string) {
     try {
@@ -353,19 +356,27 @@ function HouseView() {
       const delta = ymdDiffDays(targetDate, parsed.checkIn);
       const newCheckIn = ymdAddDays(parsed.checkIn, delta);
       const newCheckOut = ymdAddDays(parsed.checkOut, delta);
-      // No-op guard
       if (parsed.oldRoomId === targetRoomId && newCheckIn === parsed.checkIn) return;
+      // Pre-flight visual rejection — keep server-side validation as the source of truth.
+      if (dragAvail && dragAvail.bookingId === parsed.bookingId && !dragAvail.availableRoomIds.has(targetRoomId)) {
+        toast.error("Cannot move booking. Destination room is already occupied or blocked for the selected dates.");
+        snapBack(parsed.bookingId);
+        return;
+      }
       moveMutation.mutate({
         bookingId: parsed.bookingId,
         oldRoomId: parsed.oldRoomId,
         newRoomId: targetRoomId,
         newCheckIn,
         newCheckOut,
+      }, {
+        onError: () => snapBack(parsed.bookingId),
       });
     } catch {
       toast.error("Invalid drag payload");
     }
   }
+
 
 
 
