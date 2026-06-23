@@ -561,6 +561,7 @@ function BookingDetail() {
                     setRefundMode("Cash");
                     setRefundRef("");
                     setRefundBy("");
+                    setRefundReason("Overpayment refund");
                     setRefundAfterAction("checkout");
                     setRefundOpen(true);
                     return;
