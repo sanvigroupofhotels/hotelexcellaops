@@ -1,12 +1,13 @@
 /**
  * Booking Engine — Step 4 (Review your price).
  * Two-column comparison: Pay Now (inventory price) vs Pay Later (inventory + 5%).
- * Action button lives INSIDE each column.
+ * Includes a collapsible Modify Stay panel that reprices in place without
+ * creating a new booking_id.
  */
 import { createFileRoute, useNavigate, useSearch, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -14,13 +15,17 @@ import {
   createBookingEngineOrder,
   confirmBookingEnginePayment,
   confirmPayAtHotel,
+  getEngineConfig,
+  updateDraftStay,
 } from "@/lib/booking-engine.functions";
 import { getRoomMeta } from "@/lib/booking-engine-rooms";
 import { useEngineConfig } from "./booking-engine";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  ArrowLeft, BedDouble, CalendarDays, Users, Check, Loader2, Shield,
+  ArrowLeft, BedDouble, CalendarDays, Users, Check, Loader2, Shield, Pencil,
 } from "lucide-react";
 
 const Schema = z.object({
@@ -55,18 +60,30 @@ function nightsBetween(a: string, b: string): number {
 function ReviewPage() {
   const search = useSearch({ from: "/booking-engine/review" });
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { data: cfg } = useEngineConfig();
   const [busy, setBusy] = useState<"now" | "later" | null>(null);
+  const [modifying, setModifying] = useState(false);
 
   const getPricing = useServerFn(getDraftPricing);
   const createOrder = useServerFn(createBookingEngineOrder);
   const confirmPay = useServerFn(confirmBookingEnginePayment);
   const confirmPah = useServerFn(confirmPayAtHotel);
+  const modifyStay = useServerFn(updateDraftStay);
+  const fetchEngineConfig = useServerFn(getEngineConfig);
 
   const q = useQuery({
     queryKey: ["be", "review", search.booking_id],
     queryFn: () => getPricing({ data: { booking_id: search.booking_id } }),
-    staleTime: 30_000,
+    staleTime: 5_000,
+  });
+
+  // Available room types for the Modify Stay panel
+  const engineCfg = useQuery({
+    queryKey: ["be", "engine-config"],
+    queryFn: () => fetchEngineConfig(),
+    staleTime: 60_000,
+    enabled: modifying,
   });
 
   // Load Razorpay script
