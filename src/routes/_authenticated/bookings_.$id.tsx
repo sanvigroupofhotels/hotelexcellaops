@@ -1202,8 +1202,9 @@ function PriceRow({ label, value }: { label: string; value: number }) {
 
 
 
-function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, balance, customerId }: {
+function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, balance, customerId, onRequestRefund }: {
   bookingId: string; bookingAmount: number; chargesTotal?: number; advance: number; balance: number; customerId: string;
+  onRequestRefund?: (suggestedAmount: number) => void;
 }) {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
