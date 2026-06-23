@@ -825,8 +825,11 @@ function ReviewsCard({ token }: { token: string }) {
   );
 }
 
-function CancelBookingCard({ token, checkIn, advancePaid, onCancelled }: {
-  token: string; checkIn: string; advancePaid: number; onCancelled: () => void;
+const RECEPTION_PHONE = "+919985908131";
+const RECEPTION_PHONE_DISPLAY = "+91 9985908131";
+
+function CancelBookingCard({ token, bookingReference, checkIn, advancePaid, onCancelled }: {
+  token: string; bookingReference?: string; checkIn: string; advancePaid: number; onCancelled: () => void;
 }) {
   const cancel = useServerFn(cancelPortalBooking);
   const [confirming, setConfirming] = useState(false);
@@ -850,10 +853,33 @@ function CancelBookingCard({ token, checkIn, advancePaid, onCancelled }: {
   };
 
   if (!eligible) {
+    const refTxt = bookingReference ? ` ${bookingReference}` : "";
+    const waMsg = `Hi Hotel Excella, I would like to cancel my booking${refTxt}`;
+    const waHref = `https://wa.me/919985908131?text=${encodeURIComponent(waMsg)}`;
     return (
-      <div className="luxe-card rounded-xl p-5 space-y-2">
+      <div className="luxe-card rounded-xl p-5 space-y-3">
         <h3 className="font-display text-base flex items-center gap-2"><XCircle className="h-4 w-4 text-gold" /> Cancel Booking</h3>
         <p className="text-xs text-muted-foreground">Please contact reception to cancel your booking.</p>
+        <div className="flex items-center gap-2 text-sm">
+          <Phone className="h-3.5 w-3.5 text-gold" />
+          <span className="tabular-nums">{RECEPTION_PHONE_DISPLAY}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <a
+            href={waHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 px-3 py-2 text-sm font-medium hover:bg-emerald-500/20"
+          >
+            <MessageCircle className="h-4 w-4" /> WhatsApp Us
+          </a>
+          <a
+            href={`tel:${RECEPTION_PHONE}`}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-gold/40 bg-gold-soft/40 px-3 py-2 text-sm font-medium hover:bg-gold-soft/60"
+          >
+            <Phone className="h-4 w-4" /> Call Reception
+          </a>
+        </div>
       </div>
     );
   }
