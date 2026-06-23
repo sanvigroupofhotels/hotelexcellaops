@@ -635,9 +635,9 @@ function HouseView() {
                                 return (
                                   <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={() => setSelected(b)}
                                     data-booking-pill={b.id}
-                                    draggable={dragEnabled}
+                                    draggable={dragEnabled && !isMobile}
                                     onDragStart={(e) => {
-                                      if (!dragEnabled) { e.preventDefault(); return; }
+                                      if (!dragEnabled || isMobile) { e.preventDefault(); return; }
                                       const orig = (bookings as any[]).find((x) => x.id === b.id) ?? b;
                                       const payload = JSON.stringify({
                                         bookingId: b.id,
@@ -648,15 +648,20 @@ function HouseView() {
                                       e.dataTransfer.setData("application/x-booking-move", payload);
                                       e.dataTransfer.effectAllowed = "move";
                                     }}
+                                    onTouchStart={() => { if (dragEnabled && isMobile) startLongPress(b, r.id); }}
+                                    onTouchEnd={cancelLongPress}
+                                    onTouchMove={cancelLongPress}
+                                    onTouchCancel={cancelLongPress}
                                     className={cn(
                                       "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
                                       blockClasses(b),
                                       b._virtual && "border-dashed",
-                                      dragEnabled && "cursor-grab active:cursor-grabbing",
+                                      dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
                                       highlightId === b.id && "ring-4 ring-gold animate-pulse",
                                     )}
                                     style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: highlightId === b.id ? 10 : 5 }}
-                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? " · Drag to move room/dates" : ""}`}>
+                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ""}`}>
+
                                     {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
                                     {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
                                     <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
