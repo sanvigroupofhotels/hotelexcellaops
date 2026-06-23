@@ -620,7 +620,7 @@ function HouseView() {
                                     }}
                                     className={cn(
                                       "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
-                                      blockClasses(b.status),
+                                      blockClasses(b),
                                       b._virtual && "border-dashed",
                                       dragEnabled && "cursor-grab active:cursor-grabbing",
                                       highlightId === b.id && "ring-4 ring-gold animate-pulse",
