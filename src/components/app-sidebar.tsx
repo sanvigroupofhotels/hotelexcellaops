@@ -5,7 +5,7 @@ import {
   MessageSquareWarning, Building2, Database,
   Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
   Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
-  BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound, Moon, AlertTriangle, TrendingUp,
+  BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound, Moon, AlertTriangle, TrendingUp, CalendarDays,
 } from "lucide-react";
 import { useNightAuditStatus } from "@/hooks/use-night-audit-status";
 
@@ -22,6 +22,7 @@ type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; mana
 const nav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: Home, permission: "dashboard.view" },
   { to: "/house-view", label: "House View", icon: Building2, permission: "house_view.view" },
+  { to: "/calendar", label: "Calendar", icon: CalendarDays, adminOnly: true },
   // Bookings list — only Owner/Admin (Reception/Staff use House View).
   { to: "/bookings", label: "Bookings", icon: BedDouble, permission: "bookings.view" },
   // End of Day group is rendered inline below (between Bookings and Due Collection).

@@ -254,6 +254,7 @@ function BookingDetail() {
   const [refundMode, setRefundMode] = useState<string>("Cash");
   const [refundRef, setRefundRef] = useState<string>("");
   const [refundBy, setRefundBy] = useState<string>("");
+  const [refundReason, setRefundReason] = useState<string>("Overpayment refund");
   const [refundAfterAction, setRefundAfterAction] = useState<"checkout" | null>(null);
 
   const refundMut = useMutation({
@@ -266,8 +267,8 @@ function BookingDetail() {
         payment_mode: refundMode,
         collected_by: refundBy || "—",
         is_refund: true,
-        refund_reason: "Overpayment refund",
-        notes: `Refund · ${refundMode}${refundRef ? ` · Ref ${refundRef}` : ""}`,
+        refund_reason: refundReason || "Refund",
+        notes: `Refund · ${refundReason || "Refund"} · ${refundMode}${refundRef ? ` · Ref ${refundRef}` : ""}`,
       });
     },
     onSuccess: async () => {
@@ -560,6 +561,7 @@ function BookingDetail() {
                     setRefundMode("Cash");
                     setRefundRef("");
                     setRefundBy("");
+                    setRefundReason("Overpayment refund");
                     setRefundAfterAction("checkout");
                     setRefundOpen(true);
                     return;
@@ -609,6 +611,7 @@ function BookingDetail() {
                             <p className="text-[10px] text-warning">Overpayment ₹{overpaid.toLocaleString("en-IN")} — refund the excess before check-out.</p>
                             <button onClick={() => {
                               setRefundAmount(overpaid); setRefundMode("Cash"); setRefundRef(""); setRefundBy("");
+                              setRefundReason("Overpayment refund");
                               setRefundAfterAction("checkout"); setRefundOpen(true);
                             }} className="w-full rounded-md gold-gradient text-charcoal px-2 py-1 text-[11px] font-medium">
                               Process Refund
@@ -639,7 +642,19 @@ function BookingDetail() {
 
             <InHouseChargesSection bookingId={id} />
 
-            <PaymentsLedger bookingId={id} bookingAmount={Number(b.amount)} chargesTotal={chargesTotal} advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id} />
+            <PaymentsLedger
+              bookingId={id} bookingAmount={Number(b.amount)} chargesTotal={chargesTotal}
+              advance={Number(b.advance_paid || 0)} balance={balance} customerId={b.customer_id}
+              onRequestRefund={(suggested) => {
+                setRefundAmount(suggested);
+                setRefundMode("Cash");
+                setRefundRef("");
+                setRefundBy("");
+                setRefundReason("");
+                setRefundAfterAction(null);
+                setRefundOpen(true);
+              }}
+            />
 
             <GuestDocumentsSummary bookingId={id} onOpen={() => { setGuestDocsOpen(true); }} />
 
@@ -790,12 +805,17 @@ function BookingDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Process Refund (overpayment) — opens from Check-Out validation */}
+      {/* Process Refund — opens from Check-Out overpayment validation or
+          standalone from the Payments ledger. */}
       {refundOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setRefundOpen(false)}>
           <div className="luxe-card rounded-xl w-full max-w-md p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-display text-lg">Process Refund</h3>
-            <p className="text-xs text-muted-foreground">Refund the overpaid balance, then continue with check-out.</p>
+            <p className="text-xs text-muted-foreground">
+              {refundAfterAction === "checkout"
+                ? "Refund the overpaid balance, then continue with check-out."
+                : "Issue a refund against this booking. It will reflect in Payments, CashBook (if Cash) and Payment Reports."}
+            </p>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <label className="space-y-1">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Amount</div>
@@ -809,6 +829,12 @@ function BookingDetail() {
                   className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5">
                   <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
                 </select>
+              </label>
+              <label className="col-span-2 space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Reason</div>
+                <input type="text" value={refundReason} onChange={(e) => setRefundReason(e.target.value)}
+                  placeholder="e.g. Overpayment refund, Service issue, Early checkout"
+                  className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5" />
               </label>
               <label className="col-span-2 space-y-1">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Reference (UTR / Txn ID / Notes)</div>
@@ -826,6 +852,7 @@ function BookingDetail() {
               <button
                 onClick={() => {
                   if (refundAmount <= 0) { toast.error("Enter refund amount"); return; }
+                  if (!refundReason.trim()) { toast.error("Enter refund reason"); return; }
                   if (!refundBy.trim()) { toast.error("Enter staff name"); return; }
                   refundMut.mutate();
                 }}
@@ -1175,8 +1202,9 @@ function PriceRow({ label, value }: { label: string; value: number }) {
 
 
 
-function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, balance, customerId }: {
+function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, balance, customerId, onRequestRefund }: {
   bookingId: string; bookingAmount: number; chargesTotal?: number; advance: number; balance: number; customerId: string;
+  onRequestRefund?: (suggestedAmount: number) => void;
 }) {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
@@ -1211,14 +1239,23 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
 
   return (
     <div className="luxe-card rounded-xl p-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between gap-2 mb-3">
         <h4 className="font-display text-lg flex items-center gap-2"><Wallet className="h-4 w-4 text-gold" /> Payments</h4>
-        <button
-          onClick={() => setAddOpen(true)}
-          disabled={balance <= 0}
-          className="rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal disabled:opacity-50 disabled:cursor-not-allowed">
-          + Add Payment
-        </button>
+        <div className="flex items-center gap-1.5">
+          {onRequestRefund && advance > 0 && (
+            <button
+              onClick={() => onRequestRefund(0)}
+              className="rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-2.5 py-1.5 text-[11px] font-medium hover:bg-destructive/20">
+              Refund
+            </button>
+          )}
+          <button
+            onClick={() => setAddOpen(true)}
+            disabled={balance <= 0}
+            className="rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal disabled:opacity-50 disabled:cursor-not-allowed">
+            + Add Payment
+          </button>
+        </div>
       </div>
       <div className="space-y-1 text-sm">
         <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Room &amp; Stay Total</span><Money value={bookingAmount} size="sm" /></div>
