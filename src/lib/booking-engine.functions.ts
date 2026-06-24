@@ -403,8 +403,49 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       customerId = (newCust as any).id;
     }
 
-    const reference = genReference();
     const draftExpires = new Date(Date.now() + DRAFT_TTL_MIN * 60_000).toISOString();
+
+    // Revive existing draft — refresh pricing, dates, guest info, expiry.
+    if (existingDraft) {
+      const reuseId = (existingDraft as any).id;
+      const { data: upd, error: uErr } = await supabaseAdmin
+        .from("bookings")
+        .update({
+          customer_id: customerId,
+          guest_name: data.guest_name,
+          phone,
+          email: data.email || null,
+          check_in: data.check_in,
+          check_out: data.check_out,
+          adults: data.guests,
+          guests: data.guests,
+          room_details: data.room_type,
+          amount: total,
+          subtotal,
+          taxes,
+          tax_rate,
+          special_requests: data.special_requests || null,
+          draft_expires_at: draftExpires,
+          notes: `Resumed from Booking Engine`,
+        } as any)
+        .eq("id", reuseId)
+        .select("id, booking_reference")
+        .single();
+      if (uErr) throw uErr;
+      return {
+        booking_id: (upd as any).id,
+        reference: (upd as any).booking_reference,
+        total,
+        subtotal,
+        taxes,
+        tax_rate,
+        nights,
+        draft_expires_at: draftExpires,
+        reused: true,
+      };
+    }
+
+    const reference = genReference();
 
     const { data: ins, error: bErr } = await supabaseAdmin.from("bookings").insert({
       user_id: systemUserId,
@@ -442,8 +483,10 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       tax_rate,
       nights,
       draft_expires_at: draftExpires,
+      reused: false,
     };
   });
+
 
 // ----------------------------------------------------------------------------
 // createBookingEngineOrder — Razorpay order for a draft booking
