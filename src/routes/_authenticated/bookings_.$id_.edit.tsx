@@ -12,7 +12,7 @@ import { PricingBreakdownCard, StickyPricingFooter } from "@/components/pricing-
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { NumField } from "@/components/num-field";
 import {
-  StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
+  StayFormSections, AdditionalRoomsCollapsibleCard, emptyStayValue, primaryToLineItem, lineItemToPrimary,
   type SharedStayValue,
 } from "@/components/shared/stay-form-sections";
 
@@ -164,6 +164,7 @@ function EditBooking() {
               extras={extras} onExtrasChange={setExtras}
               mode="booking"
               hideAdditional
+              hideExtras
             />
 
             <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -211,12 +212,16 @@ function EditBooking() {
                 onChange={(e) => setStay((s) => ({ ...s, internal_notes: e.target.value }))} />
             </motion.section>
 
-            {/* Guest Portal Overrides — last, collapsed by default */}
+            {/* Guest Portal Overrides — collapsed by default */}
             <PaymentSettingsSection
               value={paymentFlags}
               onChange={setPaymentFlags}
               hint="Override global payment settings for this booking only."
             />
+
+            {/* Additional Rooms / Split Stay — last, only needed for multi-room or split dates */}
+            <AdditionalRoomsCollapsibleCard extras={extras} onExtrasChange={setExtras} />
+
 
 
             {/* Inline breakdown hidden on mobile — sticky footer renders editable version. */}

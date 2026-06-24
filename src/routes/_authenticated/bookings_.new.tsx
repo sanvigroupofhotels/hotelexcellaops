@@ -19,7 +19,7 @@ import { lineSubtotal, nightsOf } from "@/components/line-items-editor";
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { NumField } from "@/components/num-field";
 import {
-  StayFormSections, emptyStayValue, primaryToLineItem, lineItemToPrimary,
+  StayFormSections, AdditionalRoomsCollapsibleCard, emptyStayValue, primaryToLineItem, lineItemToPrimary,
   type SharedStayValue,
 } from "@/components/shared/stay-form-sections";
 
@@ -358,6 +358,7 @@ function NewBooking() {
               customerSlot={customerSlot}
               mode="booking"
               hideAdditional
+              hideExtras
             />
 
             {/* Pricing & Payment (status is auto-derived server-side) */}
@@ -412,7 +413,7 @@ function NewBooking() {
                 onChange={(e) => setStay((s) => ({ ...s, internal_notes: e.target.value }))} />
             </motion.section>
 
-            {/* Guest Portal Overrides — last, collapsed by default */}
+            {/* Guest Portal Overrides — collapsed by default */}
             {paymentFlags && (
               <PaymentSettingsSection
                 value={paymentFlags}
@@ -420,6 +421,10 @@ function NewBooking() {
                 hint="Override global payment settings for this booking only."
               />
             )}
+
+            {/* Additional Rooms / Split Stay — last, only needed for multi-room or split dates */}
+            <AdditionalRoomsCollapsibleCard extras={extras} onExtrasChange={setExtras} />
+
 
 
             {/* Inline breakdown is hidden on mobile — the sticky footer below shows the
