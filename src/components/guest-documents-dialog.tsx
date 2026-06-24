@@ -169,7 +169,7 @@ export function GuestDocumentsDialog({ bookingId, customerId, portalToken, open,
           <DialogTitle className="font-display">Guest Documents</DialogTitle>
           <DialogDescription>
             {mode === "checkin"
-              ? "Capture or upload Guest ID. You may skip and upload later — Check-In is not blocked."
+              ? "Capture or upload Guest ID before completing Check-In."
               : isPortal
                 ? "Upload your ID securely. Uploaded documents stay on your profile for future stays."
                 : "Upload, view, or remove guest identity documents."}
