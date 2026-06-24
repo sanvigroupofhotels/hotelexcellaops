@@ -710,42 +710,26 @@ function HouseView() {
                                 const span = Math.max(1, endCol - startCol);
                                 if (span <= 0) return null;
                                 const cellW = CELL_W_MOB;
-                                const hasBreakfast = breakfastByBooking.get(b.id);
+                                const hasBreakfast = !!breakfastByBooking.get(b.id);
                                 const extraCharges = chargesByBooking.get(b.id) ?? 0;
                                 const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) + extraCharges - Number(b.advance_paid || 0));
-                                // Move enabled only for real, single-room, active bookings.
-                                // Uses effective pairing so legacy bookings that only have bookings.room_id
-                                // (and no booking_room_assignments row) are still movable.
                                 const moveEligibility = getMoveEligibility(b, r.id);
-                                const dragEnabled = moveEligibility.eligible;
                                 return (
-                                  <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={(e) => {
-                                      if (longPressTriggered.current && longPressBookingId.current === b.id) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        longPressTriggered.current = false;
-                                        longPressBookingId.current = null;
-                                        return;
-                                      }
-                                      setSelected(b);
-                                    }}
-                                    data-booking-pill={b.id}
-                                    data-move-eligible={dragEnabled ? "true" : "false"}
-                                    data-booking-status={b.status}
-                                    draggable={dragEnabled && !isMobile}
-                                    onDragStart={(e) => {
-                                      if (!dragEnabled || isMobile) { e.preventDefault(); return; }
+                                  <BookingChip
+                                    key={`${b.id}-${b._slotKey ?? b.check_in}`}
+                                    b={b}
+                                    roomId={r.id}
+                                    span={span}
+                                    cellW={cellW}
+                                    hasBreakfast={hasBreakfast}
+                                    balanceDue={balanceDue}
+                                    moveEligibility={moveEligibility}
+                                    isMobile={isMobile}
+                                    highlight={highlightId === b.id}
+                                    onSelect={() => setSelected(b)}
+                                    onLongPress={() => openMoveDialogForBooking(b, r.id)}
+                                    onDragStartAvail={(payload) => {
                                       const orig = (bookings as any[]).find((x) => x.id === b.id) ?? b;
-                                      const payload = JSON.stringify({
-                                        bookingId: b.id,
-                                        oldRoomId: r.id,
-                                        checkIn: orig.check_in,
-                                        checkOut: orig.check_out,
-                                      });
-                                      e.dataTransfer.setData("application/x-booking-move", payload);
-                                      e.dataTransfer.effectAllowed = "move";
-                                      // Compute valid destination rooms for this booking's
-                                      // CURRENT dates so cells can highlight green/red.
                                       listAvailableRoomsForStay({
                                         check_in: orig.check_in,
                                         check_out: orig.check_out,
@@ -758,39 +742,14 @@ function HouseView() {
                                           });
                                         })
                                         .catch(() => { /* highlighting is optional */ });
+                                      return payload;
                                     }}
+                                    bookingsAll={bookings as any[]}
                                     onDragEnd={() => setDragAvail(null)}
-                                    onPointerDown={(e) => {
-                                      if (!dragEnabled || !isMobile || e.pointerType === "mouse") return;
-                                      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* noop */ }
-                                      startLongPress(b, r.id, { x: e.clientX, y: e.clientY });
-                                    }}
-                                    onPointerMove={(e) => {
-                                      if (!isMobile || e.pointerType === "mouse") return;
-                                      moveLongPress({ x: e.clientX, y: e.clientY });
-                                    }}
-                                    onPointerUp={cancelLongPress}
-                                    onPointerCancel={cancelLongPress}
-                                    onContextMenu={(e) => {
-                                      if (dragEnabled && isMobile) e.preventDefault();
-                                    }}
-                                    className={cn(
-                                      "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
-                                      blockClasses(b),
-                                      b._virtual && "border-dashed",
-                                      dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
-                                      dragEnabled && isMobile && "touch-none select-none",
-                                      highlightId === b.id && "ring-4 ring-gold animate-pulse",
-                                    )}
-                                    style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: highlightId === b.id ? 10 : 5 }}
-                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveEligibility.reason}`}`}>
-
-                                    {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
-                                    {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
-                                    <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
-                                  </button>
+                                  />
                                 );
                               })}
+
                               {startingBlocks.map((m: any) => {
                                 const startCol = m.start_date < rangeStart ? 0 : dayKeys.indexOf(m.start_date);
                                 const outIdx = dayKeys.indexOf(m.end_date);
