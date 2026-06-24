@@ -391,14 +391,19 @@ function HouseView() {
   function handleDropOnCell(targetRoomId: string, targetDate: string, payload: string) {
     try {
       const parsed = JSON.parse(payload) as {
-        bookingId: string; oldRoomId: string; checkIn: string; checkOut: string;
+        bookingId: string; oldRoomId: string; checkIn: string; checkOut: string; status?: string;
       };
+      // Future / Arriving / Upcoming bookings: ignore room change on drop —
+      // only the date shift applies. Checked-In may change room.
+      const status = normalizeMoveStatus(parsed.status);
+      const roomChangeAllowed = status === "checked in";
+      const effectiveTargetRoom = roomChangeAllowed ? targetRoomId : parsed.oldRoomId;
       const delta = ymdDiffDays(targetDate, parsed.checkIn);
       const newCheckIn = ymdAddDays(parsed.checkIn, delta);
       const newCheckOut = ymdAddDays(parsed.checkOut, delta);
-      if (parsed.oldRoomId === targetRoomId && newCheckIn === parsed.checkIn) return;
+      if (parsed.oldRoomId === effectiveTargetRoom && newCheckIn === parsed.checkIn) return;
       // Pre-flight visual rejection — keep server-side validation as the source of truth.
-      if (dragAvail && dragAvail.bookingId === parsed.bookingId && !dragAvail.availableRoomIds.has(targetRoomId)) {
+      if (roomChangeAllowed && dragAvail && dragAvail.bookingId === parsed.bookingId && !dragAvail.availableRoomIds.has(targetRoomId)) {
         toast.error("Cannot move booking. Destination room is already occupied or blocked for the selected dates.");
         snapBack(parsed.bookingId);
         return;
@@ -406,7 +411,7 @@ function HouseView() {
       moveMutation.mutate({
         bookingId: parsed.bookingId,
         oldRoomId: parsed.oldRoomId,
-        newRoomId: targetRoomId,
+        newRoomId: effectiveTargetRoom,
         newCheckIn,
         newCheckOut,
       }, {
@@ -1260,6 +1265,9 @@ function MoveBookingDialog({
   onSubmit: (v: { newRoomId: string; newCheckIn: string; newCheckOut: string }) => void;
 }) {
   const isCheckedIn = state.status === "Checked-In";
+  // Only Checked-In bookings can change room. Arriving / Upcoming / Future
+  // bookings are date-only moves — the Target room field is hidden entirely.
+  const allowRoomChange = isCheckedIn;
   const [newCheckIn, setNewCheckIn] = useState(state.checkIn);
   const [newCheckOut, setNewCheckOut] = useState(state.checkOut);
   const [newRoomId, setNewRoomId] = useState(state.oldRoomId);
@@ -1270,7 +1278,7 @@ function MoveBookingDialog({
     queryFn: () => listAvailableRoomsForStay({
       check_in: newCheckIn, check_out: newCheckOut, exclude_booking_id: state.bookingId,
     }),
-    enabled: !!newCheckIn && !!newCheckOut && newCheckIn < newCheckOut,
+    enabled: allowRoomChange && !!newCheckIn && !!newCheckOut && newCheckIn < newCheckOut,
     staleTime: 30_000,
   });
 
@@ -1292,11 +1300,12 @@ function MoveBookingDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Move className="h-4 w-4 text-gold" /> Move Booking
+            <Move className="h-4 w-4 text-gold" /> {allowRoomChange ? "Move Booking" : "Reschedule Booking"}
           </DialogTitle>
           <DialogDescription className="text-xs">
             {state.guestName} · {nights || "—"} night{nights === 1 ? "" : "s"}
             {isCheckedIn && <span className="ml-2 text-amber-600">(Checked-In — check-in date is locked)</span>}
+            {!allowRoomChange && <span className="ml-2 text-muted-foreground">· room assigned at check-in</span>}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -1321,23 +1330,25 @@ function MoveBookingDialog({
               />
             </div>
           </div>
-          <div>
-            <Label className="text-xs">Target room {isLoading && <span className="text-muted-foreground">· loading…</span>}</Label>
-            <select
-              value={newRoomId}
-              onChange={(e) => setNewRoomId(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {options.map((r) => (
-                <option key={r.id} value={r.id}>
-                  Room {r.room_number}{r.room_type ? ` · ${r.room_type}` : ""}{r.id === state.oldRoomId ? " (current)" : ""}
-                </option>
-              ))}
-            </select>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Only available rooms are listed. Occupied and blocked rooms are hidden.
-            </p>
-          </div>
+          {allowRoomChange && (
+            <div>
+              <Label className="text-xs">Target room {isLoading && <span className="text-muted-foreground">· loading…</span>}</Label>
+              <select
+                value={newRoomId}
+                onChange={(e) => setNewRoomId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {options.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    Room {r.room_number}{r.room_type ? ` · ${r.room_type}` : ""}{r.id === state.oldRoomId ? " (current)" : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Only available rooms are listed. Occupied and blocked rooms are hidden.
+              </p>
+            </div>
+          )}
         </div>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
@@ -1405,6 +1416,7 @@ function BookingChip(props: BookingChipProps) {
           oldRoomId: roomId,
           checkIn: orig.check_in,
           checkOut: orig.check_out,
+          status: b.status,
         });
         e.dataTransfer.setData("application/x-booking-move", onDragStartAvail(payload));
         e.dataTransfer.effectAllowed = "move";
