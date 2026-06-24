@@ -71,7 +71,7 @@ function ActivityTracking() {
         .select("id,display_name,email")
         .order("display_name", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as Array<{ id: string; display_name: string | null; email: string | null }>;
+      return ((data ?? []) as unknown) as Array<{ id: string; display_name: string | null; email: string | null }>;
     },
   });
 
