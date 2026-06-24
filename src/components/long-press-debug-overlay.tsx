@@ -120,8 +120,12 @@ export function LongPressDebugOverlay() {
 
 function kindColor(k: LongPressDebugEvent["kind"]): string {
   switch (k) {
-    case "down": return "#FFD700";
-    case "fire": return "#22c55e";
+    case "touchstart": return "#FFD700";
+    case "eligible": return "#22c55e";
+    case "ineligible": return "#ef4444";
+    case "timer-start": return "#fbbf24";
+    case "timer-complete": return "#22c55e";
+    case "dialog-open": return "#a855f7";
     case "abort": return "#ef4444";
     case "cancel": return "#f97316";
     case "up": return "#60a5fa";
