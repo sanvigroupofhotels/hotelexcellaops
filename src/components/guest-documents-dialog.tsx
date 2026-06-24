@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Camera, Upload, Trash2, Eye, Loader2, FileImage, Clock } from "lucide-react";
+import { Camera, Upload, Trash2, Eye, Loader2, FileImage } from "lucide-react";
 import {
   GUEST_DOC_TYPES, type GuestDocType,
   createGuestDocument, listGuestDocuments, listCustomerGuestDocuments,
