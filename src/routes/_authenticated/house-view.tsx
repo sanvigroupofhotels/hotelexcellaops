@@ -26,7 +26,7 @@ import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useMasterData } from "@/hooks/use-master-data";
 import { MetricCard, Money } from "@/components/money";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useLongPress } from "@/hooks/use-long-press";
+import { useLongPress, emitLongPressDebug } from "@/hooks/use-long-press";
 import { LongPressDebugOverlay } from "@/components/long-press-debug-overlay";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -167,6 +167,7 @@ function HouseView() {
     checkIn: string; checkOut: string; status: string;
   } | null>(null);
   function openMoveDialogForBooking(b: any, roomId: string) {
+    emitLongPressDebug({ kind: "dialog-open", id: b.id, reason: `Move dialog for ${b.guest_name || b.id} (${b.status})` });
     setMoveDialog({
       bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
       checkIn: b.check_in, checkOut: b.check_out, status: b.status,

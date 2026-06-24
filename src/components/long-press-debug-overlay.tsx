@@ -78,8 +78,19 @@ export function LongPressDebugOverlay() {
         boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, gap: 8 }}>
         <strong style={{ color: "#FFD700" }}>Long-Press Debug</strong>
+        <span style={{ flex: 1, opacity: 0.85 }}>
+          {(() => {
+            const last = log[log.length - 1];
+            const dialog = [...log].reverse().find((e) => e.kind === "dialog-open");
+            const fire = [...log].reverse().find((e) => e.kind === "timer-complete");
+            if (!last) return "idle";
+            return `last: ${last.kind}${last.reason ? ` (${last.reason})` : ""}` +
+              (fire ? ` · fired#${fire.id?.slice(0,6) ?? ""}` : "") +
+              (dialog ? ` · dialog✓` : "");
+          })()}
+        </span>
         <button
           type="button"
           onClick={() => setLog([])}
@@ -102,9 +113,10 @@ export function LongPressDebugOverlay() {
             {log.slice().reverse().map((e, i) => (
               <tr key={`${e.t}-${i}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
                 <td style={{ width: 60, opacity: 0.6 }}>{new Date(e.t).toISOString().slice(14, 23)}</td>
-                <td style={{ width: 50, color: kindColor(e.kind), fontWeight: 600 }}>{e.kind}</td>
+                <td style={{ width: 90, color: kindColor(e.kind), fontWeight: 600 }}>{e.kind}</td>
                 <td style={{ opacity: 0.85 }}>
                   {e.pointerType ? `${e.pointerType} ` : ""}
+                  {e.delayMs != null ? `${e.delayMs}ms ` : ""}
                   {e.dx != null ? `Δ${e.dx},${e.dy} ` : ""}
                   {e.reason ? `· ${e.reason} ` : ""}
                   {e.id ? `· ${e.id.slice(0, 8)}` : ""}
@@ -120,8 +132,12 @@ export function LongPressDebugOverlay() {
 
 function kindColor(k: LongPressDebugEvent["kind"]): string {
   switch (k) {
-    case "down": return "#FFD700";
-    case "fire": return "#22c55e";
+    case "touchstart": return "#FFD700";
+    case "eligible": return "#22c55e";
+    case "ineligible": return "#ef4444";
+    case "timer-start": return "#fbbf24";
+    case "timer-complete": return "#22c55e";
+    case "dialog-open": return "#a855f7";
     case "abort": return "#ef4444";
     case "cancel": return "#f97316";
     case "up": return "#60a5fa";

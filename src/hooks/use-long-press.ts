@@ -22,12 +22,20 @@ import { useDrag } from "@use-gesture/react";
 
 export type LongPressDebugEvent = {
   t: number;
-  kind: "down" | "move" | "up" | "cancel" | "fire" | "abort";
+  kind:
+    | "touchstart"        // raw onTouchStart / onPointerDown received
+    | "eligible"          // eligibility check passed — chip is movable
+    | "ineligible"        // eligibility check failed — reason carries why
+    | "timer-start"       // long-press countdown began (delayMs)
+    | "timer-complete"    // delay elapsed without aborting → onTrigger() fires
+    | "dialog-open"       // Move Booking dialog actually opened (emitted by host)
+    | "move" | "up" | "cancel" | "abort";
   id?: string;
   pointerType?: string;
   dx?: number;
   dy?: number;
   reason?: string;
+  delayMs?: number;
 };
 
 type Listener = (e: LongPressDebugEvent) => void;
@@ -42,6 +50,10 @@ function emit(e: LongPressDebugEvent) {
   listeners.forEach((l) => {
     try { l(e); } catch { /* noop */ }
   });
+}
+/** Public helper so host code (e.g. House View) can log dialog-open in the same trace. */
+export function emitLongPressDebug(e: Omit<LongPressDebugEvent, "t"> & { t?: number }) {
+  emit({ t: Date.now(), ...e });
 }
 
 export interface LongPressOptions {
@@ -89,21 +101,26 @@ export function useLongPress(opts: LongPressOptions) {
     touchId?: number | null;
     pointerType: string;
   }) => {
+    emit({ t: Date.now(), kind: "touchstart", id: debugId, pointerType: input.pointerType });
     if (!enabled) {
-      emit({ t: Date.now(), kind: "abort", id: debugId, pointerType: input.pointerType, reason: disabledReason || "disabled" });
+      emit({ t: Date.now(), kind: "ineligible", id: debugId, pointerType: input.pointerType, reason: disabledReason || "disabled" });
       return;
     }
-    if (input.pointerType === "mouse") return;
+    if (input.pointerType === "mouse") {
+      emit({ t: Date.now(), kind: "abort", id: debugId, pointerType: input.pointerType, reason: "mouse pointer ignored" });
+      return;
+    }
+    emit({ t: Date.now(), kind: "eligible", id: debugId, pointerType: input.pointerType, reason: "movable" });
     if (timer.current) clearTimeout(timer.current);
     triggered.current = false;
     activePointerId.current = input.pointerId ?? null;
     activeTouchId.current = input.touchId ?? null;
     start.current = { x: input.x, y: input.y };
-    emit({ t: Date.now(), kind: "down", id: debugId, pointerType: input.pointerType });
+    emit({ t: Date.now(), kind: "timer-start", id: debugId, pointerType: input.pointerType, delayMs });
     timer.current = setTimeout(() => {
       timer.current = null;
       triggered.current = true;
-      emit({ t: Date.now(), kind: "fire", id: debugId });
+      emit({ t: Date.now(), kind: "timer-complete", id: debugId, reason: `held ${delayMs}ms` });
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
         try { (navigator as any).vibrate?.(40); } catch { /* noop */ }
       }
