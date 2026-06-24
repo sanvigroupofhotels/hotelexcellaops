@@ -80,7 +80,7 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
     ``,
     `Dear ${b.guest_name},`,
     ``,
-    `We are pleased to confirm your reservation with Hotel Excella.`,
+    `Your booking is confirmed.`,
     ``,
     `📌 Booking Ref: ${b.booking_reference}`,
     ``,
@@ -92,14 +92,11 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
     `• Amount Paid: ${inr(paid)}`,
     `• Balance Due: ${inr(balance)}`,
     ``,
-    `📍 Property Information`,
-    `Property Guide:`,
+    `Property Information:`,
     `https://hotelexcella.in/guest`,
     ``,
-    `We look forward to hosting you and making your stay comfortable and memorable.`,
-    ``,
-    `Warm Regards,`,
-    `Hotel Excella Reservations Team`,
+    `Regards,`,
+    `Hotel Excella`,
   ].join("\n");
 }
 
@@ -131,25 +128,18 @@ export function paymentReminderMessage(b: BookingRow, pendingAmount?: number) {
 
 export function checkInWelcomeMessage(b: BookingRow) {
   return [
-    `Dear ${b.guest_name}`,
+    `Welcome to Hotel Excella.`,
     ``,
-    `Thank you for choosing our property for your stay.`,
-    ``,
-    `Please find some details that may be useful for you:`,
-    ``,
-    `For all details about the property during your stay:`,
+    `For Information & Assistance:`,
     `https://hotelexcella.in/guest`,
     ``,
-    `For Lunch and Dinner, please order from:`,
+    `For Lunch / Dinner:`,
     `https://hotelexcella.in/orderfood`,
     ``,
-    `Breakfast on adhoc basis:`,
-    `Please contact 8859444555`,
+    `Breakfast:`,
+    `Please contact Reception`,
     ``,
     `We wish you a pleasant and comfortable stay.`,
-    ``,
-    `Warm Regards,`,
-    `Hotel Excella Team`,
   ].join("\n");
 }
 
@@ -157,21 +147,14 @@ export function checkOutThankYouMessage(b: BookingRow) {
   return [
     `Dear ${b.guest_name},`,
     ``,
-    `Thank you for staying with Hotel Excella.`,
+    `If you enjoyed your stay, we would greatly appreciate your review:`,
     ``,
-    `We hope you had a comfortable and pleasant stay with us.`,
-    ``,
-    `If you enjoyed your experience, we would greatly appreciate a review from you.`,
-    ``,
-    `⭐ Leave a Review:`,
     `https://hotelexcella.in/review`,
     ``,
-    `Your feedback helps us improve our services and assists other travelers in choosing us.`,
-    ``,
-    `We look forward to welcoming you again in the future.`,
+    `We look forward to hosting you again.`,
     ``,
     `Warm Regards,`,
-    `Hotel Excella Team`,
+    `Hotel Excella`,
   ].join("\n");
 }
 

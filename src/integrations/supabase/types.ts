@@ -1950,6 +1950,60 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          audience_role: string | null
+          body: string
+          created_at: string
+          entity_id: string | null
+          entity_reference: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json
+          priority: string
+          read_at: string | null
+          status: string
+          title: string
+          type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          audience_role?: string | null
+          body: string
+          created_at?: string
+          entity_id?: string | null
+          entity_reference?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          priority?: string
+          read_at?: string | null
+          status?: string
+          title: string
+          type: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          audience_role?: string | null
+          body?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_reference?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          priority?: string
+          read_at?: string | null
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       permissions: {
         Row: {
           created_at: string

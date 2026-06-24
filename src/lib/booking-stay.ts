@@ -32,6 +32,8 @@ export interface UpdateBookingStayInput {
   new_check_out?: string;
   /** Optional new room id */
   new_room_id?: string;
+  /** Optional current room id for the specific House View chip/assignment being moved. */
+  old_room_id?: string;
   /** Origin of this mutation. Defaults to 'manual'. Surfaces in activity_log.source. */
   source?: StayMutationSource;
   /** Optional page label for activity_log (defaults to a sensible value per source). */
@@ -59,6 +61,19 @@ function todayKolkata(): string {
     day: "2-digit",
   });
   return fmt.format(new Date()); // YYYY-MM-DD
+}
+
+function ymdAddDays(ymd: string, n: number): string {
+  const d = new Date(ymd + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function ymdDiffDays(a: string, b: string): number {
+  return Math.round((new Date(a + "T00:00:00").getTime() - new Date(b + "T00:00:00").getTime()) / 86400000);
 }
 
 /** Translate raw DB / trigger errors into friendly text. Never expose trigger names. */
@@ -105,7 +120,8 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
 
   const newIn = input.new_check_in ?? oldIn;
   const newOut = input.new_check_out ?? oldOut;
-  const newRoom = input.new_room_id ?? oldRoom;
+  const moveFromRoom = input.old_room_id ?? oldRoom;
+  const newRoom = input.new_room_id ?? moveFromRoom;
 
   if (!newIn || !newOut) throw new Error("Missing check-in or check-out date.");
   if (!(newIn < newOut)) {
@@ -125,15 +141,15 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   }
 
   // No-op short circuit
-  const sameRoom = (newRoom ?? null) === (oldRoom ?? null);
+  const sameRoom = (newRoom ?? null) === (moveFromRoom ?? null);
   if (sameRoom && newIn === oldIn && newOut === oldOut) {
     return {
       booking_id,
       check_in: oldIn,
       check_out: oldOut,
-      room_id: oldRoom,
-      before: { check_in: oldIn, check_out: oldOut, room_id: oldRoom },
-      after: { check_in: oldIn, check_out: oldOut, room_id: oldRoom },
+      room_id: moveFromRoom,
+      before: { check_in: oldIn, check_out: oldOut, room_id: moveFromRoom },
+      after: { check_in: oldIn, check_out: oldOut, room_id: moveFromRoom },
     };
   }
 
@@ -141,7 +157,7 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   const update: Record<string, any> = {};
   if (newIn !== oldIn) update.check_in = newIn;
   if (newOut !== oldOut) update.check_out = newOut;
-  if (newRoom !== oldRoom) update.room_id = newRoom;
+    if (!sameRoom && (!moveFromRoom || moveFromRoom === oldRoom)) update.room_id = newRoom;
 
   try {
     const { error: bErr } = await supabase
@@ -151,20 +167,42 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
     if (bErr) throw bErr;
 
     // Move the corresponding assignment row when the room changed.
-    if (!sameRoom && oldRoom && newRoom) {
+    if (!sameRoom && moveFromRoom && newRoom) {
       const { error: aErr } = await supabase
         .from("booking_room_assignments" as any)
         .update({ room_id: newRoom } as any)
         .eq("booking_id", booking_id)
-        .eq("room_id", oldRoom);
+        .eq("room_id", moveFromRoom);
       if (aErr) throw aErr;
+    }
+
+    if (newIn !== oldIn || newOut !== oldOut) {
+      const delta = ymdDiffDays(newIn, oldIn);
+      const { data: items, error: itemsErr } = await supabase
+        .from("booking_items" as any)
+        .select("id, check_in, check_out")
+        .eq("booking_id", booking_id);
+      if (itemsErr) throw itemsErr;
+      for (const item of (items ?? []) as any[]) {
+        const itemIn = item.check_in || oldIn;
+        const itemOut = item.check_out || oldOut;
+        const patch = {
+          check_in: ymdAddDays(itemIn, delta),
+          check_out: ymdAddDays(itemOut, delta),
+        };
+        const { error: itemErr } = await supabase
+          .from("booking_items" as any)
+          .update(patch)
+          .eq("id", item.id);
+        if (itemErr) throw itemErr;
+      }
     }
   } catch (e) {
     throw new Error(humanizeStayError(e));
   }
 
   const after = { check_in: newIn, check_out: newOut, room_id: newRoom ?? null };
-  const before = { check_in: oldIn, check_out: oldOut, room_id: oldRoom };
+  const before = { check_in: oldIn, check_out: oldOut, room_id: moveFromRoom ?? null };
 
   // Fire-and-forget activity log — never block the move on the log.
   try {

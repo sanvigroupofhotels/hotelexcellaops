@@ -16,7 +16,6 @@ import {
 } from "@/lib/guest-documents-api";
 import {
   listPortalDocuments, uploadPortalDocument,
-  softDeletePortalDocument, signPortalDocumentUrl,
 } from "@/lib/portal.functions";
 import { useUserRole } from "@/hooks/use-role";
 import { useAuth } from "@/lib/auth";
@@ -33,7 +32,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   mode: Mode;
-  /** Called when the user completes (uploaded OR chose Upload Later) in check-in mode. */
+  /** Called after a successful required-document upload in check-in mode. */
   onComplete?: () => void;
   /** Origin label stored against the document. Defaults to "Reception" (PMS) or "Guest Portal" (portal). */
   source?: string;
@@ -61,8 +60,6 @@ export function GuestDocumentsDialog({ bookingId, customerId, portalToken, open,
   // Server functions for portal mode
   const portalList = useServerFn(listPortalDocuments);
   const portalUpload = useServerFn(uploadPortalDocument);
-  const portalDel = useServerFn(softDeletePortalDocument);
-  const portalSign = useServerFn(signPortalDocumentUrl);
 
   const scopeKey = isPortal
     ? ["guest-documents", "portal", portalToken]
@@ -132,7 +129,7 @@ export function GuestDocumentsDialog({ bookingId, customerId, portalToken, open,
 
   const del = useMutation({
     mutationFn: async (id: string) => {
-      if (isPortal) return portalDel({ data: { token: portalToken!, doc_id: id } });
+      if (isPortal) throw new Error("Document removal is not available in the Guest Portal.");
       return softDeleteGuestDocument(id, user?.email ?? "Staff");
     },
     onSuccess: () => {
@@ -144,13 +141,7 @@ export function GuestDocumentsDialog({ bookingId, customerId, portalToken, open,
 
   const openSignedUrl = async (path: string) => {
     if (isPortal) {
-      try {
-        const { url } = await portalSign({ data: { token: portalToken!, path } });
-        if (url) window.open(url, "_blank");
-        else toast.error("Could not generate file link");
-      } catch (e: any) {
-        toast.error(e?.message ?? "Could not generate file link");
-      }
+      toast.error("Previously uploaded IDs are not viewable in the Guest Portal.");
       return;
     }
     const url = await signedUrlForPath(path);
@@ -248,13 +239,7 @@ export function GuestDocumentsDialog({ bookingId, customerId, portalToken, open,
         </div>
 
         <DialogFooter>
-          {mode === "checkin" ? (
-            <Button onClick={() => { onComplete?.(); onClose(); }} disabled={save.isPending}>
-              Continue to Check-In
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={onClose}>Close</Button>
-          )}
+          <Button variant="outline" onClick={onClose} disabled={save.isPending}>Close</Button>
         </DialogFooter>
 
       </DialogContent>

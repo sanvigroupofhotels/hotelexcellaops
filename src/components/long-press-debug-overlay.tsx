@@ -24,8 +24,24 @@ export function LongPressDebugOverlay() {
       }
     }
     read();
+    const originalPush = window.history.pushState;
+    const originalReplace = window.history.replaceState;
+    window.history.pushState = function pushState(this: History, ...args) {
+      const result = originalPush.apply(this, args as any);
+      read();
+      return result;
+    } as typeof window.history.pushState;
+    window.history.replaceState = function replaceState(this: History, ...args) {
+      const result = originalReplace.apply(this, args as any);
+      read();
+      return result;
+    } as typeof window.history.replaceState;
     window.addEventListener("popstate", read);
-    return () => window.removeEventListener("popstate", read);
+    return () => {
+      window.history.pushState = originalPush;
+      window.history.replaceState = originalReplace;
+      window.removeEventListener("popstate", read);
+    };
   }, []);
 
   useEffect(() => {

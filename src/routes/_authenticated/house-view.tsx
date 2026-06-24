@@ -48,7 +48,7 @@ const CELL_W = 170;
 const CELL_W_MOB = 150;
 const ROOM_COL_W = 72;
 const LONG_PRESS_DELAY_MS = 500;
-const LONG_PRESS_MOVE_TOLERANCE = 14; // px — ignore normal finger jitter on real phones
+const LONG_PRESS_MOVE_TOLERANCE = 24; // px — tolerate real mobile finger jitter before treating it as scroll
 
 const MOVE_ELIGIBLE_STATUSES = new Set([
   "pending",
@@ -356,6 +356,7 @@ function HouseView() {
     }) => {
       return await updateBookingStay({
         booking_id: opts.bookingId,
+        old_room_id: opts.oldRoomId,
         new_room_id: opts.newRoomId,
         new_check_in: opts.newCheckIn,
         new_check_out: opts.newCheckOut,
@@ -425,10 +426,6 @@ function HouseView() {
     }
     if (b._virtual) {
       return { eligible: false, reason: "Assign a real room before moving this booking" };
-    }
-    const effectivePairedCount = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]).paired.length;
-    if (effectivePairedCount !== 1) {
-      return { eligible: false, reason: "Multi-room bookings must be edited from booking details" };
     }
     if (!roomId) {
       return { eligible: false, reason: "Missing current room assignment" };
@@ -1389,10 +1386,11 @@ function BookingChip(props: BookingChipProps) {
     moveTolerancePx: LONG_PRESS_MOVE_TOLERANCE,
     onTrigger: onLongPress,
     debugId: b.id,
+    disabledReason: moveEligibility.reason,
   });
   return (
     <button
-      onClickCapture={longPress.onClickCapture}
+      {...longPress.bind()}
       onClick={onSelect}
       data-booking-pill={b.id}
       data-move-eligible={dragEnabled ? "true" : "false"}
@@ -1411,8 +1409,6 @@ function BookingChip(props: BookingChipProps) {
         e.dataTransfer.effectAllowed = "move";
       }}
       onDragEnd={onDragEnd}
-      onPointerDown={longPress.onPointerDown}
-      onContextMenu={longPress.onContextMenu}
       className={cn(
         "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
         blockClasses(b),
