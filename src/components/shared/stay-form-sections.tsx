@@ -161,10 +161,12 @@ export interface StayFormSectionsProps {
   mode?: "quote" | "booking";
   /** Hide the trailing Additional (discount + internal notes) card. Hosts can render their own. */
   hideAdditional?: boolean;
+  /** Hide the Additional Rooms / Split Stay card. Hosts can render <AdditionalRoomsCollapsibleCard /> in their own slot. */
+  hideExtras?: boolean;
 }
 
 export function StayFormSections({
-  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel, hideAdditional,
+  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel, hideAdditional, hideExtras,
 }: StayFormSectionsProps) {
   const update = <K extends keyof SharedStayValue>(k: K, v: SharedStayValue[K]) =>
     onChange({ ...value, [k]: v });
@@ -260,15 +262,12 @@ export function StayFormSections({
         </div>
       </Card>
 
-      {/* 4. Additional Rooms / Split Stay — collapsed by default */}
-      <CollapsibleCard
-        title="Additional Rooms / Split Stay"
-        subtitle="Add a second room (multi-room booking) or a second date range (split stay). The main room above stays the primary segment."
-        badge={extras.length > 0 ? `${extras.length} added` : "Optional"}
-        defaultOpen={extras.length > 0}
-      >
-        <LineItemsEditor items={extras} onChange={onExtrasChange} />
-      </CollapsibleCard>
+      {/* 4. Additional Rooms / Split Stay — collapsed by default.
+          Hosts may opt-out (hideExtras) and render <AdditionalRoomsCollapsibleCard /> in a custom slot
+          (e.g. the very end of the form, after Guest Portal Overrides). */}
+      {!hideExtras && (
+        <AdditionalRoomsCollapsibleCard extras={extras} onExtrasChange={onExtrasChange} />
+      )}
 
       {/* 5. Additional */}
       {!hideAdditional && (
@@ -277,6 +276,22 @@ export function StayFormSections({
         </Card>
       )}
     </div>
+  );
+}
+
+/** Additional Rooms / Split Stay — exported so hosts can mount it at the end of the form. */
+export function AdditionalRoomsCollapsibleCard({
+  extras, onExtrasChange,
+}: { extras: LineItem[]; onExtrasChange: (items: LineItem[]) => void }) {
+  return (
+    <CollapsibleCard
+      title="Additional Rooms / Split Stay"
+      subtitle="Only needed for multi-room bookings or split date ranges. The main room above stays the primary segment."
+      badge={extras.length > 0 ? `${extras.length} added` : "Optional"}
+      defaultOpen={extras.length > 0}
+    >
+      <LineItemsEditor items={extras} onChange={onExtrasChange} />
+    </CollapsibleCard>
   );
 }
 
