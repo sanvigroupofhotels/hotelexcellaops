@@ -737,7 +737,8 @@ function HouseView() {
                                 if (span <= 0) return null;
                                 const cellW = CELL_W_MOB;
                                 const hasBreakfast = breakfastByBooking.get(b.id);
-                                const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+                                const extraCharges = chargesByBooking.get(b.id) ?? 0;
+                                const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) + extraCharges - Number(b.advance_paid || 0));
                                 // Move enabled only for real, single-room, active bookings.
                                 // Uses effective pairing so legacy bookings that only have bookings.room_id
                                 // (and no booking_room_assignments row) are still movable.
