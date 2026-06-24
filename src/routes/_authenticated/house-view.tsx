@@ -1419,10 +1419,11 @@ function BookingChip(props: BookingChipProps) {
         const orig = bookingsAll.find((x) => x.id === b.id) ?? b;
         const payload = JSON.stringify({
           bookingId: b.id,
-          oldRoomId: roomId,
+          oldRoomId: b._virtual ? null : roomId,
           checkIn: orig.check_in,
           checkOut: orig.check_out,
           status: b.status,
+          virtual: !!b._virtual,
         });
         e.dataTransfer.setData("application/x-booking-move", onDragStartAvail(payload));
         e.dataTransfer.effectAllowed = "move";
