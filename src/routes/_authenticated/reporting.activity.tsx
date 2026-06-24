@@ -29,6 +29,7 @@ type Row = {
   entity_reference: string | null;
   summary: string | null;
   source: string;
+  correlation_id: string | null;
   before_state: any;
   after_state: any;
   metadata: any;
