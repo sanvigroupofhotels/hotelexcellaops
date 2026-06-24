@@ -513,7 +513,7 @@ export const createBookingEngineOrder = createServerFn({ method: "POST" })
     if ((b as any).source_channel !== SOURCE) throw new Error("Invalid booking source");
     if ((b as any).status !== "Draft") throw new Error("This booking is no longer in draft state");
     if ((b as any).draft_expires_at && new Date((b as any).draft_expires_at).getTime() < Date.now()) {
-      throw new Error("Your 15-minute hold has expired. Please start again.");
+      throw new Error("Your booking hold has expired. Please go back and refresh your details to continue with the same booking.");
     }
 
     const balance = Math.max(0, Number((b as any).amount) - Number((b as any).advance_paid || 0));
@@ -657,7 +657,7 @@ export const confirmPayAtHotel = createServerFn({ method: "POST" })
     if ((b as any).source_channel !== SOURCE) throw new Error("Invalid booking source");
     if ((b as any).status !== "Draft") throw new Error("This booking is no longer in draft state");
     if ((b as any).draft_expires_at && new Date((b as any).draft_expires_at).getTime() < Date.now()) {
-      throw new Error("Your 15-minute hold has expired. Please start again.");
+      throw new Error("Your booking hold has expired. Please go back and refresh your details to continue with the same booking.");
     }
 
     const update: Record<string, any> = {
@@ -846,7 +846,7 @@ export const updateDraftStay = createServerFn({ method: "POST" })
       throw new Error("This booking is already confirmed and cannot be modified here. Please contact the hotel to amend your stay.");
     }
     if ((b as any).draft_expires_at && new Date((b as any).draft_expires_at).getTime() < Date.now()) {
-      throw new Error("Your 15-minute hold has expired. Please start again.");
+      throw new Error("Your booking hold has expired. Please go back and refresh your details to continue with the same booking.");
     }
 
     const nights = nightsBetween(data.check_in, data.check_out);
