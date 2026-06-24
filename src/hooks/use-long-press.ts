@@ -101,21 +101,26 @@ export function useLongPress(opts: LongPressOptions) {
     touchId?: number | null;
     pointerType: string;
   }) => {
+    emit({ t: Date.now(), kind: "touchstart", id: debugId, pointerType: input.pointerType });
     if (!enabled) {
-      emit({ t: Date.now(), kind: "abort", id: debugId, pointerType: input.pointerType, reason: disabledReason || "disabled" });
+      emit({ t: Date.now(), kind: "ineligible", id: debugId, pointerType: input.pointerType, reason: disabledReason || "disabled" });
       return;
     }
-    if (input.pointerType === "mouse") return;
+    if (input.pointerType === "mouse") {
+      emit({ t: Date.now(), kind: "abort", id: debugId, pointerType: input.pointerType, reason: "mouse pointer ignored" });
+      return;
+    }
+    emit({ t: Date.now(), kind: "eligible", id: debugId, pointerType: input.pointerType, reason: "movable" });
     if (timer.current) clearTimeout(timer.current);
     triggered.current = false;
     activePointerId.current = input.pointerId ?? null;
     activeTouchId.current = input.touchId ?? null;
     start.current = { x: input.x, y: input.y };
-    emit({ t: Date.now(), kind: "down", id: debugId, pointerType: input.pointerType });
+    emit({ t: Date.now(), kind: "timer-start", id: debugId, pointerType: input.pointerType, delayMs });
     timer.current = setTimeout(() => {
       timer.current = null;
       triggered.current = true;
-      emit({ t: Date.now(), kind: "fire", id: debugId });
+      emit({ t: Date.now(), kind: "timer-complete", id: debugId, reason: `held ${delayMs}ms` });
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
         try { (navigator as any).vibrate?.(40); } catch { /* noop */ }
       }
