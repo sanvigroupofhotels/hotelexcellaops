@@ -163,14 +163,16 @@ function HouseView() {
   // Mobile move-booking dialog (long-press fallback for drag-and-drop)
   const isMobile = useIsMobile();
   const [moveDialog, setMoveDialog] = useState<{
-    bookingId: string; guestName: string; oldRoomId: string;
-    checkIn: string; checkOut: string; status: string;
+    bookingId: string; guestName: string; oldRoomId: string | null;
+    checkIn: string; checkOut: string; status: string; virtual?: boolean;
   } | null>(null);
   function openMoveDialogForBooking(b: any, roomId: string) {
-    emitLongPressDebug({ kind: "dialog-open", id: b.id, reason: `Move dialog for ${b.guest_name || b.id} (${b.status})` });
+    emitLongPressDebug({ kind: "dialog-open", id: b.id, reason: `Move dialog for ${b.guest_name || b.id} (${b.status}${b._virtual ? " · unassigned" : ""})` });
     setMoveDialog({
-      bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
+      bookingId: b.id, guestName: b.guest_name,
+      oldRoomId: b._virtual ? null : roomId,
       checkIn: b.check_in, checkOut: b.check_out, status: b.status,
+      virtual: !!b._virtual,
     });
   }
 
@@ -350,15 +352,15 @@ function HouseView() {
   const moveMutation = useMutation({
     mutationFn: async (opts: {
       bookingId: string;
-      oldRoomId: string;
-      newRoomId: string;
+      oldRoomId?: string | null;
+      newRoomId?: string | null;
       newCheckIn: string;
       newCheckOut: string;
     }) => {
       return await updateBookingStay({
         booking_id: opts.bookingId,
-        old_room_id: opts.oldRoomId,
-        new_room_id: opts.newRoomId,
+        old_room_id: opts.oldRoomId ?? undefined,
+        new_room_id: opts.newRoomId ?? undefined,
         new_check_in: opts.newCheckIn,
         new_check_out: opts.newCheckOut,
         source: "house_view",
@@ -391,17 +393,19 @@ function HouseView() {
   function handleDropOnCell(targetRoomId: string, targetDate: string, payload: string) {
     try {
       const parsed = JSON.parse(payload) as {
-        bookingId: string; oldRoomId: string; checkIn: string; checkOut: string; status?: string;
+        bookingId: string; oldRoomId: string | null; checkIn: string; checkOut: string;
+        status?: string; virtual?: boolean;
       };
       // Future / Arriving / Upcoming bookings: ignore room change on drop —
       // only the date shift applies. Checked-In may change room.
+      // Virtual (unassigned) chips: also date-only; old/new room are left untouched.
       const status = normalizeMoveStatus(parsed.status);
-      const roomChangeAllowed = status === "checked in";
-      const effectiveTargetRoom = roomChangeAllowed ? targetRoomId : parsed.oldRoomId;
+      const roomChangeAllowed = status === "checked in" && !parsed.virtual;
+      const effectiveTargetRoom = roomChangeAllowed ? targetRoomId : (parsed.oldRoomId ?? null);
       const delta = ymdDiffDays(targetDate, parsed.checkIn);
       const newCheckIn = ymdAddDays(parsed.checkIn, delta);
       const newCheckOut = ymdAddDays(parsed.checkOut, delta);
-      if (parsed.oldRoomId === effectiveTargetRoom && newCheckIn === parsed.checkIn) return;
+      if ((parsed.oldRoomId ?? null) === effectiveTargetRoom && newCheckIn === parsed.checkIn) return;
       // Pre-flight visual rejection — keep server-side validation as the source of truth.
       if (roomChangeAllowed && dragAvail && dragAvail.bookingId === parsed.bookingId && !dragAvail.availableRoomIds.has(targetRoomId)) {
         toast.error("Cannot move booking. Destination room is already occupied or blocked for the selected dates.");
@@ -410,8 +414,8 @@ function HouseView() {
       }
       moveMutation.mutate({
         bookingId: parsed.bookingId,
-        oldRoomId: parsed.oldRoomId,
-        newRoomId: effectiveTargetRoom,
+        oldRoomId: parsed.virtual ? null : parsed.oldRoomId,
+        newRoomId: parsed.virtual ? null : effectiveTargetRoom,
         newCheckIn,
         newCheckOut,
       }, {
@@ -431,7 +435,8 @@ function HouseView() {
       return { eligible: false, reason: `Status ${b.status || "—"} is not movable` };
     }
     if (b._virtual) {
-      return { eligible: false, reason: "Assign a real room before moving this booking" };
+      // Unassigned booking — no room yet. Allow long-press / drag as a date-only reschedule.
+      return { eligible: true, reason: "Long-press to reschedule (no room assigned)" };
     }
     if (!roomId) {
       return { eligible: false, reason: "Missing current room assignment" };
@@ -1249,10 +1254,11 @@ function NightAuditPendingBanner({ onOpen, businessDate }: { onOpen: () => void;
 interface MoveDialogState {
   bookingId: string;
   guestName: string;
-  oldRoomId: string;
+  oldRoomId: string | null;
   checkIn: string;
   checkOut: string;
   status: string;
+  virtual?: boolean;
 }
 
 function MoveBookingDialog({
@@ -1262,15 +1268,15 @@ function MoveBookingDialog({
   minCheckInDate: string;
   submitting: boolean;
   onClose: () => void;
-  onSubmit: (v: { newRoomId: string; newCheckIn: string; newCheckOut: string }) => void;
+  onSubmit: (v: { newRoomId: string | null; newCheckIn: string; newCheckOut: string }) => void;
 }) {
   const isCheckedIn = state.status === "Checked-In";
-  // Only Checked-In bookings can change room. Arriving / Upcoming / Future
-  // bookings are date-only moves — the Target room field is hidden entirely.
-  const allowRoomChange = isCheckedIn;
+  // Only Checked-In bookings (with a real room) can change room. Arriving / Upcoming
+  // / Future / Unassigned bookings are date-only moves — Target room is hidden.
+  const allowRoomChange = isCheckedIn && !state.virtual && !!state.oldRoomId;
   const [newCheckIn, setNewCheckIn] = useState(state.checkIn);
   const [newCheckOut, setNewCheckOut] = useState(state.checkOut);
-  const [newRoomId, setNewRoomId] = useState(state.oldRoomId);
+  const [newRoomId, setNewRoomId] = useState<string | null>(state.oldRoomId);
 
   // Only offer rooms that are actually available for the selected stay window.
   const { data: avail = [], isLoading } = useQuery({
@@ -1286,7 +1292,7 @@ function MoveBookingDialog({
   const options = useMemo(() => {
     const set = new Map<string, { id: string; room_number: string; room_type: string | null }>();
     for (const r of avail) set.set(r.id, { id: r.id, room_number: r.room_number, room_type: r.room_type });
-    if (!set.has(state.oldRoomId)) {
+    if (state.oldRoomId && !set.has(state.oldRoomId)) {
       set.set(state.oldRoomId, { id: state.oldRoomId, room_number: "(current)", room_type: null });
     }
     return Array.from(set.values()).sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }));
@@ -1334,8 +1340,8 @@ function MoveBookingDialog({
             <div>
               <Label className="text-xs">Target room {isLoading && <span className="text-muted-foreground">· loading…</span>}</Label>
               <select
-                value={newRoomId}
-                onChange={(e) => setNewRoomId(e.target.value)}
+                value={newRoomId ?? ""}
+                onChange={(e) => setNewRoomId(e.target.value || null)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 {options.map((r) => (
@@ -1413,10 +1419,11 @@ function BookingChip(props: BookingChipProps) {
         const orig = bookingsAll.find((x) => x.id === b.id) ?? b;
         const payload = JSON.stringify({
           bookingId: b.id,
-          oldRoomId: roomId,
+          oldRoomId: b._virtual ? null : roomId,
           checkIn: orig.check_in,
           checkOut: orig.check_out,
           status: b.status,
+          virtual: !!b._virtual,
         });
         e.dataTransfer.setData("application/x-booking-move", onDragStartAvail(payload));
         e.dataTransfer.effectAllowed = "move";
