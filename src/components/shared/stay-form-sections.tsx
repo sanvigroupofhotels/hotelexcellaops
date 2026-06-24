@@ -288,11 +288,13 @@ export function StayFormSections({
 
 /* ---------- tiny shared atoms ---------- */
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       className="luxe-card rounded-xl p-5 md:p-6">
-      <h4 className="font-display text-lg mb-4">{title}</h4>
+      <h4 className="font-display text-lg">{title}</h4>
+      {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">{subtitle}</p>}
+      {!subtitle && <div className="mb-4" />}
       {children}
     </motion.section>
   );
