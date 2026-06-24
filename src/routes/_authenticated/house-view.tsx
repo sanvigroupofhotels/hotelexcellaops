@@ -166,48 +166,13 @@ function HouseView() {
     bookingId: string; guestName: string; oldRoomId: string;
     checkIn: string; checkOut: string; status: string;
   } | null>(null);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressStart = useRef<{ x: number; y: number } | null>(null);
-  const longPressTriggered = useRef(false);
-  const longPressBookingId = useRef<string | null>(null);
   function openMoveDialogForBooking(b: any, roomId: string) {
     setMoveDialog({
       bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
       checkIn: b.check_in, checkOut: b.check_out, status: b.status,
     });
-    // Soft haptic if available
-    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-      try { (navigator as any).vibrate?.(40); } catch { /* noop */ }
-    }
   }
-  function startLongPress(b: any, roomId: string, point?: { x: number; y: number }) {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    longPressTriggered.current = false;
-    longPressBookingId.current = b.id;
-    longPressStart.current = point ?? null;
-    longPressTimer.current = setTimeout(() => {
-      longPressTimer.current = null;
-      longPressTriggered.current = true;
-      openMoveDialogForBooking(b, roomId);
-    }, LONG_PRESS_DELAY_MS);
-  }
-  function moveLongPress(point?: { x: number; y: number }) {
-    if (!longPressTimer.current || !longPressStart.current) return;
-    if (!point) return;
-    const dx = Math.abs(point.x - longPressStart.current.x);
-    const dy = Math.abs(point.y - longPressStart.current.y);
-    if (dx > LONG_PRESS_MOVE_TOLERANCE || dy > LONG_PRESS_MOVE_TOLERANCE) {
-      cancelLongPress();
-    }
-  }
-  function cancelLongPress() {
-    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-    longPressStart.current = null;
-    longPressBookingId.current = null;
-    if (longPressTriggered.current) {
-      window.setTimeout(() => { longPressTriggered.current = false; }, 350);
-    }
-  }
+
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
