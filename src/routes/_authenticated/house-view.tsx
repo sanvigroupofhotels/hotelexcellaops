@@ -615,10 +615,17 @@ function HouseView() {
           <button onClick={() => setAnchor((d) => addDays(d, -1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronLeft className="h-4 w-4" /></button>
           <div className="flex items-center gap-2 flex-wrap justify-center">
             <span className="hidden md:inline text-sm font-medium">House Overview</span>
-            <input type="date" value={dateKey(anchor)} onChange={(e) => { const d = new Date(e.target.value); if (!isNaN(d.getTime())) setAnchor(d); }}
+            {/* The selected date is the BUSINESS DATE (today). The grid still
+                anchors one day earlier so reception can finish prior-day actions. */}
+            <input type="date"
+              value={dateKey(addDays(anchor, 1))}
+              onChange={(e) => {
+                const d = new Date(e.target.value);
+                if (!isNaN(d.getTime())) { d.setHours(0,0,0,0); d.setDate(d.getDate() - 1); setAnchor(d); }
+              }}
               className="bg-input/60 border border-border rounded-md px-3 py-1.5 text-sm" />
             <button onClick={() => { const d = businessDate ? new Date(businessDate + "T00:00:00") : new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - 1); setAnchor(d); }}
-              className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Business Date</button>
+              className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
             <button onClick={() => setStatsOpen(true)}
               className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5">
               <Hotel className="h-3.5 w-3.5" /> Stats
