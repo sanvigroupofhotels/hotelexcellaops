@@ -52,6 +52,8 @@ function BookingEngineLayout() {
         </div>
       </header>
 
+      <BookingEngineStepper />
+
       <main className="flex-1">
         <Outlet />
       </main>
