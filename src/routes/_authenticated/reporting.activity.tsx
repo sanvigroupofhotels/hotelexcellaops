@@ -229,6 +229,10 @@ function ActivityTracking() {
                 <div className="col-span-2"><span className="text-muted-foreground">Entity</span>
                   <div>{selected.entity_type ?? "—"} · {selected.entity_reference ?? selected.entity_id ?? ""}</div></div>
                 {selected.summary && <div className="col-span-2"><span className="text-muted-foreground">Summary</span><div>{selected.summary}</div></div>}
+                {selected.correlation_id && (
+                  <div className="col-span-2"><span className="text-muted-foreground">Correlation ID</span>
+                    <div className="font-mono text-xs">{selected.correlation_id}</div></div>
+                )}
               </div>
               {selected.before_state && (
                 <div>
