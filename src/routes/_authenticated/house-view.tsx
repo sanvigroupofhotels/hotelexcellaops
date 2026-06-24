@@ -521,6 +521,8 @@ function HouseView() {
 
   return (
     <>
+      <LongPressDebugOverlay />
+
       <Topbar title="House View" subtitle={`Business Date: ${todayLabel}${businessDate && businessDate !== dateKey(new Date()) ? ` · System: ${systemLabel}` : ""}`}
         action={
           <button onClick={() => setAuditOpen(true)}
