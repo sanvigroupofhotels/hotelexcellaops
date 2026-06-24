@@ -183,13 +183,14 @@ function ActivityTracking() {
               <thead className="text-xs uppercase tracking-wider text-muted-foreground border-b border-border/60">
                 <tr>
                   <th className="text-left p-3">Time</th>
-                  {canManage && <th className="text-left p-3">Actor</th>}
+                  {canManage && <th className="text-left p-3">User</th>}
                   {canManage && <th className="text-left p-3">Role</th>}
                   <th className="text-left p-3">Page</th>
                   <th className="text-left p-3">Action</th>
-                  <th className="text-left p-3">Entity</th>
+                  <th className="text-left p-3">Reference</th>
                   <th className="text-left p-3">Source</th>
-                  <th className="text-left p-3">Summary</th>
+                  <th className="text-left p-3">Details</th>
+                  <th className="text-left p-3">Correlation</th>
                 </tr>
               </thead>
               <tbody>
@@ -204,6 +205,7 @@ function ActivityTracking() {
                     <td className="p-3">{r.entity_reference ?? r.entity_type ?? "—"}</td>
                     <td className="p-3"><Badge variant="secondary">{r.source}</Badge></td>
                     <td className="p-3 text-muted-foreground">{r.summary ?? ""}</td>
+                    <td className="p-3 font-mono text-[10px] text-muted-foreground">{r.correlation_id ? r.correlation_id.slice(0, 8) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
