@@ -1254,10 +1254,11 @@ function NightAuditPendingBanner({ onOpen, businessDate }: { onOpen: () => void;
 interface MoveDialogState {
   bookingId: string;
   guestName: string;
-  oldRoomId: string;
+  oldRoomId: string | null;
   checkIn: string;
   checkOut: string;
   status: string;
+  virtual?: boolean;
 }
 
 function MoveBookingDialog({
@@ -1267,15 +1268,15 @@ function MoveBookingDialog({
   minCheckInDate: string;
   submitting: boolean;
   onClose: () => void;
-  onSubmit: (v: { newRoomId: string; newCheckIn: string; newCheckOut: string }) => void;
+  onSubmit: (v: { newRoomId: string | null; newCheckIn: string; newCheckOut: string }) => void;
 }) {
   const isCheckedIn = state.status === "Checked-In";
-  // Only Checked-In bookings can change room. Arriving / Upcoming / Future
-  // bookings are date-only moves — the Target room field is hidden entirely.
-  const allowRoomChange = isCheckedIn;
+  // Only Checked-In bookings (with a real room) can change room. Arriving / Upcoming
+  // / Future / Unassigned bookings are date-only moves — Target room is hidden.
+  const allowRoomChange = isCheckedIn && !state.virtual && !!state.oldRoomId;
   const [newCheckIn, setNewCheckIn] = useState(state.checkIn);
   const [newCheckOut, setNewCheckOut] = useState(state.checkOut);
-  const [newRoomId, setNewRoomId] = useState(state.oldRoomId);
+  const [newRoomId, setNewRoomId] = useState<string | null>(state.oldRoomId);
 
   // Only offer rooms that are actually available for the selected stay window.
   const { data: avail = [], isLoading } = useQuery({
@@ -1291,7 +1292,7 @@ function MoveBookingDialog({
   const options = useMemo(() => {
     const set = new Map<string, { id: string; room_number: string; room_type: string | null }>();
     for (const r of avail) set.set(r.id, { id: r.id, room_number: r.room_number, room_type: r.room_type });
-    if (!set.has(state.oldRoomId)) {
+    if (state.oldRoomId && !set.has(state.oldRoomId)) {
       set.set(state.oldRoomId, { id: state.oldRoomId, room_number: "(current)", room_type: null });
     }
     return Array.from(set.values()).sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }));
