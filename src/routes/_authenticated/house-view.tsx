@@ -1355,3 +1355,83 @@ function MoveBookingDialog({
   );
 }
 
+// =============================================================================
+// BookingChip — one chip on the House View grid.
+// Extracted so each chip can own a useLongPress hook independently.
+// =============================================================================
+interface BookingChipProps {
+  b: any;
+  roomId: string;
+  span: number;
+  cellW: number;
+  hasBreakfast: boolean;
+  balanceDue: number;
+  moveEligibility: { eligible: boolean; reason: string };
+  isMobile: boolean;
+  highlight: boolean;
+  onSelect: () => void;
+  onLongPress: () => void;
+  onDragStartAvail: (payload: string) => string;
+  bookingsAll: any[];
+  onDragEnd: () => void;
+}
+function BookingChip(props: BookingChipProps) {
+  const {
+    b, roomId, span, cellW, hasBreakfast, balanceDue, moveEligibility,
+    isMobile, highlight, onSelect, onLongPress, onDragStartAvail, bookingsAll, onDragEnd,
+  } = props;
+  const dragEnabled = moveEligibility.eligible;
+  const longPress = useLongPress({
+    enabled: dragEnabled && isMobile,
+    delayMs: LONG_PRESS_DELAY_MS,
+    moveTolerancePx: LONG_PRESS_MOVE_TOLERANCE,
+    onTrigger: onLongPress,
+    debugId: b.id,
+  });
+  return (
+    <button
+      onClickCapture={longPress.onClickCapture}
+      onClick={onSelect}
+      data-booking-pill={b.id}
+      data-move-eligible={dragEnabled ? "true" : "false"}
+      data-booking-status={b.status}
+      draggable={dragEnabled && !isMobile}
+      onDragStart={(e) => {
+        if (!dragEnabled || isMobile) { e.preventDefault(); return; }
+        const orig = bookingsAll.find((x) => x.id === b.id) ?? b;
+        const payload = JSON.stringify({
+          bookingId: b.id,
+          oldRoomId: roomId,
+          checkIn: orig.check_in,
+          checkOut: orig.check_out,
+        });
+        e.dataTransfer.setData("application/x-booking-move", onDragStartAvail(payload));
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragEnd={onDragEnd}
+      onPointerDown={longPress.onPointerDown}
+      onContextMenu={longPress.onContextMenu}
+      className={cn(
+        "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
+        blockClasses(b),
+        b._virtual && "border-dashed",
+        dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
+        dragEnabled && isMobile && "touch-none select-none",
+        highlight && "ring-4 ring-gold animate-pulse",
+      )}
+      style={{
+        width: `calc(${span} * ${cellW}px - 8px)`,
+        zIndex: highlight ? 10 : 5,
+        // Reinforce no-scroll-hijack for mobile chips at the CSS layer.
+        touchAction: dragEnabled && isMobile ? "none" : undefined,
+      }}
+      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveEligibility.reason}`}`}
+    >
+      {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
+      {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
+      <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
+    </button>
+  );
+}
+
+
