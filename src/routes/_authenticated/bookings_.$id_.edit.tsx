@@ -169,7 +169,7 @@ function EditBooking() {
             <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
               <h4 className="font-display text-lg">Pricing &amp; Payment</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <NumField
                     label="Total Amount (₹)"
@@ -188,6 +188,8 @@ function EditBooking() {
                     <span>Taxes Included</span>
                   </label>
                 </div>
+                <NumField label="Discount (₹)" value={stay.discount} min={0}
+                  onChange={(v) => setStay((s) => ({ ...s, discount: v }))} prefix="₹" />
                 <NumField label="Advance Paid (₹)" value={advancePaid} min={0} onChange={setAdvancePaid} prefix="₹" />
               </div>
               <p className="text-[10px] text-muted-foreground -mt-2">
@@ -199,27 +201,22 @@ function EditBooking() {
               </div>
             </motion.section>
 
+            {/* Internal Notes */}
+            <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              className="luxe-card rounded-xl p-5 md:p-6 space-y-3">
+              <h4 className="font-display text-lg">Internal Notes</h4>
+              <textarea rows={3} className={cn(inputCls, "resize-none")}
+                placeholder="Never shared with guest"
+                value={stay.internal_notes}
+                onChange={(e) => setStay((s) => ({ ...s, internal_notes: e.target.value }))} />
+            </motion.section>
+
+            {/* Guest Portal Overrides — last, collapsed by default */}
             <PaymentSettingsSection
               value={paymentFlags}
               onChange={setPaymentFlags}
               hint="Override global payment settings for this booking only."
             />
-
-            {/* Notes */}
-            <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="luxe-card rounded-xl p-5 md:p-6 space-y-3">
-              <h4 className="font-display text-lg">Notes</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <NumField label="Discount (₹)" value={stay.discount} min={0}
-                  onChange={(v) => setStay((s) => ({ ...s, discount: v }))} prefix="₹" />
-              </div>
-              <label className="block">
-                <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">Internal Notes (never shared)</span>
-                <textarea rows={3} className={cn(inputCls, "resize-none")}
-                  value={stay.internal_notes}
-                  onChange={(e) => setStay((s) => ({ ...s, internal_notes: e.target.value }))} />
-              </label>
-            </motion.section>
 
 
             {/* Inline breakdown hidden on mobile — sticky footer renders editable version. */}

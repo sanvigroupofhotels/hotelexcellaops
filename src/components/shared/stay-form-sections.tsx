@@ -17,7 +17,8 @@
  * at the bottom of this file.
  */
 import { motion } from "framer-motion";
-import { User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus } from "lucide-react";
+import { useState } from "react";
+import { User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, ChevronDown, ChevronRight } from "lucide-react";
 import {
   roomTypes,
   LEAD_SOURCES,
@@ -242,8 +243,8 @@ export function StayFormSections({
         {nightsLabel && <div className="mt-2 text-right text-xs text-gold">{nightsLabel}</div>}
       </Card>
 
-      {/* 3. Room & Extras */}
-      <Card title="Room & Extras">
+      {/* 3. Rooms & Extras */}
+      <Card title="Rooms & Extras">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Room Type" icon={Bed}>
             <select className={inputCls} value={value.room_type} onChange={(e) => update("room_type", e.target.value)}>
@@ -253,36 +254,52 @@ export function StayFormSections({
           <Field label="Rooms">
             <Stepper value={value.rooms} min={1} onChange={(v) => update("rooms", v)} />
           </Field>
-          <Field label="Extra Bed">
-            <Stepper value={value.extra_bed} min={0} onChange={(v) => update("extra_bed", v)} />
-          </Field>
-          <div />
         </div>
         <div className="mt-4">
           <PolicyFields form={value as any} update={update as any} apply={apply as any} />
         </div>
       </Card>
 
-      {/* 4. Additional Rooms / Split Stay */}
-      <Card
+      {/* 4. Additional Rooms / Split Stay — collapsed by default */}
+      <CollapsibleCard
         title="Additional Rooms / Split Stay"
         subtitle="Add a second room (multi-room booking) or a second date range (split stay). The main room above stays the primary segment."
+        badge={extras.length > 0 ? `${extras.length} added` : "Optional"}
+        defaultOpen={extras.length > 0}
       >
         <LineItemsEditor items={extras} onChange={onExtrasChange} />
-      </Card>
+      </CollapsibleCard>
 
       {/* 5. Additional */}
       {!hideAdditional && (
-        <Card title="Additional">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <NumField label="Discount (₹)" value={value.discount} min={0} onChange={(v) => update("discount", v)} prefix="₹" />
-          </div>
-          <Field label="Internal Notes (never shared)">
-            <textarea rows={3} className={cn(inputCls, "resize-none mt-1")} value={value.internal_notes} onChange={(e) => update("internal_notes", e.target.value)} />
-          </Field>
+        <Card title="Internal Notes">
+          <textarea rows={3} className={cn(inputCls, "resize-none")} placeholder="Never shared with guest" value={value.internal_notes} onChange={(e) => update("internal_notes", e.target.value)} />
         </Card>
       )}
     </div>
+  );
+}
+
+function CollapsibleCard({
+  title, subtitle, badge, defaultOpen = false, children,
+}: { title: string; subtitle?: string; badge?: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      className="luxe-card rounded-xl">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-3 p-5 md:p-6 text-left">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h4 className="font-display text-lg">{title}</h4>
+            {badge && <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{badge}</span>}
+          </div>
+          {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>}
+        </div>
+        {open ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+      </button>
+      {open && <div className="px-5 md:px-6 pb-5 md:pb-6">{children}</div>}
+    </motion.section>
   );
 }
 
