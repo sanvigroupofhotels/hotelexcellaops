@@ -233,6 +233,23 @@ function HouseView() {
       return (data ?? []) as any[];
     },
   });
+  // Additional charges per booking (Food, Laundry, Late Check-out, etc.) so the
+  // chip's "due" indicator (💳) reflects post-stay charges, not just room rate.
+  const { data: allCharges = [] } = useQuery({
+    queryKey: ["booking-charges-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("booking_charges" as any).select("booking_id,amount");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const chargesByBooking = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of allCharges as any[]) {
+      m.set(c.booking_id, (m.get(c.booking_id) ?? 0) + Number(c.amount || 0));
+    }
+    return m;
+  }, [allCharges]);
   const isLoading = lr || lb;
 
   const days = useMemo(() => Array.from({ length: DAY_COUNT }, (_, i) => addDays(anchor, i)), [anchor]);
@@ -598,10 +615,17 @@ function HouseView() {
           <button onClick={() => setAnchor((d) => addDays(d, -1))} className="p-2 rounded-md border border-border hover:border-gold/40"><ChevronLeft className="h-4 w-4" /></button>
           <div className="flex items-center gap-2 flex-wrap justify-center">
             <span className="hidden md:inline text-sm font-medium">House Overview</span>
-            <input type="date" value={dateKey(anchor)} onChange={(e) => { const d = new Date(e.target.value); if (!isNaN(d.getTime())) setAnchor(d); }}
+            {/* The selected date is the BUSINESS DATE (today). The grid still
+                anchors one day earlier so reception can finish prior-day actions. */}
+            <input type="date"
+              value={dateKey(addDays(anchor, 1))}
+              onChange={(e) => {
+                const d = new Date(e.target.value);
+                if (!isNaN(d.getTime())) { d.setHours(0,0,0,0); d.setDate(d.getDate() - 1); setAnchor(d); }
+              }}
               className="bg-input/60 border border-border rounded-md px-3 py-1.5 text-sm" />
             <button onClick={() => { const d = businessDate ? new Date(businessDate + "T00:00:00") : new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - 1); setAnchor(d); }}
-              className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Business Date</button>
+              className="px-3 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
             <button onClick={() => setStatsOpen(true)}
               className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5">
               <Hotel className="h-3.5 w-3.5" /> Stats
@@ -720,7 +744,8 @@ function HouseView() {
                                 if (span <= 0) return null;
                                 const cellW = CELL_W_MOB;
                                 const hasBreakfast = breakfastByBooking.get(b.id);
-                                const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) - Number(b.advance_paid || 0));
+                                const extraCharges = chargesByBooking.get(b.id) ?? 0;
+                                const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) + extraCharges - Number(b.advance_paid || 0));
                                 // Move enabled only for real, single-room, active bookings.
                                 // Uses effective pairing so legacy bookings that only have bookings.room_id
                                 // (and no booking_room_assignments row) are still movable.
@@ -787,7 +812,7 @@ function HouseView() {
                                       blockClasses(b),
                                       b._virtual && "border-dashed",
                                       dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
-                                      dragEnabled && isMobile && "touch-manipulation",
+                                      dragEnabled && isMobile && "touch-none select-none",
                                       highlightId === b.id && "ring-4 ring-gold animate-pulse",
                                     )}
                                     style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: highlightId === b.id ? 10 : 5 }}

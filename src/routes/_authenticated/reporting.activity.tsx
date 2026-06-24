@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,7 @@ type Row = {
   entity_reference: string | null;
   summary: string | null;
   source: string;
+  correlation_id: string | null;
   before_state: any;
   after_state: any;
   metadata: any;
@@ -60,6 +61,20 @@ function ActivityTracking() {
   const [actor, setActor] = useState<string>("");
   const [selected, setSelected] = useState<Row | null>(null);
 
+  // User filter — sourced from profiles (User Management). Admins/Owners only.
+  const { data: users = [] } = useQuery({
+    queryKey: ["activity-users"],
+    enabled: canManage,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles" as any)
+        .select("id,display_name,email")
+        .order("display_name", { ascending: true });
+      if (error) throw error;
+      return ((data ?? []) as unknown) as Array<{ id: string; display_name: string | null; email: string | null }>;
+    },
+  });
+
   const { data = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ["activity-log", { from, to, source, action, page, actor, canManage }],
     queryFn: async () => {
@@ -73,7 +88,11 @@ function ActivityTracking() {
       if (source !== "all") q = q.eq("source", source);
       if (action.trim()) q = q.ilike("action", `%${action.trim()}%`);
       if (page.trim()) q = q.ilike("page", `%${page.trim()}%`);
-      if (actor.trim() && canManage) q = q.ilike("actor_name", `%${actor.trim()}%`);
+      if (actor.trim() && canManage) {
+        // actor holds either a UUID (from the dropdown) or a free-text name.
+        if (/^[0-9a-f-]{36}$/i.test(actor.trim())) q = q.eq("actor_id", actor.trim());
+        else q = q.ilike("actor_name", `%${actor.trim()}%`);
+      }
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as unknown as Row[];
@@ -90,6 +109,7 @@ function ActivityTracking() {
       entity_type: r.entity_type ?? "",
       entity_ref: r.entity_reference ?? "",
       source: r.source,
+      correlation_id: r.correlation_id ?? "",
       summary: r.summary ?? "",
     }));
     downloadCSV("activity-log", rows);
@@ -126,8 +146,18 @@ function ActivityTracking() {
             <div><label className="text-xs text-muted-foreground">Page</label>
               <Input placeholder="e.g. House View" value={page} onChange={(e) => setPage(e.target.value)} /></div>
             {canManage && (
-              <div><label className="text-xs text-muted-foreground">Actor</label>
-                <Input placeholder="name" value={actor} onChange={(e) => setActor(e.target.value)} /></div>
+              <div><label className="text-xs text-muted-foreground">User</label>
+                <Select value={actor || "__any__"} onValueChange={(v) => setActor(v === "__any__" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="All users" /></SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value="__any__">All users</SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.display_name || u.email || u.id.slice(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select></div>
             )}
           </div>
           <div className="flex gap-2 mt-3">
@@ -153,13 +183,14 @@ function ActivityTracking() {
               <thead className="text-xs uppercase tracking-wider text-muted-foreground border-b border-border/60">
                 <tr>
                   <th className="text-left p-3">Time</th>
-                  {canManage && <th className="text-left p-3">Actor</th>}
+                  {canManage && <th className="text-left p-3">User</th>}
                   {canManage && <th className="text-left p-3">Role</th>}
                   <th className="text-left p-3">Page</th>
                   <th className="text-left p-3">Action</th>
-                  <th className="text-left p-3">Entity</th>
+                  <th className="text-left p-3">Reference</th>
                   <th className="text-left p-3">Source</th>
-                  <th className="text-left p-3">Summary</th>
+                  <th className="text-left p-3">Details</th>
+                  <th className="text-left p-3">Correlation</th>
                 </tr>
               </thead>
               <tbody>
@@ -174,6 +205,7 @@ function ActivityTracking() {
                     <td className="p-3">{r.entity_reference ?? r.entity_type ?? "—"}</td>
                     <td className="p-3"><Badge variant="secondary">{r.source}</Badge></td>
                     <td className="p-3 text-muted-foreground">{r.summary ?? ""}</td>
+                    <td className="p-3 font-mono text-[10px] text-muted-foreground">{r.correlation_id ? r.correlation_id.slice(0, 8) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -197,6 +229,10 @@ function ActivityTracking() {
                 <div className="col-span-2"><span className="text-muted-foreground">Entity</span>
                   <div>{selected.entity_type ?? "—"} · {selected.entity_reference ?? selected.entity_id ?? ""}</div></div>
                 {selected.summary && <div className="col-span-2"><span className="text-muted-foreground">Summary</span><div>{selected.summary}</div></div>}
+                {selected.correlation_id && (
+                  <div className="col-span-2"><span className="text-muted-foreground">Correlation ID</span>
+                    <div className="font-mono text-xs">{selected.correlation_id}</div></div>
+                )}
               </div>
               {selected.before_state && (
                 <div>

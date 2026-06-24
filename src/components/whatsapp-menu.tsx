@@ -8,10 +8,9 @@ export type WhatsAppTemplate =
 
 const ITEMS: { key: WhatsAppTemplate; label: string }[] = [
   { key: "confirmation", label: "Booking Confirmation" },
-  { key: "payment", label: "Payment Reminder" },
   { key: "checkin", label: "Check-In Welcome" },
   { key: "checkout", label: "Check-Out Thank You" },
-  { key: "empty", label: "Empty Message" },
+  { key: "empty", label: "Custom Message" },
 ];
 
 /**

@@ -1,17 +1,19 @@
 /**
  * Guest Portal landing — guest.hotelexcella.in
- * Splash with "Enter your booking link" + contact reception.
- * If a token is entered, navigate to /portal/<token>.
+ * Two ways in:
+ *   1. Paste tokenised link/token from confirmation
+ *   2. "Find my booking" by booking reference + mobile
  */
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getEngineConfig } from "@/lib/booking-engine.functions";
+import { lookupPortalToken } from "@/lib/portal.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Phone, Mail, MapPin, KeyRound } from "lucide-react";
+import { Phone, Mail, MapPin, KeyRound, Search, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/portal/")({
   component: PortalLanding,
@@ -26,8 +28,13 @@ export const Route = createFileRoute("/portal/")({
 function PortalLanding() {
   const navigate = useNavigate();
   const fn = useServerFn(getEngineConfig);
+  const lookup = useServerFn(lookupPortalToken);
   const { data: cfg } = useQuery({ queryKey: ["be", "config"], queryFn: () => fn({}), staleTime: 5 * 60_000 });
   const [token, setToken] = useState("");
+  const [reference, setReference] = useState("");
+  const [phone, setPhone] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function open() {
     const t = token.trim().replace(/^.*\/(?=[a-f0-9]{16,})/i, "");
@@ -36,6 +43,24 @@ function PortalLanding() {
       return;
     }
     navigate({ to: "/portal/$token", params: { token: t } });
+  }
+
+  async function findBooking(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!reference.trim() || !phone.trim()) {
+      setError("Please enter both booking reference and mobile number.");
+      return;
+    }
+    setSearching(true);
+    try {
+      const { token: t } = await lookup({ data: { reference: reference.trim(), phone: phone.trim() } });
+      navigate({ to: "/portal/$token", params: { token: t } });
+    } catch (err: any) {
+      setError(err?.message ?? "Could not find your booking.");
+    } finally {
+      setSearching(false);
+    }
   }
 
   const name = cfg?.hotel.name ?? "Hotel Excella";
@@ -59,7 +84,40 @@ function PortalLanding() {
 
         <Card className="mt-6 p-5">
           <p className="font-display text-lg flex items-center gap-2">
-            <KeyRound className="h-5 w-5 text-gold" /> Open your booking
+            <Search className="h-5 w-5 text-gold" /> Find my booking
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Enter your booking reference and the mobile number used at booking.
+          </p>
+          <form onSubmit={findBooking} className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Input
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder="Booking reference (e.g. HE-12345)"
+              autoComplete="off"
+            />
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Mobile number"
+              inputMode="tel"
+              autoComplete="tel"
+            />
+            <Button
+              type="submit"
+              disabled={searching}
+              className="gold-gradient text-charcoal hover:opacity-90 sm:col-span-2"
+            >
+              {searching ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+              Find my booking
+            </Button>
+          </form>
+          {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+        </Card>
+
+        <Card className="mt-4 p-5">
+          <p className="font-display text-lg flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-gold" /> Open with a link
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             Paste the link from your WhatsApp or email confirmation, or just the token.
@@ -71,7 +129,7 @@ function PortalLanding() {
               placeholder="https://guest.hotelexcella.in/…"
               onKeyDown={(e) => { if (e.key === "Enter") open(); }}
             />
-            <Button onClick={open} className="gold-gradient text-charcoal hover:opacity-90">Open</Button>
+            <Button onClick={open} variant="outline">Open</Button>
           </div>
         </Card>
 
