@@ -295,6 +295,26 @@ export const createDraftBooking = createServerFn({ method: "POST" })
     const typeStripped = typeIn.replace(/\s+Room$/i, "");
     const typeCandidates = Array.from(new Set([typeIn, typeStripped, `${typeStripped} Room`]));
 
+    // ---------------------------------------------------------------------
+    // Draft reuse — if this guest already has a Draft (live OR expired) for
+    // the same stay shape, revive it instead of creating a duplicate.
+    // Match key: phone + check_in + check_out + room_type. This avoids the
+    // "your 15-minute hold has expired" dead end when a guest reopens the
+    // engine after stepping away.
+    // ---------------------------------------------------------------------
+    const { data: existingDraft } = await supabaseAdmin
+      .from("bookings")
+      .select("id, booking_reference, draft_expires_at, status")
+      .eq("status", "Draft")
+      .eq("source_channel", SOURCE)
+      .eq("phone", phone)
+      .eq("check_in", data.check_in)
+      .eq("check_out", data.check_out)
+      .in("room_details", typeCandidates)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     const [{ data: rooms }, { data: ratesAll }, { data: overrides }, { data: bookingRows }, { data: maintRows }, { data: settingRows }] =
       await Promise.all([
         supabaseAdmin.from("rooms").select("id,room_type").eq("active", true).in("room_type", typeCandidates),
@@ -302,7 +322,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
         supabaseAdmin.from("rate_overrides").select("room_type,date,rate").in("room_type", typeCandidates).gte("date", data.check_in).lt("date", data.check_out),
         supabaseAdmin
           .from("bookings")
-          .select("room_id,room_details,check_in,check_out,status,draft_expires_at")
+          .select("id,room_id,room_details,check_in,check_out,status,draft_expires_at")
           .lt("check_in", data.check_out)
           .gt("check_out", data.check_in),
         supabaseAdmin
@@ -326,9 +346,12 @@ export const createDraftBooking = createServerFn({ method: "POST" })
     const blockedRoomIds = new Set<string>(((maintRows ?? []) as any[]).map((m) => m.room_id));
     let occupied = 0;
     const occupiedRoomIds = new Set<string>();
+    const reuseId = (existingDraft as any)?.id ?? null;
     for (const b of (bookingRows ?? []) as any[]) {
       if (!OCCUPIED.has(b.status)) continue;
       if (b.status === "Draft" && b.draft_expires_at && new Date(b.draft_expires_at).getTime() < nowMs) continue;
+      // Don't count the draft we're about to revive against itself.
+      if (reuseId && b.id === reuseId) continue;
       if (b.room_id) occupiedRoomIds.add(b.room_id);
       else if (b.room_details === data.room_type || b.room_details === roomsRoomType) occupied++;
     }
@@ -337,6 +360,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
     }
     const available = Math.max(0, totalOfType - occupied);
     if (available <= 0) throw new Error("Sorry, the last room of this type was just booked. Please try different dates or another room.");
+
 
     // Price the stay
     const r = (rates ?? {}) as any;
@@ -379,8 +403,49 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       customerId = (newCust as any).id;
     }
 
-    const reference = genReference();
     const draftExpires = new Date(Date.now() + DRAFT_TTL_MIN * 60_000).toISOString();
+
+    // Revive existing draft — refresh pricing, dates, guest info, expiry.
+    if (existingDraft) {
+      const reuseId = (existingDraft as any).id;
+      const { data: upd, error: uErr } = await supabaseAdmin
+        .from("bookings")
+        .update({
+          customer_id: customerId,
+          guest_name: data.guest_name,
+          phone,
+          email: data.email || null,
+          check_in: data.check_in,
+          check_out: data.check_out,
+          adults: data.guests,
+          guests: data.guests,
+          room_details: data.room_type,
+          amount: total,
+          subtotal,
+          taxes,
+          tax_rate,
+          special_requests: data.special_requests || null,
+          draft_expires_at: draftExpires,
+          notes: `Resumed from Booking Engine`,
+        } as any)
+        .eq("id", reuseId)
+        .select("id, booking_reference")
+        .single();
+      if (uErr) throw uErr;
+      return {
+        booking_id: (upd as any).id,
+        reference: (upd as any).booking_reference,
+        total,
+        subtotal,
+        taxes,
+        tax_rate,
+        nights,
+        draft_expires_at: draftExpires,
+        reused: true,
+      };
+    }
+
+    const reference = genReference();
 
     const { data: ins, error: bErr } = await supabaseAdmin.from("bookings").insert({
       user_id: systemUserId,
@@ -418,8 +483,10 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       tax_rate,
       nights,
       draft_expires_at: draftExpires,
+      reused: false,
     };
   });
+
 
 // ----------------------------------------------------------------------------
 // createBookingEngineOrder — Razorpay order for a draft booking
@@ -446,7 +513,7 @@ export const createBookingEngineOrder = createServerFn({ method: "POST" })
     if ((b as any).source_channel !== SOURCE) throw new Error("Invalid booking source");
     if ((b as any).status !== "Draft") throw new Error("This booking is no longer in draft state");
     if ((b as any).draft_expires_at && new Date((b as any).draft_expires_at).getTime() < Date.now()) {
-      throw new Error("Your 15-minute hold has expired. Please start again.");
+      throw new Error("Your booking hold has expired. Please go back and refresh your details to continue with the same booking.");
     }
 
     const balance = Math.max(0, Number((b as any).amount) - Number((b as any).advance_paid || 0));
@@ -590,7 +657,7 @@ export const confirmPayAtHotel = createServerFn({ method: "POST" })
     if ((b as any).source_channel !== SOURCE) throw new Error("Invalid booking source");
     if ((b as any).status !== "Draft") throw new Error("This booking is no longer in draft state");
     if ((b as any).draft_expires_at && new Date((b as any).draft_expires_at).getTime() < Date.now()) {
-      throw new Error("Your 15-minute hold has expired. Please start again.");
+      throw new Error("Your booking hold has expired. Please go back and refresh your details to continue with the same booking.");
     }
 
     const update: Record<string, any> = {
@@ -779,7 +846,7 @@ export const updateDraftStay = createServerFn({ method: "POST" })
       throw new Error("This booking is already confirmed and cannot be modified here. Please contact the hotel to amend your stay.");
     }
     if ((b as any).draft_expires_at && new Date((b as any).draft_expires_at).getTime() < Date.now()) {
-      throw new Error("Your 15-minute hold has expired. Please start again.");
+      throw new Error("Your booking hold has expired. Please go back and refresh your details to continue with the same booking.");
     }
 
     const nights = nightsBetween(data.check_in, data.check_out);

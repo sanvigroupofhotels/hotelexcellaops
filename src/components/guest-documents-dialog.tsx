@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Camera, Upload, Trash2, Eye, Loader2, FileImage, Clock } from "lucide-react";
+import { Camera, Upload, Trash2, Eye, Loader2, FileImage } from "lucide-react";
 import {
   GUEST_DOC_TYPES, type GuestDocType,
   createGuestDocument, listGuestDocuments, listCustomerGuestDocuments,
@@ -169,28 +169,44 @@ export function GuestDocumentsDialog({ bookingId, customerId, portalToken, open,
           <DialogTitle className="font-display">Guest Documents</DialogTitle>
           <DialogDescription>
             {mode === "checkin"
-              ? "Capture or upload Guest ID. You may skip and upload later — Check-In is not blocked."
+              ? "Capture or upload Guest ID before completing Check-In."
               : isPortal
                 ? "Upload your ID securely. Uploaded documents stay on your profile for future stays."
                 : "Upload, view, or remove guest identity documents."}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Existing documents */}
-        <div className="space-y-2">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">On file</div>
-          {isLoading ? (
-            <div className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
-          ) : docs.length === 0 ? (
-            <div className="text-sm text-muted-foreground italic">No documents uploaded yet.</div>
-          ) : (
-            <div className="space-y-2">
-              {docs.map((d) => (
-                <DocRow key={d.id} doc={d} onOpen={openSignedUrl} onDelete={canManage ? () => del.mutate(d.id) : undefined} />
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Existing documents — hidden in portal mode for guest privacy.
+            Guests can still upload / replace, but cannot view, preview, or
+            download IDs previously stored on their booking. */}
+        {!isPortal && (
+          <div className="space-y-2">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">On file</div>
+            {isLoading ? (
+              <div className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
+            ) : docs.length === 0 ? (
+              <div className="text-sm text-muted-foreground italic">No documents uploaded yet.</div>
+            ) : (
+              <div className="space-y-2">
+                {docs.map((d) => (
+                  <DocRow key={d.id} doc={d} onOpen={openSignedUrl} onDelete={canManage ? () => del.mutate(d.id) : undefined} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {isPortal && (
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 text-xs text-muted-foreground">
+            For your security, previously uploaded IDs are not viewable in the
+            portal. You can upload new or replacement documents below — they will
+            be stored securely on your booking.
+            {docs.length > 0 && (
+              <span className="block mt-1 text-foreground">
+                {docs.length} document{docs.length === 1 ? "" : "s"} on file.
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Upload form */}
         <div className="rounded-md border border-border bg-card/40 p-4 space-y-3">
@@ -233,18 +249,14 @@ export function GuestDocumentsDialog({ bookingId, customerId, portalToken, open,
 
         <DialogFooter>
           {mode === "checkin" ? (
-            <>
-              <Button variant="outline" onClick={() => { onComplete?.(); onClose(); }}>
-                <Clock className="h-4 w-4" /> Upload Later
-              </Button>
-              <Button onClick={() => { onComplete?.(); onClose(); }} disabled={save.isPending}>
-                Continue to Check-In
-              </Button>
-            </>
+            <Button onClick={() => { onComplete?.(); onClose(); }} disabled={save.isPending}>
+              Continue to Check-In
+            </Button>
           ) : (
             <Button variant="outline" onClick={onClose}>Close</Button>
           )}
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );

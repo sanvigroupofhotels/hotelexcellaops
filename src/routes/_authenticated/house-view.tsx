@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { listRooms, listMaintenance } from "@/lib/rooms-api";
@@ -26,6 +26,8 @@ import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useMasterData } from "@/hooks/use-master-data";
 import { MetricCard, Money } from "@/components/money";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLongPress } from "@/hooks/use-long-press";
+import { LongPressDebugOverlay } from "@/components/long-press-debug-overlay";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -164,48 +166,13 @@ function HouseView() {
     bookingId: string; guestName: string; oldRoomId: string;
     checkIn: string; checkOut: string; status: string;
   } | null>(null);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressStart = useRef<{ x: number; y: number } | null>(null);
-  const longPressTriggered = useRef(false);
-  const longPressBookingId = useRef<string | null>(null);
   function openMoveDialogForBooking(b: any, roomId: string) {
     setMoveDialog({
       bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
       checkIn: b.check_in, checkOut: b.check_out, status: b.status,
     });
-    // Soft haptic if available
-    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-      try { (navigator as any).vibrate?.(40); } catch { /* noop */ }
-    }
   }
-  function startLongPress(b: any, roomId: string, point?: { x: number; y: number }) {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    longPressTriggered.current = false;
-    longPressBookingId.current = b.id;
-    longPressStart.current = point ?? null;
-    longPressTimer.current = setTimeout(() => {
-      longPressTimer.current = null;
-      longPressTriggered.current = true;
-      openMoveDialogForBooking(b, roomId);
-    }, LONG_PRESS_DELAY_MS);
-  }
-  function moveLongPress(point?: { x: number; y: number }) {
-    if (!longPressTimer.current || !longPressStart.current) return;
-    if (!point) return;
-    const dx = Math.abs(point.x - longPressStart.current.x);
-    const dy = Math.abs(point.y - longPressStart.current.y);
-    if (dx > LONG_PRESS_MOVE_TOLERANCE || dy > LONG_PRESS_MOVE_TOLERANCE) {
-      cancelLongPress();
-    }
-  }
-  function cancelLongPress() {
-    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-    longPressStart.current = null;
-    longPressBookingId.current = null;
-    if (longPressTriggered.current) {
-      window.setTimeout(() => { longPressTriggered.current = false; }, 350);
-    }
-  }
+
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
@@ -554,6 +521,8 @@ function HouseView() {
 
   return (
     <>
+      <LongPressDebugOverlay />
+
       <Topbar title="House View" subtitle={`Business Date: ${todayLabel}${businessDate && businessDate !== dateKey(new Date()) ? ` · System: ${systemLabel}` : ""}`}
         action={
           <button onClick={() => setAuditOpen(true)}
@@ -743,42 +712,26 @@ function HouseView() {
                                 const span = Math.max(1, endCol - startCol);
                                 if (span <= 0) return null;
                                 const cellW = CELL_W_MOB;
-                                const hasBreakfast = breakfastByBooking.get(b.id);
+                                const hasBreakfast = !!breakfastByBooking.get(b.id);
                                 const extraCharges = chargesByBooking.get(b.id) ?? 0;
                                 const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) + extraCharges - Number(b.advance_paid || 0));
-                                // Move enabled only for real, single-room, active bookings.
-                                // Uses effective pairing so legacy bookings that only have bookings.room_id
-                                // (and no booking_room_assignments row) are still movable.
                                 const moveEligibility = getMoveEligibility(b, r.id);
-                                const dragEnabled = moveEligibility.eligible;
                                 return (
-                                  <button key={`${b.id}-${b._slotKey ?? b.check_in}`} onClick={(e) => {
-                                      if (longPressTriggered.current && longPressBookingId.current === b.id) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        longPressTriggered.current = false;
-                                        longPressBookingId.current = null;
-                                        return;
-                                      }
-                                      setSelected(b);
-                                    }}
-                                    data-booking-pill={b.id}
-                                    data-move-eligible={dragEnabled ? "true" : "false"}
-                                    data-booking-status={b.status}
-                                    draggable={dragEnabled && !isMobile}
-                                    onDragStart={(e) => {
-                                      if (!dragEnabled || isMobile) { e.preventDefault(); return; }
+                                  <BookingChip
+                                    key={`${b.id}-${b._slotKey ?? b.check_in}`}
+                                    b={b}
+                                    roomId={r.id}
+                                    span={span}
+                                    cellW={cellW}
+                                    hasBreakfast={hasBreakfast}
+                                    balanceDue={balanceDue}
+                                    moveEligibility={moveEligibility}
+                                    isMobile={isMobile}
+                                    highlight={highlightId === b.id}
+                                    onSelect={() => setSelected(b)}
+                                    onLongPress={() => openMoveDialogForBooking(b, r.id)}
+                                    onDragStartAvail={(payload) => {
                                       const orig = (bookings as any[]).find((x) => x.id === b.id) ?? b;
-                                      const payload = JSON.stringify({
-                                        bookingId: b.id,
-                                        oldRoomId: r.id,
-                                        checkIn: orig.check_in,
-                                        checkOut: orig.check_out,
-                                      });
-                                      e.dataTransfer.setData("application/x-booking-move", payload);
-                                      e.dataTransfer.effectAllowed = "move";
-                                      // Compute valid destination rooms for this booking's
-                                      // CURRENT dates so cells can highlight green/red.
                                       listAvailableRoomsForStay({
                                         check_in: orig.check_in,
                                         check_out: orig.check_out,
@@ -791,39 +744,14 @@ function HouseView() {
                                           });
                                         })
                                         .catch(() => { /* highlighting is optional */ });
+                                      return payload;
                                     }}
+                                    bookingsAll={bookings as any[]}
                                     onDragEnd={() => setDragAvail(null)}
-                                    onPointerDown={(e) => {
-                                      if (!dragEnabled || !isMobile || e.pointerType === "mouse") return;
-                                      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* noop */ }
-                                      startLongPress(b, r.id, { x: e.clientX, y: e.clientY });
-                                    }}
-                                    onPointerMove={(e) => {
-                                      if (!isMobile || e.pointerType === "mouse") return;
-                                      moveLongPress({ x: e.clientX, y: e.clientY });
-                                    }}
-                                    onPointerUp={cancelLongPress}
-                                    onPointerCancel={cancelLongPress}
-                                    onContextMenu={(e) => {
-                                      if (dragEnabled && isMobile) e.preventDefault();
-                                    }}
-                                    className={cn(
-                                      "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
-                                      blockClasses(b),
-                                      b._virtual && "border-dashed",
-                                      dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
-                                      dragEnabled && isMobile && "touch-none select-none",
-                                      highlightId === b.id && "ring-4 ring-gold animate-pulse",
-                                    )}
-                                    style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: highlightId === b.id ? 10 : 5 }}
-                                    title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveEligibility.reason}`}`}>
-
-                                    {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
-                                    {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
-                                    <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
-                                  </button>
+                                  />
                                 );
                               })}
+
                               {startingBlocks.map((m: any) => {
                                 const startCol = m.start_date < rangeStart ? 0 : dayKeys.indexOf(m.start_date);
                                 const outIdx = dayKeys.indexOf(m.end_date);
@@ -1428,4 +1356,84 @@ function MoveBookingDialog({
     </Dialog>
   );
 }
+
+// =============================================================================
+// BookingChip — one chip on the House View grid.
+// Extracted so each chip can own a useLongPress hook independently.
+// =============================================================================
+interface BookingChipProps {
+  b: any;
+  roomId: string;
+  span: number;
+  cellW: number;
+  hasBreakfast: boolean;
+  balanceDue: number;
+  moveEligibility: { eligible: boolean; reason: string };
+  isMobile: boolean;
+  highlight: boolean;
+  onSelect: () => void;
+  onLongPress: () => void;
+  onDragStartAvail: (payload: string) => string;
+  bookingsAll: any[];
+  onDragEnd: () => void;
+}
+function BookingChip(props: BookingChipProps) {
+  const {
+    b, roomId, span, cellW, hasBreakfast, balanceDue, moveEligibility,
+    isMobile, highlight, onSelect, onLongPress, onDragStartAvail, bookingsAll, onDragEnd,
+  } = props;
+  const dragEnabled = moveEligibility.eligible;
+  const longPress = useLongPress({
+    enabled: dragEnabled && isMobile,
+    delayMs: LONG_PRESS_DELAY_MS,
+    moveTolerancePx: LONG_PRESS_MOVE_TOLERANCE,
+    onTrigger: onLongPress,
+    debugId: b.id,
+  });
+  return (
+    <button
+      onClickCapture={longPress.onClickCapture}
+      onClick={onSelect}
+      data-booking-pill={b.id}
+      data-move-eligible={dragEnabled ? "true" : "false"}
+      data-booking-status={b.status}
+      draggable={dragEnabled && !isMobile}
+      onDragStart={(e) => {
+        if (!dragEnabled || isMobile) { e.preventDefault(); return; }
+        const orig = bookingsAll.find((x) => x.id === b.id) ?? b;
+        const payload = JSON.stringify({
+          bookingId: b.id,
+          oldRoomId: roomId,
+          checkIn: orig.check_in,
+          checkOut: orig.check_out,
+        });
+        e.dataTransfer.setData("application/x-booking-move", onDragStartAvail(payload));
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragEnd={onDragEnd}
+      onPointerDown={longPress.onPointerDown}
+      onContextMenu={longPress.onContextMenu}
+      className={cn(
+        "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
+        blockClasses(b),
+        b._virtual && "border-dashed",
+        dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
+        dragEnabled && isMobile && "touch-none select-none",
+        highlight && "ring-4 ring-gold animate-pulse",
+      )}
+      style={{
+        width: `calc(${span} * ${cellW}px - 8px)`,
+        zIndex: highlight ? 10 : 5,
+        // Reinforce no-scroll-hijack for mobile chips at the CSS layer.
+        touchAction: dragEnabled && isMobile ? "none" : undefined,
+      }}
+      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveEligibility.reason}`}`}
+    >
+      {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
+      {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
+      <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
+    </button>
+  );
+}
+
 

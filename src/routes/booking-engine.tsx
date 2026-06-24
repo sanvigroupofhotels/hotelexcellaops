@@ -6,6 +6,7 @@ import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getEngineConfig } from "@/lib/booking-engine.functions";
+import { BookingEngineStepper } from "@/components/booking-engine-stepper";
 import { Phone, Mail, MapPin } from "lucide-react";
 
 export const Route = createFileRoute("/booking-engine")({
@@ -50,6 +51,8 @@ function BookingEngineLayout() {
           </a>
         </div>
       </header>
+
+      <BookingEngineStepper />
 
       <main className="flex-1">
         <Outlet />

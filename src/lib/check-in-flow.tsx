@@ -32,6 +32,7 @@ import {
 } from "@/lib/booking-room-assignments-api";
 import { listGuestDocuments } from "@/lib/guest-documents-api";
 import { logBookingActivity } from "@/lib/booking-activities-api";
+import { logActivity } from "@/lib/activity-log";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import {
@@ -44,6 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { FileWarning, ShieldAlert } from "lucide-react";
 
 const OTA_SOURCES = [
   "Hotelzify",
@@ -55,7 +57,15 @@ const OTA_SOURCES = [
   "Expedia",
 ];
 
-type Step = "idle" | "phone" | "docs" | "rooms" | "committing";
+const FORCE_REASONS = [
+  "Guest retrieving ID",
+  "Corporate booking",
+  "Returning guest",
+  "Other",
+];
+
+type Step = "idle" | "phone" | "docs_choice" | "docs_upload" | "force_reason" | "rooms" | "committing";
+
 
 export interface UseCheckInControllerOptions {
   /** Called after a successful commit, with the booking id. */
@@ -83,6 +93,11 @@ export function useCheckInController(
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [fromStatus, setFromStatus] = useState<string | null>(null);
   const [leadSource, setLeadSource] = useState<string | null>(null);
+  const [bookingRef, setBookingRef] = useState<string | null>(null);
+  // Set when the user explicitly chooses "Force Check-In" — bypasses the docs gate.
+  const [docsForced, setDocsForced] = useState(false);
+  const [forceReason, setForceReason] = useState<string>(FORCE_REASONS[0]);
+  const [forceReasonOther, setForceReasonOther] = useState<string>("");
 
   const reset = () => {
     setBookingId(null);
@@ -91,6 +106,10 @@ export function useCheckInController(
     setPhoneSaving(false);
     setFromStatus(null);
     setLeadSource(null);
+    setBookingRef(null);
+    setDocsForced(false);
+    setForceReason(FORCE_REASONS[0]);
+    setForceReasonOther("");
   };
 
   const commit = async (id: string, prevStatus: string | null) => {
@@ -112,7 +131,28 @@ export function useCheckInController(
         to_status: "Checked-In",
         notes: opts?.note ?? null,
       });
-      toast.success("Checked-In Successfully");
+      // If documents were force-bypassed, record a dedicated audit entry.
+      if (docsForced) {
+        const finalReason = forceReason === "Other"
+          ? (forceReasonOther.trim() || "Other (no reason given)")
+          : forceReason;
+        await logActivity({
+          page: "Check-In",
+          action: "force_check_in",
+          entity_type: "booking",
+          entity_id: id,
+          entity_reference: bookingRef,
+          summary: `Force Check-In without documents · ${finalReason}`,
+          metadata: { reason: finalReason },
+          source: "manual",
+        });
+        await logBookingActivity({
+          booking_id: id,
+          action: "force_check_in" as any,
+          notes: `Forced without documents: ${finalReason}`,
+        }).catch(() => { /* legacy log is best-effort */ });
+      }
+      toast.success(docsForced ? "Checked-In (documents pending)" : "Checked-In Successfully");
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["booking", id] });
       qc.invalidateQueries({ queryKey: ["booking-room-assignments", id] });
@@ -128,7 +168,7 @@ export function useCheckInController(
   };
 
   /** Refetch state and advance to the next unmet gate (or commit). */
-  const evaluate = async (id: string) => {
+  const evaluate = async (id: string, opts2?: { skipDocs?: boolean }) => {
     try {
       const [b, items, docs, assignments] = await Promise.all([
         getBooking(id),
@@ -140,6 +180,7 @@ export function useCheckInController(
 
       setFromStatus(b.status ?? null);
       setLeadSource(b.lead_source ?? null);
+      setBookingRef((b as any).booking_reference ?? null);
 
       const isOTA = OTA_SOURCES.includes((b.lead_source ?? "").trim());
       const cleanPhone = (b.phone ?? "").replace(/[^\d+]/g, "");
@@ -154,8 +195,9 @@ export function useCheckInController(
       const required = requiredRoomCount(items as any);
       const fullyAssigned = (assignments?.length ?? 0) >= required;
 
-      if (!hasDocs) {
-        setStep("docs");
+      const docsOk = hasDocs || docsForced || opts2?.skipDocs === true;
+      if (!docsOk) {
+        setStep("docs_choice");
         return;
       }
       if (!fullyAssigned) {
@@ -193,7 +235,7 @@ export function useCheckInController(
         />
       )}
 
-      {bookingId && step === "docs" && (
+      {bookingId && step === "docs_upload" && (
         <GuestDocumentsDialog
           bookingId={bookingId}
           open
@@ -202,6 +244,111 @@ export function useCheckInController(
           onComplete={reEvaluate}
         />
       )}
+
+      {bookingId && step === "docs_choice" && (
+        <AlertDialog open onOpenChange={(o) => { if (!o) reset(); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <FileWarning className="h-5 w-5 text-amber-500" />
+                Guest documents missing
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Guest ID cards have not been uploaded for this booking. Please
+                choose how you'd like to proceed.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="grid gap-2 py-2">
+              <button
+                type="button"
+                onClick={() => setStep("docs_upload")}
+                className="rounded-md border border-border bg-card hover:border-gold/50 px-4 py-3 text-left text-sm"
+              >
+                <div className="font-medium">Upload Documents</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Capture or upload Guest ID now (recommended).
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep("force_reason")}
+                className="rounded-md border border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 px-4 py-3 text-left text-sm"
+              >
+                <div className="font-medium flex items-center gap-1.5">
+                  <ShieldAlert className="h-4 w-4 text-amber-600" />
+                  Force Check-In
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Continue without documents. Action will be audited.
+                </div>
+              </button>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {bookingId && step === "force_reason" && (
+        <AlertDialog open onOpenChange={(o) => { if (!o) reset(); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-amber-600" />
+                Force Check-In · Reason
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Select why this Check-In is proceeding without guest documents.
+                This will be recorded on the audit trail.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-2 py-2">
+              {FORCE_REASONS.map((r) => (
+                <label key={r} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="force-reason"
+                    value={r}
+                    checked={forceReason === r}
+                    onChange={() => setForceReason(r)}
+                    className="accent-gold"
+                  />
+                  {r}
+                </label>
+              ))}
+              {forceReason === "Other" && (
+                <input
+                  autoFocus
+                  type="text"
+                  value={forceReasonOther}
+                  onChange={(e) => setForceReasonOther(e.target.value)}
+                  placeholder="Describe the reason"
+                  className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40"
+                />
+              )}
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setStep("docs_choice")}>Back</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (forceReason === "Other" && forceReasonOther.trim().length < 3) {
+                    toast.error("Please describe the reason");
+                    return;
+                  }
+                  if (!bookingId) return;
+                  setDocsForced(true);
+                  void evaluate(bookingId, { skipDocs: true });
+                }}
+              >
+                Force Check-In
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
 
       {bookingId && step === "phone" && (
         <AlertDialog open onOpenChange={(o) => { if (!o) reset(); }}>
