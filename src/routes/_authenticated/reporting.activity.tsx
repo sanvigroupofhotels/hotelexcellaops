@@ -146,8 +146,18 @@ function ActivityTracking() {
             <div><label className="text-xs text-muted-foreground">Page</label>
               <Input placeholder="e.g. House View" value={page} onChange={(e) => setPage(e.target.value)} /></div>
             {canManage && (
-              <div><label className="text-xs text-muted-foreground">Actor</label>
-                <Input placeholder="name" value={actor} onChange={(e) => setActor(e.target.value)} /></div>
+              <div><label className="text-xs text-muted-foreground">User</label>
+                <Select value={actor || "__any__"} onValueChange={(v) => setActor(v === "__any__" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="All users" /></SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value="__any__">All users</SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.display_name || u.email || u.id.slice(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select></div>
             )}
           </div>
           <div className="flex gap-2 mt-3">
