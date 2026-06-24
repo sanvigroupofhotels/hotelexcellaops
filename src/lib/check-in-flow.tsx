@@ -32,6 +32,7 @@ import {
 } from "@/lib/booking-room-assignments-api";
 import { listGuestDocuments } from "@/lib/guest-documents-api";
 import { logBookingActivity } from "@/lib/booking-activities-api";
+import { logActivity } from "@/lib/activity-log";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import {
@@ -44,6 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { FileWarning, ShieldAlert } from "lucide-react";
 
 const OTA_SOURCES = [
   "Hotelzify",
@@ -55,7 +57,15 @@ const OTA_SOURCES = [
   "Expedia",
 ];
 
-type Step = "idle" | "phone" | "docs" | "rooms" | "committing";
+const FORCE_REASONS = [
+  "Guest retrieving ID",
+  "Corporate booking",
+  "Returning guest",
+  "Other",
+];
+
+type Step = "idle" | "phone" | "docs_choice" | "docs_upload" | "force_reason" | "rooms" | "committing";
+
 
 export interface UseCheckInControllerOptions {
   /** Called after a successful commit, with the booking id. */
