@@ -264,19 +264,24 @@ export function StayFormSections({
       </Card>
 
       {/* 4. Additional Rooms / Split Stay */}
-      <Card title="Additional Rooms / Split Stay">
+      <Card
+        title="Additional Rooms / Split Stay"
+        subtitle="Add a second room (multi-room booking) or a second date range (split stay). The main room above stays the primary segment."
+      >
         <LineItemsEditor items={extras} onChange={onExtrasChange} />
       </Card>
 
       {/* 5. Additional */}
-      <Card title="Additional">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <NumField label="Discount (₹)" value={value.discount} min={0} onChange={(v) => update("discount", v)} prefix="₹" />
-        </div>
-        <Field label="Internal Notes (never shared)">
-          <textarea rows={3} className={cn(inputCls, "resize-none mt-1")} value={value.internal_notes} onChange={(e) => update("internal_notes", e.target.value)} />
-        </Field>
-      </Card>
+      {!hideAdditional && (
+        <Card title="Additional">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <NumField label="Discount (₹)" value={value.discount} min={0} onChange={(v) => update("discount", v)} prefix="₹" />
+          </div>
+          <Field label="Internal Notes (never shared)">
+            <textarea rows={3} className={cn(inputCls, "resize-none mt-1")} value={value.internal_notes} onChange={(e) => update("internal_notes", e.target.value)} />
+          </Field>
+        </Card>
+      )}
     </div>
   );
 }
