@@ -109,6 +109,7 @@ function ActivityTracking() {
       entity_type: r.entity_type ?? "",
       entity_ref: r.entity_reference ?? "",
       source: r.source,
+      correlation_id: r.correlation_id ?? "",
       summary: r.summary ?? "",
     }));
     downloadCSV("activity-log", rows);
