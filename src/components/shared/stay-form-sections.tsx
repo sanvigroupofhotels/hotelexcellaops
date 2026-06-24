@@ -158,10 +158,12 @@ export interface StayFormSectionsProps {
   nightsLabel?: string;
   /** "quote" | "booking" — only used for tiny copy nuances. */
   mode?: "quote" | "booking";
+  /** Hide the trailing Additional (discount + internal notes) card. Hosts can render their own. */
+  hideAdditional?: boolean;
 }
 
 export function StayFormSections({
-  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel,
+  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel, hideAdditional,
 }: StayFormSectionsProps) {
   const update = <K extends keyof SharedStayValue>(k: K, v: SharedStayValue[K]) =>
     onChange({ ...value, [k]: v });
@@ -262,30 +264,37 @@ export function StayFormSections({
       </Card>
 
       {/* 4. Additional Rooms / Split Stay */}
-      <Card title="Additional Rooms / Split Stay">
+      <Card
+        title="Additional Rooms / Split Stay"
+        subtitle="Add a second room (multi-room booking) or a second date range (split stay). The main room above stays the primary segment."
+      >
         <LineItemsEditor items={extras} onChange={onExtrasChange} />
       </Card>
 
       {/* 5. Additional */}
-      <Card title="Additional">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <NumField label="Discount (₹)" value={value.discount} min={0} onChange={(v) => update("discount", v)} prefix="₹" />
-        </div>
-        <Field label="Internal Notes (never shared)">
-          <textarea rows={3} className={cn(inputCls, "resize-none mt-1")} value={value.internal_notes} onChange={(e) => update("internal_notes", e.target.value)} />
-        </Field>
-      </Card>
+      {!hideAdditional && (
+        <Card title="Additional">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <NumField label="Discount (₹)" value={value.discount} min={0} onChange={(v) => update("discount", v)} prefix="₹" />
+          </div>
+          <Field label="Internal Notes (never shared)">
+            <textarea rows={3} className={cn(inputCls, "resize-none mt-1")} value={value.internal_notes} onChange={(e) => update("internal_notes", e.target.value)} />
+          </Field>
+        </Card>
+      )}
     </div>
   );
 }
 
 /* ---------- tiny shared atoms ---------- */
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       className="luxe-card rounded-xl p-5 md:p-6">
-      <h4 className="font-display text-lg mb-4">{title}</h4>
+      <h4 className="font-display text-lg">{title}</h4>
+      {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">{subtitle}</p>}
+      {!subtitle && <div className="mb-4" />}
       {children}
     </motion.section>
   );
