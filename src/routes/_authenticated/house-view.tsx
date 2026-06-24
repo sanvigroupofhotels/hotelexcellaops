@@ -26,7 +26,7 @@ import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useMasterData } from "@/hooks/use-master-data";
 import { MetricCard, Money } from "@/components/money";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useLongPress } from "@/hooks/use-long-press";
+import { useLongPress, emitLongPressDebug } from "@/hooks/use-long-press";
 import { LongPressDebugOverlay } from "@/components/long-press-debug-overlay";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
