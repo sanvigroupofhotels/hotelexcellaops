@@ -178,8 +178,8 @@ function LineItemRow({
   onDuplicate: () => void;
   onRemove: () => void;
 }) {
-  // UAT: default OPEN so extras (Early / Late / Pet / Extra Adults / Drivers) are immediately selectable.
-  const [extrasOpen, setExtrasOpen] = useState(true);
+  // Collapsed by default — most bookings don't need extras.
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const n = nightsOf(item);
   return (
     <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
@@ -207,9 +207,8 @@ function LineItemRow({
           </select>
         </label>
         <NumField label="Rooms" value={item.rooms} min={1} onChange={(v) => onChange({ rooms: v })} />
-        <NumField label="Extra Bed" value={item.extra_bed} min={0} onChange={(v) => onChange({ extra_bed: v })} />
-
         <NumField label="Adults" value={item.adults} min={1} onChange={(v) => onChange({ adults: v })} />
+
         <NumField label="Children" value={item.children} min={0} onChange={(v) => onChange({ children: v })} />
         <label className="block">
           <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Check-in</span>
