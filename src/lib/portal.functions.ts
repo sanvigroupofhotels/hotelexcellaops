@@ -61,6 +61,69 @@ export const issueBookingToken = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------------------
+// lookupPortalToken (public) — guest self-service "Find my booking"
+// Match requires BOTH booking_reference AND mobile to prevent enumeration.
+// Mints (or reuses) a portal token and returns it.
+// ---------------------------------------------------------------------------
+export const lookupPortalToken = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z.object({
+      reference: z.string().min(3).max(64),
+      phone: z.string().min(6).max(32),
+    }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const refTrim = data.reference.trim().toUpperCase();
+    // Normalise phone to digits-only; tolerate +91 / 0 / spaces / dashes
+    const phoneDigits = data.phone.replace(/\D/g, "");
+    if (phoneDigits.length < 6) throw new Error("Please enter a valid mobile number.");
+
+    const { data: b } = await supabaseAdmin
+      .from("bookings")
+      .select("id, phone, status")
+      .ilike("booking_reference", refTrim)
+      .maybeSingle();
+    // Generic message — do not reveal whether the reference or the phone failed.
+    const NOT_FOUND = "We could not find a booking matching that reference and mobile number.";
+    if (!b) throw new Error(NOT_FOUND);
+    const onFile = String((b as any).phone ?? "").replace(/\D/g, "");
+    // Match last 10 digits to tolerate country-code variations.
+    if (!onFile || onFile.slice(-10) !== phoneDigits.slice(-10)) {
+      throw new Error(NOT_FOUND);
+    }
+    if ((b as any).status === "Cancelled") {
+      throw new Error("This booking has been cancelled. Please contact reception.");
+    }
+
+    // Reuse an active token if available
+    const { data: existing } = await supabaseAdmin
+      .from("booking_tokens")
+      .select("token, expires_at, revoked_at")
+      .eq("booking_id", (b as any).id)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const now = Date.now();
+    const stillValid =
+      existing && !(existing as any).revoked_at &&
+      (!(existing as any).expires_at || new Date((existing as any).expires_at).getTime() > now);
+    if (stillValid) return { token: (existing as any).token };
+
+    const token = randomToken();
+    const expires_at = new Date(now + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const { error } = await supabaseAdmin.from("booking_tokens").insert({
+      booking_id: (b as any).id,
+      token,
+      scope: "pay",
+      expires_at,
+    } as any);
+    if (error) throw error;
+    return { token };
+  });
+
+// ---------------------------------------------------------------------------
 // getPortalBooking (public) — admin-elevated, but ONLY returns guest-safe fields
 // ---------------------------------------------------------------------------
 export const getPortalBooking = createServerFn({ method: "POST" })
