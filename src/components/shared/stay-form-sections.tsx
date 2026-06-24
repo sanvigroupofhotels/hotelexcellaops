@@ -158,10 +158,12 @@ export interface StayFormSectionsProps {
   nightsLabel?: string;
   /** "quote" | "booking" — only used for tiny copy nuances. */
   mode?: "quote" | "booking";
+  /** Hide the trailing Additional (discount + internal notes) card. Hosts can render their own. */
+  hideAdditional?: boolean;
 }
 
 export function StayFormSections({
-  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel,
+  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel, hideAdditional,
 }: StayFormSectionsProps) {
   const update = <K extends keyof SharedStayValue>(k: K, v: SharedStayValue[K]) =>
     onChange({ ...value, [k]: v });
