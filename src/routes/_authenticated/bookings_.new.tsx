@@ -357,12 +357,13 @@ function NewBooking() {
               extras={extras} onExtrasChange={setExtras}
               customerSlot={customerSlot}
               mode="booking"
+              hideAdditional
             />
 
-            {/* Booking-only Payment (status is auto-derived server-side) */}
+            {/* Pricing & Payment (status is auto-derived server-side) */}
             <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               className="luxe-card rounded-xl p-5 md:p-6 space-y-4">
-              <h4 className="font-display text-lg">Booking &amp; Payment</h4>
+              <h4 className="font-display text-lg">Pricing &amp; Payment</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <NumField
@@ -390,11 +391,9 @@ function NewBooking() {
                   <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
                 </select>
               </label>
-              <RoomAssignmentField
-                value={roomId} onChange={setRoomId}
-                check_in={stay.check_in} check_out={stay.check_out}
-                roomType={stay.room_type}
-              />
+              <p className="text-[10px] text-muted-foreground">
+                Room number is assigned later from Check-In or House View.
+              </p>
               <div className="rounded-md bg-secondary/40 border border-border px-3 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance Payable</span>
                 <span className="font-display text-lg gold-text-gradient">₹{balance.toLocaleString("en-IN")}</span>
@@ -405,9 +404,26 @@ function NewBooking() {
               <PaymentSettingsSection
                 value={paymentFlags}
                 onChange={setPaymentFlags}
-                hint="Prefilled from Global Payment Settings. Override here for this booking only — the Guest Portal will respect these values."
+                hint="Override global payment settings for this booking only."
               />
             )}
+
+            {/* Notes */}
+            <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              className="luxe-card rounded-xl p-5 md:p-6 space-y-3">
+              <h4 className="font-display text-lg">Notes</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <NumField label="Discount (₹)" value={stay.discount} min={0}
+                  onChange={(v) => setStay((s) => ({ ...s, discount: v }))} prefix="₹" />
+              </div>
+              <label className="block">
+                <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">Internal Notes (never shared)</span>
+                <textarea rows={3} className={cn(inputCls, "resize-none")}
+                  value={stay.internal_notes}
+                  onChange={(e) => setStay((s) => ({ ...s, internal_notes: e.target.value }))} />
+              </label>
+            </motion.section>
+
 
             {/* Inline breakdown is hidden on mobile — the sticky footer below shows the
                 editable breakdown so it's always reachable above the keyboard. */}
