@@ -61,6 +61,20 @@ function ActivityTracking() {
   const [actor, setActor] = useState<string>("");
   const [selected, setSelected] = useState<Row | null>(null);
 
+  // User filter — sourced from profiles (User Management). Admins/Owners only.
+  const { data: users = [] } = useQuery({
+    queryKey: ["activity-users"],
+    enabled: canManage,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles" as any)
+        .select("id,display_name,email")
+        .order("display_name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; display_name: string | null; email: string | null }>;
+    },
+  });
+
   const { data = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ["activity-log", { from, to, source, action, page, actor, canManage }],
     queryFn: async () => {
@@ -74,7 +88,11 @@ function ActivityTracking() {
       if (source !== "all") q = q.eq("source", source);
       if (action.trim()) q = q.ilike("action", `%${action.trim()}%`);
       if (page.trim()) q = q.ilike("page", `%${page.trim()}%`);
-      if (actor.trim() && canManage) q = q.ilike("actor_name", `%${actor.trim()}%`);
+      if (actor.trim() && canManage) {
+        // actor holds either a UUID (from the dropdown) or a free-text name.
+        if (/^[0-9a-f-]{36}$/i.test(actor.trim())) q = q.eq("actor_id", actor.trim());
+        else q = q.ilike("actor_name", `%${actor.trim()}%`);
+      }
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as unknown as Row[];
