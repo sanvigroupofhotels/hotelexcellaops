@@ -22,12 +22,20 @@ import { useDrag } from "@use-gesture/react";
 
 export type LongPressDebugEvent = {
   t: number;
-  kind: "down" | "move" | "up" | "cancel" | "fire" | "abort";
+  kind:
+    | "touchstart"        // raw onTouchStart / onPointerDown received
+    | "eligible"          // eligibility check passed — chip is movable
+    | "ineligible"        // eligibility check failed — reason carries why
+    | "timer-start"       // long-press countdown began (delayMs)
+    | "timer-complete"    // delay elapsed without aborting → onTrigger() fires
+    | "dialog-open"       // Move Booking dialog actually opened (emitted by host)
+    | "move" | "up" | "cancel" | "abort";
   id?: string;
   pointerType?: string;
   dx?: number;
   dy?: number;
   reason?: string;
+  delayMs?: number;
 };
 
 type Listener = (e: LongPressDebugEvent) => void;
@@ -42,6 +50,10 @@ function emit(e: LongPressDebugEvent) {
   listeners.forEach((l) => {
     try { l(e); } catch { /* noop */ }
   });
+}
+/** Public helper so host code (e.g. House View) can log dialog-open in the same trace. */
+export function emitLongPressDebug(e: Omit<LongPressDebugEvent, "t"> & { t?: number }) {
+  emit({ t: Date.now(), ...e });
 }
 
 export interface LongPressOptions {
