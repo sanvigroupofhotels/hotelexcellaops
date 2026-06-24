@@ -1340,8 +1340,8 @@ function MoveBookingDialog({
             <div>
               <Label className="text-xs">Target room {isLoading && <span className="text-muted-foreground">· loading…</span>}</Label>
               <select
-                value={newRoomId}
-                onChange={(e) => setNewRoomId(e.target.value)}
+                value={newRoomId ?? ""}
+                onChange={(e) => setNewRoomId(e.target.value || null)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 {options.map((r) => (
