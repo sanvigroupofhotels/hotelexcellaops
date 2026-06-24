@@ -116,6 +116,7 @@ export function LongPressDebugOverlay() {
                 <td style={{ width: 90, color: kindColor(e.kind), fontWeight: 600 }}>{e.kind}</td>
                 <td style={{ opacity: 0.85 }}>
                   {e.pointerType ? `${e.pointerType} ` : ""}
+                  {e.delayMs != null ? `${e.delayMs}ms ` : ""}
                   {e.dx != null ? `Δ${e.dx},${e.dy} ` : ""}
                   {e.reason ? `· ${e.reason} ` : ""}
                   {e.id ? `· ${e.id.slice(0, 8)}` : ""}
