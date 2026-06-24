@@ -32,6 +32,8 @@ export interface UpdateBookingStayInput {
   new_check_out?: string;
   /** Optional new room id */
   new_room_id?: string;
+  /** Optional current room id for the specific House View chip/assignment being moved. */
+  old_room_id?: string;
   /** Origin of this mutation. Defaults to 'manual'. Surfaces in activity_log.source. */
   source?: StayMutationSource;
   /** Optional page label for activity_log (defaults to a sensible value per source). */
@@ -105,7 +107,8 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
 
   const newIn = input.new_check_in ?? oldIn;
   const newOut = input.new_check_out ?? oldOut;
-  const newRoom = input.new_room_id ?? oldRoom;
+  const moveFromRoom = input.old_room_id ?? oldRoom;
+  const newRoom = input.new_room_id ?? moveFromRoom;
 
   if (!newIn || !newOut) throw new Error("Missing check-in or check-out date.");
   if (!(newIn < newOut)) {
@@ -125,15 +128,15 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   }
 
   // No-op short circuit
-  const sameRoom = (newRoom ?? null) === (oldRoom ?? null);
+  const sameRoom = (newRoom ?? null) === (moveFromRoom ?? null);
   if (sameRoom && newIn === oldIn && newOut === oldOut) {
     return {
       booking_id,
       check_in: oldIn,
       check_out: oldOut,
-      room_id: oldRoom,
-      before: { check_in: oldIn, check_out: oldOut, room_id: oldRoom },
-      after: { check_in: oldIn, check_out: oldOut, room_id: oldRoom },
+      room_id: moveFromRoom,
+      before: { check_in: oldIn, check_out: oldOut, room_id: moveFromRoom },
+      after: { check_in: oldIn, check_out: oldOut, room_id: moveFromRoom },
     };
   }
 
@@ -141,7 +144,7 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   const update: Record<string, any> = {};
   if (newIn !== oldIn) update.check_in = newIn;
   if (newOut !== oldOut) update.check_out = newOut;
-  if (newRoom !== oldRoom) update.room_id = newRoom;
+    if (!sameRoom && (!moveFromRoom || moveFromRoom === oldRoom)) update.room_id = newRoom;
 
   try {
     const { error: bErr } = await supabase
@@ -151,12 +154,12 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
     if (bErr) throw bErr;
 
     // Move the corresponding assignment row when the room changed.
-    if (!sameRoom && oldRoom && newRoom) {
+    if (!sameRoom && moveFromRoom && newRoom) {
       const { error: aErr } = await supabase
         .from("booking_room_assignments" as any)
         .update({ room_id: newRoom } as any)
         .eq("booking_id", booking_id)
-        .eq("room_id", oldRoom);
+        .eq("room_id", moveFromRoom);
       if (aErr) throw aErr;
     }
   } catch (e) {
@@ -164,7 +167,7 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   }
 
   const after = { check_in: newIn, check_out: newOut, room_id: newRoom ?? null };
-  const before = { check_in: oldIn, check_out: oldOut, room_id: oldRoom };
+  const before = { check_in: oldIn, check_out: oldOut, room_id: moveFromRoom ?? null };
 
   // Fire-and-forget activity log — never block the move on the log.
   try {

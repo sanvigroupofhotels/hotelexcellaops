@@ -24,7 +24,7 @@ import { useCheckInController } from "@/lib/check-in-flow";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { useUserRole } from "@/hooks/use-role";
 import {
-  confirmationMessage, paymentReminderMessage, checkInWelcomeMessage,
+  confirmationMessage, checkInWelcomeMessage,
   checkOutThankYouMessage, bookingWhatsAppLink,
 } from "@/lib/booking-messages";
 import { waLink } from "@/lib/quote-messages";
@@ -345,7 +345,6 @@ function BookingDetail() {
     if (template === "empty") { window.open(waLink(b.phone), "_blank"); return; }
     const text =
       template === "confirmation" ? confirmationMessage(b, items) :
-      template === "payment" ? paymentReminderMessage(b, balance > 0 ? balance : undefined) :
       template === "checkin" ? checkInWelcomeMessage(b) :
       checkOutThankYouMessage(b);
     window.open(bookingWhatsAppLink(b, text), "_blank");
@@ -423,9 +422,6 @@ function BookingDetail() {
                 <DropdownMenuItem disabled={!b.phone} onClick={() => sendWa("confirmation")} className="cursor-pointer">
                   <MessageCircle className="h-3.5 w-3.5 mr-2" /> Booking Confirmation
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled={!b.phone} onClick={() => sendWa("payment")} className="cursor-pointer">
-                  <MessageCircle className="h-3.5 w-3.5 mr-2" /> Payment Reminder
-                </DropdownMenuItem>
                 <DropdownMenuItem disabled={!b.phone} onClick={() => sendWa("checkin")} className="cursor-pointer">
                   <MessageCircle className="h-3.5 w-3.5 mr-2" /> Check-In Welcome
                 </DropdownMenuItem>
@@ -433,7 +429,7 @@ function BookingDetail() {
                   <MessageCircle className="h-3.5 w-3.5 mr-2" /> Check-Out Thank You
                 </DropdownMenuItem>
                 <DropdownMenuItem disabled={!b.phone} onClick={() => sendWa("empty")} className="cursor-pointer">
-                  <MessageCircle className="h-3.5 w-3.5 mr-2" /> Empty Message
+                  <MessageCircle className="h-3.5 w-3.5 mr-2" /> Custom Message
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setInvoiceOpen(true)} className="cursor-pointer">

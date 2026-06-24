@@ -22,6 +22,33 @@ function randomToken(): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+async function ensurePortalToken(supabaseAdmin: any, bookingId: string): Promise<string> {
+  const { data: existing } = await supabaseAdmin
+    .from("booking_tokens")
+    .select("token, expires_at, revoked_at")
+    .eq("booking_id", bookingId)
+    .is("revoked_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const now = Date.now();
+  const stillValid =
+    existing && !(existing as any).revoked_at &&
+    (!(existing as any).expires_at || new Date((existing as any).expires_at).getTime() > now);
+  if (stillValid) return (existing as any).token;
+
+  const token = randomToken();
+  const expires_at = new Date(now + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await supabaseAdmin.from("booking_tokens").insert({
+    booking_id: bookingId,
+    token,
+    scope: "pay",
+    expires_at,
+  } as any);
+  if (error) throw error;
+  return token;
+}
+
 // ---------------------------------------------------------------------------
 // issueBookingToken (auth)
 // ---------------------------------------------------------------------------
@@ -62,65 +89,80 @@ export const issueBookingToken = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------------------
 // lookupPortalToken (public) — guest self-service "Find my booking"
-// Match requires BOTH booking_reference AND mobile to prevent enumeration.
-// Mints (or reuses) a portal token and returns it.
+// Accepts ANY ONE of: full URL/token, booking reference, or mobile number.
+// Mobile lookups return the latest active booking directly, or a short
+// selection list when multiple active bookings exist.
 // ---------------------------------------------------------------------------
 export const lookupPortalToken = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z.object({
-      reference: z.string().min(3).max(64),
-      phone: z.string().min(6).max(32),
+      reference: z.string().min(3).max(128).optional().or(z.literal("")),
+      phone: z.string().min(6).max(32).optional().or(z.literal("")),
+      query: z.string().min(3).max(256).optional().or(z.literal("")),
     }).parse(input),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const refTrim = data.reference.trim().toUpperCase();
-    // Normalise phone to digits-only; tolerate +91 / 0 / spaces / dashes
-    const phoneDigits = data.phone.replace(/\D/g, "");
-    if (phoneDigits.length < 6) throw new Error("Please enter a valid mobile number.");
+    const raw = (data.query || data.reference || data.phone || "").trim();
+    const NOT_FOUND = "We could not find an active booking matching those details.";
+    if (!raw) throw new Error("Please enter a booking link, token, reference, or mobile number.");
 
-    const { data: b } = await supabaseAdmin
+    const tokenFromUrl = raw.replace(/^.*\/portal\//i, "").replace(/^.*\/(?=[a-f0-9]{16,})/i, "").split(/[?#]/)[0].trim();
+    if (/^[a-f0-9]{16,64}$/i.test(tokenFromUrl)) {
+      const { data: tok } = await supabaseAdmin
+        .from("booking_tokens")
+        .select("token, expires_at, revoked_at")
+        .eq("token", tokenFromUrl)
+        .maybeSingle();
+      if (!tok || (tok as any).revoked_at || ((tok as any).expires_at && new Date((tok as any).expires_at).getTime() < Date.now())) {
+        throw new Error("This portal link is invalid or expired.");
+      }
+      return { token: (tok as any).token, matches: [] };
+    }
+
+    const activeStatuses = ["Pending", "Confirmed", "Advance Paid", "Full Paid", "Checked-In", "Draft"] as const;
+    const phoneDigits = raw.replace(/\D/g, "");
+    const looksLikePhone = phoneDigits.length >= 6 && phoneDigits.length >= raw.replace(/[^a-z0-9]/gi, "").length - 2;
+
+    if (looksLikePhone) {
+      const last10 = phoneDigits.slice(-10);
+      const { data: rows, error } = await supabaseAdmin
+        .from("bookings")
+        .select("id, booking_reference, guest_name, phone, check_in, check_out, room_details, guests, amount, status, created_at")
+        .in("status", activeStatuses)
+        .order("check_in", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      const matches = (rows ?? []).filter((b: any) => String(b.phone ?? "").replace(/\D/g, "").slice(-10) === last10);
+      if (matches.length === 0) throw new Error(NOT_FOUND);
+      const withTokens = await Promise.all(matches.map(async (b: any) => ({
+        token: await ensurePortalToken(supabaseAdmin, b.id),
+        reference: b.booking_reference,
+        guestName: b.guest_name,
+        checkIn: b.check_in,
+        checkOut: b.check_out,
+        roomType: b.room_details ?? "",
+        guests: Number(b.guests ?? 0),
+        amount: Number(b.amount ?? 0),
+        status: b.status,
+      })));
+      if (withTokens.length === 1) return { token: withTokens[0].token, matches: [] };
+      return { token: null, matches: withTokens };
+    }
+
+    const refTrim = raw.toUpperCase();
+    const { data: b, error } = await supabaseAdmin
       .from("bookings")
-      .select("id, phone, status")
+      .select("id, status")
       .ilike("booking_reference", refTrim)
-      .maybeSingle();
-    // Generic message — do not reveal whether the reference or the phone failed.
-    const NOT_FOUND = "We could not find a booking matching that reference and mobile number.";
-    if (!b) throw new Error(NOT_FOUND);
-    const onFile = String((b as any).phone ?? "").replace(/\D/g, "");
-    // Match last 10 digits to tolerate country-code variations.
-    if (!onFile || onFile.slice(-10) !== phoneDigits.slice(-10)) {
-      throw new Error(NOT_FOUND);
-    }
-    if ((b as any).status === "Cancelled") {
-      throw new Error("This booking has been cancelled. Please contact reception.");
-    }
-
-    // Reuse an active token if available
-    const { data: existing } = await supabaseAdmin
-      .from("booking_tokens")
-      .select("token, expires_at, revoked_at")
-      .eq("booking_id", (b as any).id)
-      .is("revoked_at", null)
+      .in("status", activeStatuses)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    const now = Date.now();
-    const stillValid =
-      existing && !(existing as any).revoked_at &&
-      (!(existing as any).expires_at || new Date((existing as any).expires_at).getTime() > now);
-    if (stillValid) return { token: (existing as any).token };
-
-    const token = randomToken();
-    const expires_at = new Date(now + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const { error } = await supabaseAdmin.from("booking_tokens").insert({
-      booking_id: (b as any).id,
-      token,
-      scope: "pay",
-      expires_at,
-    } as any);
     if (error) throw error;
-    return { token };
+    if (!b) throw new Error(NOT_FOUND);
+    return { token: await ensurePortalToken(supabaseAdmin, (b as any).id), matches: [] };
   });
 
 // ---------------------------------------------------------------------------
@@ -606,33 +648,22 @@ export const listPortalDocuments = createServerFn({ method: "POST" })
       .order("uploaded_at", { ascending: false });
     if (error) throw error;
     const seen = new Set<string>();
-    return (rows ?? []).filter((r: any) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
-  });
-
-// --- signPortalDocumentUrl ---------------------------------------------------
-export const signPortalDocumentUrl = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    z.object({ token: z.string().min(8).max(128), path: z.string().min(1).max(512) }).parse(input),
-  )
-  .handler(async ({ data }) => {
-    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
-    // The path must reference a document attached to this booking or its customer.
-    const { data: rows } = await supabaseAdmin
-      .from("guest_documents")
-      .select("id, booking_id, customer_id, front_path, back_path, selfie_path")
-      .or([
-        `booking_id.eq.${booking.id}`,
-        ...(booking.customer_id ? [`customer_id.eq.${booking.customer_id}`] : []),
-      ].join(","));
-    const ok = (rows ?? []).some((r: any) =>
-      r.front_path === data.path || r.back_path === data.path || r.selfie_path === data.path,
-    );
-    if (!ok) throw new Error("File not found");
-    const { data: signed, error } = await supabaseAdmin.storage
-      .from(GUEST_DOC_BUCKET)
-      .createSignedUrl(data.path, 300);
-    if (error || !signed) throw new Error("Could not generate file link");
-    return { url: signed.signedUrl };
+    return (rows ?? [])
+      .filter((r: any) => (seen.has(r.id) ? false : (seen.add(r.id), true)))
+      .map((r: any) => ({
+        id: r.id,
+        booking_id: r.booking_id,
+        customer_id: r.customer_id,
+        doc_type: r.doc_type,
+        front_path: r.front_path ? "__on_file__" : null,
+        back_path: null,
+        selfie_path: null,
+        notes: null,
+        source: r.source,
+        uploaded_by_name: r.uploaded_by_name,
+        uploaded_at: r.uploaded_at,
+        verified_at: r.verified_at,
+      }));
   });
 
 // --- uploadPortalDocument ----------------------------------------------------
@@ -718,34 +749,6 @@ export const uploadPortalDocument = createServerFn({ method: "POST" })
       return updated;
     }
     return row;
-  });
-
-// --- softDeletePortalDocument -----------------------------------------------
-export const softDeletePortalDocument = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    z.object({ token: z.string().min(8).max(128), doc_id: z.string().uuid() }).parse(input),
-  )
-  .handler(async ({ data }) => {
-    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
-    const { data: doc } = await supabaseAdmin
-      .from("guest_documents")
-      .select("id, booking_id, customer_id")
-      .eq("id", data.doc_id)
-      .maybeSingle();
-    if (!doc) throw new Error("Document not found");
-    const owns =
-      (doc as any).booking_id === booking.id ||
-      (booking.customer_id && (doc as any).customer_id === booking.customer_id);
-    if (!owns) throw new Error("Not allowed");
-    const { error } = await supabaseAdmin
-      .from("guest_documents")
-      .update({
-        deleted_at: new Date().toISOString(),
-        deleted_by_name: booking.guest_name || "Guest (Portal)",
-      } as any)
-      .eq("id", data.doc_id);
-    if (error) throw error;
-    return { ok: true };
   });
 
 // --- cancelPortalBooking -----------------------------------------------------

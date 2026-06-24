@@ -1,8 +1,6 @@
 /**
  * Guest Portal landing — guest.hotelexcella.in
- * Two ways in:
- *   1. Paste tokenised link/token from confirmation
- *   2. "Find my booking" by booking reference + mobile
+ * Guests can open with a full link, token, booking reference, or mobile number.
  */
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -13,7 +11,19 @@ import { lookupPortalToken } from "@/lib/portal.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Phone, Mail, MapPin, KeyRound, Search, Loader2 } from "lucide-react";
+import { Phone, KeyRound, Search, Loader2, MessageCircle, CalendarDays, IndianRupee } from "lucide-react";
+
+type PortalLookupMatch = {
+  token: string;
+  reference: string;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  roomType: string;
+  guests: number;
+  amount: number;
+  status: string;
+};
 
 export const Route = createFileRoute("/portal/")({
   component: PortalLanding,
@@ -31,8 +41,8 @@ function PortalLanding() {
   const lookup = useServerFn(lookupPortalToken);
   const { data: cfg } = useQuery({ queryKey: ["be", "config"], queryFn: () => fn({}), staleTime: 5 * 60_000 });
   const [token, setToken] = useState("");
-  const [reference, setReference] = useState("");
-  const [phone, setPhone] = useState("");
+  const [query, setQuery] = useState("");
+  const [matches, setMatches] = useState<PortalLookupMatch[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,17 +55,30 @@ function PortalLanding() {
     navigate({ to: "/portal/$token", params: { token: t } });
   }
 
+  function openToken(t: string) {
+    navigate({ to: "/portal/$token", params: { token: t } });
+  }
+
   async function findBooking(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!reference.trim() || !phone.trim()) {
-      setError("Please enter both booking reference and mobile number.");
+    setMatches([]);
+    if (!query.trim()) {
+      setError("Please enter your booking link, token, reference, or mobile number.");
       return;
     }
     setSearching(true);
     try {
-      const { token: t } = await lookup({ data: { reference: reference.trim(), phone: phone.trim() } });
-      navigate({ to: "/portal/$token", params: { token: t } });
+      const res = await lookup({ data: { query: query.trim() } }) as { token?: string | null; matches?: PortalLookupMatch[] };
+      if (res.token) {
+        openToken(res.token);
+        return;
+      }
+      if (res.matches?.length) {
+        setMatches(res.matches);
+        return;
+      }
+      setError("Could not find your booking.");
     } catch (err: any) {
       setError(err?.message ?? "Could not find your booking.");
     } finally {
@@ -87,32 +110,49 @@ function PortalLanding() {
             <Search className="h-5 w-5 text-gold" /> Find my booking
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Enter your booking reference and the mobile number used at booking.
+            Use your portal link, token, booking reference, or mobile number.
           </p>
-          <form onSubmit={findBooking} className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <form onSubmit={findBooking} className="mt-3 grid grid-cols-1 gap-2">
             <Input
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="Booking reference (e.g. HE-12345)"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Portal link, token, booking ref, or mobile"
               autoComplete="off"
-            />
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Mobile number"
-              inputMode="tel"
-              autoComplete="tel"
             />
             <Button
               type="submit"
               disabled={searching}
-              className="gold-gradient text-charcoal hover:opacity-90 sm:col-span-2"
+              className="gold-gradient text-charcoal hover:opacity-90"
             >
               {searching ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
               Find my booking
             </Button>
           </form>
           {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+          {matches.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-muted-foreground">Multiple active bookings found. Choose the booking you want to open.</p>
+              {matches.map((m) => (
+                <button
+                  key={m.token}
+                  type="button"
+                  onClick={() => openToken(m.token)}
+                  className="w-full rounded-md border border-border bg-card/50 px-3 py-3 text-left hover:border-gold/50 hover:bg-gold-soft/10 transition"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium text-sm">{m.guestName || "Guest"}</div>
+                    <div className="text-[11px] text-gold font-mono">{m.reference}</div>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" /> {fmtDate(m.checkIn)} → {fmtDate(m.checkOut)}</span>
+                    <span>{m.roomType || "Room"}</span>
+                    <span>{m.guests} guest{m.guests === 1 ? "" : "s"}</span>
+                    <span className="inline-flex items-center gap-1"><IndianRupee className="h-3 w-3" /> {Math.round(m.amount || 0).toLocaleString("en-IN")}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </Card>
 
         <Card className="mt-4 p-5">
@@ -133,23 +173,20 @@ function PortalLanding() {
           </div>
         </Card>
 
-        <Card className="mt-4 p-5 space-y-2 text-sm">
-          <p className="font-display text-lg">Need help?</p>
-          {cfg?.hotel.phone ? (
-            <a href={`tel:${cfg.hotel.phone}`} className="flex items-center gap-2 text-foreground hover:text-gold">
-              <Phone className="h-4 w-4" /> {cfg.hotel.phone}
+        <Card className="mt-4 p-5 space-y-3 text-sm">
+          <div>
+            <p className="font-display text-lg">Need help?</p>
+            <p className="text-xs text-muted-foreground mt-1">Call Reception</p>
+            <p className="text-base font-medium tabular-nums">+91 9985908131</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <a href="tel:+919985908131" className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/20 px-3 py-2 text-xs hover:bg-gold-soft/30">
+              <Phone className="h-3.5 w-3.5 text-gold" /> Call
             </a>
-          ) : null}
-          {cfg?.hotel.email ? (
-            <a href={`mailto:${cfg.hotel.email}`} className="flex items-center gap-2 text-foreground hover:text-gold">
-              <Mail className="h-4 w-4" /> {cfg.hotel.email}
+            <a href="https://wa.me/919985908131" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-md border border-success/40 bg-success/10 px-3 py-2 text-xs text-success hover:bg-success/15">
+              <MessageCircle className="h-3.5 w-3.5" /> WhatsApp Us
             </a>
-          ) : null}
-          {cfg?.hotel.address ? (
-            <p className="flex items-center gap-2 text-muted-foreground">
-              <MapPin className="h-4 w-4" /> {cfg.hotel.address}
-            </p>
-          ) : null}
+          </div>
         </Card>
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
@@ -159,4 +196,9 @@ function PortalLanding() {
       </main>
     </div>
   );
+}
+
+function fmtDate(s: string) {
+  if (!s) return "—";
+  return new Date(s + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 }
