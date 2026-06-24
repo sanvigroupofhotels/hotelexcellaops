@@ -167,6 +167,7 @@ function HouseView() {
     checkIn: string; checkOut: string; status: string;
   } | null>(null);
   function openMoveDialogForBooking(b: any, roomId: string) {
+    emitLongPressDebug({ kind: "dialog-open", id: b.id, reason: `Move dialog for ${b.guest_name || b.id} (${b.status})` });
     setMoveDialog({
       bookingId: b.id, guestName: b.guest_name, oldRoomId: roomId,
       checkIn: b.check_in, checkOut: b.check_out, status: b.status,
