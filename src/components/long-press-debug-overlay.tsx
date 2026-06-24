@@ -78,8 +78,19 @@ export function LongPressDebugOverlay() {
         boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, gap: 8 }}>
         <strong style={{ color: "#FFD700" }}>Long-Press Debug</strong>
+        <span style={{ flex: 1, opacity: 0.85 }}>
+          {(() => {
+            const last = log[log.length - 1];
+            const dialog = [...log].reverse().find((e) => e.kind === "dialog-open");
+            const fire = [...log].reverse().find((e) => e.kind === "timer-complete");
+            if (!last) return "idle";
+            return `last: ${last.kind}${last.reason ? ` (${last.reason})` : ""}` +
+              (fire ? ` · fired#${fire.id?.slice(0,6) ?? ""}` : "") +
+              (dialog ? ` · dialog✓` : "");
+          })()}
+        </span>
         <button
           type="button"
           onClick={() => setLog([])}
