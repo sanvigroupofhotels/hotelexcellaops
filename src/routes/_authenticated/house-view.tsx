@@ -812,7 +812,7 @@ function HouseView() {
                                       blockClasses(b),
                                       b._virtual && "border-dashed",
                                       dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
-                                      dragEnabled && isMobile && "touch-manipulation",
+                                      dragEnabled && isMobile && "touch-none select-none",
                                       highlightId === b.id && "ring-4 ring-gold animate-pulse",
                                     )}
                                     style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: highlightId === b.id ? 10 : 5 }}
