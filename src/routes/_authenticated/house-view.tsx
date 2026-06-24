@@ -233,6 +233,23 @@ function HouseView() {
       return (data ?? []) as any[];
     },
   });
+  // Additional charges per booking (Food, Laundry, Late Check-out, etc.) so the
+  // chip's "due" indicator (💳) reflects post-stay charges, not just room rate.
+  const { data: allCharges = [] } = useQuery({
+    queryKey: ["booking-charges-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("booking_charges" as any).select("booking_id,amount");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const chargesByBooking = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of allCharges as any[]) {
+      m.set(c.booking_id, (m.get(c.booking_id) ?? 0) + Number(c.amount || 0));
+    }
+    return m;
+  }, [allCharges]);
   const isLoading = lr || lb;
 
   const days = useMemo(() => Array.from({ length: DAY_COUNT }, (_, i) => addDays(anchor, i)), [anchor]);
