@@ -63,6 +63,19 @@ function todayKolkata(): string {
   return fmt.format(new Date()); // YYYY-MM-DD
 }
 
+function ymdAddDays(ymd: string, n: number): string {
+  const d = new Date(ymd + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function ymdDiffDays(a: string, b: string): number {
+  return Math.round((new Date(a + "T00:00:00").getTime() - new Date(b + "T00:00:00").getTime()) / 86400000);
+}
+
 /** Translate raw DB / trigger errors into friendly text. Never expose trigger names. */
 export function humanizeStayError(raw: unknown): string {
   const msg = String((raw as any)?.message ?? raw ?? "").toLowerCase();
@@ -161,6 +174,28 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
         .eq("booking_id", booking_id)
         .eq("room_id", moveFromRoom);
       if (aErr) throw aErr;
+    }
+
+    if (newIn !== oldIn || newOut !== oldOut) {
+      const delta = ymdDiffDays(newIn, oldIn);
+      const { data: items, error: itemsErr } = await supabase
+        .from("booking_items" as any)
+        .select("id, check_in, check_out")
+        .eq("booking_id", booking_id);
+      if (itemsErr) throw itemsErr;
+      for (const item of (items ?? []) as any[]) {
+        const itemIn = item.check_in || oldIn;
+        const itemOut = item.check_out || oldOut;
+        const patch = {
+          check_in: ymdAddDays(itemIn, delta),
+          check_out: ymdAddDays(itemOut, delta),
+        };
+        const { error: itemErr } = await supabase
+          .from("booking_items" as any)
+          .update(patch)
+          .eq("id", item.id);
+        if (itemErr) throw itemErr;
+      }
     }
   } catch (e) {
     throw new Error(humanizeStayError(e));
