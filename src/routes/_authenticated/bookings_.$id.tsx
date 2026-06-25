@@ -53,6 +53,7 @@ import {
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import { listGuestDocuments } from "@/lib/guest-documents-api";
+import { getDocumentsRetention } from "@/lib/app-settings-api";
 import { toast } from "sonner";
 import { useOpsTimeLabels } from "@/lib/check-times";
 
