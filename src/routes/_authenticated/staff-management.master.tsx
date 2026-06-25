@@ -39,6 +39,7 @@ function StaffPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<StaffHrRow | null>(null);
   const [form, setForm] = useState<FormState>(empty);
+  const [activeTab, setActiveTab] = useState<"profile" | "documents">("profile");
 
   const { data: staff = [] } = useQuery({ queryKey: ["staff-hr"], queryFn: () => listStaffHr(false) });
 
