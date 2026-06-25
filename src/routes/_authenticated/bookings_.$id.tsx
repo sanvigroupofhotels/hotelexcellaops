@@ -358,17 +358,25 @@ function BookingDetail() {
       const url = `${publicOrigin()}/portal/${token}`;
       const guestName = (b.guest_name || "").trim() || "Guest";
       const text = [
-        `Hello ${guestName},`,
+        `Dear ${guestName},`,
         ``,
         `Thank you for choosing Hotel Excella.`,
         ``,
-        `To complete your booking, please proceed with the payment here -`,
+        `Below is your booking information:`,
         ``,
         url,
         ``,
         `Booking Ref: ${b.booking_reference}`,
         ``,
-        `Regards`,
+        `Using this portal you can:`,
+        `• Make Payments`,
+        `• Upload Documents`,
+        `• Access In-House Services after Check-In:`,
+        `   – Order Food`,
+        `   – Raise Complaints`,
+        `   – Submit a Review`,
+        ``,
+        `Warm Regards,`,
         `Hotel Excella`,
       ].join("\n");
       try { await navigator.clipboard.writeText(url); toast.success("Payment link copied to clipboard"); } catch { /* noop */ }
