@@ -112,18 +112,18 @@ export function AttendancePage() {
         </div>
 
         <div className="rounded-md border border-border overflow-x-auto bg-card">
-          <table className="text-xs min-w-max">
+          <table className="text-xs">
             <thead className="sticky top-0 bg-card">
               <tr className="border-b border-border">
-                <th className="sticky left-0 bg-card text-left px-2 py-2 min-w-[180px] z-10">Employee</th>
+                <th className="sticky left-0 bg-card text-left px-2 py-2 z-10 whitespace-nowrap w-px">Employee</th>
                 {days.map((d) => {
                   const dstr = `${month}-${String(d).padStart(2, "0")}`;
                   const isToday = dstr === today;
                   return (
-                    <th key={d} className={cn("text-center px-1 py-2 w-8", isToday && "text-gold font-bold")}>{d}</th>
+                    <th key={d} className={cn("text-center px-1 py-2 min-w-[34px] sm:min-w-[40px]", isToday && "text-gold font-bold")}>{d}</th>
                   );
                 })}
-                <th className="text-center px-2 py-2 min-w-[140px]">P/A/H/L</th>
+                <th className="text-center px-2 py-2 whitespace-nowrap">P/A/H/L</th>
               </tr>
             </thead>
             <tbody>
@@ -134,7 +134,7 @@ export function AttendancePage() {
                 const sum = summary(s.id);
                 return (
                   <tr key={s.id} className="border-b border-border/50">
-                    <td className="sticky left-0 bg-card px-2 py-1.5 font-medium z-10">
+                    <td className="sticky left-0 bg-card px-2 py-1.5 font-medium z-10 whitespace-nowrap w-px">
                       <div>{s.name}</div>
                       <div className="text-[10px] text-muted-foreground">{s.designation ?? ""}</div>
                     </td>
@@ -143,12 +143,12 @@ export function AttendancePage() {
                       const status = map.get(`${s.id}|${dstr}`);
                       const isFuture = dstr > today;
                       return (
-                        <td key={d} className="text-center p-0.5">
+                        <td key={d} className="text-center p-0.5 min-w-[34px] sm:min-w-[40px]">
                           <button
                             disabled={!isAdmin || isFuture}
                             onClick={() => setStatus.mutate({ staff_id: s.id, date: dstr, current: status })}
                             className={cn(
-                              "w-7 h-7 rounded text-[11px] font-bold border transition",
+                              "w-8 h-8 sm:w-9 sm:h-9 rounded text-[12px] font-bold border transition",
                               status ? STATUS_COLOR[status] : "border-border/40 text-muted-foreground/40 hover:border-gold/40",
                               isFuture && "opacity-30 cursor-not-allowed",
                             )}
@@ -158,7 +158,7 @@ export function AttendancePage() {
                         </td>
                       );
                     })}
-                    <td className="text-center px-2 py-1.5 text-[11px] font-mono">
+                    <td className="text-center px-2 py-1.5 text-[11px] font-mono whitespace-nowrap">
                       <span className="text-emerald-400">{sum.p}</span>/
                       <span className="text-red-400">{sum.a}</span>/
                       <span className="text-amber-400">{sum.h}</span>/
