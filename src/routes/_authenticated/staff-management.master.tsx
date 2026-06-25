@@ -58,10 +58,11 @@ function StaffPage() {
     });
   }, [staff, search, showInactive]);
 
-  function openCreate() { setEditing(null); setForm(empty); setOpen(true); }
+  function openCreate() { setEditing(null); setForm(empty); setActiveTab("profile"); setOpen(true); }
   function openEdit(s: StaffHrRow) {
     setEditing(s);
     setForm({ ...s });
+    setActiveTab("profile");
     setOpen(true);
   }
 
