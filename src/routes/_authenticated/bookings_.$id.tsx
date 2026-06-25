@@ -1413,7 +1413,15 @@ function GuestDocumentsSummary({ bookingId, onOpen }: { bookingId: string; onOpe
     queryKey: ["guest-documents", bookingId],
     queryFn: () => listGuestDocuments(bookingId),
   });
+  const { data: retention } = useQuery({
+    queryKey: ["documents-retention"],
+    queryFn: getDocumentsRetention,
+  });
   const count = docs.length;
+  const retentionDays = retention?.retention_days ?? 60;
+  const retentionLabel = retentionDays === 0
+    ? "Documents are retained indefinitely."
+    : `Auto-deleted after ${retentionDays} days.`;
   return (
     <div className="luxe-card rounded-xl p-5 print:hidden">
       <div className="flex items-center justify-between mb-3">
@@ -1428,7 +1436,9 @@ function GuestDocumentsSummary({ bookingId, onOpen }: { bookingId: string; onOpe
         </span>
       </div>
       {count === 0 ? (
-        <p className="text-xs text-muted-foreground mb-3">No documents on file. Aadhaar, PAN, Passport, Driving License or Other accepted. Auto-deleted after 60 days.</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          No documents on file. Aadhaar, PAN, Passport, Driving License or Other accepted. {retentionLabel}
+        </p>
       ) : (
         <ul className="text-xs space-y-1 mb-3">
           {docs.slice(0, 3).map((d: any) => (
