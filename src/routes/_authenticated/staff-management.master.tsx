@@ -173,62 +173,97 @@ function StaffPage() {
       </main>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent
+          className="max-w-2xl w-[calc(100vw-1rem)] sm:w-full max-h-[92vh] p-0 gap-0 flex flex-col"
+        >
+          <DialogHeader className="px-4 sm:px-6 py-4 border-b border-border flex-shrink-0">
             <DialogTitle>{editing ? "Edit Staff" : "Add Staff"}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Employee Code">
-              <input className={inputCls} value={form.employee_code ?? ""} onChange={(e) => setForm({ ...form, employee_code: e.target.value })} />
-            </Field>
-            <Field label="Full Name *">
-              <input className={inputCls} value={form.name ?? ""} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </Field>
-            <Field label="Mobile">
-              <input className={inputCls} value={form.mobile ?? ""} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
-            </Field>
-            <Field label="Designation">
-              <input className={inputCls} value={form.designation ?? ""} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
-            </Field>
-            <Field label="Department">
-              <input className={inputCls} value={form.department ?? ""} onChange={(e) => setForm({ ...form, department: e.target.value })} />
-            </Field>
-            <Field label="Date of Joining">
-              <input type="date" className={inputCls} value={form.date_of_joining ?? ""} onChange={(e) => setForm({ ...form, date_of_joining: e.target.value || null })} />
-            </Field>
-            <Field label="Basic Salary (₹)">
-              <input type="number" inputMode="decimal" className={inputCls} value={form.basic_salary as any ?? ""} onChange={(e) => setForm({ ...form, basic_salary: e.target.value === "" ? null : Number(e.target.value) })} />
-            </Field>
-            <Field label="Monthly Salary (₹)">
-              <input type="number" inputMode="decimal" className={inputCls} value={form.monthly_salary as any ?? ""} onChange={(e) => setForm({ ...form, monthly_salary: e.target.value === "" ? null : Number(e.target.value) })} />
-            </Field>
-            <label className="flex items-center gap-2 text-sm">
-              <Switch checked={!!form.food_provided} onCheckedChange={(v) => setForm({ ...form, food_provided: v })} /> Food provided
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Switch checked={!!form.accommodation_provided} onCheckedChange={(v) => setForm({ ...form, accommodation_provided: v })} /> Accommodation provided
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Switch checked={form.active ?? true} onCheckedChange={(v) => setForm({ ...form, active: v })} /> Active
-            </label>
-          </div>
-          <div className="mt-3 rounded-md border border-border bg-muted/30 p-3 space-y-2">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Availability in dropdowns</div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <label className="flex items-center gap-2 text-sm">
-                <Switch checked={form.available_in_cashbook ?? true} onCheckedChange={(v) => setForm({ ...form, available_in_cashbook: v })} /> Cashbook
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Switch checked={form.available_in_dues ?? true} onCheckedChange={(v) => setForm({ ...form, available_in_dues: v })} /> Due Collection
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Switch checked={form.available_in_complaints ?? true} onCheckedChange={(v) => setForm({ ...form, available_in_complaints: v })} /> Complaint Assignment
-              </label>
+
+          {editing && isAdmin && (
+            <div className="px-4 sm:px-6 pt-3 flex gap-1 border-b border-border">
+              {(["profile", "documents"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setActiveTab(t)}
+                  className={
+                    "px-3 py-2 text-xs uppercase tracking-wider rounded-t-md border-b-2 transition " +
+                    (activeTab === t
+                      ? "border-gold text-gold"
+                      : "border-transparent text-muted-foreground hover:text-foreground")
+                  }
+                >
+                  {t === "profile" ? "Profile" : <span className="inline-flex items-center gap-1"><FileText className="h-3 w-3" /> Documents</span>}
+                </button>
+              ))}
             </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+            {activeTab === "profile" || !editing ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Employee Code">
+                    <input className={inputCls} value={form.employee_code ?? ""} onChange={(e) => setForm({ ...form, employee_code: e.target.value })} />
+                  </Field>
+                  <Field label="Full Name *">
+                    <input className={inputCls} value={form.name ?? ""} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  </Field>
+                  <Field label="Mobile">
+                    <input className={inputCls} value={form.mobile ?? ""} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
+                  </Field>
+                  <Field label="Designation">
+                    <input className={inputCls} value={form.designation ?? ""} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
+                  </Field>
+                  <Field label="Department">
+                    <input className={inputCls} value={form.department ?? ""} onChange={(e) => setForm({ ...form, department: e.target.value })} />
+                  </Field>
+                  <Field label="Date of Joining">
+                    <input type="date" className={inputCls} value={form.date_of_joining ?? ""} onChange={(e) => setForm({ ...form, date_of_joining: e.target.value || null })} />
+                  </Field>
+                  <Field label="Basic Salary (₹)">
+                    <input type="number" inputMode="decimal" className={inputCls} value={form.basic_salary as any ?? ""} onChange={(e) => setForm({ ...form, basic_salary: e.target.value === "" ? null : Number(e.target.value) })} />
+                  </Field>
+                  <Field label="Monthly Salary (₹)">
+                    <input type="number" inputMode="decimal" className={inputCls} value={form.monthly_salary as any ?? ""} onChange={(e) => setForm({ ...form, monthly_salary: e.target.value === "" ? null : Number(e.target.value) })} />
+                  </Field>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Switch checked={!!form.food_provided} onCheckedChange={(v) => setForm({ ...form, food_provided: v })} /> Food provided
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Switch checked={!!form.accommodation_provided} onCheckedChange={(v) => setForm({ ...form, accommodation_provided: v })} /> Accommodation provided
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Switch checked={form.active ?? true} onCheckedChange={(v) => setForm({ ...form, active: v })} /> Active
+                  </label>
+                </div>
+                <div className="mt-3 rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Availability in dropdowns</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch checked={form.available_in_cashbook ?? true} onCheckedChange={(v) => setForm({ ...form, available_in_cashbook: v })} /> Cashbook
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch checked={form.available_in_dues ?? true} onCheckedChange={(v) => setForm({ ...form, available_in_dues: v })} /> Due Collection
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch checked={form.available_in_complaints ?? true} onCheckedChange={(v) => setForm({ ...form, available_in_complaints: v })} /> Complaint Assignment
+                    </label>
+                  </div>
+                </div>
+              </>
+            ) : (
+              editing && <StaffDocumentsSection staffId={editing.id} />
+            )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>
+
+          <DialogFooter className="px-4 sm:px-6 py-3 border-t border-border bg-background flex-shrink-0 sticky bottom-0 gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)} className="flex-1 sm:flex-none">Cancel</Button>
+            <Button
+              onClick={() => save.mutate()}
+              disabled={save.isPending || activeTab === "documents"}
+              className="flex-1 sm:flex-none"
+            >
               {save.isPending ? "Saving..." : (editing ? "Update" : "Add")}
             </Button>
           </DialogFooter>
