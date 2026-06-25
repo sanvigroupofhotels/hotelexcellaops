@@ -53,6 +53,7 @@ import {
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import { listGuestDocuments } from "@/lib/guest-documents-api";
+import { getDocumentsRetention } from "@/lib/app-settings-api";
 import { toast } from "sonner";
 import { useOpsTimeLabels } from "@/lib/check-times";
 
@@ -357,17 +358,25 @@ function BookingDetail() {
       const url = `${publicOrigin()}/portal/${token}`;
       const guestName = (b.guest_name || "").trim() || "Guest";
       const text = [
-        `Hello ${guestName},`,
+        `Dear ${guestName},`,
         ``,
         `Thank you for choosing Hotel Excella.`,
         ``,
-        `To complete your booking, please proceed with the payment here -`,
+        `Below is your booking information:`,
         ``,
         url,
         ``,
         `Booking Ref: ${b.booking_reference}`,
         ``,
-        `Regards`,
+        `Using this portal you can:`,
+        `• Make Payments`,
+        `• Upload Documents`,
+        `• Access In-House Services after Check-In:`,
+        `   – Order Food`,
+        `   – Raise Complaints`,
+        `   – Submit a Review`,
+        ``,
+        `Warm Regards,`,
         `Hotel Excella`,
       ].join("\n");
       try { await navigator.clipboard.writeText(url); toast.success("Payment link copied to clipboard"); } catch { /* noop */ }
@@ -1404,7 +1413,15 @@ function GuestDocumentsSummary({ bookingId, onOpen }: { bookingId: string; onOpe
     queryKey: ["guest-documents", bookingId],
     queryFn: () => listGuestDocuments(bookingId),
   });
+  const { data: retention } = useQuery({
+    queryKey: ["documents-retention"],
+    queryFn: getDocumentsRetention,
+  });
   const count = docs.length;
+  const retentionDays = retention?.retention_days ?? 60;
+  const retentionLabel = retentionDays === 0
+    ? "Documents are retained indefinitely."
+    : `Auto-deleted after ${retentionDays} days.`;
   return (
     <div className="luxe-card rounded-xl p-5 print:hidden">
       <div className="flex items-center justify-between mb-3">
@@ -1419,7 +1436,9 @@ function GuestDocumentsSummary({ bookingId, onOpen }: { bookingId: string; onOpe
         </span>
       </div>
       {count === 0 ? (
-        <p className="text-xs text-muted-foreground mb-3">No documents on file. Aadhaar, PAN, Passport, Driving License or Other accepted. Auto-deleted after 60 days.</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          No documents on file. Aadhaar, PAN, Passport, Driving License or Other accepted. {retentionLabel}
+        </p>
       ) : (
         <ul className="text-xs space-y-1 mb-3">
           {docs.slice(0, 3).map((d: any) => (
