@@ -1,6 +1,7 @@
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationBell } from "@/components/notification-bell";
 
 export function Topbar({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
@@ -24,10 +25,7 @@ export function Topbar({ title, subtitle, action }: { title: string; subtitle?: 
           <kbd className="text-[10px] text-muted-foreground border border-border rounded px-1.5 py-0.5">⌘K</kbd>
         </div>
         <ThemeToggle />
-        <button className="relative p-2.5 rounded-md bg-card border border-border hover:border-gold/40 transition">
-          <Bell className="h-4 w-4 text-muted-foreground" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-gold animate-pulse" />
-        </button>
+        <NotificationBell />
         <div className="h-9 w-9 rounded-full gold-gradient flex items-center justify-center text-charcoal font-semibold text-sm shadow-[0_0_18px_oklch(0.82_0.13_82/0.2)]">
           HE
         </div>
