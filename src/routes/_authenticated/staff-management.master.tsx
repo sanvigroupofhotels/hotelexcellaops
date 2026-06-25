@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Search, Users as UsersIcon, BookOpen } from "lucide-react";
+import { Plus, Pencil, Search, Users as UsersIcon, BookOpen, FileText } from "lucide-react";
 import { toast } from "sonner";
 import {
   listStaffHr, createStaffHr, updateStaffHr, type StaffHrRow,
 } from "@/lib/staff-hr-api";
 import { useUserRole } from "@/hooks/use-role";
 import { PermissionGate } from "@/components/permission-gate";
+import { StaffDocumentsSection } from "@/components/staff-documents-section";
 
 export const Route = createFileRoute("/_authenticated/staff-management/master")({
   component: () => <PermissionGate permission="staff.master"><StaffPage /></PermissionGate>,
