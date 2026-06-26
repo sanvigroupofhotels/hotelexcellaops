@@ -109,22 +109,19 @@ export function NotificationBell({
   };
   const afterMutate = () => { invalidate(); broadcast(); };
 
-
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["notifications"] });
-
   const readOne = useMutation({
     mutationFn: markNotificationRead,
-    onSuccess: invalidate,
+    onSuccess: afterMutate,
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
   const readAll = useMutation({
     mutationFn: markAllNotificationsRead,
-    onSuccess: () => { invalidate(); toast.success("All marked as read"); },
+    onSuccess: () => { afterMutate(); toast.success("All marked as read"); },
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
   const del = useMutation({
     mutationFn: deleteNotification,
-    onSuccess: invalidate,
+    onSuccess: afterMutate,
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
 
