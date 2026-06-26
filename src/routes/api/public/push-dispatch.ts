@@ -13,6 +13,7 @@ import { createFileRoute } from "@tanstack/react-router";
 // `web-push` is a Node-only library; load lazily so route module never crashes
 // the worker bundle if the package fails to resolve.
 async function getWebPush() {
+  // @ts-ignore - no types bundled
   const mod: any = await import("web-push");
   return mod.default ?? mod;
 }
