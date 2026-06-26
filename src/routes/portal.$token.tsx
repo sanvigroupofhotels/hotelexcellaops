@@ -253,8 +253,12 @@ function GuestPortal() {
                 <CheckCircle2 className="h-6 w-6 mx-auto mb-2" /> No balance due.
               </div>
             )}
+            <p className="text-[10px] text-center text-muted-foreground mt-2">
+              Secured by Razorpay · Your payment details never touch our servers.
+            </p>
           </section>
         )}
+
 
         {/* 7. Additional Services — Order Food */}
         {!isCancelled && (
@@ -283,13 +287,11 @@ function GuestPortal() {
           />
         )}
 
-        <p className="text-[10px] text-center text-muted-foreground pt-4">
-          Secured by Razorpay · Your payment details never touch our servers.
-        </p>
       </div>
     </div>
   );
 }
+
 
 function Field({ label, value }: { label: string; value: string }) {
   return (

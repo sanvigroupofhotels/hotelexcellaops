@@ -11,7 +11,7 @@ import { lookupPortalToken } from "@/lib/portal.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Phone, KeyRound, Search, Loader2, MessageCircle, CalendarDays, IndianRupee } from "lucide-react";
+import { Phone, Search, Loader2, MessageCircle, CalendarDays, IndianRupee } from "lucide-react";
 
 type PortalLookupMatch = {
   token: string;
@@ -40,20 +40,11 @@ function PortalLanding() {
   const fn = useServerFn(getEngineConfig);
   const lookup = useServerFn(lookupPortalToken);
   const { data: cfg } = useQuery({ queryKey: ["be", "config"], queryFn: () => fn({}), staleTime: 5 * 60_000 });
-  const [token, setToken] = useState("");
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<PortalLookupMatch[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function open() {
-    const t = token.trim().replace(/^.*\/(?=[a-f0-9]{16,})/i, "");
-    if (!/^[a-f0-9]{16,64}$/i.test(t)) {
-      alert("Please paste your full booking link or token.");
-      return;
-    }
-    navigate({ to: "/portal/$token", params: { token: t } });
-  }
 
   function openToken(t: string) {
     navigate({ to: "/portal/$token", params: { token: t } });
@@ -155,23 +146,6 @@ function PortalLanding() {
           )}
         </Card>
 
-        <Card className="mt-4 p-5">
-          <p className="font-display text-lg flex items-center gap-2">
-            <KeyRound className="h-5 w-5 text-gold" /> Open with a link
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Paste the link from your WhatsApp or email confirmation, or just the token.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <Input
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="https://guest.hotelexcella.in/…"
-              onKeyDown={(e) => { if (e.key === "Enter") open(); }}
-            />
-            <Button onClick={open} variant="outline">Open</Button>
-          </div>
-        </Card>
 
         <Card className="mt-4 p-5 space-y-3 text-sm">
           <div>
