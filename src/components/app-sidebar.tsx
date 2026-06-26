@@ -264,6 +264,7 @@ export function AppSidebar() {
       <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-lg border-b border-border print:hidden">
         <Logo />
         <div className="flex items-center gap-2">
+          <MobileNotificationBell />
           <UserMenu />
           <button onClick={() => setOpen(true)} className="p-2 rounded-md text-muted-foreground hover:text-foreground" aria-label="Open menu">
             <Menu className="h-5 w-5" />
