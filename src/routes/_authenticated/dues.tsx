@@ -215,8 +215,8 @@ function DuesPage() {
                   <tr>
                     <Th>Guest</Th>
                     <Th>Room</Th>
-                    <Th>Check-In</Th>
-                    <Th>Check-Out</Th>
+                    <Th>Due Date</Th>
+                    <Th>Status</Th>
                     <Th className="text-right">Total</Th>
                     <Th className="text-right">Paid</Th>
                     <Th className="text-right">Due</Th>
@@ -224,7 +224,7 @@ function DuesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(({ b, total, paid, due }) => (
+                  {filtered.map(({ b, total, paid, due, dueDate }) => (
                     <tr key={b.id} className="border-t border-border/60 hover:bg-secondary/30">
                       <Td>
                         <Link to="/bookings/$id" params={{ id: b.id }} className="hover:underline">
@@ -233,8 +233,13 @@ function DuesPage() {
                         <div className="text-[11px] text-muted-foreground">{b.booking_reference}</div>
                       </Td>
                       <Td>{roomById.get(b.room_id ?? "") ?? "—"}</Td>
-                      <Td>{fmtStay(b.check_in)}<div className="text-[10px] text-muted-foreground">{checkTimes.checkIn}</div></Td>
-                      <Td>{fmtStay(b.check_out)}<div className="text-[10px] text-muted-foreground">{checkTimes.checkOut}</div></Td>
+                      <Td>
+                        {fmtStay(dueDate)}
+                        <div className={cn("text-[10px]", dueDate < bd ? "text-destructive font-medium" : "text-muted-foreground")}>
+                          {overdueLabel(dueDate, bd)}
+                        </div>
+                      </Td>
+                      <Td><span className="text-[11px] text-muted-foreground">{b.status}</span></Td>
                       <Td className="text-right tabular-nums">{inr(total)}</Td>
                       <Td className="text-right tabular-nums">{inr(paid)}</Td>
                       <Td className="text-right tabular-nums font-medium text-destructive">{inr(due)}</Td>
@@ -245,6 +250,7 @@ function DuesPage() {
                   ))}
                 </tbody>
               </table>
+
             </div>
           </>
         )}
