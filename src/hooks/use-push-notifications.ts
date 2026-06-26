@@ -99,21 +99,36 @@ export function usePushNotifications(options: { autoRegister?: boolean } = {}) {
     if (permission === "denied") { update({ ...caps, permission, status: "permission_denied" }); return; }
     if (permission === "default") { update({ ...caps, permission, status: "permission_default" }); return; }
 
-    // permission === granted — confirm existing subscription too
+    // permission === granted — confirm existing subscription AND re-persist
+    // server-side so a missing/expired DB row gets healed on every mount.
     try {
       const reg = await navigator.serviceWorker.getRegistration("/sw.js");
       const sub = await reg?.pushManager.getSubscription();
-      update({
-        ...caps,
-        permission,
-        status: sub ? "enabled" : "permission_default",
-        subscriptionEndpoint: sub?.endpoint ?? null,
-        swScope: reg?.scope ?? null,
-      });
+      if (!sub) {
+        update({ ...caps, permission, status: "permission_default", subscriptionEndpoint: null, swScope: reg?.scope ?? null });
+        return;
+      }
+      // Idempotent re-upsert — guarantees the dispatcher can find this device.
+      try {
+        const json: any = sub.toJSON();
+        await save({
+          data: {
+            endpoint: sub.endpoint,
+            p256dh: json.keys?.p256dh ?? "",
+            auth: json.keys?.auth ?? "",
+            user_agent: navigator.userAgent,
+          },
+        });
+        update({ ...caps, permission, status: "enabled", subscriptionEndpoint: sub.endpoint, swScope: reg?.scope ?? null });
+      } catch (e: any) {
+        const msg = e?.message ?? String(e);
+        console.error("[push] re-persist failed", e);
+        update({ ...caps, permission, status: "persist_failed", errorDetail: msg, subscriptionEndpoint: sub.endpoint, swScope: reg?.scope ?? null });
+      }
     } catch (e: any) {
       update({ ...caps, permission, status: "unknown_error", errorDetail: e?.message ?? String(e) });
     }
-  }, [update]);
+  }, [update, save]);
 
   /**
    * Full enable flow. Each step transitions to a granular status so the UI
