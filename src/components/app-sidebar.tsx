@@ -74,7 +74,6 @@ function Logo() {
       </div>
       <div className="leading-tight">
         <div className="font-display text-base tracking-wide text-foreground">HOTEL EXCELLA</div>
-        <div className="text-[10px] tracking-[0.25em] text-gold/80 uppercase">Boutique · Luxury</div>
       </div>
     </Link>
   );
