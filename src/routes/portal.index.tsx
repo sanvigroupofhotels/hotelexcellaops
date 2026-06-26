@@ -40,20 +40,11 @@ function PortalLanding() {
   const fn = useServerFn(getEngineConfig);
   const lookup = useServerFn(lookupPortalToken);
   const { data: cfg } = useQuery({ queryKey: ["be", "config"], queryFn: () => fn({}), staleTime: 5 * 60_000 });
-  const [token, setToken] = useState("");
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<PortalLookupMatch[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function open() {
-    const t = token.trim().replace(/^.*\/(?=[a-f0-9]{16,})/i, "");
-    if (!/^[a-f0-9]{16,64}$/i.test(t)) {
-      alert("Please paste your full booking link or token.");
-      return;
-    }
-    navigate({ to: "/portal/$token", params: { token: t } });
-  }
 
   function openToken(t: string) {
     navigate({ to: "/portal/$token", params: { token: t } });
