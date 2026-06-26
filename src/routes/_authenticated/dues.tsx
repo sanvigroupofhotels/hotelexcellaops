@@ -28,15 +28,27 @@ export const Route = createFileRoute("/_authenticated/dues")({
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const fmtStay = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
-type FilterKey = "today" | "tomorrow" | "all" | "inhouse" | "checkedout";
+type FilterKey = "today" | "overdue" | "all" | "inhouse";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "today",      label: "Due Today" },
-  { key: "tomorrow",   label: "Due Tomorrow" },
+  { key: "overdue",    label: "Overdue" },
   { key: "all",        label: "All Dues" },
   { key: "inhouse",    label: "In-House" },
-  { key: "checkedout", label: "Checked-Out (with due)" },
 ];
+
+function daysBetween(fromYmd: string, toYmd: string): number {
+  const a = new Date(fromYmd + "T00:00:00").getTime();
+  const b = new Date(toYmd + "T00:00:00").getTime();
+  return Math.round((b - a) / 86_400_000);
+}
+
+function overdueLabel(dueDate: string, businessDate: string): string {
+  const n = daysBetween(dueDate, businessDate);
+  if (n <= 0) return "Due Today";
+  if (n === 1) return "Overdue by 1 Day";
+  return `Overdue by ${n} Days`;
+}
 
 function DuesPage() {
   useRealtimeInvalidate(
@@ -54,6 +66,7 @@ function DuesPage() {
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: rooms = [] } = useQuery({ queryKey: ["rooms-dues"], queryFn: () => listRooms() });
+  const { data: businessDate } = useQuery({ queryKey: ["business-date"], queryFn: getBusinessDate, staleTime: 5 * 60_000 });
 
   const roomById = useMemo(() => {
     const m = new Map<string, string>();
@@ -61,33 +74,33 @@ function DuesPage() {
     return m;
   }, [rooms]);
 
-  const today = toLocalYMD();
-  const tomorrow = useMemo(() => {
-    const d = new Date(); d.setDate(d.getDate() + 1);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  }, []);
+  // Always work off the Business Date — never the calendar date.
+  const bd = businessDate ?? toLocalYMD();
 
-  // Enrich with due
+  // Enrich with due + Due Date driven by Check-In.
   const enriched = useMemo(() => {
     return bookings
-      .filter((b) => b.status !== "Cancelled")
+      .filter((b) => b.status !== "Cancelled" && b.status !== "No-Show")
       .map((b) => {
         const charges = Number((chargeTotals as any)[b.id] ?? 0);
         const total = Number(b.amount) + charges;
         const paid = Number(b.advance_paid ?? 0);
-        const due = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, total - paid);
-        return { b, total, paid, due, charges };
+        const due = Math.max(0, total - paid);
+        // Due Date is the Check-In Date (reception collects all dues at Check-In).
+        const dueDate = b.check_in;
+        return { b, total, paid, due, charges, dueDate };
       })
-      .filter((r) => r.due > 0);
-  }, [bookings, chargeTotals]);
+      // Only show after the Due Date is reached. Carries forward indefinitely
+      // until balance hits zero or booking is cancelled.
+      .filter((r) => r.due > 0 && r.dueDate <= bd);
+  }, [bookings, chargeTotals, bd]);
 
   const filtered = useMemo(() => {
     let rows = enriched;
-    if (filter === "today")      rows = rows.filter((r) => r.b.check_out === today && r.b.status !== "Checked-Out");
-    else if (filter === "tomorrow") rows = rows.filter((r) => r.b.check_out === tomorrow && r.b.status !== "Checked-Out");
-    else if (filter === "inhouse")  rows = rows.filter((r) => r.b.status === "Checked-In");
-    else if (filter === "checkedout") rows = rows.filter((r) => r.b.status === "Checked-Out");
-    // "all" → no extra filter
+    if (filter === "today")        rows = rows.filter((r) => r.dueDate === bd);
+    else if (filter === "overdue") rows = rows.filter((r) => r.dueDate < bd);
+    else if (filter === "inhouse") rows = rows.filter((r) => r.b.status === "Checked-In");
+    // "all" → all rows past their due date
     const s = search.trim().toLowerCase();
     if (s) {
       rows = rows.filter((r) =>
@@ -95,23 +108,20 @@ function DuesPage() {
           .filter(Boolean).some((v) => String(v).toLowerCase().includes(s)),
       );
     }
-    // sort by checkout date asc, then due desc
+    // sort: oldest due first (longest overdue), then highest due
     return [...rows].sort((a, b) => {
-      if (a.b.check_out !== b.b.check_out) return a.b.check_out < b.b.check_out ? -1 : 1;
+      if (a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
       return b.due - a.due;
     });
-  }, [enriched, filter, search, today, tomorrow, roomById]);
+  }, [enriched, filter, search, bd, roomById]);
 
   const summary = useMemo(() => {
     const totalOutstanding = enriched.reduce((s, r) => s + r.due, 0);
-    const dueToday = enriched
-      .filter((r) => r.b.check_out === today && r.b.status !== "Checked-Out")
-      .reduce((s, r) => s + r.due, 0);
-    const dueTomorrow = enriched
-      .filter((r) => r.b.check_out === tomorrow && r.b.status !== "Checked-Out")
-      .reduce((s, r) => s + r.due, 0);
-    return { totalOutstanding, dueToday, dueTomorrow };
-  }, [enriched, today, tomorrow]);
+    const dueToday = enriched.filter((r) => r.dueDate === bd).reduce((s, r) => s + r.due, 0);
+    const overdue  = enriched.filter((r) => r.dueDate < bd).reduce((s, r) => s + r.due, 0);
+    return { totalOutstanding, dueToday, overdue };
+  }, [enriched, bd]);
+
 
   return (
     <>
