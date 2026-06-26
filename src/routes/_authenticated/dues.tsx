@@ -132,7 +132,7 @@ function DuesPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           <SummaryCard label="Total Outstanding" value={summary.totalOutstanding} tone="danger" />
           <SummaryCard label="Due Today" value={summary.dueToday} tone="gold" />
-          <SummaryCard label="Due Tomorrow" value={summary.dueTomorrow} tone="info" />
+          <SummaryCard label="Overdue" value={summary.overdue} tone="danger" />
         </div>
 
         {/* Filter chips + search */}
