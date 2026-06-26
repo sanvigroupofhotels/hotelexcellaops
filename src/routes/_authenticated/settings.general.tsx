@@ -43,7 +43,7 @@ function GeneralPage() {
 }
 
 function PushNotificationCard() {
-  const { state, supported, requestPermission, unsubscribe } = usePushNotifications();
+  const { state, supported, errorDetail, requestPermission, unsubscribe } = usePushNotifications();
   const label =
     state === "unsupported" ? "Not supported in this browser" :
     state === "denied" ? "Blocked — enable in browser settings" :
@@ -61,13 +61,25 @@ function PushNotificationCard() {
         Receive notifications even when Excella isn't open. In-app notifications keep working regardless.
       </p>
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className={cn("text-sm", tone)}>{label}</div>
+        <div className="space-y-1">
+          <div className={cn("text-sm", tone)}>{label}</div>
+          {state === "error" && errorDetail && (
+            <div className="text-[11px] text-rose-300/80 max-w-[280px] break-words">{errorDetail}</div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {state !== "granted" && (
             <button
               type="button"
               disabled={!supported || state === "denied" || state === "granted-pending"}
-              onClick={() => { requestPermission().catch(() => { /* graceful */ }); }}
+              onClick={() => {
+                requestPermission()
+                  .then((res) => {
+                    if (res === "granted") toast.success("Push notifications enabled on this device");
+                    else if (res === "denied") toast.error("Permission denied. Enable from browser settings.");
+                  })
+                  .catch((e: any) => toast.error(`Push setup failed: ${e?.message || e}`));
+              }}
               className="px-3 py-1.5 rounded-md bg-gold text-bg-darkest text-xs font-medium disabled:opacity-50"
             >
               Enable on this device
@@ -76,7 +88,7 @@ function PushNotificationCard() {
           {state === "granted" && (
             <button
               type="button"
-              onClick={() => { unsubscribe().catch(() => { /* graceful */ }); }}
+              onClick={() => { unsubscribe().then(() => toast.success("Push disabled on this device")).catch(() => { /* graceful */ }); }}
               className="px-3 py-1.5 rounded-md border border-border text-xs"
             >
               Disable
@@ -87,6 +99,7 @@ function PushNotificationCard() {
     </Card>
   );
 }
+
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return <div className="luxe-card rounded-xl p-5 space-y-4"><h3 className="font-display text-lg md:text-xl">{title}</h3>{children}</div>;
