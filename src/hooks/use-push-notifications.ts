@@ -26,6 +26,7 @@ type PushState =
  */
 export function usePushNotifications(options: { autoRegister?: boolean } = {}) {
   const [state, setState] = useState<PushState>("default");
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const save = useServerFn(savePushSubscription);
   const remove = useServerFn(removePushSubscription);
 
@@ -40,6 +41,7 @@ export function usePushNotifications(options: { autoRegister?: boolean } = {}) {
     if (Notification.permission === "denied") { setState("denied"); return; }
     if (Notification.permission === "default") { setState("default"); return; }
     try {
+      setErrorDetail(null);
       const reg = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
       let sub = await reg.pushManager.getSubscription();
@@ -47,10 +49,9 @@ export function usePushNotifications(options: { autoRegister?: boolean } = {}) {
         const keyBytes = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: keyBytes.buffer.slice(
-            keyBytes.byteOffset,
-            keyBytes.byteOffset + keyBytes.byteLength,
-          ) as ArrayBuffer,
+          // Pass the Uint8Array directly — browsers accept BufferSource;
+          // slicing the underlying buffer can yield a detached ArrayBuffer.
+          applicationServerKey: keyBytes,
         });
       }
       const json: any = sub.toJSON();
@@ -63,8 +64,10 @@ export function usePushNotifications(options: { autoRegister?: boolean } = {}) {
         },
       });
       setState("granted");
-    } catch (e) {
+    } catch (e: any) {
+      const msg = e?.message || String(e);
       console.warn("[push] subscription sync failed", e);
+      setErrorDetail(msg);
       setState("error");
     }
   }, [supported, save]);
@@ -93,7 +96,6 @@ export function usePushNotifications(options: { autoRegister?: boolean } = {}) {
     setState("default");
   }, [supported, remove]);
 
-  // Auto-register SW and refresh subscription on mount if already granted.
   useEffect(() => {
     if (!options.autoRegister) return;
     if (!supported) { setState("unsupported"); return; }
@@ -101,5 +103,6 @@ export function usePushNotifications(options: { autoRegister?: boolean } = {}) {
     else if (Notification.permission === "denied") { setState("denied"); }
   }, [options.autoRegister, supported, sync]);
 
-  return { state, supported, requestPermission, unsubscribe, sync };
+  return { state, supported, errorDetail, requestPermission, unsubscribe, sync };
 }
+
