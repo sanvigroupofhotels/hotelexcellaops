@@ -137,7 +137,26 @@ export async function createBooking(input: BookingInput) {
   const { data, error } = await supabase
     .from("bookings" as any).insert(row).select().single();
   if (error) throw error;
-  return data as unknown as BookingRow;
+  const created = data as unknown as BookingRow;
+  // Fan-out via Notification Engine (in-app + push + email).
+  // Skip Draft bookings — they're auto-created by abandoned-lead flow and
+  // emit their own dedicated notification.
+  if ((created.status ?? "") !== "Draft") {
+    void import("@/lib/notification-engine").then(({ emitBookingCreated }) =>
+      emitBookingCreated({
+        id: created.id,
+        booking_reference: (created as any).booking_reference ?? null,
+        guest_name: (created as any).guest_name ?? null,
+        phone: (created as any).phone ?? null,
+        check_in: (created as any).check_in ?? null,
+        check_out: (created as any).check_out ?? null,
+        rooms: (created as any).rooms ?? null,
+        estimated_total: (created as any).estimated_total ?? null,
+        source: (created as any).source ?? null,
+      }),
+    );
+  }
+  return created;
 }
 
 export async function updateBooking(id: string, patch: Partial<BookingInput>) {

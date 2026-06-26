@@ -154,7 +154,18 @@ export async function createComplaint(input: ComplaintInput) {
   };
   const { data, error } = await supabase.from("complaints" as any).insert(row).select().single();
   if (error) throw error;
-  return data as unknown as ComplaintRow;
+  const created = data as unknown as ComplaintRow;
+  void import("@/lib/notification-engine").then(({ emitComplaintCreated }) =>
+    emitComplaintCreated({
+      id: created.id,
+      complaint_number: (created as any).complaint_number ?? null,
+      priority: (created as any).priority ?? "Medium",
+      description: (created as any).description ?? "",
+      room_number: (created as any).room_number ?? null,
+      category: (created as any).category ?? null,
+    }),
+  );
+  return created;
 }
 
 export async function updateComplaint(id: string, patch: Partial<ComplaintInput>) {
