@@ -149,12 +149,13 @@ export function calc(input: QuoteInput, rateOverride?: number, options: CalcOpti
   let earlyCheck = 0;
   if (input.early_check_in && input.early_check_in_slot) {
     const slot = EARLY_CHECK_IN_SLOTS.find((s) => s.value === input.early_check_in_slot);
-    earlyCheck = slot?.fee ?? room_rate * input.rooms;
+    // Early check-in is charged per room.
+    earlyCheck = slot?.fee != null ? slot.fee * input.rooms : room_rate * input.rooms;
   }
   let lateCheck = 0;
   if (input.late_check_out && input.late_check_out_slot) {
     const slot = LATE_CHECK_OUT_SLOTS.find((s) => s.value === input.late_check_out_slot);
-    lateCheck = slot?.fee ?? room_rate * input.rooms;
+    lateCheck = slot?.fee != null ? slot.fee * input.rooms : room_rate * input.rooms;
   }
 
   const pet = (PET_RATES[input.pet_size] ?? 0) * nights;
