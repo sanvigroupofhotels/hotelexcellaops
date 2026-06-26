@@ -193,8 +193,12 @@ function DuesPage() {
                     <div className="text-right shrink-0">
                       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Due</div>
                       <div className="font-display text-lg text-destructive tabular-nums">{inr(due)}</div>
+                      <div className={cn("text-[10px] mt-0.5", dueDate < bd ? "text-destructive font-medium" : "text-muted-foreground")}>
+                        {overdueLabel(dueDate, bd)}
+                      </div>
                     </div>
                   </div>
+
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <Pair label="Total" value={inr(total)} />
                     <Pair label="Paid" value={inr(paid)} />
