@@ -9,6 +9,7 @@
  * notification. We always respond 200 with a body describing the outcome.
  */
 import { createFileRoute } from "@tanstack/react-router";
+import { resolveNotificationRoute } from "@/lib/notification-routing";
 
 // `web-push` is a Node-only library; load lazily so route module never crashes
 // the worker bundle if the package fails to resolve.
@@ -109,18 +110,10 @@ export const Route = createFileRoute("/api/public/push-dispatch")({
 });
 
 function entityUrl(n: any): string {
-  if (!n.entity_type || !n.entity_id) return "/";
-  switch (n.entity_type) {
-    case "booking": return `/bookings/${n.entity_id}`;
-    case "customer": return `/customers/${n.entity_id}`;
-    case "complaint": return `/complaints/${n.entity_id}`;
-    case "lead": {
-      const draftId = n.metadata?.draft_booking_id || n.metadata?.booking_id;
-      return typeof draftId === "string" ? `/bookings/${draftId}/edit` : "/follow-ups";
-    }
-    case "payment": return "/reporting/payments";
-    case "review": return "/reporting/crm-analytics";
-    case "night_audit": return "/night-audit";
-    default: return "/";
-  }
+  // Single source of truth — same resolver as in-app bell + SW click handler.
+  return resolveNotificationRoute({
+    entity_type: n.entity_type,
+    entity_id: n.entity_id,
+    metadata: n.metadata,
+  });
 }

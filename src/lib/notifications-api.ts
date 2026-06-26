@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { resolveNotificationRoute } from "@/lib/notification-routing";
 
 export type NotificationStatus = "unread" | "read" | "dismissed";
 export type NotificationPriority = "low" | "normal" | "high" | "urgent";
@@ -66,26 +67,12 @@ export async function deleteNotification(id: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Route a notification to its source entity.
- *  Lead Abandoned: if the lead has an auto-created draft booking, jump
- *  straight to that booking edit page; otherwise fall back to follow-ups.
+/**
+ * Single-source-of-truth router for every notification surface.
+ * Delegates to `resolveNotificationRoute` (see `src/lib/notification-routing.ts`)
+ * so the in-app bell, service worker click handler, and push payload all
+ * resolve identical destinations.
  */
 export function notificationHref(n: NotificationRow): string | null {
-  if (!n.entity_type || !n.entity_id) return null;
-  switch (n.entity_type) {
-    case "booking": return `/bookings/${n.entity_id}`;
-    case "lead": {
-      const draftId = (n.metadata as any)?.draft_booking_id || (n.metadata as any)?.booking_id;
-      if (typeof draftId === "string" && draftId.length > 0) return `/bookings/${draftId}/edit`;
-      const customerId = (n.metadata as any)?.customer_id;
-      if (typeof customerId === "string" && customerId.length > 0) return `/customers/${customerId}`;
-      return `/follow-ups`;
-    }
-    case "customer":return `/customers/${n.entity_id}`;
-    case "complaint": return `/complaints/${n.entity_id}`;
-    case "payment": return `/reporting/payments`;
-    case "review":  return `/reporting/crm-analytics`;
-    case "night_audit": return `/night-audit`;
-    default: return null;
-  }
+  return resolveNotificationRoute(n);
 }
