@@ -76,11 +76,12 @@ export function lineSubtotal(item: LineItem) {
   let total = rate * n * rooms;
   if (item.early_check_in && item.early_check_in_slot) {
     const s = EARLY_CHECK_IN_SLOTS.find((x) => x.value === item.early_check_in_slot);
-    total += s?.fee ?? rate * rooms;
+    // Early check-in is charged per room. `null` fee = full day room charge (already per-room).
+    total += s?.fee != null ? s.fee * rooms : rate * rooms;
   }
   if (item.late_check_out && item.late_check_out_slot) {
     const s = LATE_CHECK_OUT_SLOTS.find((x) => x.value === item.late_check_out_slot);
-    total += s?.fee ?? rate * rooms;
+    total += s?.fee != null ? s.fee * rooms : rate * rooms;
   }
   total += (PET_RATES[item.pet_size] ?? 0) * n;
   total += (item.extra_adults || 0) * EXTRA_ADULT_RATE * n;
