@@ -5,6 +5,7 @@ import { getHotelSettings, setHotelSettings, type HotelSettings } from "@/lib/ap
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 export const Route = createFileRoute("/_authenticated/settings/general")({ component: GeneralPage });
 
