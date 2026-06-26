@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, Check, CheckCheck, Trash2, X } from "lucide-react";
+import { Bell, Check, CheckCheck, Trash2 } from "lucide-react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -11,6 +11,7 @@ import {
   notificationHref, type NotificationRow,
 } from "@/lib/notifications-api";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -27,52 +28,87 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 }
 
-export function NotificationBell({ className }: { className?: string }) {
+/**
+ * Single Notification Bell. Mounted in two places (desktop topbar and mobile
+ * header) but only renders for the active viewport — guaranteeing one active
+ * subscription at any time. Realtime fan-out + a 60s polling fallback keep
+ * counts in sync across tabs and devices; a BroadcastChannel mirrors local
+ * reads/dismissals across same-origin tabs instantly.
+ */
+export function NotificationBell({
+  className,
+  variant = "desktop",
+}: { className?: string; variant?: "desktop" | "mobile" }) {
+  const isMobile = useIsMobile();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+
+  const active = variant === "mobile" ? isMobile : !isMobile;
 
   const { data: count = 0 } = useQuery({
     queryKey: ["notifications", "unread-count"],
     queryFn: unreadNotificationCount,
     refetchInterval: 60_000,
+    enabled: active,
   });
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["notifications", "list"],
     queryFn: () => listNotifications(50),
-    enabled: open,
+    enabled: active && open,
+    // Re-poll while open as a safety net so an open Notification Center
+    // updates even when Realtime is unreachable.
+    refetchInterval: open ? 30_000 : false,
   });
 
-  // Realtime subscription for live updates. Unique channel per mount to avoid
-  // duplicate-subscription errors when the bell is rendered in multiple places
-  // (e.g. mobile + desktop). Falls back silently if realtime is unavailable.
+  // Realtime + cross-tab subscriptions. Handlers registered BEFORE subscribe.
+  // Failures never throw; the polling fallback above keeps state live.
   useEffect(() => {
+    if (!active) return;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let bc: BroadcastChannel | null = null;
+    const invalidate = () => qc.invalidateQueries({ queryKey: ["notifications"] });
     try {
-      const topic = `notifications-bell-${Math.random().toString(36).slice(2, 10)}`;
+      const topic = `notifications-bell-${variant}-${Math.random().toString(36).slice(2, 8)}`;
       channel = supabase.channel(topic);
-      channel
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "notifications" },
-          () => {
-            qc.invalidateQueries({ queryKey: ["notifications"] });
-          },
-        )
-        .subscribe((status) => {
-          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            // Polling via refetchInterval keeps the bell live as fallback.
-          }
-        });
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications" },
+        () => {
+          invalidate();
+          try { bc?.postMessage({ kind: "remote-change" }); } catch { /* noop */ }
+        },
+      );
+      channel.subscribe(() => { /* CHANNEL_ERROR / TIMED_OUT fall through to polling */ });
     } catch {
       // Realtime unavailable — polling fallback continues to work.
     }
-    return () => {
-      if (channel) {
-        try { supabase.removeChannel(channel); } catch { /* noop */ }
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        bc = new BroadcastChannel("excella-notifications");
+        bc.onmessage = () => invalidate();
       }
+    } catch { /* noop */ }
+    return () => {
+      if (channel) { try { supabase.removeChannel(channel); } catch { /* noop */ } }
+      if (bc) { try { bc.close(); } catch { /* noop */ } }
     };
-  }, [qc]);
+  }, [qc, active, variant]);
+
+  if (!active) return null;
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["notifications"] });
+  const broadcast = () => {
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        const bc = new BroadcastChannel("excella-notifications");
+        bc.postMessage({ kind: "local-change" });
+        bc.close();
+      }
+    } catch { /* noop */ }
+  };
+  const afterMutate = () => { invalidate(); broadcast(); };
+
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["notifications"] });
 
