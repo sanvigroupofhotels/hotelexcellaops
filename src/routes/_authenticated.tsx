@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Loader2 } from "lucide-react";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -9,6 +10,9 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   const { user, loading } = useAuth();
+  // Auto-refresh push subscription on every authenticated mount. If permission
+  // is not yet granted, this is a no-op — users opt in from Settings.
+  usePushNotifications({ autoRegister: true });
 
   if (loading) {
     return (

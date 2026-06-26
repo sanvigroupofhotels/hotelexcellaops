@@ -561,10 +561,18 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
       POST: async ({ request }) => {
         const gatewayKey = process.env.LOVABLE_API_KEY;
         const connectionKey = process.env.GOOGLE_MAIL_API_KEY;
+        // Gmail is required ONLY for the email-fetch step of email-parser
+        // integrations (FabHotels, Hotelzify, OYO, etc.). It is not part of
+        // the FabHotels configuration itself — connecting/disconnecting Gmail
+        // does NOT mutate FabHotels rows, and FabHotels can be created,
+        // edited, and saved without Gmail. We surface a structured error so
+        // the integration editor can show a "Connect Gmail" CTA inline
+        // without treating the FabHotels config as broken.
         if (!gatewayKey || !connectionKey) {
           return Response.json({
             ok: false,
-            error: "Gmail is not connected yet. Email-parser integrations (FabHotels, Hotelzify, OYO, etc.) read confirmation emails from your reception Gmail inbox. Please connect Gmail under Settings → Connections, then run this sync again.",
+            code: "gmail_not_connected",
+            error: "Gmail is not connected. Email-parser integrations read confirmation emails from your reception Gmail inbox. Connect Gmail under Settings → Connections, then run this sync again. Your FabHotels configuration is unaffected.",
           }, { status: 400 });
         }
 

@@ -25,7 +25,7 @@ export function Topbar({ title, subtitle, action }: { title: string; subtitle?: 
           <kbd className="text-[10px] text-muted-foreground border border-border rounded px-1.5 py-0.5">⌘K</kbd>
         </div>
         <ThemeToggle />
-        <NotificationBell />
+        <NotificationBell variant="desktop" />
         <div className="h-9 w-9 rounded-full gold-gradient flex items-center justify-center text-charcoal font-semibold text-sm shadow-[0_0_18px_oklch(0.82_0.13_82/0.2)]">
           HE
         </div>
