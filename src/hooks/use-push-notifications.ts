@@ -47,11 +47,11 @@ export function usePushNotifications(options: { autoRegister?: boolean } = {}) {
       let sub = await reg.pushManager.getSubscription();
       if (!sub) {
         const keyBytes = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+        const ab = new ArrayBuffer(keyBytes.byteLength);
+        new Uint8Array(ab).set(keyBytes);
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          // Pass the Uint8Array directly — browsers accept BufferSource;
-          // slicing the underlying buffer can yield a detached ArrayBuffer.
-          applicationServerKey: keyBytes,
+          applicationServerKey: ab,
         });
       }
       const json: any = sub.toJSON();
