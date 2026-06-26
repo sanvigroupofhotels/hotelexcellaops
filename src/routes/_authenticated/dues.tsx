@@ -97,7 +97,9 @@ function DuesPage() {
 
   const filtered = useMemo(() => {
     let rows = enriched;
-    if (filter === "today")        rows = rows.filter((r) => r.dueDate === bd);
+    // "Due Today" includes anything due on or before the business date so
+    // overdue balances stay visible until they are collected.
+    if (filter === "today")        rows = rows.filter((r) => r.dueDate <= bd);
     else if (filter === "overdue") rows = rows.filter((r) => r.dueDate < bd);
     else if (filter === "inhouse") rows = rows.filter((r) => r.b.status === "Checked-In");
     // "all" → all rows past their due date

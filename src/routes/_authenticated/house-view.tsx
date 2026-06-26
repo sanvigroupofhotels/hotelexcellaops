@@ -656,7 +656,7 @@ function HouseView() {
                   return (
                     <tr key={r.id} className="group">
                       <td
-                        className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-2 py-3 text-sm align-middle text-center"
+                        className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-2 py-1.5 text-sm align-middle text-center"
                         style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                       >
                         <div className="font-medium tabular-nums">{r.room_number}</div>
@@ -682,7 +682,7 @@ function HouseView() {
                         return (
                           <td key={i}
                             className={cn(
-                              "relative border-b border-r border-border align-top h-14 p-0 group/cell",
+                              "relative border-b border-r border-border align-top h-10 p-0 group/cell",
                               isToday && "house-business-date-cell",
                               i % 2 === 0 && !isToday && "bg-secondary/10",
                               i === days.length - 1 && "border-r-0",
@@ -703,7 +703,7 @@ function HouseView() {
                               setDragAvail(null);
                             }}
                           >
-                            <div className="relative h-full" style={{ minHeight: 56 }}>
+                            <div className="relative h-full" style={{ minHeight: 40 }}>
                               {/* Vacant action button — visible when no booking/block covers this day */}
                               {(() => {
                                 const coveredByBooking = bs.some((b) => segmentCoversDate(b, dk));
