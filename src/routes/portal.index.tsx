@@ -11,7 +11,7 @@ import { lookupPortalToken } from "@/lib/portal.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Phone, KeyRound, Search, Loader2, MessageCircle, CalendarDays, IndianRupee } from "lucide-react";
+import { Phone, Search, Loader2, MessageCircle, CalendarDays, IndianRupee } from "lucide-react";
 
 type PortalLookupMatch = {
   token: string;
