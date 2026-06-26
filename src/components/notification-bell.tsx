@@ -43,15 +43,35 @@ export function NotificationBell({ className }: { className?: string }) {
     enabled: open,
   });
 
-  // Realtime subscription for live updates.
+  // Realtime subscription for live updates. Unique channel per mount to avoid
+  // duplicate-subscription errors when the bell is rendered in multiple places
+  // (e.g. mobile + desktop). Falls back silently if realtime is unavailable.
   useEffect(() => {
-    const channel = supabase
-      .channel("notifications-bell")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
-        qc.invalidateQueries({ queryKey: ["notifications"] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      const topic = `notifications-bell-${Math.random().toString(36).slice(2, 10)}`;
+      channel = supabase.channel(topic);
+      channel
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "notifications" },
+          () => {
+            qc.invalidateQueries({ queryKey: ["notifications"] });
+          },
+        )
+        .subscribe((status) => {
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            // Polling via refetchInterval keeps the bell live as fallback.
+          }
+        });
+    } catch {
+      // Realtime unavailable — polling fallback continues to work.
+    }
+    return () => {
+      if (channel) {
+        try { supabase.removeChannel(channel); } catch { /* noop */ }
+      }
+    };
   }, [qc]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["notifications"] });
