@@ -174,7 +174,7 @@ function DuesPage() {
           <>
             {/* Mobile cards */}
             <div className="grid grid-cols-1 md:hidden gap-3">
-              {filtered.map(({ b, total, paid, due }, i) => (
+              {filtered.map(({ b, total, paid, due, dueDate }, i) => (
                 <motion.div key={b.id}
                   initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 * i }}
                   className="luxe-card rounded-xl p-4 space-y-3">
