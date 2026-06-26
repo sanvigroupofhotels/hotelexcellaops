@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
 import { usePermissions } from "@/hooks/use-permissions";
 import { UserMenu } from "@/components/user-menu";
+import { NotificationBell as MobileNotificationBell } from "@/components/notification-bell";
 
 type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; managerOnly?: boolean; permission?: string; anyOf?: string[] };
 
