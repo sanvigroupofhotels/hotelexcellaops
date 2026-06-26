@@ -8,7 +8,7 @@ import {
   PROVIDER_LABELS, TYPE_LABELS,
   type IntegrationStatus,
 } from "@/lib/integrations-api";
-import { ArrowLeft, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -264,6 +264,14 @@ function Content({ id }: { id: string }) {
         </div>
       </div>
 
+      <GmailScopeBanner
+        lastMessage={row.last_sync_message ?? ""}
+        debugErrors={[...(debugInfo?.errors ?? []), ...(debugInfo?.parser_errors ?? [])]}
+        onRetry={() => runSync.mutate()}
+      />
+
+
+
       {row.type === "email_parser" && debugInfo && (
         <div className="luxe-card rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -357,6 +365,58 @@ function DebugList({ title, items, empty }: { title: string; items: string[]; em
       <div className={labelCls}>{title}</div>
       <div className="bg-muted/25 rounded px-3 py-2 text-[11px] text-muted-foreground space-y-1">
         {items.length === 0 ? <div>{empty}</div> : items.slice(0, 8).map((item, idx) => <div key={`${item}-${idx}`}>• {item}</div>)}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Detects Gmail OAuth scope/permission issues from sync responses and
+ * surfaces a friendly reconnect banner — no raw Google error text shown
+ * to the operator. Triggered by:
+ *   - "Metadata scope does not support 'q' parameter"
+ *   - 403 + "insufficient" / "Insufficient Permission"
+ *   - invalid_grant / unauthorized_client
+ *   - "gmail.readonly" mentions in error strings
+ */
+function GmailScopeBanner({ lastMessage, debugErrors, onRetry }: { lastMessage: string; debugErrors: string[]; onRetry: () => void }) {
+  const haystack = [lastMessage, ...(debugErrors ?? [])].join(" \n ").toLowerCase();
+  const needsReconnect =
+    haystack.includes("metadata scope does not support") ||
+    haystack.includes("insufficient permission") ||
+    haystack.includes("insufficient_scope") ||
+    haystack.includes("invalid_grant") ||
+    haystack.includes("unauthorized_client") ||
+    haystack.includes("gmail.readonly") ||
+    (haystack.includes("403") && haystack.includes("gmail"));
+
+  if (!needsReconnect) return null;
+
+  return (
+    <div className="luxe-card rounded-xl p-4 border border-amber-500/40 bg-amber-500/10 space-y-3">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
+        <div className="space-y-1.5">
+          <h4 className="font-medium text-sm">Gmail connection needs to be re-authorised</h4>
+          <p className="text-[12px] text-muted-foreground">
+            Your Gmail connection needs additional permissions to search confirmation emails. This is a one-time
+            re-authorisation — your existing settings, parsers, and history are preserved.
+          </p>
+          <ol className="text-[11px] text-muted-foreground list-decimal list-inside space-y-0.5 pt-1">
+            <li>Open the Google account chip in the top-right of this app.</li>
+            <li>Choose <b>Reconnect Gmail</b> and approve the highlighted permission.</li>
+            <li>Return here and click <b>Retry Sync</b>.</li>
+          </ol>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2 pl-8">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/15 text-foreground px-3 py-1.5 text-xs font-medium hover:bg-amber-500/25"
+        >
+          <RefreshCw className="h-3 w-3" /> Retry Sync
+        </button>
       </div>
     </div>
   );
