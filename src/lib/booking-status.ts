@@ -102,5 +102,17 @@ export async function transitionBookingStatus(
   // Touch updated_at for downstream listeners
   void supabase.from("bookings" as any).update({ updated_at: new Date().toISOString() } as any).eq("id", booking_id);
 
+  // Notify operators on terminal/lifecycle events.
+  if (kind === "cancel" || kind === "no_show") {
+    void import("@/lib/notification-engine").then(({ emitBookingCancelled }) =>
+      emitBookingCancelled({
+        id: booking_id,
+        booking_reference: (current as any).booking_reference ?? null,
+        guest_name: (current as any).guest_name ?? null,
+        reason: input.reason ?? (kind === "no_show" ? "No-Show" : null),
+      }),
+    );
+  }
+
   return { booking_id, from_status: from, to_status: to };
 }

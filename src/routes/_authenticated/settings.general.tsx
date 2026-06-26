@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Loader2, CheckCircle2, XCircle, AlertTriangle, Bell, BellRing, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePushNotifications, type PushStatus } from "@/hooks/use-push-notifications";
-import { getPushDispatchConfig, configurePushDispatch, sendTestPush } from "@/lib/push-admin.functions";
+import { getPushDispatchConfig, configurePushDispatch, sendTestPush, setNotificationEmailRecipients } from "@/lib/push-admin.functions";
 import { useUserRole } from "@/hooks/use-role";
 
 export const Route = createFileRoute("/_authenticated/settings/general")({ component: GeneralPage });
@@ -42,6 +42,7 @@ function GeneralPage() {
       </Card>
       <PushNotificationCard />
       <PushDispatchAdminCard />
+      <NotificationRecipientsCard />
     </div>
   );
 }
@@ -228,6 +229,73 @@ function PushDispatchAdminCard() {
           {testM.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
           <Send className="h-3 w-3" />
           Send test notification
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Notification Recipients — owner-editable inbox list used by the Email
+ * channel of the Notification Engine. No code change needed to add/remove.
+ */
+function NotificationRecipientsCard() {
+  const { canManage: isAdmin } = useUserRole();
+  const cfg = useServerFn(getPushDispatchConfig);
+  const save = useServerFn(setNotificationEmailRecipients);
+  const qc = useQueryClient();
+  const { data: status } = useQuery({
+    queryKey: ["push-dispatch-config"],
+    queryFn: () => cfg(),
+    enabled: isAdmin,
+  });
+  const [draft, setDraft] = useState<string>("");
+  useEffect(() => {
+    if (status?.notification_email_recipients?.length != null) {
+      setDraft((status.notification_email_recipients ?? []).join(", "));
+    }
+  }, [status?.notification_email_recipients]);
+  const saveM = useMutation({
+    mutationFn: () => save({ data: { recipients: draft.split(/[,\s]+/).filter(Boolean) } }),
+    onSuccess: () => {
+      toast.success("Notification recipients updated");
+      qc.invalidateQueries({ queryKey: ["push-dispatch-config"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save recipients"),
+  });
+  if (!isAdmin) return null;
+  return (
+    <Card title="Notification Email Recipients">
+      <p className="text-sm text-muted-foreground">
+        Operator inboxes that receive emails for every notification (new bookings, cancellations, payments, complaints, reviews, abandoned leads). Comma-separated.
+      </p>
+      <div className="space-y-2">
+        <Field label="Recipients">
+          <textarea
+            className={cn(inputCls, "min-h-[60px] font-mono text-xs")}
+            value={draft}
+            placeholder="ops@hotel.com, manager@hotel.com"
+            onChange={(e) => setDraft(e.target.value)}
+          />
+        </Field>
+        <div className="text-[11px] text-muted-foreground">
+          Email channel status:{" "}
+          {status?.env_resend_present
+            ? <span className="text-emerald-400">Resend connected</span>
+            : <span className="text-rose-400">Resend not connected</span>}
+          {" · "}
+          {status?.notification_email_dispatch_secret_present
+            ? <span className="text-emerald-400">Dispatcher configured</span>
+            : <span className="text-rose-400">Run "Auto-configure dispatcher" above</span>}
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <button
+          onClick={() => saveM.mutate()}
+          disabled={saveM.isPending}
+          className="inline-flex items-center gap-1.5 gold-gradient text-charcoal rounded-md px-5 py-2 text-xs font-medium disabled:opacity-60"
+        >
+          {saveM.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save recipients
         </button>
       </div>
     </Card>

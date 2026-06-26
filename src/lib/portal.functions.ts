@@ -875,5 +875,28 @@ export const submitPortalReview = createServerFn({ method: "POST" })
       is_public: false,
     } as any);
     if (error) throw error;
+    // Notification Engine fan-out — direct insert via admin since this
+    // runs server-side in a public route (no authenticated user context).
+    try {
+      const stars = "★".repeat(Math.max(1, Math.min(5, data.rating)));
+      await supabaseAdmin.from("notifications" as any).insert({
+        type: "review_received",
+        title: `New Guest Review · ${stars}`,
+        body: [
+          `Guest: ${booking.guest_name ?? "—"}`,
+          `Rating: ${data.rating}/5`,
+          data.comment ? `Comment: ${String(data.comment).slice(0, 240)}` : null,
+          route === "external" ? "Guest invited to Google review." : null,
+        ].filter(Boolean).join("\n"),
+        entity_type: "review",
+        entity_id: null,
+        entity_reference: String(data.rating),
+        priority: data.rating <= 2 ? "high" : "normal",
+        audience_role: "operations",
+        user_id: null,
+        status: "unread",
+        metadata: { booking_id: booking.id, rating: data.rating },
+      });
+    } catch (e) { console.warn("[portal] review notification emit failed", e); }
     return { ok: true, route, externalReviewUrl: route === "external" ? externalUrl : null };
   });

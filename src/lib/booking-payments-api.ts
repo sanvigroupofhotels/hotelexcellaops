@@ -92,6 +92,17 @@ export async function createBookingPayment(input: BookingPaymentInput) {
     metadata: { booking_id: created.booking_id },
     source: "manual",
   });
+  void import("@/lib/notification-engine").then(({ emitPaymentReceived }) =>
+    emitPaymentReceived({
+      payment_id: created.id,
+      booking_id: created.booking_id,
+      booking_reference: null,
+      amount: created.amount,
+      payment_mode: String(created.payment_mode),
+      collected_by: created.collected_by,
+      is_refund: !!created.is_refund,
+    }),
+  );
   return created;
 }
 
