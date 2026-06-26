@@ -562,7 +562,10 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
         const gatewayKey = process.env.LOVABLE_API_KEY;
         const connectionKey = process.env.GOOGLE_MAIL_API_KEY;
         if (!gatewayKey || !connectionKey) {
-          return Response.json({ ok: false, error: "Gmail connector not configured" }, { status: 500 });
+          return Response.json({
+            ok: false,
+            error: "Gmail is not connected yet. Email-parser integrations (FabHotels, Hotelzify, OYO, etc.) read confirmation emails from your reception Gmail inbox. Please connect Gmail under Settings → Connections, then run this sync again.",
+          }, { status: 400 });
         }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
