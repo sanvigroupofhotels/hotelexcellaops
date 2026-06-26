@@ -66,12 +66,19 @@ export async function deleteNotification(id: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Route a notification to its source entity. */
+/** Route a notification to its source entity.
+ *  Lead Abandoned: if the lead has an auto-created draft booking, jump
+ *  straight to that booking edit page; otherwise fall back to follow-ups.
+ */
 export function notificationHref(n: NotificationRow): string | null {
   if (!n.entity_type || !n.entity_id) return null;
   switch (n.entity_type) {
     case "booking": return `/bookings/${n.entity_id}`;
-    case "lead":    return `/follow-ups`;
+    case "lead": {
+      const draftId = (n.metadata as any)?.draft_booking_id || (n.metadata as any)?.booking_id;
+      if (typeof draftId === "string" && draftId.length > 0) return `/bookings/${draftId}/edit`;
+      return `/follow-ups`;
+    }
     case "customer":return `/customers/${n.entity_id}`;
     case "complaint": return `/complaints/${n.entity_id}`;
     case "payment": return `/reporting/payments`;
