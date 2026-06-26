@@ -77,12 +77,13 @@ export const EXTRA_ADULT_RATE = 500; // per night, incl. mattress & breakfast
 export const DRIVER_RATE = 500; // per night, incl. mattress & breakfast
 export const EXTRA_BREAKFAST_RATE = 150; // per head per night (only when breakfast NOT included)
 
-export const PET_RATES = { none: 0, small: 500, medium: 750, large: 1000 } as const;
+// Pet pricing — simplified to two tiers (per night). `small` retained as an
+// alias of Regular so legacy bookings continue to render the correct charge.
+export const PET_RATES = { none: 0, small: 750, medium: 750, large: 1000 } as const;
 export type PetSize = keyof typeof PET_RATES;
 export const PET_OPTIONS: { value: PetSize; label: string; fee: number }[] = [
   { value: "none", label: "No Pet", fee: 0 },
-  { value: "small", label: "Small Pet", fee: 500 },
-  { value: "medium", label: "Medium Pet", fee: 750 },
+  { value: "medium", label: "Regular Pet", fee: 750 },
   { value: "large", label: "Large Pet", fee: 1000 },
 ];
 
