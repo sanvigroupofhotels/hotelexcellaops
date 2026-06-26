@@ -155,23 +155,6 @@ function PortalLanding() {
           )}
         </Card>
 
-        <Card className="mt-4 p-5">
-          <p className="font-display text-lg flex items-center gap-2">
-            <KeyRound className="h-5 w-5 text-gold" /> Open with a link
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Paste the link from your WhatsApp or email confirmation, or just the token.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <Input
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="https://guest.hotelexcella.in/…"
-              onKeyDown={(e) => { if (e.key === "Enter") open(); }}
-            />
-            <Button onClick={open} variant="outline">Open</Button>
-          </div>
-        </Card>
 
         <Card className="mt-4 p-5 space-y-3 text-sm">
           <div>
