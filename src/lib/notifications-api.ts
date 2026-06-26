@@ -77,6 +77,8 @@ export function notificationHref(n: NotificationRow): string | null {
     case "lead": {
       const draftId = (n.metadata as any)?.draft_booking_id || (n.metadata as any)?.booking_id;
       if (typeof draftId === "string" && draftId.length > 0) return `/bookings/${draftId}/edit`;
+      const customerId = (n.metadata as any)?.customer_id;
+      if (typeof customerId === "string" && customerId.length > 0) return `/customers/${customerId}`;
       return `/follow-ups`;
     }
     case "customer":return `/customers/${n.entity_id}`;
