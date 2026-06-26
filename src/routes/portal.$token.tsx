@@ -287,13 +287,11 @@ function GuestPortal() {
           />
         )}
 
-        <p className="text-[10px] text-center text-muted-foreground pt-4">
-          Secured by Razorpay · Your payment details never touch our servers.
-        </p>
       </div>
     </div>
   );
 }
+
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
