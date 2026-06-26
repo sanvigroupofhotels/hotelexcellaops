@@ -66,11 +66,13 @@ function lineExtraItems(item: LineItem): { label: string; value: number }[] {
   const rate = Number(item.rate) || 0;
   if (item.early_check_in && item.early_check_in_slot) {
     const s = EARLY_CHECK_IN_SLOTS.find((x) => x.value === item.early_check_in_slot);
-    out.push({ label: `Early Check-In (${s?.label ?? item.early_check_in_slot})`, value: s?.fee ?? rate * rooms });
+    const value = s?.fee != null ? s.fee * rooms : rate * rooms;
+    out.push({ label: `Early Check-In (${s?.label ?? item.early_check_in_slot}) × ${rooms} room${rooms > 1 ? "s" : ""}`, value });
   }
   if (item.late_check_out && item.late_check_out_slot) {
     const s = LATE_CHECK_OUT_SLOTS.find((x) => x.value === item.late_check_out_slot);
-    out.push({ label: `Late Check-Out (${s?.label ?? item.late_check_out_slot})`, value: s?.fee ?? rate * rooms });
+    const value = s?.fee != null ? s.fee * rooms : rate * rooms;
+    out.push({ label: `Late Check-Out (${s?.label ?? item.late_check_out_slot}) × ${rooms} room${rooms > 1 ? "s" : ""}`, value });
   }
   const pet = PET_RATES[item.pet_size] ?? 0;
   if (pet > 0) out.push({ label: `Pet Stay (${item.pet_size}) · ${n}N`, value: pet * n });
