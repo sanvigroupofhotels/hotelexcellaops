@@ -57,9 +57,9 @@ export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
         .lte("occurred_at", range_end + "T23:59:59"),
       supabase
         .from("booking_charges" as any)
-        .select("amount,charged_at")
-        .gte("charged_at", range_start + "T00:00:00")
-        .lte("charged_at", range_end + "T23:59:59"),
+        .select("amount,occurred_at")
+        .gte("occurred_at", range_start + "T00:00:00")
+        .lte("occurred_at", range_end + "T23:59:59"),
       // current cash balance — active only
       supabase.from("cash_transactions" as any).select("kind,amount").eq("active", true),
     ]);

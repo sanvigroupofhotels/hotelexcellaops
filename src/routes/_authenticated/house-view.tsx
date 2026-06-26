@@ -45,8 +45,8 @@ export const Route = createFileRoute("/_authenticated/house-view")({
 
 const DAY_COUNT = 7;
 const CELL_W = 170;
-const CELL_W_MOB = 150;
-const ROOM_COL_W = 72;
+const CELL_W_MOB = 128;
+const ROOM_COL_W = 56;
 const LONG_PRESS_DELAY_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE = 24; // px — tolerate real mobile finger jitter before treating it as scroll
 
