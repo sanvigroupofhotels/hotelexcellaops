@@ -189,7 +189,7 @@ function HouseView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("booking_items" as any)
-        .select("booking_id,position,breakfast_included,room_type,rooms,check_in,check_out");
+        .select("booking_id,position,breakfast_included,room_type,rooms,check_in,check_out,pet_size");
       if (error) throw error;
       return (data ?? []) as any[];
     },
