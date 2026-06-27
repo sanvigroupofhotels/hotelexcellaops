@@ -848,6 +848,8 @@ function HouseView() {
                                 // and visible end = real check-out (slotEndExclusive).
                                 const continuesLeft = b.check_in < rangeStart;
                                 const continuesRight = endIdx < 0; // endExclusive past range end
+                                // Pass primitives (not the eligibility object) so React.memo
+                                // on BookingChip stays effective across parent renders.
                                 return (
                                   <BookingChip
                                     key={`${b.id}-${b._slotKey ?? b.check_in}`}
@@ -858,15 +860,17 @@ function HouseView() {
                                     hasBreakfast={hasBreakfast}
                                     hasPet={hasPet}
                                     balanceDue={balanceDue}
-                                    moveEligibility={moveEligibility}
+                                    moveEligible={moveEligibility.eligible}
+                                    moveReason={moveEligibility.reason}
                                     isMobile={isMobile}
                                     highlight={highlightId === b.id}
                                     continuesLeft={continuesLeft}
                                     continuesRight={continuesRight}
+                                    origCheckIn={b.check_in}
+                                    origCheckOut={b.check_out}
                                     onSelect={handleChipSelect}
                                     onLongPress={handleChipLongPress}
                                     onDragStartAvail={handleChipDragStartAvail}
-                                    bookingsAll={bookings as any[]}
                                     onDragEnd={handleChipDragEnd}
                                   />
                                 );
