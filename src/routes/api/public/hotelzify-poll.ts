@@ -199,8 +199,18 @@ function parseGeneric(
     else if (subjectLc.includes("confirm") || subjectLc.includes("reservation")) bookingStatus = "Confirmed";
     else bookingStatus = "Pending Confirmation";
   }
-  const totalAmount = pickByLabels(text, lbl("total_amount"));
-  const amountPaid = pickByLabels(text, lbl("amount_paid"));
+  // Money fields — pick the LAST occurrence to skip table-column-header false matches
+  // (e.g. "Total Price" appearing in a `<th>` before the actual labelled value).
+  const lastMoney = (key: string): string | null => {
+    const all = pickAllByLabels(text, lbl(key)).filter((v) => /\d/.test(v));
+    return all.length ? all[all.length - 1] : null;
+  };
+  const totalAmount = lastMoney("total_amount");
+  const amountPaid = lastMoney("amount_paid");
+  const balanceDue = lastMoney("balance_due");
+  const roomCharges = lastMoney("room_charges");
+  const discount = lastMoney("discount");
+  const tax = lastMoney("tax");
   const specialReq = pickByLabels(text, lbl("special_requests"));
   const roomDetails = pickByLabels(text, lbl("room_details")) ?? "";
 
@@ -216,7 +226,14 @@ function parseGeneric(
   // Safeguard — never store the hotel's reception number as a guest phone.
   // Canonicalize to +91XXXXXXXXXX so OTA imports honour the same invariant as the rest of the PMS.
   const RECEPTION_NUMBERS = new Set(["9985908131", "09985908131", "+919985908131", "919985908131"]);
-  const cleanedPhone = mobile ? mobile.replace(/[\s\-()]/g, "") : null;
+  // Phone fallback: if label-based pick fails or yields no digits, scan the text for the first
+  // Indian mobile pattern (+91 followed by 10 digits, allowing one optional space).
+  let phoneCandidate: string | null = mobile;
+  if (!phoneCandidate || !/\d/.test(phoneCandidate)) {
+    const m = text.match(/\+\s*91[\s-]?\d{5}[\s-]?\d{5}|\+\s*91[\s-]?\d{10}|\b[6-9]\d{9}\b/);
+    phoneCandidate = m ? m[0] : null;
+  }
+  const cleanedPhone = phoneCandidate ? phoneCandidate.replace(/[\s\-()]/g, "") : null;
   const isReception = cleanedPhone ? RECEPTION_NUMBERS.has(cleanedPhone) : false;
   let guestPhone: string | null = null;
   if (cleanedPhone && !isReception) {
@@ -234,8 +251,12 @@ function parseGeneric(
       check_out: checkOut,
       guests: guestCount ? parseInt(guestCount, 10) || 1 : 1,
       room_details: roomDetails.trim(),
+      room_charges: parseMoney(roomCharges),
+      discount: parseMoney(discount),
+      tax: parseMoney(tax),
       total_amount: parseMoney(totalAmount),
       amount_paid: parseMoney(amountPaid),
+      balance_due: parseMoney(balanceDue),
       payment_mode: paymentMode?.trim() ?? null,
       booking_status: (bookingStatus ?? "Pending Confirmation").trim(),
       special_requests: specialReq && !/^none$/i.test(specialReq) ? specialReq.trim() : null,
