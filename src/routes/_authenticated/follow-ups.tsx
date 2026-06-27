@@ -20,6 +20,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/follow-ups")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    view: (s.view === "notifications" ? "notifications" : "followups") as "followups" | "notifications",
+  }),
   component: FollowUps,
 });
 
