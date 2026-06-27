@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,10 +11,18 @@ import {
   logWhatsApp,
   addFollowup,
 } from "@/lib/quotes-api";
+import {
+  listAllNotifications,
+  markNotificationsRead,
+  dismissNotifications,
+  notificationHref,
+  type NotificationRow,
+} from "@/lib/notifications-api";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import {
   MessageCircle, Check, Trash2, Loader2, Clock, Phone, Mail,
   User as UserIcon, CalendarPlus, Plus, AlertOctagon, ExternalLink,
+  Bell, Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
