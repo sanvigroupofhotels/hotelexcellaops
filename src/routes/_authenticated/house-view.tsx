@@ -712,7 +712,7 @@ function HouseView() {
         {isLoading ? (
           <div className="p-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>
         ) : (
-          <div className="luxe-card rounded-xl p-0 overflow-auto relative max-h-[calc(100vh-220px)]">
+          <div className="luxe-card rounded-xl p-0 overflow-auto relative max-h-[calc(100vh-180px)] md:max-h-[calc(100vh-220px)]" data-house-grid>
             <table className="border-separate border-spacing-0 min-w-fit">
               <thead>
                 <tr>
