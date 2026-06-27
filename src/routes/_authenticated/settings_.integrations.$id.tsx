@@ -89,6 +89,7 @@ function Content({ id }: { id: string }) {
   const [subjectFilters, setSubjectFilters] = useState("");
   const [leadSource, setLeadSource] = useState("");
   const [allowUpdates, setAllowUpdates] = useState(false);
+  const [taxRate, setTaxRate] = useState<number>(5);
   const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
