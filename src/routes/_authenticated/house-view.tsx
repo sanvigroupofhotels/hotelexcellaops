@@ -813,9 +813,14 @@ function HouseView() {
                                 if (span <= 0) return null;
                                 const cellW = isMobile ? CELL_W_MOB : CELL_W;
                                 const hasBreakfast = !!breakfastByBooking.get(b.id);
+                                const hasPet = !!petByBooking.get(b.id);
                                 const extraCharges = chargesByBooking.get(b.id) ?? 0;
                                 const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) + extraCharges - Number(b.advance_paid || 0));
                                 const moveEligibility = getMoveEligibility(b, r.id);
+                                // True caps: rounded only if visible start = real check-in
+                                // and visible end = real check-out (slotEndExclusive).
+                                const continuesLeft = b.check_in < rangeStart;
+                                const continuesRight = endIdx < 0; // endExclusive past range end
                                 return (
                                   <BookingChip
                                     key={`${b.id}-${b._slotKey ?? b.check_in}`}
@@ -824,10 +829,13 @@ function HouseView() {
                                     span={span}
                                     cellW={cellW}
                                     hasBreakfast={hasBreakfast}
+                                    hasPet={hasPet}
                                     balanceDue={balanceDue}
                                     moveEligibility={moveEligibility}
                                     isMobile={isMobile}
                                     highlight={highlightId === b.id}
+                                    continuesLeft={continuesLeft}
+                                    continuesRight={continuesRight}
                                     onSelect={handleChipSelect}
                                     onLongPress={handleChipLongPress}
                                     onDragStartAvail={handleChipDragStartAvail}
