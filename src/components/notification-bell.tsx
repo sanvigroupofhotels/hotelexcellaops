@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, Check, CheckCheck, Trash2 } from "lucide-react";
+import { Bell, Trash2, ArrowRight } from "lucide-react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/popover";
 import {
   listNotifications, unreadNotificationCount,
-  markNotificationRead, markAllNotificationsRead, deleteNotification,
+  markNotificationRead, dismissAllVisibleNotifications, deleteNotification,
   notificationHref, type NotificationRow,
 } from "@/lib/notifications-api";
 import { supabase } from "@/integrations/supabase/client";
