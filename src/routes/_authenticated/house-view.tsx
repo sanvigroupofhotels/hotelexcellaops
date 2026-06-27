@@ -1447,7 +1447,7 @@ interface BookingChipProps {
   bookingsAll: any[];
   onDragEnd: () => void;
 }
-function BookingChip(props: BookingChipProps) {
+const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
     b, roomId, span, cellW, hasBreakfast, balanceDue, moveEligibility,
     isMobile, highlight, onSelect, onLongPress, onDragStartAvail, bookingsAll, onDragEnd,
@@ -1505,6 +1505,6 @@ function BookingChip(props: BookingChipProps) {
       <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
     </button>
   );
-}
+});
 
 
