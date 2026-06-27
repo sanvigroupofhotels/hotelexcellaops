@@ -677,9 +677,22 @@ async function processIntegration(
         const parsed = parseRes.booking;
         result.parsed++;
 
-        let customerId: string | null = null;
+        const { data: existing } = await supabaseAdmin
+          .from("bookings")
+          .select("id, phone, email, customer_id")
+          .eq("integration_id", intg.id)
+          .eq("external_ref", parsed.external_ref)
+          .maybeSingle();
+
+        let customerId: string | null = existing?.customer_id ?? null;
         let customerRow: { id: string; phone: string | null; email: string | null } | null = null;
-        if (parsed.phone) {
+        if (customerId) {
+          const { data: cust } = await supabaseAdmin
+            .from("customers").select("id, phone, email").eq("id", customerId).maybeSingle();
+          if (cust) customerRow = cust;
+          else customerId = null;
+        }
+        if (!customerId && parsed.phone) {
           const { data: cust } = await supabaseAdmin
             .from("customers").select("id, phone, email").eq("phone", parsed.phone).limit(1).maybeSingle();
           if (cust) {
@@ -703,7 +716,7 @@ async function processIntegration(
 
         let customerPayload: Record<string, unknown> | null = null;
         let customerContactPatch: Record<string, string> = {};
-        if (!customerId && !dryRun) {
+        if (!customerId) {
           customerPayload = {
             user_id: systemUserId,
             guest_name: parsed.guest_name,
@@ -711,13 +724,15 @@ async function processIntegration(
             email: parsed.email,
             lead_source: leadSource,
           };
-          const { data: newCust, error: custErr } = await supabaseAdmin
-            .from("customers")
-            .insert(customerPayload as any)
-            .select("id, phone, email").single();
-          if (custErr) throw custErr;
-          customerId = newCust!.id;
-          customerRow = newCust;
+          if (!dryRun) {
+            const { data: newCust, error: custErr } = await supabaseAdmin
+              .from("customers")
+              .insert(customerPayload as any)
+              .select("id, phone, email").single();
+            if (custErr) throw custErr;
+            customerId = newCust!.id;
+            customerRow = newCust;
+          }
         } else if (customerId && !dryRun) {
           customerContactPatch = contactPatchFromParsed(customerRow, parsed, blockedEmails);
           if (Object.keys(customerContactPatch).length > 0) {
@@ -731,13 +746,6 @@ async function processIntegration(
             customerRow = patchedCustomer;
           }
         }
-
-        const { data: existing } = await supabaseAdmin
-          .from("bookings")
-          .select("id, phone, email, customer_id")
-          .eq("integration_id", intg.id)
-          .eq("external_ref", parsed.external_ref)
-          .maybeSingle();
 
         // Total payable = whatever the OTA already calls "Total" (post-discount, incl. tax).
         // Subtotal = room charges if reported, else total - tax + discount (best effort), else total.
