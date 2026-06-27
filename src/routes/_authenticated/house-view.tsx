@@ -162,6 +162,28 @@ function HouseView() {
   const [auditOpen, setAuditOpen] = useState(false);
   // Mobile move-booking dialog (long-press fallback for drag-and-drop)
   const isMobile = useIsMobile();
+
+  // FAB auto-hide while scrolling the grid (mobile UX polish)
+  const [fabHidden, setFabHidden] = useState(false);
+  useEffect(() => {
+    if (!isMobile) return;
+    const grid = document.querySelector("[data-house-grid]");
+    if (!grid) return;
+    let t: any = null;
+    const onScroll = () => {
+      setFabHidden(true);
+      if (t) clearTimeout(t);
+      t = setTimeout(() => setFabHidden(false), 700);
+    };
+    grid.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      grid.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll);
+      if (t) clearTimeout(t);
+    };
+  }, [isMobile]);
+
   const [moveDialog, setMoveDialog] = useState<{
     bookingId: string; guestName: string; oldRoomId: string | null;
     checkIn: string; checkOut: string; status: string; virtual?: boolean;
