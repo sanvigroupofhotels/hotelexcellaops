@@ -25,8 +25,12 @@ type ParsedBooking = {
   check_out: string;
   guests: number;
   room_details: string;
+  room_charges: number;
+  discount: number;
+  tax: number;
   total_amount: number;
   amount_paid: number;
+  balance_due: number;
   payment_mode: string | null;
   booking_status: string;
   special_requests: string | null;
@@ -72,12 +76,26 @@ function escapeRe(s: string): string {
 function labelRegex(labels: string[]): RegExp | null {
   if (!labels.length) return null;
   const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
-  return new RegExp(`(?:${alt})\\s*[:|\\-]?\\s*([^\\n|]+?)(?=\\n|\\||$)`, "i");
+  // Allow optional parenthetical between label and separator
+  // (e.g. "Total Amount (Incl. of Taxes): INR 3740.00")
+  return new RegExp(`(?:${alt})(?:\\s*\\([^)]*\\))?\\s*[:|\\-]?\\s*([^\\n|]+?)(?=\\n|\\||$)`, "i");
 }
 
 function pickByLabels(text: string, labels: string[]): string | null {
   const re = labelRegex(labels);
   return re ? pick(text, re) : null;
+}
+
+/** Find ALL matches for labelled fields. Useful when the same label appears multiple times
+ * (e.g. "Total" in a column header AND as a labelled value). */
+function pickAllByLabels(text: string, labels: string[]): string[] {
+  if (!labels.length) return [];
+  const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
+  const re = new RegExp(`(?:${alt})(?:\\s*\\([^)]*\\))?\\s*[:|\\-]?\\s*([^\\n|]+?)(?=\\n|\\||$)`, "gi");
+  const out: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) out.push(m[1].trim());
+  return out;
 }
 
 const MONTH_MAP: Record<string, number> = {
@@ -116,17 +134,21 @@ function parseMoney(input: string | null): number {
 // ---------- Provider parsers ----------
 
 const HOTELZIFY_DEFAULTS: Record<string, string[]> = {
-  booking_id: ["Booking ID", "Booking Id", "Booking Reference", "Booking Ref", "Booking No", "Booking Number"],
+  booking_id: ["Booking ID", "Booking Id", "Booking Reference", "Booking Ref", "Booking No", "Booking Number", "Confirmation Number"],
   guest_name: ["Guest Name", "Name"],
-  mobile: ["Mobile", "Phone", "Contact", "Mobile No", "Phone No"],
+  mobile: ["Mobile", "Phone", "Contact", "Mobile No", "Phone No", "Mobile Number"],
   email: ["Email"],
-  check_in: ["Check In", "Check-In", "Check in", "Arrival", "Arrival Date"],
-  check_out: ["Check Out", "Check-Out", "Check out", "Departure", "Departure Date"],
-  guests: ["Guests", "Adults", "Guest Count"],
+  check_in: ["Check In", "Check-In", "Check in", "Arrival", "Arrival Date", "Checkin"],
+  check_out: ["Check Out", "Check-Out", "Check out", "Departure", "Departure Date", "Checkout"],
+  guests: ["Guest Count", "Guests", "Adults", "No of Guests", "Number of Guests"],
   room_details: ["Room Name", "Room Type", "Room Details", "Room"],
-  total_amount: ["Total Amount", "Total Price", "Total"],
-  amount_paid: ["Amount Paid", "Paid"],
-  balance_due: ["Balance Due", "Balance"],
+  room_charges: ["Room Charges", "Room Total", "Room Tariff", "Room Price", "Room Amount"],
+  discount: ["Discount"],
+  tax: ["Tax", "Taxes", "GST"],
+  total_amount: ["Discounted Total", "Total Amount", "Grand Total", "Total Price", "Total"],
+  amount_paid: ["Amount Paid", "Paid", "Advance Paid", "Advance"],
+  balance_due: ["Amount To Pay", "Balance Due", "Balance", "Amount Due", "Due Amount"],
+  payment_mode: ["Payment Mode", "Mode of Payment", "Payment Method"],
   booking_status: ["Booking Status", "Status"],
   special_requests: ["Special Requests", "Special Request", "Guest Requests", "Notes"],
 };
@@ -177,8 +199,18 @@ function parseGeneric(
     else if (subjectLc.includes("confirm") || subjectLc.includes("reservation")) bookingStatus = "Confirmed";
     else bookingStatus = "Pending Confirmation";
   }
-  const totalAmount = pickByLabels(text, lbl("total_amount"));
-  const amountPaid = pickByLabels(text, lbl("amount_paid"));
+  // Money fields — pick the LAST occurrence to skip table-column-header false matches
+  // (e.g. "Total Price" appearing in a `<th>` before the actual labelled value).
+  const lastMoney = (key: string): string | null => {
+    const all = pickAllByLabels(text, lbl(key)).filter((v) => /\d/.test(v));
+    return all.length ? all[all.length - 1] : null;
+  };
+  const totalAmount = lastMoney("total_amount");
+  const amountPaid = lastMoney("amount_paid");
+  const balanceDue = lastMoney("balance_due");
+  const roomCharges = lastMoney("room_charges");
+  const discount = lastMoney("discount");
+  const tax = lastMoney("tax");
   const specialReq = pickByLabels(text, lbl("special_requests"));
   const roomDetails = pickByLabels(text, lbl("room_details")) ?? "";
 
@@ -194,7 +226,14 @@ function parseGeneric(
   // Safeguard — never store the hotel's reception number as a guest phone.
   // Canonicalize to +91XXXXXXXXXX so OTA imports honour the same invariant as the rest of the PMS.
   const RECEPTION_NUMBERS = new Set(["9985908131", "09985908131", "+919985908131", "919985908131"]);
-  const cleanedPhone = mobile ? mobile.replace(/[\s\-()]/g, "") : null;
+  // Phone fallback: if label-based pick fails or yields no digits, scan the text for the first
+  // Indian mobile pattern (+91 followed by 10 digits, allowing one optional space).
+  let phoneCandidate: string | null = mobile;
+  if (!phoneCandidate || !/\d/.test(phoneCandidate)) {
+    const m = text.match(/\+\s*91[\s-]?\d{5}[\s-]?\d{5}|\+\s*91[\s-]?\d{10}|\b[6-9]\d{9}\b/);
+    phoneCandidate = m ? m[0] : null;
+  }
+  const cleanedPhone = phoneCandidate ? phoneCandidate.replace(/[\s\-()]/g, "") : null;
   const isReception = cleanedPhone ? RECEPTION_NUMBERS.has(cleanedPhone) : false;
   let guestPhone: string | null = null;
   if (cleanedPhone && !isReception) {
@@ -212,8 +251,12 @@ function parseGeneric(
       check_out: checkOut,
       guests: guestCount ? parseInt(guestCount, 10) || 1 : 1,
       room_details: roomDetails.trim(),
+      room_charges: parseMoney(roomCharges),
+      discount: parseMoney(discount),
+      tax: parseMoney(tax),
       total_amount: parseMoney(totalAmount),
       amount_paid: parseMoney(amountPaid),
+      balance_due: parseMoney(balanceDue),
       payment_mode: paymentMode?.trim() ?? null,
       booking_status: (bookingStatus ?? "Pending Confirmation").trim(),
       special_requests: specialReq && !/^none$/i.test(specialReq) ? specialReq.trim() : null,
@@ -543,6 +586,13 @@ async function processIntegration(
           .eq("external_ref", parsed.external_ref)
           .maybeSingle();
 
+        // Total payable = whatever the OTA already calls "Total" (post-discount, incl. tax).
+        // Subtotal = room charges if reported, else total - tax + discount (best effort), else total.
+        const totalPayable = parsed.total_amount || 0;
+        const subtotalGuess =
+          parsed.room_charges > 0
+            ? parsed.room_charges
+            : Math.max(0, totalPayable - parsed.tax + parsed.discount) || totalPayable;
         const bookingPayload = {
           user_id: systemUserId,
           customer_id: customerId,
@@ -554,15 +604,16 @@ async function processIntegration(
           adults: parsed.guests,
           guests: parsed.guests,
           room_details: parsed.room_details,
-          amount: parsed.total_amount,
-          subtotal: parsed.total_amount,
-          advance_paid: parsed.amount_paid,
+          amount: totalPayable,
+          subtotal: subtotalGuess,
+          discount: parsed.discount || 0,
+          advance_paid: parsed.amount_paid || 0,
           status: mapStatus(parsed.booking_status),
           lead_source: leadSource,
           integration_id: intg.id,
           external_ref: parsed.external_ref,
           special_requests: parsed.special_requests,
-          notes: `Imported from ${leadSource} · Booking #${parsed.external_ref}`,
+          notes: `Imported from ${leadSource} · Booking #${parsed.external_ref}${parsed.payment_mode ? ` · ${parsed.payment_mode}` : ""}`,
         };
 
         if (existing) {
@@ -575,7 +626,8 @@ async function processIntegration(
               // phone, room assignment, or staff notes — those are owned by the PMS once created.
               await supabaseAdmin.from("bookings").update({
                 amount: bookingPayload.amount,
-                subtotal: bookingPayload.amount,
+                subtotal: bookingPayload.subtotal,
+                discount: bookingPayload.discount,
                 advance_paid: bookingPayload.advance_paid,
                 status: bookingPayload.status,
                 special_requests: bookingPayload.special_requests,
