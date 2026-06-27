@@ -340,6 +340,58 @@ function HouseView() {
     return m;
   }, [visibleBlocks]);
 
+  // Pre-bucket bookings/blocks by (roomId, startDayKey) and per-room covered
+  // day-keys. This converts the inner per-cell .filter()/.some() loops into
+  // O(1) Map lookups, which is the main reason House View scrolling lagged
+  // on mobile once the booking count grew.
+  const startingByRoomDay = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const [rid, arr] of byRoom) {
+      for (const b of arr) {
+        const startKey = b.check_in < rangeStart ? rangeStart : b.check_in;
+        const key = rid + "|" + startKey;
+        const list = m.get(key) ?? [];
+        list.push(b);
+        m.set(key, list);
+      }
+    }
+    return m;
+  }, [byRoom, rangeStart]);
+
+  const blockStartingByRoomDay = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const [rid, arr] of blocksByRoom) {
+      for (const x of arr) {
+        const startKey = x.start_date < rangeStart ? rangeStart : x.start_date;
+        const key = rid + "|" + startKey;
+        const list = m.get(key) ?? [];
+        list.push(x);
+        m.set(key, list);
+      }
+    }
+    return m;
+  }, [blocksByRoom, rangeStart]);
+
+  const coveredDaysByRoom = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    const addRange = (rid: string, fromKey: string, toExclKey: string) => {
+      const set = m.get(rid) ?? new Set<string>();
+      const start = dayKeys.indexOf(fromKey < rangeStart ? rangeStart : fromKey);
+      const endIdx = dayKeys.indexOf(toExclKey);
+      const end = endIdx < 0 ? DAY_COUNT : endIdx;
+      for (let i = Math.max(0, start); i < end; i++) set.add(dayKeys[i]);
+      m.set(rid, set);
+    };
+    for (const [rid, arr] of byRoom) {
+      for (const b of arr) addRange(rid, b.check_in, slotEndExclusive(b));
+    }
+    for (const [rid, arr] of blocksByRoom) {
+      for (const x of arr) addRange(rid, x.start_date, x.end_date);
+    }
+    return m;
+  }, [byRoom, blocksByRoom, dayKeys, rangeStart]);
+
+
   // -------- Drag & drop: move a booking to a new room and/or new date --------
   // All move/edit call sites (desktop DnD, mobile dialog, popup, booking page,
   // edit page) MUST go through `updateBookingStay` — single source of truth.
