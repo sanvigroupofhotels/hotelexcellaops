@@ -53,9 +53,15 @@ const BUCKET_LABEL: Record<FilterBucket, string> = {
  * mark complete — without navigating elsewhere.
  */
 function FollowUps() {
+  const { view } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const setView = (v: "followups" | "notifications") =>
+    navigate({ search: (s: any) => ({ ...s, view: v }) });
+
   const qc = useQueryClient();
   useRealtimeInvalidate(["followups", "quotes"], ["followups"], "followups");
   const { data: rows = [], isLoading } = useQuery({ queryKey: ["followups"], queryFn: listFollowups });
+
 
   const [bucket, setBucket] = useState<FilterBucket>("due_today");
   const [search, setSearch] = useState("");
