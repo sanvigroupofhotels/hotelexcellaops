@@ -766,16 +766,18 @@ async function processIntegration(
         }
 
         // Pricing breakdown reconciliation.
-        // The Pricing Summary card on the booking detail reads from booking_items + the
-        // `discount`, `tax_rate`, `taxes_included`, and `total_override` columns. To make
-        // Room Charges, Subtotal, Discount, and Taxable Amount display correctly for
-        // imported OTA bookings we:
-        //   1. Insert one synthetic booking_items row with rate = roomChargesBase / nights
-        //      → drives Main Stay Charges + Subtotal
-        //   2. Persist `discount`              → drives Discount row
-        //   3. Persist `tax_rate` derived from parsed tax / taxable base
-        //      → drives Taxable Amount and Tax rows
-        //   4. Persist `amount` = parsed total → Final Booking Amount
+        //
+        // Rules (in priority order — direct extraction beats reverse-calc):
+        //   1. roomChargesBase  ← parsed.room_charges  (else parsed.subtotal+discount,
+        //                          else totalPayable − tax + discount, else totalPayable)
+        //   2. discountAmount   ← parsed.discount
+        //   3. taxableBase      ← parsed.taxable_amount (else parsed.subtotal,
+        //                          else roomChargesBase − discountAmount)
+        //   4. taxAmount        ← parsed.tax (if it equals taxableBase × configuredTaxRate
+        //                          within ±2% tolerance OR is clearly < taxableBase),
+        //                          else round(taxableBase × configuredTaxRate). This guards
+        //                          against the Hotelzify "Tax = total" template bug.
+        //   5. totalPayable     ← parsed.total_amount (authoritative — already verified correct)
         const totalPayable = parsed.total_amount || 0;
         const checkInDate = new Date(parsed.check_in);
         const checkOutDate = new Date(parsed.check_out);
@@ -783,18 +785,26 @@ async function processIntegration(
           1,
           Math.round((checkOutDate.getTime() - checkInDate.getTime()) / 86_400_000),
         );
-        const discountAmount = parsed.discount || 0;
-        // Prefer explicit Room Charges from the email. Fall back to total − tax + discount
-        // (i.e. the pre-tax, gross-of-discount figure), else the total itself.
-        const roomChargesBase =
-          parsed.room_charges > 0
-            ? parsed.room_charges
-            : Math.max(0, totalPayable - (parsed.tax || 0) + discountAmount) || totalPayable;
-        const taxableBase = Math.max(0, roomChargesBase - discountAmount);
-        const derivedTaxRate =
-          parsed.tax > 0 && taxableBase > 0
-            ? Number((parsed.tax / taxableBase).toFixed(4))
-            : 0;
+        const discountAmount = parsed.discount > 0 && parsed.discount < totalPayable ? parsed.discount : 0;
+        const roomChargesBase = (() => {
+          if (parsed.room_charges > 0) return parsed.room_charges;
+          if (parsed.subtotal > 0) return parsed.subtotal + discountAmount;
+          const back = totalPayable - (parsed.tax || 0) + discountAmount;
+          return back > 0 ? back : totalPayable;
+        })();
+        const taxableBase = (() => {
+          if (parsed.taxable_amount > 0) return parsed.taxable_amount;
+          if (parsed.subtotal > 0) return parsed.subtotal;
+          return Math.max(0, roomChargesBase - discountAmount);
+        })();
+        const expectedTax = Math.round(taxableBase * configuredTaxRate);
+        const parsedTaxLooksValid =
+          parsed.tax > 0 &&
+          parsed.tax < taxableBase &&
+          Math.abs(parsed.tax - expectedTax) / Math.max(1, expectedTax) <= 0.05;
+        const taxAmount = parsedTaxLooksValid ? parsed.tax : expectedTax;
+        const effectiveTaxRate =
+          taxableBase > 0 ? Number((taxAmount / taxableBase).toFixed(4)) : configuredTaxRate;
         const perNightRate = Math.max(0, Math.round(roomChargesBase / nights));
 
         const bookingPayload = {
@@ -811,8 +821,8 @@ async function processIntegration(
           amount: totalPayable,
           subtotal: roomChargesBase,
           discount: discountAmount,
-          taxes: parsed.tax || 0,
-          tax_rate: derivedTaxRate,
+          taxes: taxAmount,
+          tax_rate: effectiveTaxRate,
           taxes_included: false,
           total_override: null,
           advance_paid: parsed.amount_paid || 0,
