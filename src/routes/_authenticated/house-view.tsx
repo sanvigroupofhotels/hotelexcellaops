@@ -163,17 +163,22 @@ function HouseView() {
   // Mobile move-booking dialog (long-press fallback for drag-and-drop)
   const isMobile = useIsMobile();
 
-  // FAB auto-hide while scrolling the grid (mobile UX polish)
-  const [fabHidden, setFabHidden] = useState(false);
+  // FAB auto-hide while scrolling the grid (mobile UX polish).
+  // Performance: do NOT use setState here — scroll fires dozens of times per
+  // second and would re-render the entire HouseView (and every chip) per tick.
+  // Toggle a class on the FAB element directly via a ref instead.
+  const fabRef = useRef<HTMLAnchorElement | null>(null);
   useEffect(() => {
     if (!isMobile) return;
     const grid = document.querySelector("[data-house-grid]");
     if (!grid) return;
     let t: any = null;
+    const show = () => { fabRef.current?.classList.remove("fab-hidden"); };
+    const hide = () => { fabRef.current?.classList.add("fab-hidden"); };
     const onScroll = () => {
-      setFabHidden(true);
+      hide();
       if (t) clearTimeout(t);
-      t = setTimeout(() => setFabHidden(false), 700);
+      t = setTimeout(show, 700);
     };
     grid.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
