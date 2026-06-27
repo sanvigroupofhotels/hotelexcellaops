@@ -800,11 +800,16 @@ function HouseView() {
                             style={{
                               minWidth: isMobile ? CELL_W_MOB : CELL_W,
                               width: isMobile ? CELL_W_MOB : CELL_W,
-                              // Optimise layout/style recalc without clipping multi-day chips
-                              // (contain: paint would clip absolutely-positioned chips that
-                              // span across multiple cells).
-                              contain: "layout style",
+                              // NOTE: `contain: layout` establishes a new stacking context per
+                              // cell, which scopes the chip's z-index to its starting cell —
+                              // adjacent cells (later in DOM order) then paint over the chip
+                              // portion that visually spans into them, so only the first day
+                              // received pointer events. Use `contain: style` only: it preserves
+                              // style-scoping perf benefits without creating a stacking context,
+                              // so chips remain a single hit-target across their full width.
+                              contain: "style",
                             } as React.CSSProperties}
+
                             onDragOver={(e) => {
                               if (e.dataTransfer.types.includes("application/x-booking-move")) {
                                 e.preventDefault();
