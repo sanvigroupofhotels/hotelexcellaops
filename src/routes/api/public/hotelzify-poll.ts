@@ -25,8 +25,12 @@ type ParsedBooking = {
   check_out: string;
   guests: number;
   room_details: string;
+  room_charges: number;
+  discount: number;
+  tax: number;
   total_amount: number;
   amount_paid: number;
+  balance_due: number;
   payment_mode: string | null;
   booking_status: string;
   special_requests: string | null;
