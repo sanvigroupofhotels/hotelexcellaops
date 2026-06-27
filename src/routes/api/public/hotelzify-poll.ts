@@ -385,10 +385,12 @@ function maskedDatabasePayload(payload: Record<string, unknown>): Record<string,
   return { ...payload, phone: maskPhone(payload.phone), email: maskEmail(payload.email) };
 }
 
-function contactPatchFromParsed(current: { phone?: string | null; email?: string | null } | null | undefined, parsed: ParsedBooking) {
+function contactPatchFromParsed(current: { phone?: string | null; email?: string | null } | null | undefined, parsed: ParsedBooking, blockedEmails: string[] = []) {
   const patch: Record<string, string> = {};
-  if (parsed.phone && !current?.phone) patch.phone = parsed.phone;
-  if (parsed.email && !current?.email) patch.email = parsed.email;
+  const currentEmail = current?.email?.trim().toLowerCase() ?? "";
+  const blocked = new Set(blockedEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
+  if (parsed.phone && (!current?.phone || isReceptionPhone(current.phone))) patch.phone = parsed.phone;
+  if (parsed.email && (!currentEmail || blocked.has(currentEmail))) patch.email = parsed.email;
   return patch;
 }
 
