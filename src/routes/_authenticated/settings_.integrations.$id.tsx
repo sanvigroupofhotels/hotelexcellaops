@@ -106,6 +106,11 @@ function Content({ id }: { id: string }) {
     setSubjectFilters(Array.isArray(cfg.subject_filters) ? cfg.subject_filters.join(", ") : "");
     setLeadSource(cfg.lead_source ?? PROVIDER_LABELS[row.provider] ?? "");
     setAllowUpdates(cfg.allow_updates === true);
+    setTaxRate(
+      typeof cfg.tax_rate === "number"
+        ? cfg.tax_rate <= 1 ? cfg.tax_rate * 100 : cfg.tax_rate
+        : 5,
+    );
     const fl = (cfg.field_labels ?? {}) as Record<string, string | string[]>;
     const normalized: Record<string, string> = {};
     for (const f of FIELD_KEYS) {
