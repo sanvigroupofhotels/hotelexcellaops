@@ -127,12 +127,17 @@ function Content({ id }: { id: string }) {
     mutationFn: async () => {
       const res = await fetch(`/api/public/hotelzify-poll?debug=1&integration_id=${id}`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
+      if (data?.gmail_access_mode === "metadata_only") return data as SyncDebugResponse;
       if (!res.ok || !data.ok) throw new Error(data.error || `Sync failed (${res.status})`);
       return data as SyncDebugResponse;
     },
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ["integration", id] });
       qc.invalidateQueries({ queryKey: ["integration-runs", id] });
+      if (d.gmail_access_mode === "metadata_only") {
+        toast.error("Gmail token is metadata-only — sync stopped before import");
+        return;
+      }
       toast.success(`Sync done · scanned ${d.scanned} · created ${d.created} · updated ${d.updated}`);
     },
     onError: (e: any) => toast.error(e.message),
@@ -145,10 +150,15 @@ function Content({ id }: { id: string }) {
     mutationFn: async () => {
       const res = await fetch(`/api/public/hotelzify-poll?debug=1&dryRun=1&integration_id=${id}`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
+      if (data?.gmail_access_mode === "metadata_only") return data as SyncDebugResponse & { dryRun: boolean };
       if (!res.ok || !data.ok) throw new Error(data.error || `Preview failed (${res.status})`);
       return data as SyncDebugResponse & { dryRun: boolean };
     },
     onSuccess: (d) => {
+      if (d.gmail_access_mode === "metadata_only") {
+        toast.error("Gmail token is metadata-only — preview stopped at header scan");
+        return;
+      }
       toast.success(`Preview · scanned ${d.scanned} · would create ${d.created} · would update ${d.updated}`);
     },
     onError: (e: any) => toast.error(e.message),
