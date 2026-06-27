@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState, memo } from "react";
+import { useMemo, useState, memo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { listRooms, listMaintenance } from "@/lib/rooms-api";
@@ -496,6 +496,33 @@ function HouseView() {
     return { eligible: true, reason: "Long-press to move" };
   }
 
+  // --- Stable chip callbacks (perf): keep memo(BookingChip) effective by not
+  // recreating closures on every parent render. Chips pass (b, roomId) up.
+  const handleChipSelect = useCallback((b: any) => setSelected(b), []);
+  const handleChipLongPress = useCallback((b: any, roomId: string) => {
+    emitLongPressDebug({ kind: "dialog-open", id: b.id, reason: `Move dialog for ${b.guest_name || b.id} (${b.status}${b._virtual ? " · unassigned" : ""})` });
+    setMoveDialog({
+      bookingId: b.id, guestName: b.guest_name,
+      oldRoomId: b._virtual ? null : roomId,
+      checkIn: b.check_in, checkOut: b.check_out, status: b.status,
+      virtual: !!b._virtual,
+    });
+  }, []);
+  const handleChipDragStartAvail = useCallback((b: any, payload: string) => {
+    listAvailableRoomsForStay({
+      check_in: b.check_in, check_out: b.check_out, exclude_booking_id: b.id,
+    })
+      .then((rs: AvailableRoomRow[]) => {
+        setDragAvail({ bookingId: b.id, availableRoomIds: new Set(rs.map((x) => x.id)) });
+      })
+      .catch(() => { /* highlighting is optional */ });
+    return payload;
+  }, []);
+  const handleChipDragEnd = useCallback(() => setDragAvail(null), []);
+
+
+
+
 
 
 
@@ -793,26 +820,11 @@ function HouseView() {
                                     moveEligibility={moveEligibility}
                                     isMobile={isMobile}
                                     highlight={highlightId === b.id}
-                                    onSelect={() => setSelected(b)}
-                                    onLongPress={() => openMoveDialogForBooking(b, r.id)}
-                                    onDragStartAvail={(payload) => {
-                                      const orig = (bookings as any[]).find((x) => x.id === b.id) ?? b;
-                                      listAvailableRoomsForStay({
-                                        check_in: orig.check_in,
-                                        check_out: orig.check_out,
-                                        exclude_booking_id: b.id,
-                                      })
-                                        .then((rs: AvailableRoomRow[]) => {
-                                          setDragAvail({
-                                            bookingId: b.id,
-                                            availableRoomIds: new Set(rs.map((x) => x.id)),
-                                          });
-                                        })
-                                        .catch(() => { /* highlighting is optional */ });
-                                      return payload;
-                                    }}
+                                    onSelect={handleChipSelect}
+                                    onLongPress={handleChipLongPress}
+                                    onDragStartAvail={handleChipDragStartAvail}
                                     bookingsAll={bookings as any[]}
-                                    onDragEnd={() => setDragAvail(null)}
+                                    onDragEnd={handleChipDragEnd}
                                   />
                                 );
                               })}
@@ -1443,9 +1455,9 @@ interface BookingChipProps {
   moveEligibility: { eligible: boolean; reason: string };
   isMobile: boolean;
   highlight: boolean;
-  onSelect: () => void;
-  onLongPress: () => void;
-  onDragStartAvail: (payload: string) => string;
+  onSelect: (b: any) => void;
+  onLongPress: (b: any, roomId: string) => void;
+  onDragStartAvail: (b: any, payload: string) => string;
   bookingsAll: any[];
   onDragEnd: () => void;
 }
@@ -1459,14 +1471,14 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
     enabled: dragEnabled && isMobile,
     delayMs: LONG_PRESS_DELAY_MS,
     moveTolerancePx: LONG_PRESS_MOVE_TOLERANCE,
-    onTrigger: onLongPress,
+    onTrigger: () => onLongPress(b, roomId),
     debugId: b.id,
     disabledReason: moveEligibility.reason,
   });
   return (
     <button
       {...longPress.bind()}
-      onClick={onSelect}
+      onClick={() => onSelect(b)}
       data-booking-pill={b.id}
       data-move-eligible={dragEnabled ? "true" : "false"}
       data-booking-status={b.status}
@@ -1482,7 +1494,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
           status: b.status,
           virtual: !!b._virtual,
         });
-        e.dataTransfer.setData("application/x-booking-move", onDragStartAvail(payload));
+        e.dataTransfer.setData("application/x-booking-move", onDragStartAvail(b, payload));
         e.dataTransfer.effectAllowed = "move";
       }}
       onDragEnd={onDragEnd}
@@ -1497,7 +1509,6 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       style={{
         width: `calc(${span} * ${cellW}px - 8px)`,
         zIndex: highlight ? 10 : 5,
-        // Reinforce no-scroll-hijack for mobile chips at the CSS layer.
         touchAction: dragEnabled && isMobile ? "none" : undefined,
       }}
       title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveEligibility.reason}`}`}
@@ -1508,5 +1519,6 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
     </button>
   );
 });
+
 
 
