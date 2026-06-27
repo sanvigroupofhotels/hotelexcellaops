@@ -1012,7 +1012,7 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
         filtered.map(t => ({
           Date: new Date(t.occurred_at).toLocaleString("en-IN"),
           Kind: t.kind === "collection" ? "In" : "Out",
-          Category: t.type_name, Description: t.description ?? "",
+          Category: t.type_name, "Other Type": t.description ?? "",
           Guest: t.guest_name ?? "", Mobile: t.guest_mobile ?? "", Room: t.room_number ?? "",
           Staff: t.staff_name ?? "", Amount: Number(t.amount), Notes: t.notes ?? "",
           Active: t.active ? "Yes" : "No",
