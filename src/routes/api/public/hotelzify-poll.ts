@@ -747,13 +747,38 @@ async function processIntegration(
           }
         }
 
-        // Total payable = whatever the OTA already calls "Total" (post-discount, incl. tax).
-        // Subtotal = room charges if reported, else total - tax + discount (best effort), else total.
+        // Pricing breakdown reconciliation.
+        // The Pricing Summary card on the booking detail reads from booking_items + the
+        // `discount`, `tax_rate`, `taxes_included`, and `total_override` columns. To make
+        // Room Charges, Subtotal, Discount, and Taxable Amount display correctly for
+        // imported OTA bookings we:
+        //   1. Insert one synthetic booking_items row with rate = roomChargesBase / nights
+        //      → drives Main Stay Charges + Subtotal
+        //   2. Persist `discount`              → drives Discount row
+        //   3. Persist `tax_rate` derived from parsed tax / taxable base
+        //      → drives Taxable Amount and Tax rows
+        //   4. Persist `amount` = parsed total → Final Booking Amount
         const totalPayable = parsed.total_amount || 0;
-        const subtotalGuess =
+        const checkInDate = new Date(parsed.check_in);
+        const checkOutDate = new Date(parsed.check_out);
+        const nights = Math.max(
+          1,
+          Math.round((checkOutDate.getTime() - checkInDate.getTime()) / 86_400_000),
+        );
+        const discountAmount = parsed.discount || 0;
+        // Prefer explicit Room Charges from the email. Fall back to total − tax + discount
+        // (i.e. the pre-tax, gross-of-discount figure), else the total itself.
+        const roomChargesBase =
           parsed.room_charges > 0
             ? parsed.room_charges
-            : Math.max(0, totalPayable - parsed.tax + parsed.discount) || totalPayable;
+            : Math.max(0, totalPayable - (parsed.tax || 0) + discountAmount) || totalPayable;
+        const taxableBase = Math.max(0, roomChargesBase - discountAmount);
+        const derivedTaxRate =
+          parsed.tax > 0 && taxableBase > 0
+            ? Number((parsed.tax / taxableBase).toFixed(4))
+            : 0;
+        const perNightRate = Math.max(0, Math.round(roomChargesBase / nights));
+
         const bookingPayload = {
           user_id: systemUserId,
           customer_id: customerId,
@@ -766,8 +791,12 @@ async function processIntegration(
           guests: parsed.guests,
           room_details: parsed.room_details,
           amount: totalPayable,
-          subtotal: subtotalGuess,
-          discount: parsed.discount || 0,
+          subtotal: roomChargesBase,
+          discount: discountAmount,
+          taxes: parsed.tax || 0,
+          tax_rate: derivedTaxRate,
+          taxes_included: false,
+          total_override: null,
           advance_paid: parsed.amount_paid || 0,
           status: mapStatus(parsed.booking_status),
           lead_source: leadSource,
@@ -776,13 +805,34 @@ async function processIntegration(
           special_requests: parsed.special_requests,
           notes: `Imported from ${leadSource} · Booking #${parsed.external_ref}${parsed.payment_mode ? ` · ${parsed.payment_mode}` : ""}`,
         };
+        const syntheticItem = {
+          position: 0,
+          room_type: parsed.room_details?.trim() || "Imported Room",
+          rooms: 1,
+          adults: Math.max(1, parsed.guests || 1),
+          children: 0,
+          check_in: parsed.check_in,
+          check_out: parsed.check_out,
+          breakfast_included: false,
+          extra_bed: 0,
+          rate: perNightRate,
+          subtotal: perNightRate * nights,
+          notes: null,
+          early_check_in: false,
+          early_check_in_slot: null,
+          late_check_out: false,
+          late_check_out_slot: null,
+          pet_size: "none",
+          extra_adults: 0,
+          drivers: 0,
+        };
         const trace: ImportTrace = {
           external_ref: parsed.external_ref,
           gmail_message_id: m.id,
           subject,
           action: existing ? (allowUpdates ? "update" : "skip") : "create",
           parsed_payload: maskedParsedPayload(parsed),
-          database_payload: maskedDatabasePayload(bookingPayload),
+          database_payload: maskedDatabasePayload({ ...bookingPayload, _booking_item: syntheticItem }),
           customer_payload: customerPayload ? maskedDatabasePayload(customerPayload) : (Object.keys(customerContactPatch).length > 0 ? maskedDatabasePayload(customerContactPatch) : null),
         };
         if (debug) result.traces?.push(trace);
@@ -809,17 +859,27 @@ async function processIntegration(
             }
           } else {
             if (!dryRun) {
-              // Patch only safe financial / status / requests fields. Never overwrite guest identity,
+              // Patch financial + status fields. Never overwrite guest identity,
               // phone, room assignment, or staff notes — those are owned by the PMS once created.
               await supabaseAdmin.from("bookings").update({
                 amount: bookingPayload.amount,
                 subtotal: bookingPayload.subtotal,
                 discount: bookingPayload.discount,
+                taxes: bookingPayload.taxes,
+                tax_rate: bookingPayload.tax_rate,
+                taxes_included: bookingPayload.taxes_included,
+                total_override: bookingPayload.total_override,
                 advance_paid: bookingPayload.advance_paid,
                 status: bookingPayload.status,
                 special_requests: bookingPayload.special_requests,
                 ...contactPatchFromParsed(existing, parsed, blockedEmails),
               } as any).eq("id", existing.id);
+              // Refresh the synthetic line item so Room Charges stays in sync.
+              await supabaseAdmin.from("booking_items").delete().eq("booking_id", existing.id);
+              await supabaseAdmin.from("booking_items").insert({
+                booking_id: existing.id,
+                ...syntheticItem,
+              } as any);
             }
             result.updated++;
           }
@@ -832,6 +892,14 @@ async function processIntegration(
               .single();
             if (insertBookingErr) throw insertBookingErr;
             bookingIdForExternal = insertedBooking.id;
+            // Insert synthetic line item so the Pricing Summary shows Room Charges,
+            // Subtotal, Discount, Taxable Amount, and Tax derived from one consistent base.
+            const { error: itemErr } = await supabaseAdmin
+              .from("booking_items")
+              .insert({ booking_id: insertedBooking.id, ...syntheticItem } as any);
+            if (itemErr) {
+              result.parser_errors.push(`msg ${m.id}: booking created but line item failed (${itemErr.message?.slice(0, 120)})`);
+            }
           }
           result.created++;
         }
