@@ -496,6 +496,33 @@ function HouseView() {
     return { eligible: true, reason: "Long-press to move" };
   }
 
+  // --- Stable chip callbacks (perf): keep memo(BookingChip) effective by not
+  // recreating closures on every parent render. Chips pass (b, roomId) up.
+  const handleChipSelect = useCallback((b: any) => setSelected(b), []);
+  const handleChipLongPress = useCallback((b: any, roomId: string) => {
+    emitLongPressDebug({ kind: "dialog-open", id: b.id, reason: `Move dialog for ${b.guest_name || b.id} (${b.status}${b._virtual ? " · unassigned" : ""})` });
+    setMoveDialog({
+      bookingId: b.id, guestName: b.guest_name,
+      oldRoomId: b._virtual ? null : roomId,
+      checkIn: b.check_in, checkOut: b.check_out, status: b.status,
+      virtual: !!b._virtual,
+    });
+  }, []);
+  const handleChipDragStartAvail = useCallback((b: any, payload: string) => {
+    listAvailableRoomsForStay({
+      check_in: b.check_in, check_out: b.check_out, exclude_booking_id: b.id,
+    })
+      .then((rs: AvailableRoomRow[]) => {
+        setDragAvail({ bookingId: b.id, availableRoomIds: new Set(rs.map((x) => x.id)) });
+      })
+      .catch(() => { /* highlighting is optional */ });
+    return payload;
+  }, []);
+  const handleChipDragEnd = useCallback(() => setDragAvail(null), []);
+
+
+
+
 
 
 
