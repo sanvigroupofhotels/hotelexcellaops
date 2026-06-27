@@ -820,26 +820,11 @@ function HouseView() {
                                     moveEligibility={moveEligibility}
                                     isMobile={isMobile}
                                     highlight={highlightId === b.id}
-                                    onSelect={() => setSelected(b)}
-                                    onLongPress={() => openMoveDialogForBooking(b, r.id)}
-                                    onDragStartAvail={(payload) => {
-                                      const orig = (bookings as any[]).find((x) => x.id === b.id) ?? b;
-                                      listAvailableRoomsForStay({
-                                        check_in: orig.check_in,
-                                        check_out: orig.check_out,
-                                        exclude_booking_id: b.id,
-                                      })
-                                        .then((rs: AvailableRoomRow[]) => {
-                                          setDragAvail({
-                                            bookingId: b.id,
-                                            availableRoomIds: new Set(rs.map((x) => x.id)),
-                                          });
-                                        })
-                                        .catch(() => { /* highlighting is optional */ });
-                                      return payload;
-                                    }}
+                                    onSelect={handleChipSelect}
+                                    onLongPress={handleChipLongPress}
+                                    onDragStartAvail={handleChipDragStartAvail}
                                     bookingsAll={bookings as any[]}
-                                    onDragEnd={() => setDragAvail(null)}
+                                    onDragEnd={handleChipDragEnd}
                                   />
                                 );
                               })}
