@@ -1467,10 +1467,13 @@ interface BookingChipProps {
   span: number;
   cellW: number;
   hasBreakfast: boolean;
+  hasPet: boolean;
   balanceDue: number;
   moveEligibility: { eligible: boolean; reason: string };
   isMobile: boolean;
   highlight: boolean;
+  continuesLeft: boolean;
+  continuesRight: boolean;
   onSelect: (b: any) => void;
   onLongPress: (b: any, roomId: string) => void;
   onDragStartAvail: (b: any, payload: string) => string;
@@ -1479,8 +1482,9 @@ interface BookingChipProps {
 }
 const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
-    b, roomId, span, cellW, hasBreakfast, balanceDue, moveEligibility,
-    isMobile, highlight, onSelect, onLongPress, onDragStartAvail, bookingsAll, onDragEnd,
+    b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligibility,
+    isMobile, highlight, continuesLeft, continuesRight,
+    onSelect, onLongPress, onDragStartAvail, bookingsAll, onDragEnd,
   } = props;
   const dragEnabled = moveEligibility.eligible;
   const longPress = useLongPress({
@@ -1491,6 +1495,11 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
     debugId: b.id,
     disabledReason: moveEligibility.reason,
   });
+  // True caps: rounded only on true check-in / check-out edges.
+  const radiusClasses = cn(
+    continuesLeft ? "rounded-l-none" : "rounded-l-full",
+    continuesRight ? "rounded-r-none" : "rounded-r-full",
+  );
   return (
     <button
       {...longPress.bind()}
@@ -1515,7 +1524,8 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       }}
       onDragEnd={onDragEnd}
       className={cn(
-        "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
+        "absolute top-1.5 bottom-1.5 border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
+        radiusClasses,
         blockClasses(b),
         b._virtual && "border-dashed",
         dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
@@ -1523,18 +1533,23 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         highlight && "ring-4 ring-gold animate-pulse",
       )}
       style={{
-        width: `calc(${span} * ${cellW}px - 8px)`,
-        zIndex: highlight ? 10 : 5,
+        left: continuesLeft ? 0 : 4,
+        width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 4}px - ${continuesRight ? 0 : 4}px)`,
+        zIndex: highlight ? 25 : 20,
         touchAction: dragEnabled && isMobile ? "none" : undefined,
       }}
       title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveEligibility.reason}`}`}
     >
+      {continuesLeft && <span aria-hidden className="shrink-0 opacity-70 -ml-0.5">‹</span>}
       {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
+      {hasPet && <span className="shrink-0" aria-label="Pet">🐾</span>}
       {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
       <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
+      {continuesRight && <span aria-hidden className="ml-auto shrink-0 opacity-70 -mr-0.5">›</span>}
     </button>
   );
 });
+
 
 
 
