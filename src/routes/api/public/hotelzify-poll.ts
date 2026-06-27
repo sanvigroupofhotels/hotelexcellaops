@@ -717,7 +717,7 @@ async function processIntegration(
           customerId = newCust!.id;
           customerRow = newCust;
         } else if (customerId && !dryRun) {
-          customerContactPatch = contactPatchFromParsed(customerRow, parsed);
+          customerContactPatch = contactPatchFromParsed(customerRow, parsed, blockedEmails);
           if (Object.keys(customerContactPatch).length > 0) {
             const { data: patchedCustomer, error: patchCustomerErr } = await supabaseAdmin
               .from("customers")
@@ -783,7 +783,7 @@ async function processIntegration(
             // Dedupe-skip: existing booking, updates disabled in integration config.
             // Exception: safely fill contact fields that are currently empty, because
             // staff cannot use imported bookings when mobile/email were lost in an older run.
-            contactRepairPayload = contactPatchFromParsed(existing, parsed);
+            contactRepairPayload = contactPatchFromParsed(existing, parsed, blockedEmails);
             if (Object.keys(contactRepairPayload).length > 0 && !dryRun) {
               const { error: repairErr } = await supabaseAdmin
                 .from("bookings")
@@ -807,7 +807,7 @@ async function processIntegration(
                 advance_paid: bookingPayload.advance_paid,
                 status: bookingPayload.status,
                 special_requests: bookingPayload.special_requests,
-                ...contactPatchFromParsed(existing, parsed),
+                ...contactPatchFromParsed(existing, parsed, blockedEmails),
               } as any).eq("id", existing.id);
             }
             result.updated++;
