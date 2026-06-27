@@ -321,6 +321,8 @@ function parseGeneric(
   const amountPaid = lastMoney("amount_paid");
   const balanceDue = lastMoney("balance_due");
   const roomCharges = lastMoney("room_charges");
+  const subtotalRaw = lastMoney("subtotal");
+  const taxableRaw = lastMoney("taxable_amount");
   const discount = lastMoney("discount");
   const tax = lastMoney("tax");
   const specialReq = pickByLabels(text, lbl("special_requests"));
@@ -333,9 +335,6 @@ function parseGeneric(
   if (!checkOut) errors.push(`missing/invalid check-out${checkOutRaw ? ` (${checkOutRaw})` : ""}`);
   if (!bookingId || !name || !checkIn || !checkOut) return { booking: null, errors };
 
-  // Identity fields must prefer the Guest Details block. Hotelzify emails also contain the
-  // hotel's own Contact/Email before the guest block; scanning the whole email first stores
-  // the reception contact instead of the guest contact.
   const guestPhone = pickGuestPhone(mobileCandidates, identityTexts);
   const guestEmail = pickGuestEmail(emailCandidates, identityTexts, opts?.blockedEmails);
 
@@ -350,7 +349,9 @@ function parseGeneric(
       guests: guestCount ? parseInt(guestCount, 10) || 1 : 1,
       room_details: roomDetails.trim(),
       room_charges: parseMoney(roomCharges),
+      subtotal: parseMoney(subtotalRaw),
       discount: parseMoney(discount),
+      taxable_amount: parseMoney(taxableRaw),
       tax: parseMoney(tax),
       total_amount: parseMoney(totalAmount),
       amount_paid: parseMoney(amountPaid),
