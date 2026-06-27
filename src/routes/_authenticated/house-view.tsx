@@ -738,8 +738,10 @@ function HouseView() {
                             style={{
                               minWidth: isMobile ? CELL_W_MOB : CELL_W,
                               width: isMobile ? CELL_W_MOB : CELL_W,
-                              // Skip painting offscreen cells in heavy grids.
-                              contain: "layout paint style",
+                              // Optimise layout/style recalc without clipping multi-day chips
+                              // (contain: paint would clip absolutely-positioned chips that
+                              // span across multiple cells).
+                              contain: "layout style",
                             } as React.CSSProperties}
                             onDragOver={(e) => {
                               if (e.dataTransfer.types.includes("application/x-booking-move")) {
