@@ -255,9 +255,65 @@ async function gmailFetch(path: string, gatewayKey: string, connectionKey: strin
   return res.json();
 }
 
+function isGmailMetadataOnlyError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error ?? "");
+  const lc = msg.toLowerCase();
+  return lc.includes("metadata scope does not support") || lc.includes("metadata scope doesn't allow");
+}
+
+function formatMetadataOnlyMessage(gmailAccount: string | null, matched: number): string {
+  return [
+    `Gmail account ${gmailAccount ?? "unknown"} is connected and headers are reachable, but Gmail is treating the active OAuth token as metadata-only.`,
+    `The parser can list recent email headers${matched > 0 ? ` and found ${matched} sender/subject match${matched === 1 ? "" : "es"}` : ""}, but Google is blocking both search queries and full message bodies.`,
+    "Do not keep reconnecting from the integration screen; the selected scopes are not the problem. The Gmail connector token needs to be refreshed/reissued with effective gmail.readonly body access before imports can create bookings.",
+  ].join(" ");
+}
+
 function headersMap(msg: any): Record<string, string> {
   const headers: { name: string; value: string }[] = msg.payload?.headers ?? [];
   return Object.fromEntries(headers.map((h) => [h.name.toLowerCase(), h.value]));
+}
+
+function fromMatchesSender(from: string, sender?: string): boolean {
+  if (!sender) return true;
+  return from.toLowerCase().includes(sender.toLowerCase());
+}
+
+function subjectMatchesFilters(subject: string, subjectFilters: string[]): boolean {
+  if (subjectFilters.length === 0) return true;
+  const lc = subject.toLowerCase();
+  return subjectFilters.some((f) => lc.includes(f.toLowerCase()));
+}
+
+async function scanMetadataOnlyFallback(
+  gatewayKey: string,
+  connectionKey: string,
+  sender: string | undefined,
+  subjectFilters: string[],
+): Promise<{ scanned: number; matched: number; samples: HeaderSample[] }> {
+  const list = await gmailFetch("/users/me/messages?maxResults=50&labelIds=INBOX", gatewayKey, connectionKey);
+  const messages: { id: string }[] = list.messages ?? [];
+  const samples: HeaderSample[] = [];
+  let matched = 0;
+
+  for (const m of messages) {
+    const msg = await gmailFetch(
+      `/users/me/messages/${m.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,
+      gatewayKey,
+      connectionKey,
+    );
+    const h = headersMap(msg);
+    const sample = { id: m.id, date: h.date ?? "", from: h.from ?? "", subject: h.subject ?? "" };
+    const isMatch = fromMatchesSender(sample.from, sender) && subjectMatchesFilters(sample.subject, subjectFilters);
+    if (isMatch) {
+      matched++;
+      if (samples.length < 5) samples.push(sample);
+    } else if (samples.length < 5 && matched === 0) {
+      samples.push(sample);
+    }
+  }
+
+  return { scanned: messages.length, matched, samples };
 }
 
 async function getGmailProfile(gatewayKey: string, connectionKey: string): Promise<string | null> {
@@ -300,6 +356,7 @@ type RunResult = {
   parser_errors: string[];
   first_5_email_subjects_seen: HeaderSample[];
   diagnostic_searches?: DiagnosticSearch[];
+  gmail_access_mode?: "full" | "metadata_only";
   fatal?: string;
 };
 
@@ -342,6 +399,7 @@ async function processIntegration(
     query: customQuery ?? (sender ? `from:${sender} newer_than:${days}d` : ""),
     scanned: 0, matched: 0, parsed: 0, created: 0, updated: 0,
     errors: [], parser_errors: [], first_5_email_subjects_seen: [],
+    gmail_access_mode: "full",
   };
 
   if (!parser) {
@@ -360,7 +418,49 @@ async function processIntegration(
   try {
     result.gmail_account = await getGmailProfile(gatewayKey, connectionKey);
 
-    const list = await gmailFetch(`/users/me/messages?maxResults=50&q=${encodeURIComponent(gmailQuery)}`, gatewayKey, connectionKey);
+    let list: any;
+    try {
+      list = await gmailFetch(`/users/me/messages?maxResults=50&q=${encodeURIComponent(gmailQuery)}`, gatewayKey, connectionKey);
+    } catch (e: any) {
+      if (!isGmailMetadataOnlyError(e)) throw e;
+
+      result.gmail_access_mode = "metadata_only";
+      const fallback = await scanMetadataOnlyFallback(gatewayKey, connectionKey, sender, subjectFilters);
+      result.scanned = fallback.scanned;
+      result.matched = fallback.matched;
+      result.first_5_email_subjects_seen = fallback.samples;
+      result.fatal = formatMetadataOnlyMessage(result.gmail_account, fallback.matched);
+
+      if (!dryRun) {
+        const excerpt = [
+          `Provider: ${provider}`,
+          `Gmail account: ${result.gmail_account ?? "unknown"}`,
+          `Query attempted: ${gmailQuery}`,
+          `Access mode: metadata_only`,
+          `Recent headers scanned: ${result.scanned}`,
+          `Header matches: ${result.matched}`,
+          `Header samples:\n${result.first_5_email_subjects_seen.map((s) => `- From: ${s.from || "—"} | Subject: ${s.subject || "—"}`).join("\n") || "(none)"}`,
+          result.fatal,
+        ].join("\n").slice(0, 5000);
+        await supabaseAdmin.from("integration_runs").insert({
+          integration_id: intg.id,
+          started_at: runStart,
+          finished_at: new Date().toISOString(),
+          status: "error",
+          message: `metadata-only Gmail token · scanned ${result.scanned} headers · matched ${result.matched}`,
+          created_count: 0,
+          updated_count: 0,
+          payload_excerpt: excerpt,
+        } as any);
+        await supabaseAdmin.from("integrations").update({
+          last_sync_at: new Date().toISOString(),
+          last_sync_status: "error",
+          last_sync_message: result.fatal,
+        } as any).eq("id", intg.id);
+      }
+
+      return result;
+    }
     const messages: { id: string }[] = list.messages ?? [];
     result.scanned = messages.length;
 
@@ -375,7 +475,17 @@ async function processIntegration(
 
     for (const m of messages) {
       try {
-        const msg = await gmailFetch(`/users/me/messages/${m.id}?format=full`, gatewayKey, connectionKey);
+        let msg: any;
+        try {
+          msg = await gmailFetch(`/users/me/messages/${m.id}?format=full`, gatewayKey, connectionKey);
+        } catch (e: any) {
+          if (isGmailMetadataOnlyError(e)) {
+            result.gmail_access_mode = "metadata_only";
+            result.fatal = formatMetadataOnlyMessage(result.gmail_account, result.matched);
+            throw new Error(result.fatal);
+          }
+          throw e;
+        }
         const headers = headersMap(msg);
         const subject = headers.subject ?? "";
         const from = headers.from ?? "";
@@ -489,6 +599,9 @@ async function processIntegration(
           } as any, { onConflict: "integration_id,external_ref" });
         }
       } catch (e: any) {
+        if (result.gmail_access_mode === "metadata_only" && result.fatal) {
+          throw e;
+        }
         result.errors.push(`msg ${m.id}: ${e.message?.slice(0, 200)}`);
       }
     }
@@ -616,6 +729,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
             integration_id: r.integration_id,
             provider: r.provider,
             gmail_account: r.gmail_account,
+            gmail_access_mode: r.gmail_access_mode,
             query: r.query,
             scanned: r.scanned, matched: r.matched, parsed: r.parsed,
             created: r.created, updated: r.updated,

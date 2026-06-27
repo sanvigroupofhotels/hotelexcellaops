@@ -21,6 +21,7 @@ const labelCls = "text-[11px] uppercase tracking-wider text-muted-foreground";
 
 type SyncDebugResponse = {
   gmail_account?: string | null;
+  gmail_access_mode?: "full" | "metadata_only";
   query: string;
   scanned: number;
   matched: number;
@@ -126,12 +127,17 @@ function Content({ id }: { id: string }) {
     mutationFn: async () => {
       const res = await fetch(`/api/public/hotelzify-poll?debug=1&integration_id=${id}`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
+      if (data?.gmail_access_mode === "metadata_only") return data as SyncDebugResponse;
       if (!res.ok || !data.ok) throw new Error(data.error || `Sync failed (${res.status})`);
       return data as SyncDebugResponse;
     },
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ["integration", id] });
       qc.invalidateQueries({ queryKey: ["integration-runs", id] });
+      if (d.gmail_access_mode === "metadata_only") {
+        toast.error("Gmail token is metadata-only — sync stopped before import");
+        return;
+      }
       toast.success(`Sync done · scanned ${d.scanned} · created ${d.created} · updated ${d.updated}`);
     },
     onError: (e: any) => toast.error(e.message),
@@ -144,10 +150,15 @@ function Content({ id }: { id: string }) {
     mutationFn: async () => {
       const res = await fetch(`/api/public/hotelzify-poll?debug=1&dryRun=1&integration_id=${id}`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
+      if (data?.gmail_access_mode === "metadata_only") return data as SyncDebugResponse & { dryRun: boolean };
       if (!res.ok || !data.ok) throw new Error(data.error || `Preview failed (${res.status})`);
       return data as SyncDebugResponse & { dryRun: boolean };
     },
     onSuccess: (d) => {
+      if (d.gmail_access_mode === "metadata_only") {
+        toast.error("Gmail token is metadata-only — preview stopped at header scan");
+        return;
+      }
       toast.success(`Preview · scanned ${d.scanned} · would create ${d.created} · would update ${d.updated}`);
     },
     onError: (e: any) => toast.error(e.message),
@@ -288,6 +299,11 @@ function Content({ id }: { id: string }) {
           <div className="text-[11px] text-muted-foreground bg-muted/30 rounded px-3 py-2 break-all">
             Gmail Query Used: <span className="text-foreground">{debugInfo.query ?? "—"}</span>
           </div>
+          {debugInfo.gmail_access_mode === "metadata_only" && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-foreground">
+              <b>Gmail token diagnostic.</b> The connected mailbox is reachable and recent headers can be read, but Google is blocking search/body access for this token. This is not caused by Sender Email, Inbox Email, subject filters, or your Hotelzify/FabHotels settings.
+            </div>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
             <Metric label="Emails Scanned" value={debugInfo.scanned ?? 0} />
             <Metric label="Emails Matched" value={debugInfo.matched ?? 0} />
@@ -372,8 +388,7 @@ function DebugList({ title, items, empty }: { title: string; items: string[]; em
 
 /**
  * Detects Gmail OAuth scope/permission issues from sync responses and
- * surfaces a friendly reconnect banner — no raw Google error text shown
- * to the operator. Triggered by:
+ * surfaces a precise operator note — no raw Google error text shown. Triggered by:
  *   - "Metadata scope does not support 'q' parameter"
  *   - 403 + "insufficient" / "Insufficient Permission"
  *   - invalid_grant / unauthorized_client
@@ -381,8 +396,12 @@ function DebugList({ title, items, empty }: { title: string; items: string[]; em
  */
 function GmailScopeBanner({ lastMessage, debugErrors, onRetry }: { lastMessage: string; debugErrors: string[]; onRetry: () => void }) {
   const haystack = [lastMessage, ...(debugErrors ?? [])].join(" \n ").toLowerCase();
-  const needsReconnect =
+  const isMetadataOnlyToken =
+    haystack.includes("metadata-only") ||
+    haystack.includes("metadata only") ||
     haystack.includes("metadata scope does not support") ||
+    haystack.includes("metadata scope doesn't allow");
+  const needsReconnect =
     haystack.includes("insufficient permission") ||
     haystack.includes("insufficient_scope") ||
     haystack.includes("invalid_grant") ||
@@ -390,7 +409,35 @@ function GmailScopeBanner({ lastMessage, debugErrors, onRetry }: { lastMessage: 
     haystack.includes("gmail.readonly") ||
     (haystack.includes("403") && haystack.includes("gmail"));
 
-  if (!needsReconnect) return null;
+  if (!needsReconnect && !isMetadataOnlyToken) return null;
+
+  if (isMetadataOnlyToken) {
+    return (
+      <div className="luxe-card rounded-xl p-4 border border-amber-500/40 bg-amber-500/10 space-y-3">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="space-y-1.5">
+            <h4 className="font-medium text-sm">Gmail token is metadata-only</h4>
+            <p className="text-[12px] text-muted-foreground">
+              The mailbox is connected, but the active Gmail token can only read headers. The app can confirm the inbox and recent subjects, but Gmail is blocking search and email body access, so bookings cannot be imported from Hotelzify/FabHotels yet.
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Do not keep changing Sender Email, Inbox Email, or subject filters for this error. Use <b>Retry Sync</b> only after the connector token has been refreshed by platform support or a full token reset.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 pl-8">
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/15 text-foreground px-3 py-1.5 text-xs font-medium hover:bg-amber-500/25"
+          >
+            <RefreshCw className="h-3 w-3" /> Retry Sync
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="luxe-card rounded-xl p-4 border border-amber-500/40 bg-amber-500/10 space-y-3">
