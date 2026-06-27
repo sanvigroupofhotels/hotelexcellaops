@@ -98,7 +98,7 @@ function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
     Date: new Date(t.occurred_at).toLocaleString("en-IN"),
     Kind: t.kind === "collection" ? "In" : "Out",
     Category: t.type_name,
-    Description: t.description ?? "",
+    "Other Type": t.description ?? "",
     Guest: t.guest_name ?? "",
     Mobile: t.guest_mobile ?? "",
     Room: t.room_number ?? "",
