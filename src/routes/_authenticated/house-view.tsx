@@ -1503,22 +1503,24 @@ interface BookingChipProps {
   hasBreakfast: boolean;
   hasPet: boolean;
   balanceDue: number;
-  moveEligibility: { eligible: boolean; reason: string };
+  moveEligible: boolean;
+  moveReason: string;
   isMobile: boolean;
   highlight: boolean;
   continuesLeft: boolean;
   continuesRight: boolean;
+  origCheckIn: string;
+  origCheckOut: string;
   onSelect: (b: any) => void;
   onLongPress: (b: any, roomId: string) => void;
   onDragStartAvail: (b: any, payload: string) => string;
-  bookingsAll: any[];
   onDragEnd: () => void;
 }
 const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
-    b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligibility,
-    isMobile, highlight, continuesLeft, continuesRight,
-    onSelect, onLongPress, onDragStartAvail, bookingsAll, onDragEnd,
+    b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligible, moveReason,
+    isMobile, highlight, continuesLeft, continuesRight, origCheckIn, origCheckOut,
+    onSelect, onLongPress, onDragStartAvail, onDragEnd,
   } = props;
   const dragEnabled = moveEligibility.eligible;
   const longPress = useLongPress({
