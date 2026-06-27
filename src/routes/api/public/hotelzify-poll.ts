@@ -586,6 +586,13 @@ async function processIntegration(
           .eq("external_ref", parsed.external_ref)
           .maybeSingle();
 
+        // Total payable = whatever the OTA already calls "Total" (post-discount, incl. tax).
+        // Subtotal = room charges if reported, else total - tax + discount (best effort), else total.
+        const totalPayable = parsed.total_amount || 0;
+        const subtotalGuess =
+          parsed.room_charges > 0
+            ? parsed.room_charges
+            : Math.max(0, totalPayable - parsed.tax + parsed.discount) || totalPayable;
         const bookingPayload = {
           user_id: systemUserId,
           customer_id: customerId,
@@ -597,15 +604,16 @@ async function processIntegration(
           adults: parsed.guests,
           guests: parsed.guests,
           room_details: parsed.room_details,
-          amount: parsed.total_amount,
-          subtotal: parsed.total_amount,
-          advance_paid: parsed.amount_paid,
+          amount: totalPayable,
+          subtotal: subtotalGuess,
+          discount: parsed.discount || 0,
+          advance_paid: parsed.amount_paid || 0,
           status: mapStatus(parsed.booking_status),
           lead_source: leadSource,
           integration_id: intg.id,
           external_ref: parsed.external_ref,
           special_requests: parsed.special_requests,
-          notes: `Imported from ${leadSource} · Booking #${parsed.external_ref}`,
+          notes: `Imported from ${leadSource} · Booking #${parsed.external_ref}${parsed.payment_mode ? ` · ${parsed.payment_mode}` : ""}`,
         };
 
         if (existing) {
