@@ -72,12 +72,26 @@ function escapeRe(s: string): string {
 function labelRegex(labels: string[]): RegExp | null {
   if (!labels.length) return null;
   const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
-  return new RegExp(`(?:${alt})\\s*[:|\\-]?\\s*([^\\n|]+?)(?=\\n|\\||$)`, "i");
+  // Allow optional parenthetical between label and separator
+  // (e.g. "Total Amount (Incl. of Taxes): INR 3740.00")
+  return new RegExp(`(?:${alt})(?:\\s*\\([^)]*\\))?\\s*[:|\\-]?\\s*([^\\n|]+?)(?=\\n|\\||$)`, "i");
 }
 
 function pickByLabels(text: string, labels: string[]): string | null {
   const re = labelRegex(labels);
   return re ? pick(text, re) : null;
+}
+
+/** Find ALL matches for labelled fields. Useful when the same label appears multiple times
+ * (e.g. "Total" in a column header AND as a labelled value). */
+function pickAllByLabels(text: string, labels: string[]): string[] {
+  if (!labels.length) return [];
+  const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
+  const re = new RegExp(`(?:${alt})(?:\\s*\\([^)]*\\))?\\s*[:|\\-]?\\s*([^\\n|]+?)(?=\\n|\\||$)`, "gi");
+  const out: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) out.push(m[1].trim());
+  return out;
 }
 
 const MONTH_MAP: Record<string, number> = {
