@@ -703,8 +703,7 @@ function HouseView() {
               </thead>
               <tbody>
                 {rooms.map((r) => {
-                  const bs = byRoom.get(r.id) ?? [];
-                  const ms = blocksByRoom.get(r.id) ?? [];
+                  const coveredSet = coveredDaysByRoom.get(r.id);
                   return (
                     <tr key={r.id} className="group">
                       <td
@@ -715,17 +714,13 @@ function HouseView() {
                       </td>
                       {/* Per-day cells with relative wrapper so we can position pills absolutely */}
                       {days.map((d, i) => {
-                        const dk = dateKey(d);
+                        const dk = dayKeys[i];
                         const isToday = dk === todayKey;
                         // Render pills only in the start cell to span across
-                        const startingBookings = bs.filter((b) => {
-                          const startKey = b.check_in < rangeStart ? rangeStart : b.check_in;
-                          return startKey === dk;
-                        });
-                        const startingBlocks = ms.filter((m: any) => {
-                          const startKey = m.start_date < rangeStart ? rangeStart : m.start_date;
-                          return startKey === dk;
-                        });
+                        const bdKey = r.id + "|" + dk;
+                        const startingBookings = startingByRoomDay.get(bdKey);
+                        const startingBlocks = blockStartingByRoomDay.get(bdKey);
+                        const isCovered = coveredSet ? coveredSet.has(dk) : false;
                         const dragHL = dragAvail
                           ? (dragAvail.availableRoomIds.has(r.id)
                               ? "ring-1 ring-inset ring-emerald-500/60 bg-emerald-500/5"
@@ -740,7 +735,12 @@ function HouseView() {
                               i === days.length - 1 && "border-r-0",
                               dragHL,
                             )}
-                            style={{ minWidth: CELL_W_MOB, width: CELL_W }}
+                            style={{
+                              minWidth: isMobile ? CELL_W_MOB : CELL_W,
+                              width: isMobile ? CELL_W_MOB : CELL_W,
+                              // Skip painting offscreen cells in heavy grids.
+                              contain: "layout paint style",
+                            } as React.CSSProperties}
                             onDragOver={(e) => {
                               if (e.dataTransfer.types.includes("application/x-booking-move")) {
                                 e.preventDefault();
@@ -757,29 +757,24 @@ function HouseView() {
                           >
                             <div className="relative h-full" style={{ minHeight: 40 }}>
                               {/* Vacant action button — visible when no booking/block covers this day */}
-                              {(() => {
-                                const coveredByBooking = bs.some((b) => segmentCoversDate(b, dk));
-                                const coveredByBlock = ms.some((m: any) => m.start_date <= dk && m.end_date > dk);
-                                if (coveredByBooking || coveredByBlock) return null;
-                                return (
-                                  <button
-                                    onClick={() => setVacantAction({ room: r, date: dk })}
-                                    className="absolute inset-1 rounded-md border border-dashed border-border opacity-0 group-hover/cell:opacity-100 hover:border-gold/50 hover:bg-gold-soft/20 text-muted-foreground hover:text-gold flex items-center justify-center transition"
-                                    title="Vacant — click for actions"
-                                    aria-label="Vacant room actions"
-                                  >
-                                    <Plus className="h-3.5 w-3.5" />
-                                  </button>
-                                );
-                              })()}
-                              {startingBookings.map((b) => {
+                              {!isCovered && (
+                                <button
+                                  onClick={() => setVacantAction({ room: r, date: dk })}
+                                  className="absolute inset-1 rounded-md border border-dashed border-border opacity-0 group-hover/cell:opacity-100 hover:border-gold/50 hover:bg-gold-soft/20 text-muted-foreground hover:text-gold flex items-center justify-center transition"
+                                  title="Vacant — click for actions"
+                                  aria-label="Vacant room actions"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              {startingBookings?.map((b) => {
                                 const startCol = b.check_in < rangeStart ? 0 : dayKeys.indexOf(b.check_in);
                                 const endExclusive = slotEndExclusive(b);
                                 const endIdx = dayKeys.indexOf(endExclusive);
                                 const endCol = endIdx < 0 ? DAY_COUNT : endIdx;
                                 const span = Math.max(1, endCol - startCol);
                                 if (span <= 0) return null;
-                                const cellW = CELL_W_MOB;
+                                const cellW = isMobile ? CELL_W_MOB : CELL_W;
                                 const hasBreakfast = !!breakfastByBooking.get(b.id);
                                 const extraCharges = chargesByBooking.get(b.id) ?? 0;
                                 const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) + extraCharges - Number(b.advance_paid || 0));
@@ -820,12 +815,12 @@ function HouseView() {
                                 );
                               })}
 
-                              {startingBlocks.map((m: any) => {
+                              {startingBlocks?.map((m: any) => {
                                 const startCol = m.start_date < rangeStart ? 0 : dayKeys.indexOf(m.start_date);
                                 const outIdx = dayKeys.indexOf(m.end_date);
                                 const endCol = outIdx < 0 ? DAY_COUNT : outIdx;
                                 const span = Math.max(1, endCol - startCol);
-                                const cellW = CELL_W_MOB;
+                                const cellW = isMobile ? CELL_W_MOB : CELL_W;
                                 return (
                                   <button key={m.id} onClick={() => setSelectedBlock(m)}
                                     className="absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden shadow-sm bg-amber-700 text-white border-amber-900 hover:ring-2 hover:ring-amber-400"
