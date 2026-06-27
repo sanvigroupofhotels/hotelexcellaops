@@ -134,6 +134,7 @@ function Content({ id }: { id: string }) {
       subject_filters: subjectFilters.split(",").map((s) => s.trim()).filter(Boolean),
       lead_source: leadSource.trim() || undefined,
       allow_updates: allowUpdates,
+      tax_rate: Number.isFinite(taxRate) ? Number((taxRate / 100).toFixed(4)) : 0.05,
       field_labels: fl,
     };
   };
