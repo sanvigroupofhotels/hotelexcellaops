@@ -1526,14 +1526,14 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
     isMobile, highlight, continuesLeft, continuesRight, origCheckIn, origCheckOut,
     onSelect, onLongPress, onDragStartAvail, onDragEnd,
   } = props;
-  const dragEnabled = moveEligibility.eligible;
+  const dragEnabled = moveEligible;
   const longPress = useLongPress({
     enabled: dragEnabled && isMobile,
     delayMs: LONG_PRESS_DELAY_MS,
     moveTolerancePx: LONG_PRESS_MOVE_TOLERANCE,
     onTrigger: () => onLongPress(b, roomId),
     debugId: b.id,
-    disabledReason: moveEligibility.reason,
+    disabledReason: moveReason,
   });
   // True caps: rounded only on true check-in / check-out edges.
   const radiusClasses = cn(
@@ -1550,12 +1550,11 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       draggable={dragEnabled && !isMobile}
       onDragStart={(e) => {
         if (!dragEnabled || isMobile) { e.preventDefault(); return; }
-        const orig = bookingsAll.find((x) => x.id === b.id) ?? b;
         const payload = JSON.stringify({
           bookingId: b.id,
           oldRoomId: b._virtual ? null : roomId,
-          checkIn: orig.check_in,
-          checkOut: orig.check_out,
+          checkIn: origCheckIn,
+          checkOut: origCheckOut,
           status: b.status,
           virtual: !!b._virtual,
         });
@@ -1569,16 +1568,22 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         blockClasses(b),
         b._virtual && "border-dashed",
         dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
-        dragEnabled && isMobile && "touch-none select-none",
+        // NOTE: `touch-none` was previously applied to mobile-movable chips.
+        // It blocks native panning, which is the dominant cause of laggy
+        // vertical/horizontal scrolling on Android because most fingers land
+        // on a chip. `manipulation` lets the browser pan natively while the
+        // long-press hook still triggers (it aborts on >14px finger movement,
+        // so a scroll gesture cleanly cancels the long-press timer).
+        dragEnabled && isMobile && "select-none",
         highlight && "ring-4 ring-gold animate-pulse",
       )}
       style={{
         left: continuesLeft ? 0 : 4,
         width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 4}px - ${continuesRight ? 0 : 4}px)`,
         zIndex: highlight ? 25 : 20,
-        touchAction: dragEnabled && isMobile ? "none" : undefined,
+        touchAction: dragEnabled && isMobile ? "manipulation" : undefined,
       }}
-      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveEligibility.reason}`}`}
+      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveReason}`}`}
     >
       {continuesLeft && <span aria-hidden className="shrink-0 opacity-70 -ml-0.5">‹</span>}
       {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
