@@ -38,6 +38,17 @@ type ParsedBooking = {
 
 type HeaderSample = { id?: string; date: string; from: string; subject: string };
 type DiagnosticSearch = { query: string; count: number; resultSizeEstimate: number; samples: HeaderSample[]; error?: string };
+type ParserOptions = { blockedEmails?: string[] };
+type ImportTrace = {
+  external_ref: string;
+  gmail_message_id: string;
+  subject: string;
+  action: "create" | "update" | "skip" | "repair_existing_contact";
+  parsed_payload: Record<string, unknown>;
+  database_payload: Record<string, unknown>;
+  customer_payload: Record<string, unknown> | null;
+  contact_repair_payload?: Record<string, unknown> | null;
+};
 
 function decodeB64Url(s: string): string {
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
@@ -96,6 +107,100 @@ function pickAllByLabels(text: string, labels: string[]): string[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) out.push(m[1].trim());
   return out;
+}
+
+function pickAllLineByLabels(text: string, labels: string[]): string[] {
+  if (!labels.length) return [];
+  const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
+  const re = new RegExp(`^\\s*(?:${alt})(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*(.+?)\\s*$`, "i");
+  return text
+    .split("\n")
+    .map((line) => line.match(re)?.[1]?.trim() ?? null)
+    .filter((v): v is string => !!v);
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of values) {
+    const key = v.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(v.trim());
+  }
+  return out;
+}
+
+function extractGuestDetailsSection(text: string): string | null {
+  const lines = text.split("\n");
+  const start = lines.findIndex((line) => /^\s*guest\s+(details|information)\s*:?\s*$/i.test(line));
+  if (start < 0) return null;
+  const end = lines.findIndex((line, i) => (
+    i > start &&
+    /^\s*(booking|room|stay|payment|tariff|price|fare|property|hotel|cancellation|terms)\b.*:?\s*$/i.test(line) &&
+    !/guest/i.test(line)
+  ));
+  return lines.slice(start + 1, end > start ? end : Math.min(lines.length, start + 24)).join("\n").trim() || null;
+}
+
+function pickFirstByLabelsFromTexts(texts: string[], labels: string[]): string | null {
+  for (const text of texts) {
+    const lineMatch = pickAllLineByLabels(text, labels)[0];
+    if (lineMatch) return lineMatch;
+    const fallback = pickByLabels(text, labels);
+    if (fallback) return fallback;
+  }
+  return null;
+}
+
+function pickAllByLabelsFromTexts(texts: string[], labels: string[]): string[] {
+  const values: string[] = [];
+  for (const text of texts) {
+    values.push(...pickAllLineByLabels(text, labels));
+    values.push(...pickAllByLabels(text, labels));
+  }
+  return uniqueStrings(values);
+}
+
+const RECEPTION_NUMBERS = new Set(["9985908131", "09985908131", "+919985908131", "919985908131"]);
+
+function last10Digits(input: string): string {
+  return input.replace(/\D/g, "").slice(-10);
+}
+
+function isReceptionPhone(input: string): boolean {
+  const digits = last10Digits(input);
+  return [...RECEPTION_NUMBERS].some((n) => last10Digits(n) === digits);
+}
+
+function phoneMatches(input: string): string[] {
+  return input.match(/\+\s*91[\s-]?\d{5}[\s-]?\d{5}|\+\s*91[\s-]?\d{10}|\b[6-9]\d{9}\b/g) ?? [];
+}
+
+function pickGuestPhone(labelCandidates: string[], scanTexts: string[]): string | null {
+  const candidates = uniqueStrings([
+    ...labelCandidates.flatMap(phoneMatches),
+    ...scanTexts.flatMap(phoneMatches),
+  ]);
+  for (const candidate of candidates) {
+    if (isReceptionPhone(candidate)) continue;
+    const n = normalizePhoneNumber(candidate.replace(/[^+\d]/g, ""));
+    if (validatePhoneNumber(n)) return n;
+  }
+  return null;
+}
+
+function emailMatches(input: string): string[] {
+  return input.match(/[\w.+-]+@[\w.-]+\.\w+/g) ?? [];
+}
+
+function pickGuestEmail(labelCandidates: string[], scanTexts: string[], blockedEmails: string[] = []): string | null {
+  const blocked = new Set(blockedEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
+  const candidates = uniqueStrings([
+    ...labelCandidates.flatMap(emailMatches),
+    ...scanTexts.flatMap(emailMatches),
+  ]).map((e) => e.toLowerCase());
+  return candidates.find((e) => !blocked.has(e)) ?? null;
 }
 
 const MONTH_MAP: Record<string, number> = {
@@ -175,17 +280,19 @@ function parseGeneric(
   subject: string,
   defaults: Record<string, string[]>,
   fieldLabels: Record<string, string[]>,
-  opts?: { statusFromSubject?: boolean },
+  opts?: { statusFromSubject?: boolean } & ParserOptions,
 ): { booking: ParsedBooking | null; errors: string[] } {
   const lbl = (k: string) => (fieldLabels[k]?.length ? fieldLabels[k] : defaults[k] ?? []);
+  const guestSection = extractGuestDetailsSection(text);
+  const identityTexts = [guestSection, text].filter((v): v is string => !!v);
 
   const bookingId =
     pickByLabels(text, lbl("booking_id")) ??
     pick(subject, /Booking\s*(?:ID|Id|No|Number|Reference)[^A-Z0-9]*([A-Z0-9-]*\d[A-Z0-9-]*)/i) ??
     pick(subject, /Booking[^A-Z0-9]*([A-Z0-9-]*\d[A-Z0-9-]*)/i);
-  const name = pickByLabels(text, lbl("guest_name"));
-  const mobile = pickByLabels(text, lbl("mobile"));
-  const emailVal = pickByLabels(text, lbl("email"));
+  const name = pickFirstByLabelsFromTexts(identityTexts, lbl("guest_name"));
+  const mobileCandidates = pickAllByLabelsFromTexts(identityTexts, lbl("mobile"));
+  const emailCandidates = pickAllByLabelsFromTexts(identityTexts, lbl("email"));
   const checkInRaw = pickByLabels(text, lbl("check_in"));
   const checkOutRaw = pickByLabels(text, lbl("check_out"));
   const checkIn = normalizeDate(checkInRaw);
@@ -221,32 +328,18 @@ function parseGeneric(
   if (!checkOut) errors.push(`missing/invalid check-out${checkOutRaw ? ` (${checkOutRaw})` : ""}`);
   if (!bookingId || !name || !checkIn || !checkOut) return { booking: null, errors };
 
-  const emailMatch = emailVal?.match(/[\w.+-]+@[\w.-]+\.\w+/);
-
-  // Safeguard — never store the hotel's reception number as a guest phone.
-  // Canonicalize to +91XXXXXXXXXX so OTA imports honour the same invariant as the rest of the PMS.
-  const RECEPTION_NUMBERS = new Set(["9985908131", "09985908131", "+919985908131", "919985908131"]);
-  // Phone fallback: if label-based pick fails or yields no digits, scan the text for the first
-  // Indian mobile pattern (+91 followed by 10 digits, allowing one optional space).
-  let phoneCandidate: string | null = mobile;
-  if (!phoneCandidate || !/\d/.test(phoneCandidate)) {
-    const m = text.match(/\+\s*91[\s-]?\d{5}[\s-]?\d{5}|\+\s*91[\s-]?\d{10}|\b[6-9]\d{9}\b/);
-    phoneCandidate = m ? m[0] : null;
-  }
-  const cleanedPhone = phoneCandidate ? phoneCandidate.replace(/[\s\-()]/g, "") : null;
-  const isReception = cleanedPhone ? RECEPTION_NUMBERS.has(cleanedPhone) : false;
-  let guestPhone: string | null = null;
-  if (cleanedPhone && !isReception) {
-    const n = normalizePhoneNumber(cleanedPhone);
-    guestPhone = validatePhoneNumber(n) ? n : null;
-  }
+  // Identity fields must prefer the Guest Details block. Hotelzify emails also contain the
+  // hotel's own Contact/Email before the guest block; scanning the whole email first stores
+  // the reception contact instead of the guest contact.
+  const guestPhone = pickGuestPhone(mobileCandidates, identityTexts);
+  const guestEmail = pickGuestEmail(emailCandidates, identityTexts, opts?.blockedEmails);
 
   return {
     booking: {
       external_ref: bookingId,
       guest_name: name.replace(/\s*\([^)]*\)\s*$/, "").trim(),
       phone: guestPhone,
-      email: emailMatch ? emailMatch[0].toLowerCase() : null,
+      email: guestEmail,
       check_in: checkIn,
       check_out: checkOut,
       guests: guestCount ? parseInt(guestCount, 10) || 1 : 1,
