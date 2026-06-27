@@ -540,6 +540,7 @@ async function processIntegration(
   const days = cfg.lookback_days ?? 30;
   const customQuery: string | undefined = cfg.search_query;
   const leadSource: string = cfg.lead_source ?? (provider === "hotelzify" ? "Hotelzify" : provider === "fabhotels" ? "FabHotels" : provider);
+  const blockedEmails: string[] = [cfg.inbox_email, cfg.hotel_email, cfg.property_email].filter((v): v is string => typeof v === "string" && !!v.trim());
   // When false (default), bookings that already exist (by external_ref) are skipped — never patched.
   // When true, only safe fields (amount, status, special_requests) are patched; guest identity is never overwritten.
   const allowUpdates: boolean = cfg.allow_updates === true;
@@ -663,7 +664,7 @@ async function processIntegration(
         result.matched++;
 
         const text = extractTextFromPayload(msg.payload);
-        const parseRes = parser(text, subject, fieldLabels);
+        const parseRes = parser(text, subject, fieldLabels, { blockedEmails });
         if (!parseRes.booking) {
           const reason = parseRes.errors.join("; ") || "parse failed";
           result.parser_errors.push(`msg ${m.id} ("${subject.slice(0, 60)}"): ${reason}`);
@@ -673,10 +674,22 @@ async function processIntegration(
         result.parsed++;
 
         let customerId: string | null = null;
+        let customerRow: { id: string; phone: string | null; email: string | null } | null = null;
         if (parsed.phone) {
           const { data: cust } = await supabaseAdmin
-            .from("customers").select("id").eq("phone", parsed.phone).limit(1).maybeSingle();
-          if (cust) customerId = cust.id;
+            .from("customers").select("id, phone, email").eq("phone", parsed.phone).limit(1).maybeSingle();
+          if (cust) {
+            customerRow = cust;
+            customerId = cust.id;
+          }
+        }
+        if (!customerId && parsed.email) {
+          const { data: cust } = await supabaseAdmin
+            .from("customers").select("id, phone, email").ilike("email", parsed.email).limit(1).maybeSingle();
+          if (cust) {
+            customerRow = cust;
+            customerId = cust.id;
+          }
         }
 
         const { data: anyUser } = await supabaseAdmin
@@ -684,24 +697,40 @@ async function processIntegration(
         const systemUserId = anyUser?.user_id;
         if (!systemUserId && !dryRun) throw new Error("No admin user to attribute booking");
 
+        let customerPayload: Record<string, unknown> | null = null;
+        let customerContactPatch: Record<string, string> = {};
         if (!customerId && !dryRun) {
+          customerPayload = {
+            user_id: systemUserId,
+            guest_name: parsed.guest_name,
+            phone: parsed.phone,
+            email: parsed.email,
+            lead_source: leadSource,
+          };
           const { data: newCust, error: custErr } = await supabaseAdmin
             .from("customers")
-            .insert({
-              user_id: systemUserId,
-              guest_name: parsed.guest_name,
-              phone: parsed.phone,
-              email: parsed.email,
-              lead_source: leadSource,
-            } as any)
-            .select("id").single();
+            .insert(customerPayload as any)
+            .select("id, phone, email").single();
           if (custErr) throw custErr;
           customerId = newCust!.id;
+          customerRow = newCust;
+        } else if (customerId && !dryRun) {
+          customerContactPatch = contactPatchFromParsed(customerRow, parsed);
+          if (Object.keys(customerContactPatch).length > 0) {
+            const { data: patchedCustomer, error: patchCustomerErr } = await supabaseAdmin
+              .from("customers")
+              .update(customerContactPatch as any)
+              .eq("id", customerId)
+              .select("id, phone, email")
+              .single();
+            if (patchCustomerErr) throw patchCustomerErr;
+            customerRow = patchedCustomer;
+          }
         }
 
         const { data: existing } = await supabaseAdmin
           .from("bookings")
-          .select("id")
+          .select("id, phone, email, customer_id")
           .eq("integration_id", intg.id)
           .eq("external_ref", parsed.external_ref)
           .maybeSingle();
@@ -735,11 +764,36 @@ async function processIntegration(
           special_requests: parsed.special_requests,
           notes: `Imported from ${leadSource} · Booking #${parsed.external_ref}${parsed.payment_mode ? ` · ${parsed.payment_mode}` : ""}`,
         };
+        const trace: ImportTrace = {
+          external_ref: parsed.external_ref,
+          gmail_message_id: m.id,
+          subject,
+          action: existing ? (allowUpdates ? "update" : "skip") : "create",
+          parsed_payload: maskedParsedPayload(parsed),
+          database_payload: maskedDatabasePayload(bookingPayload),
+          customer_payload: customerPayload ? maskedDatabasePayload(customerPayload) : (Object.keys(customerContactPatch).length > 0 ? maskedDatabasePayload(customerContactPatch) : null),
+        };
+        let bookingIdForExternal = existing?.id ?? null;
+        let contactRepairPayload: Record<string, string> = {};
 
         if (existing) {
           if (!allowUpdates) {
             // Dedupe-skip: existing booking, updates disabled in integration config.
-            result.parser_errors.push(`msg ${m.id} ("${subject.slice(0, 60)}"): skipped — booking exists (updates disabled)`);
+            // Exception: safely fill contact fields that are currently empty, because
+            // staff cannot use imported bookings when mobile/email were lost in an older run.
+            contactRepairPayload = contactPatchFromParsed(existing, parsed);
+            if (Object.keys(contactRepairPayload).length > 0 && !dryRun) {
+              const { error: repairErr } = await supabaseAdmin
+                .from("bookings")
+                .update(contactRepairPayload as any)
+                .eq("id", existing.id);
+              if (repairErr) throw repairErr;
+              trace.action = "repair_existing_contact";
+              trace.contact_repair_payload = maskedDatabasePayload(contactRepairPayload);
+              result.updated++;
+            } else {
+              result.parser_errors.push(`msg ${m.id} ("${subject.slice(0, 60)}"): skipped — booking exists (updates disabled)`);
+            }
           } else {
             if (!dryRun) {
               // Patch only safe financial / status / requests fields. Never overwrite guest identity,
@@ -751,13 +805,20 @@ async function processIntegration(
                 advance_paid: bookingPayload.advance_paid,
                 status: bookingPayload.status,
                 special_requests: bookingPayload.special_requests,
+                ...contactPatchFromParsed(existing, parsed),
               } as any).eq("id", existing.id);
             }
             result.updated++;
           }
         } else {
           if (!dryRun) {
-            await supabaseAdmin.from("bookings").insert(bookingPayload as any);
+            const { data: insertedBooking, error: insertBookingErr } = await supabaseAdmin
+              .from("bookings")
+              .insert(bookingPayload as any)
+              .select("id")
+              .single();
+            if (insertBookingErr) throw insertBookingErr;
+            bookingIdForExternal = insertedBooking.id;
           }
           result.created++;
         }
@@ -766,7 +827,9 @@ async function processIntegration(
           await supabaseAdmin.from("external_bookings").upsert({
             integration_id: intg.id,
             external_ref: parsed.external_ref,
-            raw_payload: { subject, parsed, gmail_message_id: m.id },
+            raw_payload: { subject, parsed, gmail_message_id: m.id, trace },
+            parsed,
+            booking_id: bookingIdForExternal,
             state: "processed",
           } as any, { onConflict: "integration_id,external_ref" });
         }
