@@ -32,6 +32,16 @@ type SyncDebugResponse = {
   parser_errors?: string[];
   first_5_email_subjects_seen?: { date?: string; from: string; subject: string }[];
   diagnostic_searches?: { query: string; count: number; resultSizeEstimate: number; samples: { from: string; subject: string }[]; error?: string }[];
+  traces?: Array<{
+    external_ref: string;
+    gmail_message_id: string;
+    subject: string;
+    action: string;
+    parsed_payload: Record<string, unknown>;
+    database_payload: Record<string, unknown>;
+    customer_payload: Record<string, unknown> | null;
+    contact_repair_payload?: Record<string, unknown> | null;
+  }>;
 };
 
 // Advanced field mapping keys → friendly label
@@ -315,6 +325,23 @@ function Content({ id }: { id: string }) {
           <DebugList title="First 5 email subjects seen" empty="No emails returned for the main query." items={(debugInfo.first_5_email_subjects_seen ?? []).map((s) => `${s.from || "—"} — ${s.subject || "—"}`)} />
           <DebugList title="Parser errors / skipped" empty="No parser errors." items={debugInfo.parser_errors ?? []} />
           <DebugList title="Other errors" empty="No errors recorded." items={debugInfo.errors ?? []} />
+          {(debugInfo.traces ?? []).length > 0 && (
+            <div className="space-y-2">
+              <div className={labelCls}>End-to-end import trace</div>
+              {(debugInfo.traces ?? []).slice(0, 3).map((t) => (
+                <div key={`${t.gmail_message_id}-${t.external_ref}`} className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                    <span className="font-medium">Booking #{t.external_ref} · {t.action}</span>
+                    <span className="text-muted-foreground">Gmail message: {t.gmail_message_id}</span>
+                  </div>
+                  <TraceJson title="Parsed payload" value={t.parsed_payload} />
+                  <TraceJson title="Booking insert/update payload" value={t.database_payload} />
+                  <TraceJson title="Customer insert/update payload" value={t.customer_payload ?? { note: "No customer contact write required" }} />
+                  {t.contact_repair_payload && <TraceJson title="Existing booking contact repair" value={t.contact_repair_payload} />}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -383,6 +410,17 @@ function DebugList({ title, items, empty }: { title: string; items: string[]; em
         {items.length === 0 ? <div>{empty}</div> : items.slice(0, 8).map((item, idx) => <div key={`${item}-${idx}`}>• {item}</div>)}
       </div>
     </div>
+  );
+}
+
+function TraceJson({ title, value }: { title: string; value: unknown }) {
+  return (
+    <details className="rounded-md bg-background/60 border border-border/70 px-3 py-2">
+      <summary className="cursor-pointer text-[11px] font-medium text-foreground">{title}</summary>
+      <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all text-[10px] text-muted-foreground">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    </details>
   );
 }
 
