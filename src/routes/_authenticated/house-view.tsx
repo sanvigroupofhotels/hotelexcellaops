@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState, memo, useCallback, useEffect } from "react";
+import { useMemo, useState, memo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { listRooms, listMaintenance } from "@/lib/rooms-api";
@@ -163,17 +163,22 @@ function HouseView() {
   // Mobile move-booking dialog (long-press fallback for drag-and-drop)
   const isMobile = useIsMobile();
 
-  // FAB auto-hide while scrolling the grid (mobile UX polish)
-  const [fabHidden, setFabHidden] = useState(false);
+  // FAB auto-hide while scrolling the grid (mobile UX polish).
+  // Performance: do NOT use setState here — scroll fires dozens of times per
+  // second and would re-render the entire HouseView (and every chip) per tick.
+  // Toggle a class on the FAB element directly via a ref instead.
+  const fabRef = useRef<HTMLAnchorElement | null>(null);
   useEffect(() => {
     if (!isMobile) return;
     const grid = document.querySelector("[data-house-grid]");
     if (!grid) return;
     let t: any = null;
+    const show = () => { fabRef.current?.classList.remove("fab-hidden"); };
+    const hide = () => { fabRef.current?.classList.add("fab-hidden"); };
     const onScroll = () => {
-      setFabHidden(true);
+      hide();
       if (t) clearTimeout(t);
-      t = setTimeout(() => setFabHidden(false), 700);
+      t = setTimeout(show, 700);
     };
     grid.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -843,6 +848,8 @@ function HouseView() {
                                 // and visible end = real check-out (slotEndExclusive).
                                 const continuesLeft = b.check_in < rangeStart;
                                 const continuesRight = endIdx < 0; // endExclusive past range end
+                                // Pass primitives (not the eligibility object) so React.memo
+                                // on BookingChip stays effective across parent renders.
                                 return (
                                   <BookingChip
                                     key={`${b.id}-${b._slotKey ?? b.check_in}`}
@@ -853,15 +860,17 @@ function HouseView() {
                                     hasBreakfast={hasBreakfast}
                                     hasPet={hasPet}
                                     balanceDue={balanceDue}
-                                    moveEligibility={moveEligibility}
+                                    moveEligible={moveEligibility.eligible}
+                                    moveReason={moveEligibility.reason}
                                     isMobile={isMobile}
                                     highlight={highlightId === b.id}
                                     continuesLeft={continuesLeft}
                                     continuesRight={continuesRight}
+                                    origCheckIn={b.check_in}
+                                    origCheckOut={b.check_out}
                                     onSelect={handleChipSelect}
                                     onLongPress={handleChipLongPress}
                                     onDragStartAvail={handleChipDragStartAvail}
-                                    bookingsAll={bookings as any[]}
                                     onDragEnd={handleChipDragEnd}
                                   />
                                 );
@@ -998,16 +1007,16 @@ function HouseView() {
         </div>
       )}
 
-      {/* Floating action button — quick walk-in booking */}
+      {/* Floating action button — quick walk-in booking.
+          Visibility toggle is imperative (ref + class) to avoid re-rendering
+          the entire House View grid on every scroll tick. */}
       <Link
+        ref={fabRef as any}
         to="/bookings/new"
         search={{ customerId: undefined, fromQuoteId: undefined } as any}
         title="New Booking"
         aria-label="New Booking"
-        className={cn(
-          "fixed z-40 h-12 w-12 md:h-14 md:w-14 rounded-full gold-gradient text-charcoal shadow-lg flex items-center justify-center hover:scale-105 hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.45)] transition-all duration-200",
-          fabHidden ? "translate-y-24 opacity-0 pointer-events-none" : "translate-y-0 opacity-100",
-        )}
+        className="house-fab fixed z-40 h-12 w-12 md:h-14 md:w-14 rounded-full gold-gradient text-charcoal shadow-lg flex items-center justify-center hover:scale-105 hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.45)] transition-all duration-200 translate-y-0 opacity-100"
         style={{
           right: "max(0.75rem, env(safe-area-inset-right))",
           bottom: "max(0.875rem, calc(env(safe-area-inset-bottom) + 0.5rem))",
@@ -1498,31 +1507,33 @@ interface BookingChipProps {
   hasBreakfast: boolean;
   hasPet: boolean;
   balanceDue: number;
-  moveEligibility: { eligible: boolean; reason: string };
+  moveEligible: boolean;
+  moveReason: string;
   isMobile: boolean;
   highlight: boolean;
   continuesLeft: boolean;
   continuesRight: boolean;
+  origCheckIn: string;
+  origCheckOut: string;
   onSelect: (b: any) => void;
   onLongPress: (b: any, roomId: string) => void;
   onDragStartAvail: (b: any, payload: string) => string;
-  bookingsAll: any[];
   onDragEnd: () => void;
 }
 const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
-    b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligibility,
-    isMobile, highlight, continuesLeft, continuesRight,
-    onSelect, onLongPress, onDragStartAvail, bookingsAll, onDragEnd,
+    b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligible, moveReason,
+    isMobile, highlight, continuesLeft, continuesRight, origCheckIn, origCheckOut,
+    onSelect, onLongPress, onDragStartAvail, onDragEnd,
   } = props;
-  const dragEnabled = moveEligibility.eligible;
+  const dragEnabled = moveEligible;
   const longPress = useLongPress({
     enabled: dragEnabled && isMobile,
     delayMs: LONG_PRESS_DELAY_MS,
     moveTolerancePx: LONG_PRESS_MOVE_TOLERANCE,
     onTrigger: () => onLongPress(b, roomId),
     debugId: b.id,
-    disabledReason: moveEligibility.reason,
+    disabledReason: moveReason,
   });
   // True caps: rounded only on true check-in / check-out edges.
   const radiusClasses = cn(
@@ -1539,12 +1550,11 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       draggable={dragEnabled && !isMobile}
       onDragStart={(e) => {
         if (!dragEnabled || isMobile) { e.preventDefault(); return; }
-        const orig = bookingsAll.find((x) => x.id === b.id) ?? b;
         const payload = JSON.stringify({
           bookingId: b.id,
           oldRoomId: b._virtual ? null : roomId,
-          checkIn: orig.check_in,
-          checkOut: orig.check_out,
+          checkIn: origCheckIn,
+          checkOut: origCheckOut,
           status: b.status,
           virtual: !!b._virtual,
         });
@@ -1558,16 +1568,22 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         blockClasses(b),
         b._virtual && "border-dashed",
         dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
-        dragEnabled && isMobile && "touch-none select-none",
+        // NOTE: `touch-none` was previously applied to mobile-movable chips.
+        // It blocks native panning, which is the dominant cause of laggy
+        // vertical/horizontal scrolling on Android because most fingers land
+        // on a chip. `manipulation` lets the browser pan natively while the
+        // long-press hook still triggers (it aborts on >14px finger movement,
+        // so a scroll gesture cleanly cancels the long-press timer).
+        dragEnabled && isMobile && "select-none",
         highlight && "ring-4 ring-gold animate-pulse",
       )}
       style={{
         left: continuesLeft ? 0 : 4,
         width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 4}px - ${continuesRight ? 0 : 4}px)`,
         zIndex: highlight ? 25 : 20,
-        touchAction: dragEnabled && isMobile ? "none" : undefined,
+        touchAction: dragEnabled && isMobile ? "manipulation" : undefined,
       }}
-      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveEligibility.reason}`}`}
+      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveReason}`}`}
     >
       {continuesLeft && <span aria-hidden className="shrink-0 opacity-70 -ml-0.5">‹</span>}
       {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}

@@ -241,6 +241,11 @@
       inset 2px 0 0 oklch(0.82 0.13 82 / 0.45),
       inset -2px 0 0 oklch(0.82 0.13 82 / 0.3);
   }
+  .house-fab.fab-hidden {
+    transform: translateY(6rem);
+    opacity: 0;
+    pointer-events: none;
+  }
   .gold-text-gradient {
     background: linear-gradient(135deg, oklch(0.9 0.12 88), oklch(0.74 0.14 75));
     -webkit-background-clip: text;
