@@ -639,7 +639,7 @@ function HouseView() {
           >
             <Hotel className="h-3.5 w-3.5" /> Stats
           </button>
-          <div className="luxe-card rounded-xl p-2 md:p-3 flex-1">
+          <div className="luxe-card rounded-xl p-1.5 md:p-3 flex-1 md:flex-1 max-w-full">
             <div className="relative">
               <input
                 type="text"
@@ -649,8 +649,8 @@ function HouseView() {
                   if (e.key === "Enter" && searchMatches.length > 0) jumpToBooking(searchMatches[0]);
                   if (e.key === "Escape") setSearchQ("");
                 }}
-                placeholder="Search bookings, guests, mobile…"
-                className="w-full bg-input/60 border border-border rounded-md pl-9 pr-9 py-2 md:py-2.5 text-sm placeholder:text-muted-foreground/60"
+                placeholder="Search…"
+                className="w-full bg-input/60 border border-border rounded-md pl-8 pr-8 py-1.5 md:py-2.5 text-sm placeholder:text-muted-foreground/60"
               />
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
               {searchQ && (
