@@ -764,9 +764,9 @@ function HouseView() {
                         return (
                           <td key={i}
                             className={cn(
-                              "relative border-b border-r border-border align-top h-10 p-0 group/cell",
+                              "relative border-b border-r border-border/40 align-top h-10 p-0 group/cell",
                               isToday && "house-business-date-cell",
-                              i % 2 === 0 && !isToday && "bg-secondary/10",
+                              !isToday && (i % 2 === 0 ? "bg-secondary/[0.04]" : "bg-secondary/[0.015]"),
                               i === days.length - 1 && "border-r-0",
                               dragHL,
                             )}
