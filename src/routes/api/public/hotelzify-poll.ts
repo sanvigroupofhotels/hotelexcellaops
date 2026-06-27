@@ -572,7 +572,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
           return Response.json({
             ok: false,
             code: "gmail_not_connected",
-            error: "Gmail is not connected. Email-parser integrations read confirmation emails from your reception Gmail inbox. Connect Gmail under Settings → Connections, then run this sync again. Your FabHotels configuration is unaffected.",
+            error: "Gmail is not connected to Lovable. Email-parser integrations (FabHotels, Hotelzify, OYO) all read confirmation emails from the single Gmail account you connect here — the same address shown as 'Inbox Email' on this integration (e.g. hotelexcellavizag@gmail.com). Connect Gmail under Settings → Connections, then run this sync again. Your integration configuration is unaffected.",
           }, { status: 400 });
         }
 
