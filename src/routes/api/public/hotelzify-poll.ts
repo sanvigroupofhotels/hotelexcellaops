@@ -599,6 +599,9 @@ async function processIntegration(
           } as any, { onConflict: "integration_id,external_ref" });
         }
       } catch (e: any) {
+        if (result.gmail_access_mode === "metadata_only" && result.fatal) {
+          throw e;
+        }
         result.errors.push(`msg ${m.id}: ${e.message?.slice(0, 200)}`);
       }
     }
