@@ -553,6 +553,18 @@ async function processIntegration(
   // When false (default), bookings that already exist (by external_ref) are skipped — never patched.
   // When true, only safe fields (amount, status, special_requests) are patched; guest identity is never overwritten.
   const allowUpdates: boolean = cfg.allow_updates === true;
+  // Configurable tax rate (decimal, e.g. 0.05 for 5%). Default 5% — Hotelzify
+  // line items historically show "Tax (5%)" but the value itself is often
+  // missing or polluted. Used as fallback and as a sanity clamp.
+  const configuredTaxRate: number = (() => {
+    const raw = cfg.tax_rate;
+    if (typeof raw === "number" && raw >= 0 && raw <= 1) return raw;
+    if (typeof raw === "string" && raw.trim()) {
+      const n = parseFloat(raw);
+      if (Number.isFinite(n)) return n > 1 ? n / 100 : n;
+    }
+    return 0.05;
+  })();
 
   const fieldLabels: Record<string, string[]> = (() => {
     const raw = cfg.field_labels ?? {};
