@@ -693,7 +693,7 @@ function HouseView() {
                         className={cn("sticky top-0 z-30 border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
                           isToday ? "house-business-date-header border-gold/60" : "bg-card text-muted-foreground",
                           isLast && "border-r-0")}
-                        style={{ minWidth: CELL_W_MOB, width: CELL_W }}>
+                        style={{ minWidth: isMobile ? CELL_W_MOB : CELL_W, width: isMobile ? CELL_W_MOB : CELL_W }}>
                         <div className="font-semibold">{isToday ? "TODAY" : d.toLocaleDateString("en-IN", { weekday: "short" })}</div>
                         <div className={cn("text-xs", isToday ? "text-current" : "text-foreground")}>{fmtShort(d)}</div>
                       </th>
@@ -738,8 +738,10 @@ function HouseView() {
                             style={{
                               minWidth: isMobile ? CELL_W_MOB : CELL_W,
                               width: isMobile ? CELL_W_MOB : CELL_W,
-                              // Skip painting offscreen cells in heavy grids.
-                              contain: "layout paint style",
+                              // Optimise layout/style recalc without clipping multi-day chips
+                              // (contain: paint would clip absolutely-positioned chips that
+                              // span across multiple cells).
+                              contain: "layout style",
                             } as React.CSSProperties}
                             onDragOver={(e) => {
                               if (e.dataTransfer.types.includes("application/x-booking-move")) {
