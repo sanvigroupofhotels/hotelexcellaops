@@ -358,12 +358,39 @@ function parseGeneric(
   };
 }
 
-type ProviderParser = (text: string, subject: string, fieldLabels: Record<string, string[]>) => { booking: ParsedBooking | null; errors: string[] };
+type ProviderParser = (text: string, subject: string, fieldLabels: Record<string, string[]>, opts?: ParserOptions) => { booking: ParsedBooking | null; errors: string[] };
 
 const PARSERS: Record<string, ProviderParser> = {
-  hotelzify: (text, subject, fl) => parseGeneric(text, subject, HOTELZIFY_DEFAULTS, fl, { statusFromSubject: true }),
-  fabhotels: (text, subject, fl) => parseGeneric(text, subject, FABHOTELS_DEFAULTS, fl, { statusFromSubject: true }),
+  hotelzify: (text, subject, fl, opts) => parseGeneric(text, subject, HOTELZIFY_DEFAULTS, fl, { statusFromSubject: true, ...opts }),
+  fabhotels: (text, subject, fl, opts) => parseGeneric(text, subject, FABHOTELS_DEFAULTS, fl, { statusFromSubject: true, ...opts }),
 };
+
+function maskPhone(value: unknown): unknown {
+  if (typeof value !== "string" || !value) return value;
+  const digits = value.replace(/\D/g, "");
+  if (digits.length < 10) return value;
+  return `+91${"*".repeat(8)}${digits.slice(-2)}`;
+}
+
+function maskEmail(value: unknown): unknown {
+  if (typeof value !== "string" || !value) return value;
+  return value.replace(/(^.).*(@.*$)/, "$1***$2");
+}
+
+function maskedParsedPayload(parsed: ParsedBooking): Record<string, unknown> {
+  return { ...parsed, phone: maskPhone(parsed.phone), email: maskEmail(parsed.email) };
+}
+
+function maskedDatabasePayload(payload: Record<string, unknown>): Record<string, unknown> {
+  return { ...payload, phone: maskPhone(payload.phone), email: maskEmail(payload.email) };
+}
+
+function contactPatchFromParsed(current: { phone?: string | null; email?: string | null } | null | undefined, parsed: ParsedBooking) {
+  const patch: Record<string, string> = {};
+  if (parsed.phone && !current?.phone) patch.phone = parsed.phone;
+  if (parsed.email && !current?.email) patch.email = parsed.email;
+  return patch;
+}
 
 function mapStatus(s: string): string {
   const lc = s.toLowerCase();
