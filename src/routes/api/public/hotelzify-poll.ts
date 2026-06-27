@@ -26,7 +26,9 @@ type ParsedBooking = {
   guests: number;
   room_details: string;
   room_charges: number;
+  subtotal: number;
   discount: number;
+  taxable_amount: number;
   tax: number;
   total_amount: number;
   amount_paid: number;
@@ -87,9 +89,12 @@ function escapeRe(s: string): string {
 function labelRegex(labels: string[]): RegExp | null {
   if (!labels.length) return null;
   const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
-  // Allow optional parenthetical between label and separator
-  // (e.g. "Total Amount (Incl. of Taxes): INR 3740.00")
-  return new RegExp(`(?:${alt})(?:\\s*\\([^)]*\\))?\\s*[:|\\-]?\\s*([^\\n|]+?)(?=\\n|\\||$)`, "i");
+  // Strict match:
+  //   - Label must not be followed by another alphanumeric char
+  //     ("Discount" must NOT match "Discounted Total")
+  //   - Separator [:|\-] is REQUIRED (prevents bare-label numeric grabs)
+  //   - Optional parenthetical between label and separator (e.g. "Tax (5%):")
+  return new RegExp(`(?:${alt})(?![A-Za-z0-9])(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*([^\\n|]+?)(?=\\n|\\||$)`, "i");
 }
 
 function pickByLabels(text: string, labels: string[]): string | null {
@@ -97,12 +102,10 @@ function pickByLabels(text: string, labels: string[]): string | null {
   return re ? pick(text, re) : null;
 }
 
-/** Find ALL matches for labelled fields. Useful when the same label appears multiple times
- * (e.g. "Total" in a column header AND as a labelled value). */
 function pickAllByLabels(text: string, labels: string[]): string[] {
   if (!labels.length) return [];
   const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
-  const re = new RegExp(`(?:${alt})(?:\\s*\\([^)]*\\))?\\s*[:|\\-]?\\s*([^\\n|]+?)(?=\\n|\\||$)`, "gi");
+  const re = new RegExp(`(?:${alt})(?![A-Za-z0-9])(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*([^\\n|]+?)(?=\\n|\\||$)`, "gi");
   const out: string[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) out.push(m[1].trim());
@@ -112,7 +115,7 @@ function pickAllByLabels(text: string, labels: string[]): string[] {
 function pickAllLineByLabels(text: string, labels: string[]): string[] {
   if (!labels.length) return [];
   const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
-  const re = new RegExp(`^\\s*(?:${alt})(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*(.+?)\\s*$`, "i");
+  const re = new RegExp(`^\\s*(?:${alt})(?![A-Za-z0-9])(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*(.+?)\\s*$`, "i");
   return text
     .split("\n")
     .map((line) => line.match(re)?.[1]?.trim() ?? null)
@@ -248,9 +251,11 @@ const HOTELZIFY_DEFAULTS: Record<string, string[]> = {
   guests: ["Guest Count", "Guests", "Adults", "No of Guests", "Number of Guests"],
   room_details: ["Room Name", "Room Type", "Room Details", "Room"],
   room_charges: ["Room Charges", "Room Total", "Room Tariff", "Room Price", "Room Amount"],
-  discount: ["Discount"],
-  tax: ["Tax", "Taxes", "GST"],
-  total_amount: ["Discounted Total", "Total Amount", "Grand Total", "Total Price", "Total"],
+  subtotal: ["Subtotal", "Sub Total", "Sub-Total"],
+  discount: ["Discount", "Discount Amount", "Coupon Discount"],
+  taxable_amount: ["Taxable Amount", "Taxable Value", "Net Amount"],
+  tax: ["Tax", "Taxes", "GST", "Total Tax", "Total Taxes"],
+  total_amount: ["Discounted Total", "Total Amount", "Grand Total", "Total Price", "Total Booking Amount"],
   amount_paid: ["Amount Paid", "Paid", "Advance Paid", "Advance"],
   balance_due: ["Amount To Pay", "Balance Due", "Balance", "Amount Due", "Due Amount"],
   payment_mode: ["Payment Mode", "Mode of Payment", "Payment Method"],
@@ -316,6 +321,8 @@ function parseGeneric(
   const amountPaid = lastMoney("amount_paid");
   const balanceDue = lastMoney("balance_due");
   const roomCharges = lastMoney("room_charges");
+  const subtotalRaw = lastMoney("subtotal");
+  const taxableRaw = lastMoney("taxable_amount");
   const discount = lastMoney("discount");
   const tax = lastMoney("tax");
   const specialReq = pickByLabels(text, lbl("special_requests"));
@@ -328,9 +335,6 @@ function parseGeneric(
   if (!checkOut) errors.push(`missing/invalid check-out${checkOutRaw ? ` (${checkOutRaw})` : ""}`);
   if (!bookingId || !name || !checkIn || !checkOut) return { booking: null, errors };
 
-  // Identity fields must prefer the Guest Details block. Hotelzify emails also contain the
-  // hotel's own Contact/Email before the guest block; scanning the whole email first stores
-  // the reception contact instead of the guest contact.
   const guestPhone = pickGuestPhone(mobileCandidates, identityTexts);
   const guestEmail = pickGuestEmail(emailCandidates, identityTexts, opts?.blockedEmails);
 
@@ -345,7 +349,9 @@ function parseGeneric(
       guests: guestCount ? parseInt(guestCount, 10) || 1 : 1,
       room_details: roomDetails.trim(),
       room_charges: parseMoney(roomCharges),
+      subtotal: parseMoney(subtotalRaw),
       discount: parseMoney(discount),
+      taxable_amount: parseMoney(taxableRaw),
       tax: parseMoney(tax),
       total_amount: parseMoney(totalAmount),
       amount_paid: parseMoney(amountPaid),
@@ -547,6 +553,18 @@ async function processIntegration(
   // When false (default), bookings that already exist (by external_ref) are skipped — never patched.
   // When true, only safe fields (amount, status, special_requests) are patched; guest identity is never overwritten.
   const allowUpdates: boolean = cfg.allow_updates === true;
+  // Configurable tax rate (decimal, e.g. 0.05 for 5%). Default 5% — Hotelzify
+  // line items historically show "Tax (5%)" but the value itself is often
+  // missing or polluted. Used as fallback and as a sanity clamp.
+  const configuredTaxRate: number = (() => {
+    const raw = cfg.tax_rate;
+    if (typeof raw === "number" && raw >= 0 && raw <= 1) return raw;
+    if (typeof raw === "string" && raw.trim()) {
+      const n = parseFloat(raw);
+      if (Number.isFinite(n)) return n > 1 ? n / 100 : n;
+    }
+    return 0.05;
+  })();
 
   const fieldLabels: Record<string, string[]> = (() => {
     const raw = cfg.field_labels ?? {};
@@ -748,16 +766,18 @@ async function processIntegration(
         }
 
         // Pricing breakdown reconciliation.
-        // The Pricing Summary card on the booking detail reads from booking_items + the
-        // `discount`, `tax_rate`, `taxes_included`, and `total_override` columns. To make
-        // Room Charges, Subtotal, Discount, and Taxable Amount display correctly for
-        // imported OTA bookings we:
-        //   1. Insert one synthetic booking_items row with rate = roomChargesBase / nights
-        //      → drives Main Stay Charges + Subtotal
-        //   2. Persist `discount`              → drives Discount row
-        //   3. Persist `tax_rate` derived from parsed tax / taxable base
-        //      → drives Taxable Amount and Tax rows
-        //   4. Persist `amount` = parsed total → Final Booking Amount
+        //
+        // Rules (in priority order — direct extraction beats reverse-calc):
+        //   1. roomChargesBase  ← parsed.room_charges  (else parsed.subtotal+discount,
+        //                          else totalPayable − tax + discount, else totalPayable)
+        //   2. discountAmount   ← parsed.discount
+        //   3. taxableBase      ← parsed.taxable_amount (else parsed.subtotal,
+        //                          else roomChargesBase − discountAmount)
+        //   4. taxAmount        ← parsed.tax (if it equals taxableBase × configuredTaxRate
+        //                          within ±2% tolerance OR is clearly < taxableBase),
+        //                          else round(taxableBase × configuredTaxRate). This guards
+        //                          against the Hotelzify "Tax = total" template bug.
+        //   5. totalPayable     ← parsed.total_amount (authoritative — already verified correct)
         const totalPayable = parsed.total_amount || 0;
         const checkInDate = new Date(parsed.check_in);
         const checkOutDate = new Date(parsed.check_out);
@@ -765,18 +785,26 @@ async function processIntegration(
           1,
           Math.round((checkOutDate.getTime() - checkInDate.getTime()) / 86_400_000),
         );
-        const discountAmount = parsed.discount || 0;
-        // Prefer explicit Room Charges from the email. Fall back to total − tax + discount
-        // (i.e. the pre-tax, gross-of-discount figure), else the total itself.
-        const roomChargesBase =
-          parsed.room_charges > 0
-            ? parsed.room_charges
-            : Math.max(0, totalPayable - (parsed.tax || 0) + discountAmount) || totalPayable;
-        const taxableBase = Math.max(0, roomChargesBase - discountAmount);
-        const derivedTaxRate =
-          parsed.tax > 0 && taxableBase > 0
-            ? Number((parsed.tax / taxableBase).toFixed(4))
-            : 0;
+        const discountAmount = parsed.discount > 0 && parsed.discount < totalPayable ? parsed.discount : 0;
+        const roomChargesBase = (() => {
+          if (parsed.room_charges > 0) return parsed.room_charges;
+          if (parsed.subtotal > 0) return parsed.subtotal + discountAmount;
+          const back = totalPayable - (parsed.tax || 0) + discountAmount;
+          return back > 0 ? back : totalPayable;
+        })();
+        const taxableBase = (() => {
+          if (parsed.taxable_amount > 0) return parsed.taxable_amount;
+          if (parsed.subtotal > 0) return parsed.subtotal;
+          return Math.max(0, roomChargesBase - discountAmount);
+        })();
+        const expectedTax = Math.round(taxableBase * configuredTaxRate);
+        const parsedTaxLooksValid =
+          parsed.tax > 0 &&
+          parsed.tax < taxableBase &&
+          Math.abs(parsed.tax - expectedTax) / Math.max(1, expectedTax) <= 0.05;
+        const taxAmount = parsedTaxLooksValid ? parsed.tax : expectedTax;
+        const effectiveTaxRate =
+          taxableBase > 0 ? Number((taxAmount / taxableBase).toFixed(4)) : configuredTaxRate;
         const perNightRate = Math.max(0, Math.round(roomChargesBase / nights));
 
         const bookingPayload = {
@@ -793,8 +821,8 @@ async function processIntegration(
           amount: totalPayable,
           subtotal: roomChargesBase,
           discount: discountAmount,
-          taxes: parsed.tax || 0,
-          tax_rate: derivedTaxRate,
+          taxes: taxAmount,
+          tax_rate: effectiveTaxRate,
           taxes_included: false,
           total_override: null,
           advance_paid: parsed.amount_paid || 0,

@@ -54,7 +54,12 @@ const FIELD_KEYS: { key: string; label: string; defaults: string }[] = [
   { key: "check_out", label: "Check-Out", defaults: "Check Out, Check-Out, Departure, Departure Date" },
   { key: "guests", label: "Guest Count", defaults: "Guests, Adults, Guest Count" },
   { key: "room_details", label: "Room Name", defaults: "Room Name, Room Type, Room Details" },
-  { key: "total_amount", label: "Total Amount", defaults: "Total Amount, Total Price, Total" },
+  { key: "room_charges", label: "Room Charges", defaults: "Room Charges, Room Total, Room Tariff, Room Price" },
+  { key: "subtotal", label: "Subtotal", defaults: "Subtotal, Sub Total, Sub-Total" },
+  { key: "discount", label: "Discount", defaults: "Discount, Discount Amount, Coupon Discount" },
+  { key: "taxable_amount", label: "Taxable Amount", defaults: "Taxable Amount, Taxable Value, Net Amount" },
+  { key: "tax", label: "Tax (5%)", defaults: "Tax, Taxes, GST, Total Tax" },
+  { key: "total_amount", label: "Total Amount", defaults: "Discounted Total, Total Amount, Grand Total, Total Price" },
   { key: "amount_paid", label: "Amount Paid", defaults: "Amount Paid, Paid" },
   { key: "balance_due", label: "Balance Due", defaults: "Balance Due, Balance" },
   { key: "booking_status", label: "Booking Status", defaults: "Booking Status, Status" },
@@ -84,6 +89,7 @@ function Content({ id }: { id: string }) {
   const [subjectFilters, setSubjectFilters] = useState("");
   const [leadSource, setLeadSource] = useState("");
   const [allowUpdates, setAllowUpdates] = useState(false);
+  const [taxRate, setTaxRate] = useState<number>(5);
   const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
@@ -100,6 +106,11 @@ function Content({ id }: { id: string }) {
     setSubjectFilters(Array.isArray(cfg.subject_filters) ? cfg.subject_filters.join(", ") : "");
     setLeadSource(cfg.lead_source ?? PROVIDER_LABELS[row.provider] ?? "");
     setAllowUpdates(cfg.allow_updates === true);
+    setTaxRate(
+      typeof cfg.tax_rate === "number"
+        ? cfg.tax_rate <= 1 ? cfg.tax_rate * 100 : cfg.tax_rate
+        : 5,
+    );
     const fl = (cfg.field_labels ?? {}) as Record<string, string | string[]>;
     const normalized: Record<string, string> = {};
     for (const f of FIELD_KEYS) {
@@ -123,6 +134,7 @@ function Content({ id }: { id: string }) {
       subject_filters: subjectFilters.split(",").map((s) => s.trim()).filter(Boolean),
       lead_source: leadSource.trim() || undefined,
       allow_updates: allowUpdates,
+      tax_rate: Number.isFinite(taxRate) ? Number((taxRate / 100).toFixed(4)) : 0.05,
       field_labels: fl,
     };
   };
@@ -208,6 +220,7 @@ function Content({ id }: { id: string }) {
           <Field label="Inbox Email (connected Gmail)"><input className={inputCls} value={inboxEmail} onChange={(e) => setInboxEmail(e.target.value)} placeholder="hotel@gmail.com" /></Field>
           <Field label="Lookback Days"><input type="number" min={1} max={365} className={inputCls} value={lookbackDays} onChange={(e) => setLookbackDays(Number(e.target.value) || 7)} /></Field>
           <Field label="Lead Source"><input className={inputCls} value={leadSource} onChange={(e) => setLeadSource(e.target.value)} placeholder="Hotelzify" /></Field>
+          <Field label="Default Tax Rate (%)"><input type="number" step="0.1" min="0" max="100" className={inputCls} value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))} placeholder="5" /></Field>
         </div>
 
         <Field label="Subject Filters (comma separated)">
