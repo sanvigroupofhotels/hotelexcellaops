@@ -684,7 +684,7 @@ function HouseView() {
         </div>
 
         {/* Row 2: Navigation + business date + Today + Stats (desktop) */}
-        <div className="luxe-card rounded-xl p-2 md:p-4 flex items-center justify-between gap-2">
+        <div className="luxe-card rounded-xl p-1.5 md:p-4 flex items-center justify-between gap-2">
           <button onClick={() => setAnchor((d) => addDays(d, -1))} className="p-1.5 md:p-2 rounded-md border border-border hover:border-gold/40 shrink-0"><ChevronLeft className="h-4 w-4" /></button>
           <div className="flex items-center gap-1.5 md:gap-2 flex-wrap justify-center flex-1">
             <span className="hidden lg:inline text-sm font-medium">House Overview</span>
