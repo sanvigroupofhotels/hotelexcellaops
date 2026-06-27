@@ -626,7 +626,8 @@ async function processIntegration(
               // phone, room assignment, or staff notes — those are owned by the PMS once created.
               await supabaseAdmin.from("bookings").update({
                 amount: bookingPayload.amount,
-                subtotal: bookingPayload.amount,
+                subtotal: bookingPayload.subtotal,
+                discount: bookingPayload.discount,
                 advance_paid: bookingPayload.advance_paid,
                 status: bookingPayload.status,
                 special_requests: bookingPayload.special_requests,
