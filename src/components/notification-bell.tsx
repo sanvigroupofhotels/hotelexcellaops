@@ -114,9 +114,9 @@ export function NotificationBell({
     onSuccess: afterMutate,
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
-  const readAll = useMutation({
-    mutationFn: markAllNotificationsRead,
-    onSuccess: () => { afterMutate(); toast.success("All marked as read"); },
+  const dismissAll = useMutation({
+    mutationFn: dismissAllVisibleNotifications,
+    onSuccess: () => { afterMutate(); toast.success("All notifications dismissed"); },
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
   const del = useMutation({
@@ -124,6 +124,11 @@ export function NotificationBell({
     onSuccess: afterMutate,
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
+
+  // Popover shows only the 8 most recent — heavy lifting lives in the
+  // Notifications workspace inside Follow-ups.
+  const recent = items.slice(0, 8);
+  const hasAny = items.length > 0;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -153,27 +158,30 @@ export function NotificationBell({
             <div className="font-display text-sm">Notifications</div>
             <div className="text-[11px] text-muted-foreground">{count} unread</div>
           </div>
-          {count > 0 && (
+          {hasAny && (
             <button
-              onClick={() => readAll.mutate()}
-              disabled={readAll.isPending}
-              className="text-[11px] text-gold hover:underline inline-flex items-center gap-1"
+              onClick={() => {
+                if (!confirm("Permanently dismiss all visible notifications?")) return;
+                dismissAll.mutate();
+              }}
+              disabled={dismissAll.isPending}
+              className="text-[11px] text-muted-foreground hover:text-destructive inline-flex items-center gap-1"
             >
-              <CheckCheck className="h-3 w-3" /> Mark all read
+              <Trash2 className="h-3 w-3" /> Dismiss All
             </button>
           )}
         </div>
         <div className="overflow-y-auto flex-1">
           {isLoading ? (
             <div className="p-6 text-center text-xs text-muted-foreground">Loading…</div>
-          ) : items.length === 0 ? (
+          ) : recent.length === 0 ? (
             <div className="p-8 text-center">
               <Bell className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
               <div className="text-xs text-muted-foreground">No notifications yet</div>
             </div>
           ) : (
             <ul className="divide-y divide-border">
-              {items.map((n) => (
+              {recent.map((n) => (
                 <NotificationItem
                   key={n.id}
                   n={n}
@@ -185,6 +193,14 @@ export function NotificationBell({
             </ul>
           )}
         </div>
+        <Link
+          to="/follow-ups"
+          search={{ view: "notifications" } as any}
+          onClick={() => setOpen(false)}
+          className="border-t border-border px-4 py-2.5 text-xs font-medium text-gold inline-flex items-center justify-center gap-1.5 hover:bg-gold-soft/30"
+        >
+          View All Notifications <ArrowRight className="h-3 w-3" />
+        </Link>
       </PopoverContent>
     </Popover>
   );
