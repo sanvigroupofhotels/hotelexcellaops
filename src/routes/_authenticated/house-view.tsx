@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState, memo, useCallback } from "react";
+import { useMemo, useState, memo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { listRooms, listMaintenance } from "@/lib/rooms-api";
@@ -162,6 +162,28 @@ function HouseView() {
   const [auditOpen, setAuditOpen] = useState(false);
   // Mobile move-booking dialog (long-press fallback for drag-and-drop)
   const isMobile = useIsMobile();
+
+  // FAB auto-hide while scrolling the grid (mobile UX polish)
+  const [fabHidden, setFabHidden] = useState(false);
+  useEffect(() => {
+    if (!isMobile) return;
+    const grid = document.querySelector("[data-house-grid]");
+    if (!grid) return;
+    let t: any = null;
+    const onScroll = () => {
+      setFabHidden(true);
+      if (t) clearTimeout(t);
+      t = setTimeout(() => setFabHidden(false), 700);
+    };
+    grid.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      grid.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll);
+      if (t) clearTimeout(t);
+    };
+  }, [isMobile]);
+
   const [moveDialog, setMoveDialog] = useState<{
     bookingId: string; guestName: string; oldRoomId: string | null;
     checkIn: string; checkOut: string; status: string; virtual?: boolean;
@@ -189,7 +211,7 @@ function HouseView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("booking_items" as any)
-        .select("booking_id,position,breakfast_included,room_type,rooms,check_in,check_out");
+        .select("booking_id,position,breakfast_included,room_type,rooms,check_in,check_out,pet_size");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -227,11 +249,19 @@ function HouseView() {
   const rangeStart = dayKeys[0];
   const rangeEnd = dateKey(addDays(anchor, DAY_COUNT));
 
-  // Breakfast lookup: bookingId -> hasBreakfast (any item with breakfast=true)
+  // Breakfast / Pet lookup: bookingId -> flag (any item with breakfast=true / pet_size != none)
   const breakfastByBooking = useMemo(() => {
     const m = new Map<string, boolean>();
     for (const it of allItems as any[]) {
       if (it.breakfast_included) m.set(it.booking_id, true);
+    }
+    return m;
+  }, [allItems]);
+  const petByBooking = useMemo(() => {
+    const m = new Map<string, boolean>();
+    for (const it of allItems as any[]) {
+      const ps = String(it.pet_size ?? "none").toLowerCase();
+      if (ps && ps !== "none") m.set(it.booking_id, true);
     }
     return m;
   }, [allItems]);
@@ -618,7 +648,7 @@ function HouseView() {
             <ShieldCheck className="h-3.5 w-3.5" /> Night Audit
           </button>
         } />
-      <div className="px-3 md:px-8 pt-2 md:pt-8 pb-6 md:pb-8 max-w-[1600px] space-y-2 md:space-y-4">
+      <div className="px-3 md:px-8 pt-1.5 md:pt-8 pb-6 md:pb-8 max-w-[1600px] space-y-1.5 md:space-y-4">
 
         <NightAuditPendingBanner onOpen={() => setAuditOpen(true)} businessDate={businessDate} />
 
@@ -631,7 +661,7 @@ function HouseView() {
           >
             <Hotel className="h-3.5 w-3.5" /> Stats
           </button>
-          <div className="luxe-card rounded-xl p-2 md:p-3 flex-1">
+          <div className="luxe-card rounded-xl p-1.5 md:p-3 flex-1 md:flex-1 max-w-full">
             <div className="relative">
               <input
                 type="text"
@@ -641,8 +671,8 @@ function HouseView() {
                   if (e.key === "Enter" && searchMatches.length > 0) jumpToBooking(searchMatches[0]);
                   if (e.key === "Escape") setSearchQ("");
                 }}
-                placeholder="Search bookings, guests, mobile…"
-                className="w-full bg-input/60 border border-border rounded-md pl-9 pr-9 py-2 md:py-2.5 text-sm placeholder:text-muted-foreground/60"
+                placeholder="Search…"
+                className="w-full bg-input/60 border border-border rounded-md pl-8 pr-8 py-1.5 md:py-2.5 text-sm placeholder:text-muted-foreground/60"
               />
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
               {searchQ && (
@@ -676,7 +706,7 @@ function HouseView() {
         </div>
 
         {/* Row 2: Navigation + business date + Today + Stats (desktop) */}
-        <div className="luxe-card rounded-xl p-2 md:p-4 flex items-center justify-between gap-2">
+        <div className="luxe-card rounded-xl p-1.5 md:p-4 flex items-center justify-between gap-2">
           <button onClick={() => setAnchor((d) => addDays(d, -1))} className="p-1.5 md:p-2 rounded-md border border-border hover:border-gold/40 shrink-0"><ChevronLeft className="h-4 w-4" /></button>
           <div className="flex items-center gap-1.5 md:gap-2 flex-wrap justify-center flex-1">
             <span className="hidden lg:inline text-sm font-medium">House Overview</span>
@@ -704,7 +734,7 @@ function HouseView() {
         {isLoading ? (
           <div className="p-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>
         ) : (
-          <div className="luxe-card rounded-xl p-0 overflow-auto relative max-h-[calc(100vh-220px)]">
+          <div className="luxe-card rounded-xl p-0 overflow-auto relative max-h-[calc(100vh-180px)] md:max-h-[calc(100vh-220px)]" data-house-grid>
             <table className="border-separate border-spacing-0 min-w-fit">
               <thead>
                 <tr>
@@ -756,9 +786,9 @@ function HouseView() {
                         return (
                           <td key={i}
                             className={cn(
-                              "relative border-b border-r border-border align-top h-10 p-0 group/cell",
+                              "relative border-b border-r border-border/40 align-top h-10 p-0 group/cell",
                               isToday && "house-business-date-cell",
-                              i % 2 === 0 && !isToday && "bg-secondary/10",
+                              !isToday && (i % 2 === 0 ? "bg-secondary/[0.04]" : "bg-secondary/[0.015]"),
                               i === days.length - 1 && "border-r-0",
                               dragHL,
                             )}
@@ -805,9 +835,14 @@ function HouseView() {
                                 if (span <= 0) return null;
                                 const cellW = isMobile ? CELL_W_MOB : CELL_W;
                                 const hasBreakfast = !!breakfastByBooking.get(b.id);
+                                const hasPet = !!petByBooking.get(b.id);
                                 const extraCharges = chargesByBooking.get(b.id) ?? 0;
                                 const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) + extraCharges - Number(b.advance_paid || 0));
                                 const moveEligibility = getMoveEligibility(b, r.id);
+                                // True caps: rounded only if visible start = real check-in
+                                // and visible end = real check-out (slotEndExclusive).
+                                const continuesLeft = b.check_in < rangeStart;
+                                const continuesRight = endIdx < 0; // endExclusive past range end
                                 return (
                                   <BookingChip
                                     key={`${b.id}-${b._slotKey ?? b.check_in}`}
@@ -816,10 +851,13 @@ function HouseView() {
                                     span={span}
                                     cellW={cellW}
                                     hasBreakfast={hasBreakfast}
+                                    hasPet={hasPet}
                                     balanceDue={balanceDue}
                                     moveEligibility={moveEligibility}
                                     isMobile={isMobile}
                                     highlight={highlightId === b.id}
+                                    continuesLeft={continuesLeft}
+                                    continuesRight={continuesRight}
                                     onSelect={handleChipSelect}
                                     onLongPress={handleChipLongPress}
                                     onDragStartAvail={handleChipDragStartAvail}
@@ -966,9 +1004,16 @@ function HouseView() {
         search={{ customerId: undefined, fromQuoteId: undefined } as any}
         title="New Booking"
         aria-label="New Booking"
-        className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full gold-gradient text-charcoal shadow-lg flex items-center justify-center hover:scale-105 hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.45)] transition"
+        className={cn(
+          "fixed z-40 h-12 w-12 md:h-14 md:w-14 rounded-full gold-gradient text-charcoal shadow-lg flex items-center justify-center hover:scale-105 hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.45)] transition-all duration-200",
+          fabHidden ? "translate-y-24 opacity-0 pointer-events-none" : "translate-y-0 opacity-100",
+        )}
+        style={{
+          right: "max(0.75rem, env(safe-area-inset-right))",
+          bottom: "max(0.875rem, calc(env(safe-area-inset-bottom) + 0.5rem))",
+        }}
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-5 w-5 md:h-6 md:w-6" />
       </Link>
     </>
   );
@@ -1451,10 +1496,13 @@ interface BookingChipProps {
   span: number;
   cellW: number;
   hasBreakfast: boolean;
+  hasPet: boolean;
   balanceDue: number;
   moveEligibility: { eligible: boolean; reason: string };
   isMobile: boolean;
   highlight: boolean;
+  continuesLeft: boolean;
+  continuesRight: boolean;
   onSelect: (b: any) => void;
   onLongPress: (b: any, roomId: string) => void;
   onDragStartAvail: (b: any, payload: string) => string;
@@ -1463,8 +1511,9 @@ interface BookingChipProps {
 }
 const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
-    b, roomId, span, cellW, hasBreakfast, balanceDue, moveEligibility,
-    isMobile, highlight, onSelect, onLongPress, onDragStartAvail, bookingsAll, onDragEnd,
+    b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligibility,
+    isMobile, highlight, continuesLeft, continuesRight,
+    onSelect, onLongPress, onDragStartAvail, bookingsAll, onDragEnd,
   } = props;
   const dragEnabled = moveEligibility.eligible;
   const longPress = useLongPress({
@@ -1475,6 +1524,11 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
     debugId: b.id,
     disabledReason: moveEligibility.reason,
   });
+  // True caps: rounded only on true check-in / check-out edges.
+  const radiusClasses = cn(
+    continuesLeft ? "rounded-l-none" : "rounded-l-full",
+    continuesRight ? "rounded-r-none" : "rounded-r-full",
+  );
   return (
     <button
       {...longPress.bind()}
@@ -1499,7 +1553,8 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       }}
       onDragEnd={onDragEnd}
       className={cn(
-        "absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
+        "absolute top-1.5 bottom-1.5 border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
+        radiusClasses,
         blockClasses(b),
         b._virtual && "border-dashed",
         dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
@@ -1507,18 +1562,23 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         highlight && "ring-4 ring-gold animate-pulse",
       )}
       style={{
-        width: `calc(${span} * ${cellW}px - 8px)`,
-        zIndex: highlight ? 10 : 5,
+        left: continuesLeft ? 0 : 4,
+        width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 4}px - ${continuesRight ? 0 : 4}px)`,
+        zIndex: highlight ? 25 : 20,
         touchAction: dragEnabled && isMobile ? "none" : undefined,
       }}
       title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveEligibility.reason}`}`}
     >
+      {continuesLeft && <span aria-hidden className="shrink-0 opacity-70 -ml-0.5">‹</span>}
       {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
+      {hasPet && <span className="shrink-0" aria-label="Pet">🐾</span>}
       {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
       <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
+      {continuesRight && <span aria-hidden className="ml-auto shrink-0 opacity-70 -mr-0.5">›</span>}
     </button>
   );
 });
+
 
 
 
