@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useMemo, useState, memo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { listRooms, listMaintenance } from "@/lib/rooms-api";
@@ -340,6 +340,58 @@ function HouseView() {
     return m;
   }, [visibleBlocks]);
 
+  // Pre-bucket bookings/blocks by (roomId, startDayKey) and per-room covered
+  // day-keys. This converts the inner per-cell .filter()/.some() loops into
+  // O(1) Map lookups, which is the main reason House View scrolling lagged
+  // on mobile once the booking count grew.
+  const startingByRoomDay = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const [rid, arr] of byRoom) {
+      for (const b of arr) {
+        const startKey = b.check_in < rangeStart ? rangeStart : b.check_in;
+        const key = rid + "|" + startKey;
+        const list = m.get(key) ?? [];
+        list.push(b);
+        m.set(key, list);
+      }
+    }
+    return m;
+  }, [byRoom, rangeStart]);
+
+  const blockStartingByRoomDay = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const [rid, arr] of blocksByRoom) {
+      for (const x of arr) {
+        const startKey = x.start_date < rangeStart ? rangeStart : x.start_date;
+        const key = rid + "|" + startKey;
+        const list = m.get(key) ?? [];
+        list.push(x);
+        m.set(key, list);
+      }
+    }
+    return m;
+  }, [blocksByRoom, rangeStart]);
+
+  const coveredDaysByRoom = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    const addRange = (rid: string, fromKey: string, toExclKey: string) => {
+      const set = m.get(rid) ?? new Set<string>();
+      const start = dayKeys.indexOf(fromKey < rangeStart ? rangeStart : fromKey);
+      const endIdx = dayKeys.indexOf(toExclKey);
+      const end = endIdx < 0 ? DAY_COUNT : endIdx;
+      for (let i = Math.max(0, start); i < end; i++) set.add(dayKeys[i]);
+      m.set(rid, set);
+    };
+    for (const [rid, arr] of byRoom) {
+      for (const b of arr) addRange(rid, b.check_in, slotEndExclusive(b));
+    }
+    for (const [rid, arr] of blocksByRoom) {
+      for (const x of arr) addRange(rid, x.start_date, x.end_date);
+    }
+    return m;
+  }, [byRoom, blocksByRoom, dayKeys, rangeStart]);
+
+
   // -------- Drag & drop: move a booking to a new room and/or new date --------
   // All move/edit call sites (desktop DnD, mobile dialog, popup, booking page,
   // edit page) MUST go through `updateBookingStay` — single source of truth.
@@ -651,8 +703,7 @@ function HouseView() {
               </thead>
               <tbody>
                 {rooms.map((r) => {
-                  const bs = byRoom.get(r.id) ?? [];
-                  const ms = blocksByRoom.get(r.id) ?? [];
+                  const coveredSet = coveredDaysByRoom.get(r.id);
                   return (
                     <tr key={r.id} className="group">
                       <td
@@ -663,17 +714,13 @@ function HouseView() {
                       </td>
                       {/* Per-day cells with relative wrapper so we can position pills absolutely */}
                       {days.map((d, i) => {
-                        const dk = dateKey(d);
+                        const dk = dayKeys[i];
                         const isToday = dk === todayKey;
                         // Render pills only in the start cell to span across
-                        const startingBookings = bs.filter((b) => {
-                          const startKey = b.check_in < rangeStart ? rangeStart : b.check_in;
-                          return startKey === dk;
-                        });
-                        const startingBlocks = ms.filter((m: any) => {
-                          const startKey = m.start_date < rangeStart ? rangeStart : m.start_date;
-                          return startKey === dk;
-                        });
+                        const bdKey = r.id + "|" + dk;
+                        const startingBookings = startingByRoomDay.get(bdKey);
+                        const startingBlocks = blockStartingByRoomDay.get(bdKey);
+                        const isCovered = coveredSet ? coveredSet.has(dk) : false;
                         const dragHL = dragAvail
                           ? (dragAvail.availableRoomIds.has(r.id)
                               ? "ring-1 ring-inset ring-emerald-500/60 bg-emerald-500/5"
@@ -688,7 +735,12 @@ function HouseView() {
                               i === days.length - 1 && "border-r-0",
                               dragHL,
                             )}
-                            style={{ minWidth: CELL_W_MOB, width: CELL_W }}
+                            style={{
+                              minWidth: isMobile ? CELL_W_MOB : CELL_W,
+                              width: isMobile ? CELL_W_MOB : CELL_W,
+                              // Skip painting offscreen cells in heavy grids.
+                              contain: "layout paint style",
+                            } as React.CSSProperties}
                             onDragOver={(e) => {
                               if (e.dataTransfer.types.includes("application/x-booking-move")) {
                                 e.preventDefault();
@@ -705,29 +757,24 @@ function HouseView() {
                           >
                             <div className="relative h-full" style={{ minHeight: 40 }}>
                               {/* Vacant action button — visible when no booking/block covers this day */}
-                              {(() => {
-                                const coveredByBooking = bs.some((b) => segmentCoversDate(b, dk));
-                                const coveredByBlock = ms.some((m: any) => m.start_date <= dk && m.end_date > dk);
-                                if (coveredByBooking || coveredByBlock) return null;
-                                return (
-                                  <button
-                                    onClick={() => setVacantAction({ room: r, date: dk })}
-                                    className="absolute inset-1 rounded-md border border-dashed border-border opacity-0 group-hover/cell:opacity-100 hover:border-gold/50 hover:bg-gold-soft/20 text-muted-foreground hover:text-gold flex items-center justify-center transition"
-                                    title="Vacant — click for actions"
-                                    aria-label="Vacant room actions"
-                                  >
-                                    <Plus className="h-3.5 w-3.5" />
-                                  </button>
-                                );
-                              })()}
-                              {startingBookings.map((b) => {
+                              {!isCovered && (
+                                <button
+                                  onClick={() => setVacantAction({ room: r, date: dk })}
+                                  className="absolute inset-1 rounded-md border border-dashed border-border opacity-0 group-hover/cell:opacity-100 hover:border-gold/50 hover:bg-gold-soft/20 text-muted-foreground hover:text-gold flex items-center justify-center transition"
+                                  title="Vacant — click for actions"
+                                  aria-label="Vacant room actions"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              {startingBookings?.map((b) => {
                                 const startCol = b.check_in < rangeStart ? 0 : dayKeys.indexOf(b.check_in);
                                 const endExclusive = slotEndExclusive(b);
                                 const endIdx = dayKeys.indexOf(endExclusive);
                                 const endCol = endIdx < 0 ? DAY_COUNT : endIdx;
                                 const span = Math.max(1, endCol - startCol);
                                 if (span <= 0) return null;
-                                const cellW = CELL_W_MOB;
+                                const cellW = isMobile ? CELL_W_MOB : CELL_W;
                                 const hasBreakfast = !!breakfastByBooking.get(b.id);
                                 const extraCharges = chargesByBooking.get(b.id) ?? 0;
                                 const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) + extraCharges - Number(b.advance_paid || 0));
@@ -768,12 +815,12 @@ function HouseView() {
                                 );
                               })}
 
-                              {startingBlocks.map((m: any) => {
+                              {startingBlocks?.map((m: any) => {
                                 const startCol = m.start_date < rangeStart ? 0 : dayKeys.indexOf(m.start_date);
                                 const outIdx = dayKeys.indexOf(m.end_date);
                                 const endCol = outIdx < 0 ? DAY_COUNT : outIdx;
                                 const span = Math.max(1, endCol - startCol);
-                                const cellW = CELL_W_MOB;
+                                const cellW = isMobile ? CELL_W_MOB : CELL_W;
                                 return (
                                   <button key={m.id} onClick={() => setSelectedBlock(m)}
                                     className="absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden shadow-sm bg-amber-700 text-white border-amber-900 hover:ring-2 hover:ring-amber-400"
@@ -1400,7 +1447,7 @@ interface BookingChipProps {
   bookingsAll: any[];
   onDragEnd: () => void;
 }
-function BookingChip(props: BookingChipProps) {
+const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
     b, roomId, span, cellW, hasBreakfast, balanceDue, moveEligibility,
     isMobile, highlight, onSelect, onLongPress, onDragStartAvail, bookingsAll, onDragEnd,
@@ -1458,6 +1505,6 @@ function BookingChip(props: BookingChipProps) {
       <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
     </button>
   );
-}
+});
 
 

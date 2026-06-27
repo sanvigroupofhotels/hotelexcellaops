@@ -98,7 +98,7 @@ function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
     Date: new Date(t.occurred_at).toLocaleString("en-IN"),
     Kind: t.kind === "collection" ? "In" : "Out",
     Category: t.type_name,
-    Description: t.description ?? "",
+    "Other Type": t.description ?? "",
     Guest: t.guest_name ?? "",
     Mobile: t.guest_mobile ?? "",
     Room: t.room_number ?? "",
@@ -475,7 +475,10 @@ function TransactionHistory({
           <thead className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
             <tr>
               <th className="px-3 py-2">Date</th><th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Category</th><th className="px-3 py-2">Guest</th>
+              <th className="px-3 py-2">Category</th>
+              <th className="px-3 py-2">Other Type</th>
+              <th className="px-3 py-2">Notes</th>
+              <th className="px-3 py-2">Guest</th>
               <th className="px-3 py-2">Entered By</th>
               <th className="px-3 py-2 text-right">Amount</th>
               <th className="px-3 py-2 text-right">Actions</th>
@@ -483,7 +486,7 @@ function TransactionHistory({
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="text-center text-muted-foreground py-8">No transactions</td></tr>
+              <tr><td colSpan={9} className="text-center text-muted-foreground py-8">No transactions</td></tr>
             )}
             {filtered.map(t => (
               <tr key={t.id} className={cn("border-b border-border/60 hover:bg-secondary/40", !t.active && "opacity-50")}>
@@ -497,8 +500,13 @@ function TransactionHistory({
                 </td>
                 <td className="px-3 py-2">
                   {t.type_name}
-                  {t.description ? <span className="block text-[10px] text-muted-foreground">{t.description}</span> : null}
                   {t.booking_id && <Link to="/bookings/$id" params={{id:t.booking_id}} className="block text-[10px] text-gold hover:underline">View booking</Link>}
+                </td>
+                <td className="px-3 py-2 text-[11px] max-w-[180px] truncate" title={t.description ?? ""}>
+                  {t.description && t.description.trim() ? t.description : "—"}
+                </td>
+                <td className="px-3 py-2 text-[11px] text-muted-foreground max-w-[200px] truncate" title={t.notes ?? ""}>
+                  {t.notes && t.notes.trim() ? t.notes : "—"}
                 </td>
                 <td className="px-3 py-2">
                   {t.guest_name ?? "—"}
@@ -1004,7 +1012,7 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
         filtered.map(t => ({
           Date: new Date(t.occurred_at).toLocaleString("en-IN"),
           Kind: t.kind === "collection" ? "In" : "Out",
-          Category: t.type_name, Description: t.description ?? "",
+          Category: t.type_name, "Other Type": t.description ?? "",
           Guest: t.guest_name ?? "", Mobile: t.guest_mobile ?? "", Room: t.room_number ?? "",
           Staff: t.staff_name ?? "", Amount: Number(t.amount), Notes: t.notes ?? "",
           Active: t.active ? "Yes" : "No",

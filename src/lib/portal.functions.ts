@@ -37,6 +37,19 @@ async function ensurePortalToken(supabaseAdmin: any, bookingId: string): Promise
     (!(existing as any).expires_at || new Date((existing as any).expires_at).getTime() > now);
   if (stillValid) return (existing as any).token;
 
+  // booking_tokens.user_id is NOT NULL — copy the booking's owner so public
+  // lookups (mobile / reference search) can mint a token without an auth session.
+  const { data: bRow, error: bErr } = await supabaseAdmin
+    .from("bookings")
+    .select("user_id")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (bErr) throw bErr;
+  const ownerUserId = (bRow as any)?.user_id ?? null;
+  if (!ownerUserId) {
+    throw new Error("This booking is missing an owner and cannot be shared via portal. Ask an admin to assign it.");
+  }
+
   const token = randomToken();
   const expires_at = new Date(now + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const { error } = await supabaseAdmin.from("booking_tokens").insert({
@@ -44,6 +57,7 @@ async function ensurePortalToken(supabaseAdmin: any, bookingId: string): Promise
     token,
     scope: "pay",
     expires_at,
+    user_id: ownerUserId,
   } as any);
   if (error) throw error;
   return token;
