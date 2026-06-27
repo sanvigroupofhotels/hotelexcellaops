@@ -26,7 +26,9 @@ type ParsedBooking = {
   guests: number;
   room_details: string;
   room_charges: number;
+  subtotal: number;
   discount: number;
+  taxable_amount: number;
   tax: number;
   total_amount: number;
   amount_paid: number;
