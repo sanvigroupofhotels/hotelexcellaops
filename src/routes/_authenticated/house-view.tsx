@@ -626,7 +626,7 @@ function HouseView() {
             <ShieldCheck className="h-3.5 w-3.5" /> Night Audit
           </button>
         } />
-      <div className="px-3 md:px-8 pt-2 md:pt-8 pb-6 md:pb-8 max-w-[1600px] space-y-2 md:space-y-4">
+      <div className="px-3 md:px-8 pt-1.5 md:pt-8 pb-6 md:pb-8 max-w-[1600px] space-y-1.5 md:space-y-4">
 
         <NightAuditPendingBanner onOpen={() => setAuditOpen(true)} businessDate={businessDate} />
 
