@@ -36,7 +36,7 @@ const QUOTE_PRESETS: QuotePreset[] = [
   { label: "Group Booking", hint: "Multiple rooms", icon: UserPlus,
     patch: () => ({ rooms: 3, guests: 6, adults: 6, children: 0, breakfast_included: true, group_size: "6 Guests" }) },
   { label: "Pet Stay", hint: "Small pet charges", icon: Dog,
-    patch: (f) => ({ ...f, pet_charges: true, pet_size: "small" as const }) },
+    patch: (f) => ({ ...f, pet_charges: true, pet_size: "medium" as const }) },
   { label: "Long Stay", hint: "+7 nights", icon: CalendarRange,
     patch: (f) => {
       const inDate = new Date(f.check_in);
