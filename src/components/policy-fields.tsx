@@ -132,7 +132,7 @@ export function PolicyFields({
                   }}
                   className={cn(
                     "rounded-md border px-2 py-2 text-xs transition text-left",
-                    form.pet_size === p.value
+                    (form.pet_size === p.value || (form.pet_size === "small" && p.value === "medium"))
                       ? "border-gold/60 bg-gold-soft text-gold"
                       : "border-border bg-input/40 text-muted-foreground hover:text-foreground hover:border-gold/30",
                   )}
