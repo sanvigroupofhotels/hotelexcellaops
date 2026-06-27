@@ -227,11 +227,19 @@ function HouseView() {
   const rangeStart = dayKeys[0];
   const rangeEnd = dateKey(addDays(anchor, DAY_COUNT));
 
-  // Breakfast lookup: bookingId -> hasBreakfast (any item with breakfast=true)
+  // Breakfast / Pet lookup: bookingId -> flag (any item with breakfast=true / pet_size != none)
   const breakfastByBooking = useMemo(() => {
     const m = new Map<string, boolean>();
     for (const it of allItems as any[]) {
       if (it.breakfast_included) m.set(it.booking_id, true);
+    }
+    return m;
+  }, [allItems]);
+  const petByBooking = useMemo(() => {
+    const m = new Map<string, boolean>();
+    for (const it of allItems as any[]) {
+      const ps = String(it.pet_size ?? "none").toLowerCase();
+      if (ps && ps !== "none") m.set(it.booking_id, true);
     }
     return m;
   }, [allItems]);
