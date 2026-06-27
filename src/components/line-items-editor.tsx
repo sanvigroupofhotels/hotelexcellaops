@@ -270,7 +270,7 @@ function LineItemRow({
                   onClick={() => onChange({ pet_size: p.value as PetSize })}
                   className={cn(
                     "rounded-md border px-2 py-1.5 text-[11px]",
-                    item.pet_size === p.value
+                    (item.pet_size === p.value || (item.pet_size === "small" && p.value === "medium"))
                       ? "border-gold/60 bg-gold-soft text-gold"
                       : "border-border bg-input/40 text-muted-foreground hover:text-foreground hover:border-gold/30",
                   )}
