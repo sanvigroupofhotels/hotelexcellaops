@@ -87,9 +87,12 @@ function escapeRe(s: string): string {
 function labelRegex(labels: string[]): RegExp | null {
   if (!labels.length) return null;
   const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
-  // Allow optional parenthetical between label and separator
-  // (e.g. "Total Amount (Incl. of Taxes): INR 3740.00")
-  return new RegExp(`(?:${alt})(?:\\s*\\([^)]*\\))?\\s*[:|\\-]?\\s*([^\\n|]+?)(?=\\n|\\||$)`, "i");
+  // Strict match:
+  //   - Label must not be followed by another alphanumeric char
+  //     ("Discount" must NOT match "Discounted Total")
+  //   - Separator [:|\-] is REQUIRED (prevents bare-label numeric grabs)
+  //   - Optional parenthetical between label and separator (e.g. "Tax (5%):")
+  return new RegExp(`(?:${alt})(?![A-Za-z0-9])(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*([^\\n|]+?)(?=\\n|\\||$)`, "i");
 }
 
 function pickByLabels(text: string, labels: string[]): string | null {
@@ -97,12 +100,10 @@ function pickByLabels(text: string, labels: string[]): string | null {
   return re ? pick(text, re) : null;
 }
 
-/** Find ALL matches for labelled fields. Useful when the same label appears multiple times
- * (e.g. "Total" in a column header AND as a labelled value). */
 function pickAllByLabels(text: string, labels: string[]): string[] {
   if (!labels.length) return [];
   const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
-  const re = new RegExp(`(?:${alt})(?:\\s*\\([^)]*\\))?\\s*[:|\\-]?\\s*([^\\n|]+?)(?=\\n|\\||$)`, "gi");
+  const re = new RegExp(`(?:${alt})(?![A-Za-z0-9])(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*([^\\n|]+?)(?=\\n|\\||$)`, "gi");
   const out: string[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) out.push(m[1].trim());
@@ -112,7 +113,7 @@ function pickAllByLabels(text: string, labels: string[]): string[] {
 function pickAllLineByLabels(text: string, labels: string[]): string[] {
   if (!labels.length) return [];
   const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
-  const re = new RegExp(`^\\s*(?:${alt})(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*(.+?)\\s*$`, "i");
+  const re = new RegExp(`^\\s*(?:${alt})(?![A-Za-z0-9])(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*(.+?)\\s*$`, "i");
   return text
     .split("\n")
     .map((line) => line.match(re)?.[1]?.trim() ?? null)
