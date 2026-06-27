@@ -1455,9 +1455,9 @@ interface BookingChipProps {
   moveEligibility: { eligible: boolean; reason: string };
   isMobile: boolean;
   highlight: boolean;
-  onSelect: () => void;
-  onLongPress: () => void;
-  onDragStartAvail: (payload: string) => string;
+  onSelect: (b: any) => void;
+  onLongPress: (b: any, roomId: string) => void;
+  onDragStartAvail: (b: any, payload: string) => string;
   bookingsAll: any[];
   onDragEnd: () => void;
 }
@@ -1471,14 +1471,14 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
     enabled: dragEnabled && isMobile,
     delayMs: LONG_PRESS_DELAY_MS,
     moveTolerancePx: LONG_PRESS_MOVE_TOLERANCE,
-    onTrigger: onLongPress,
+    onTrigger: () => onLongPress(b, roomId),
     debugId: b.id,
     disabledReason: moveEligibility.reason,
   });
   return (
     <button
       {...longPress.bind()}
-      onClick={onSelect}
+      onClick={() => onSelect(b)}
       data-booking-pill={b.id}
       data-move-eligible={dragEnabled ? "true" : "false"}
       data-booking-status={b.status}
@@ -1494,7 +1494,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
           status: b.status,
           virtual: !!b._virtual,
         });
-        e.dataTransfer.setData("application/x-booking-move", onDragStartAvail(payload));
+        e.dataTransfer.setData("application/x-booking-move", onDragStartAvail(b, payload));
         e.dataTransfer.effectAllowed = "move";
       }}
       onDragEnd={onDragEnd}
@@ -1509,7 +1509,6 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       style={{
         width: `calc(${span} * ${cellW}px - 8px)`,
         zIndex: highlight ? 10 : 5,
-        // Reinforce no-scroll-hijack for mobile chips at the CSS layer.
         touchAction: dragEnabled && isMobile ? "none" : undefined,
       }}
       title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveEligibility.reason}`}`}
@@ -1520,5 +1519,6 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
     </button>
   );
 });
+
 
 
