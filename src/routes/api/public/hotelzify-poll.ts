@@ -522,6 +522,7 @@ type RunResult = {
   first_5_email_subjects_seen: HeaderSample[];
   diagnostic_searches?: DiagnosticSearch[];
   gmail_access_mode?: "full" | "metadata_only";
+  traces?: ImportTrace[];
   fatal?: string;
 };
 
@@ -566,6 +567,7 @@ async function processIntegration(
     scanned: 0, matched: 0, parsed: 0, created: 0, updated: 0,
     errors: [], parser_errors: [], first_5_email_subjects_seen: [],
     gmail_access_mode: "full",
+    traces: debug ? [] : undefined,
   };
 
   if (!parser) {
@@ -775,6 +777,7 @@ async function processIntegration(
           database_payload: maskedDatabasePayload(bookingPayload),
           customer_payload: customerPayload ? maskedDatabasePayload(customerPayload) : (Object.keys(customerContactPatch).length > 0 ? maskedDatabasePayload(customerContactPatch) : null),
         };
+        if (debug) result.traces?.push(trace);
         let bookingIdForExternal = existing?.id ?? null;
         let contactRepairPayload: Record<string, string> = {};
 
