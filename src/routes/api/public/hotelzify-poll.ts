@@ -977,6 +977,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
             parser_errors: r.parser_errors,
             first_5_email_subjects_seen: r.first_5_email_subjects_seen,
             diagnostic_searches: r.diagnostic_searches,
+            traces: r.traces,
             error: r.fatal,
           });
         }
