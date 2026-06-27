@@ -220,7 +220,7 @@ function Content({ id }: { id: string }) {
           <Field label="Inbox Email (connected Gmail)"><input className={inputCls} value={inboxEmail} onChange={(e) => setInboxEmail(e.target.value)} placeholder="hotel@gmail.com" /></Field>
           <Field label="Lookback Days"><input type="number" min={1} max={365} className={inputCls} value={lookbackDays} onChange={(e) => setLookbackDays(Number(e.target.value) || 7)} /></Field>
           <Field label="Lead Source"><input className={inputCls} value={leadSource} onChange={(e) => setLeadSource(e.target.value)} placeholder="Hotelzify" /></Field>
-          <Field label="Default Tax Rate (%)" hint="Used when the email's Tax line is missing or malformed."><input type="number" step="0.1" min="0" max="100" className={inputCls} value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))} /></Field>
+          <Field label="Default Tax Rate (%)"><input type="number" step="0.1" min="0" max="100" className={inputCls} value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))} placeholder="5" /></Field>
         </div>
 
         <Field label="Subject Filters (comma separated)">
