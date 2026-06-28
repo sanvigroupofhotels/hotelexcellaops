@@ -828,7 +828,7 @@ function HouseView() {
                         return (
                           <tr key={r.id} className="group">
                             <td
-                              className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-2 py-1.5 text-sm align-middle text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.4)]"
+                              className="sticky left-0 z-[40] bg-card border-b border-r-2 border-border px-2 py-1.5 text-sm align-middle text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.4)]"
                               style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                             >
                               <div className="font-medium tabular-nums">{r.room_number}</div>
