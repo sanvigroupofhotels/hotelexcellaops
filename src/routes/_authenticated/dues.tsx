@@ -28,14 +28,16 @@ export const Route = createFileRoute("/_authenticated/dues")({
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const fmtStay = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
-type FilterKey = "today" | "overdue" | "all" | "inhouse";
+type FilterKey = "today" | "overdue" | "future" | "all" | "inhouse";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "today",      label: "Due Today" },
   { key: "overdue",    label: "Overdue" },
+  { key: "future",     label: "Future Dues" },
   { key: "all",        label: "All Dues" },
   { key: "inhouse",    label: "In-House" },
 ];
+
 
 function daysBetween(fromYmd: string, toYmd: string): number {
   const a = new Date(fromYmd + "T00:00:00").getTime();
@@ -45,10 +47,12 @@ function daysBetween(fromYmd: string, toYmd: string): number {
 
 function overdueLabel(dueDate: string, businessDate: string): string {
   const n = daysBetween(dueDate, businessDate);
-  if (n <= 0) return "Due Today";
-  if (n === 1) return "Overdue by 1 Day";
-  return `Overdue by ${n} Days`;
+  if (n === 0) return "Due Today";
+  if (n > 0) return n === 1 ? "Overdue by 1 Day" : `Overdue by ${n} Days`;
+  const days = -n;
+  return days === 1 ? "Due Tomorrow" : `Due in ${days} Days`;
 }
+
 
 function DuesPage() {
   useRealtimeInvalidate(
@@ -78,6 +82,8 @@ function DuesPage() {
   const bd = businessDate ?? toLocalYMD();
 
   // Enrich with due + Due Date driven by Check-In.
+  // NOTE: same calculation drives every section (Today / Overdue / Future / In-House / All).
+  // Filters only change which dueDate vs business-date subset is shown — never the math.
   const enriched = useMemo(() => {
     return bookings
       .filter((b) => b.status !== "Cancelled" && b.status !== "No-Show")
@@ -90,19 +96,17 @@ function DuesPage() {
         const dueDate = b.check_in;
         return { b, total, paid, due, charges, dueDate };
       })
-      // Only show after the Due Date is reached. Carries forward indefinitely
-      // until balance hits zero or booking is cancelled.
-      .filter((r) => r.due > 0 && r.dueDate <= bd);
-  }, [bookings, chargeTotals, bd]);
+      // Keep every booking with a positive balance — Future Dues need pre-business-date rows too.
+      .filter((r) => r.due > 0);
+  }, [bookings, chargeTotals]);
 
   const filtered = useMemo(() => {
     let rows = enriched;
-    // "Due Today" includes anything due on or before the business date so
-    // overdue balances stay visible until they are collected.
     if (filter === "today")        rows = rows.filter((r) => r.dueDate <= bd);
     else if (filter === "overdue") rows = rows.filter((r) => r.dueDate < bd);
+    else if (filter === "future")  rows = rows.filter((r) => r.dueDate > bd);
     else if (filter === "inhouse") rows = rows.filter((r) => r.b.status === "Checked-In");
-    // "all" → all rows past their due date
+    // "all" → every row with a balance (past, today, and future)
     const s = search.trim().toLowerCase();
     if (s) {
       rows = rows.filter((r) =>
@@ -110,7 +114,7 @@ function DuesPage() {
           .filter(Boolean).some((v) => String(v).toLowerCase().includes(s)),
       );
     }
-    // sort: oldest due first (longest overdue), then highest due
+    // sort: for future bookings show soonest first; otherwise longest overdue first.
     return [...rows].sort((a, b) => {
       if (a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
       return b.due - a.due;
@@ -118,11 +122,13 @@ function DuesPage() {
   }, [enriched, filter, search, bd, roomById]);
 
   const summary = useMemo(() => {
-    const totalOutstanding = enriched.reduce((s, r) => s + r.due, 0);
-    const dueToday = enriched.filter((r) => r.dueDate === bd).reduce((s, r) => s + r.due, 0);
+    const dueToday = enriched.filter((r) => r.dueDate <= bd).reduce((s, r) => s + r.due, 0);
     const overdue  = enriched.filter((r) => r.dueDate < bd).reduce((s, r) => s + r.due, 0);
-    return { totalOutstanding, dueToday, overdue };
+    const future   = enriched.filter((r) => r.dueDate > bd).reduce((s, r) => s + r.due, 0);
+    const totalOutstanding = dueToday + future;
+    return { totalOutstanding, dueToday, overdue, future };
   }, [enriched, bd]);
+
 
 
   return (
@@ -131,11 +137,13 @@ function DuesPage() {
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] space-y-6 pb-32 lg:pb-8">
 
         {/* Summary cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <SummaryCard label="Total Outstanding" value={summary.totalOutstanding} tone="danger" />
           <SummaryCard label="Due Today" value={summary.dueToday} tone="gold" />
           <SummaryCard label="Overdue" value={summary.overdue} tone="danger" />
+          <SummaryCard label="Future Dues" value={summary.future} tone="info" />
         </div>
+
 
         {/* Filter chips + search */}
         <div className="flex flex-wrap items-center gap-2">

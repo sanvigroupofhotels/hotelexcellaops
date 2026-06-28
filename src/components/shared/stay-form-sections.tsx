@@ -35,7 +35,9 @@ import {
   type LineItem,
 } from "@/components/line-items-editor";
 import { useMasterData } from "@/hooks/use-master-data";
+import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
+
 
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
@@ -163,11 +165,14 @@ export interface StayFormSectionsProps {
   hideAdditional?: boolean;
   /** Hide the Additional Rooms / Split Stay card. Hosts can render <AdditionalRoomsCollapsibleCard /> in their own slot. */
   hideExtras?: boolean;
+  /** When editing an existing booking, exclude it from the live inventory check. */
+  excludeBookingId?: string | null;
 }
 
 export function StayFormSections({
-  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel, hideAdditional, hideExtras,
+  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel, hideAdditional, hideExtras, excludeBookingId,
 }: StayFormSectionsProps) {
+
   const update = <K extends keyof SharedStayValue>(k: K, v: SharedStayValue[K]) =>
     onChange({ ...value, [k]: v });
   // Atomic multi-field write — prevents the closure-based clobber that
@@ -179,6 +184,13 @@ export function StayFormSections({
   const { values: leadSources, labels: leadLabels } = useMasterData("lead_source", [...LEAD_SOURCES]);
   // Ensure the currently-selected value is always visible even if it has been deactivated.
   const leadOptions = leadSources.includes(value.lead_source) ? leadSources : [value.lead_source, ...leadSources].filter(Boolean);
+
+  // Live inventory — same helper used by Quick Booking + any future widget.
+  // Auto-refreshes on date change AND on any mutation that invalidates the
+  // bookings/assignments/maintenance keys (Create/Edit/Cancel/Delete/Extend).
+  const { data: availability } = useRoomTypeAvailability(value.check_in, value.check_out, excludeBookingId ?? null);
+  const cap = maxSelectableRooms(availability, value.room_type, 0);
+
 
   return (
     <div className="space-y-6">
@@ -254,13 +266,31 @@ export function StayFormSections({
             </select>
           </Field>
           <Field label="Rooms">
-            <Stepper value={value.rooms} min={1} onChange={(v) => update("rooms", v)} />
+            <Stepper
+              value={value.rooms}
+              min={1}
+              max={availability ? Math.max(1, cap.available) : undefined}
+              onChange={(v) => {
+                // Clamp against live inventory (single source of truth — see room-inventory.ts).
+                const clamped = availability ? Math.min(v, Math.max(1, cap.available)) : v;
+                update("rooms", Math.max(1, clamped));
+              }}
+            />
+            {availability && (
+              <p className={cn(
+                "text-[10px] mt-1.5",
+                cap.available <= 0 ? "text-destructive" : cap.available < value.rooms ? "text-warning" : "text-muted-foreground",
+              )}>
+                {cap.label}
+              </p>
+            )}
           </Field>
         </div>
         <div className="mt-4">
           <PolicyFields form={value as any} update={update as any} apply={apply as any} />
         </div>
       </Card>
+
 
       {/* 4. Additional Rooms / Split Stay — collapsed by default.
           Hosts may opt-out (hideExtras) and render <AdditionalRoomsCollapsibleCard /> in a custom slot
@@ -345,7 +375,8 @@ function Field({ label, icon: Icon, children, required }: any) {
   );
 }
 
-function Stepper({ value, min = 0, onChange }: { value: number; min?: number; onChange: (v: number) => void }) {
+function Stepper({ value, min = 0, max, onChange }: { value: number; min?: number; max?: number; onChange: (v: number) => void }) {
+  const atMax = max != null && value >= max;
   return (
     <div className="flex items-center bg-input/60 border border-border rounded-md overflow-hidden">
       <button type="button" onClick={() => onChange(Math.max(min, value - 1))}
@@ -353,10 +384,12 @@ function Stepper({ value, min = 0, onChange }: { value: number; min?: number; on
         <Minus className="h-3.5 w-3.5" />
       </button>
       <div className="flex-1 text-center text-sm font-medium">{value}</div>
-      <button type="button" onClick={() => onChange(value + 1)}
-        className="p-2.5 hover:bg-secondary transition text-muted-foreground hover:text-foreground">
+      <button type="button" disabled={atMax}
+        onClick={() => onChange(max != null ? Math.min(max, value + 1) : value + 1)}
+        className="p-2.5 hover:bg-secondary transition text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed">
         <Plus className="h-3.5 w-3.5" />
       </button>
     </div>
   );
 }
+

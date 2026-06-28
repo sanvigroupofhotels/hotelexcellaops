@@ -1191,23 +1191,38 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
 
         <div className="rounded-md border border-border overflow-x-auto">
           {type === "all" ? (
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm min-w-[820px]">
               <thead className="text-[10px] uppercase text-muted-foreground border-b border-border">
-                <tr><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Kind</th><th className="px-3 py-2 text-left">Category</th><th className="px-3 py-2 text-left">Staff</th><th className="px-3 py-2 text-right">Amount</th></tr>
+                <tr>
+                  <th className="px-3 py-2 text-left">Date</th>
+                  <th className="px-3 py-2 text-left">Kind</th>
+                  <th className="px-3 py-2 text-left">Category</th>
+                  <th className="px-3 py-2 text-left">Other Type</th>
+                  <th className="px-3 py-2 text-left">Staff</th>
+                  <th className="px-3 py-2 text-right">Amount</th>
+                  <th className="px-3 py-2 text-left">Notes</th>
+                </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 && <tr><td colSpan={5} className="text-center text-muted-foreground py-6">No transactions</td></tr>}
+                {filtered.length === 0 && <tr><td colSpan={7} className="text-center text-muted-foreground py-6">No transactions</td></tr>}
                 {filtered.map(t => (
                   <tr key={t.id} className="border-b border-border/60">
                     <td className="px-3 py-2 whitespace-nowrap">{new Date(t.occurred_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</td>
                     <td className="px-3 py-2">{t.kind === "collection" ? "In" : "Out"}</td>
                     <td className="px-3 py-2">{t.type_name}</td>
+                    <td className="px-3 py-2 text-[11px] text-muted-foreground max-w-[180px] truncate" title={t.description ?? ""}>
+                      {t.description && t.description.trim() ? t.description : "—"}
+                    </td>
                     <td className="px-3 py-2">{t.staff_name ?? "—"}</td>
                     <td className={cn("px-3 py-2 text-right tabular-nums", t.kind === "collection" ? "text-success" : "text-destructive")}>₹{Number(t.amount).toLocaleString("en-IN")}</td>
+                    <td className="px-3 py-2 text-[11px] text-muted-foreground max-w-[200px] truncate" title={t.notes ?? ""}>
+                      {t.notes && t.notes.trim() ? t.notes : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
           ) : (
             <table className="w-full text-sm min-w-[560px]">
               <thead className="text-[10px] uppercase text-muted-foreground border-b border-border">
