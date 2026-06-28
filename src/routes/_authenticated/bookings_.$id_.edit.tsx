@@ -87,12 +87,22 @@ function EditBooking() {
     const items = existingItems.map(rowToLineItem);
     setStay((s) => ({ ...s, ...lineItemToPrimary(items[0]) } as SharedStayValue));
     setExtras(items.slice(1));
+    // Preserve the rate that was already agreed with the guest. Newly added
+    // nights (stay extensions) inherit this same rate via primaryToLineItem.
+    const primaryRate = Number(items[0]?.rate);
+    if (Number.isFinite(primaryRate) && primaryRate > 0) setOriginalPrimaryRate(primaryRate);
     setLoaded(true);
   }, [b, existingItems, loaded]);
 
   const resolvedRate = useResolvedRate(stay.room_type, stay.check_in, stay.check_out, stay.breakfast_included);
+  // If the booking already had an overridden rate, keep using it; otherwise fall
+  // back to the standard rates engine. Switching room type clears the override.
+  const effectivePrimaryRate =
+    originalPrimaryRate != null && stay.room_type === (existingItems[0]?.room_type ?? stay.room_type)
+      ? originalPrimaryRate
+      : resolvedRate;
   const { pricing, roomCharges, extraCharges, nights } = useMemo(() => {
-    const primary = primaryToLineItem(stay, resolvedRate);
+    const primary = primaryToLineItem(stay, effectivePrimaryRate);
     const p = computePricing([primary, ...extras], Number(stay.discount) || 0, DEFAULT_TAX_RATE, { totalOverride, taxesIncluded });
     return {
       pricing: p,
@@ -100,7 +110,8 @@ function EditBooking() {
       extraCharges: extras.reduce((s, i) => s + lineSubtotal(i), 0),
       nights: nightsOf(primary),
     };
-  }, [stay, extras, resolvedRate, totalOverride, taxesIncluded]);
+  }, [stay, extras, effectivePrimaryRate, totalOverride, taxesIncluded]);
+
   const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid));
 
