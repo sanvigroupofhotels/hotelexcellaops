@@ -1707,12 +1707,27 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         dragEnabled && isMobile && "select-none",
         highlight && "ring-4 ring-gold animate-pulse",
       )}
-      style={{
-        left: continuesLeft ? 0 : 2,
-        width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 2}px - ${continuesRight ? 0 : 2}px)`,
-        zIndex: highlight ? 25 : 20,
-        touchAction: dragEnabled && isMobile ? "manipulation" : undefined,
-      }}
+      style={(() => {
+        if (groupSlots > 1) {
+          const gap = 4;
+          const inset = 2;
+          const inner = cellW - inset * 2;
+          const w = (inner - (groupSlots - 1) * gap) / groupSlots;
+          return {
+            left: inset + groupSlot * (w + gap),
+            width: w,
+            zIndex: highlight ? 25 : 20,
+            touchAction: dragEnabled && isMobile ? "manipulation" : undefined,
+          } as React.CSSProperties;
+        }
+        return {
+          left: continuesLeft ? 0 : 2,
+          width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 2}px - ${continuesRight ? 0 : 2}px)`,
+          zIndex: highlight ? 25 : 20,
+          touchAction: dragEnabled && isMobile ? "manipulation" : undefined,
+        } as React.CSSProperties;
+      })()}
+
       title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveReason}`}`}
     >
       {continuesLeft && <span aria-hidden className="shrink-0 opacity-70 -ml-0.5">‹</span>}
