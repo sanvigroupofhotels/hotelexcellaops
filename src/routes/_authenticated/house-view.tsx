@@ -160,6 +160,8 @@ function HouseView() {
   const [searchQ, setSearchQ] = useState("");
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
   // Mobile move-booking dialog (long-press fallback for drag-and-drop)
   const isMobile = useIsMobile();
 
