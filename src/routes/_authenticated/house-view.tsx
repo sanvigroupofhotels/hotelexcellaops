@@ -812,7 +812,7 @@ function HouseView() {
                       <tr>
                         <td
                           colSpan={days.length + 1}
-                          className="sticky left-0 z-[28] bg-card border-b border-gold/30 p-0"
+                          className="sticky left-0 z-[31] bg-card border-b border-gold/30 p-0"
                           style={{ top: DATE_HEADER_H, height: GROUP_HEADER_H }}
                         >
                           <button
