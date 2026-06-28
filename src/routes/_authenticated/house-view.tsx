@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState, memo, useCallback, useEffect, useRef } from "react";
+import React, { useMemo, useState, memo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { listRooms, listMaintenance } from "@/lib/rooms-api";
@@ -9,7 +9,7 @@ import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
 import { updateBookingStay } from "@/lib/booking-stay";
 import { listAvailableRoomsForStay, type AvailableRoomRow } from "@/lib/room-availability";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck, Move } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck, Move, BarChart3, HelpCircle, ChevronDown } from "lucide-react";
 import { NightAuditDialog } from "@/components/night-audit-dialog";
 import { useOpsTimeLabels } from "@/lib/check-times";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
@@ -160,6 +160,8 @@ function HouseView() {
   const [searchQ, setSearchQ] = useState("");
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
   // Mobile move-booking dialog (long-press fallback for drag-and-drop)
   const isMobile = useIsMobile();
 
@@ -205,6 +207,28 @@ function HouseView() {
 
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
+  // Group rooms into floors: Oak (101–106), Mapple (201+). Anything else falls under "Other".
+  const roomGroups = useMemo(() => {
+    const oak: any[] = [], mapple: any[] = [], other: any[] = [];
+    (rooms as any[]).forEach((r) => {
+      const n = parseInt(String(r.room_number).replace(/\D/g, ""), 10);
+      if (n >= 101 && n <= 106) oak.push(r);
+      else if (n >= 201) mapple.push(r);
+      else other.push(r);
+    });
+    const groups: { key: string; label: string; rooms: any[] }[] = [];
+    if (oak.length) groups.push({ key: "oak", label: "Oak Rooms", rooms: oak });
+    if (mapple.length) groups.push({ key: "mapple", label: "Mapple Rooms", rooms: mapple });
+    if (other.length) groups.push({ key: "other", label: "Other Rooms", rooms: other });
+    return groups;
+  }, [rooms]);
+  const toggleGroup = useCallback((key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: blocks = [] } = useQuery({
     queryKey: ["room_maintenance", "active"],
@@ -661,10 +685,11 @@ function HouseView() {
         <div className="flex items-stretch gap-2">
           <button
             onClick={() => setStatsOpen(true)}
-            className="md:hidden shrink-0 px-3 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5"
+            className="md:hidden shrink-0 h-9 w-9 rounded-md border border-gold/40 bg-gold-soft/30 hover:bg-gold-soft/50 flex items-center justify-center"
             title="House Overview Stats"
+            aria-label="House Overview Stats"
           >
-            <Hotel className="h-3.5 w-3.5" /> Stats
+            <BarChart3 className="h-4 w-4 text-gold" />
           </button>
           <div className="luxe-card rounded-xl p-1.5 md:p-3 flex-1 md:flex-1 max-w-full">
             <div className="relative">
@@ -744,9 +769,22 @@ function HouseView() {
               <thead>
                 <tr>
                   <th
-                    className="sticky left-0 top-0 z-40 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center"
+                    className="sticky left-0 top-0 z-50 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.45)]"
                     style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
-                  >Room</th>
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Room</span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setLegendOpen(true); }}
+                        className="p-0.5 rounded-full text-muted-foreground hover:text-gold hover:bg-gold-soft/30"
+                        title="Show legend"
+                        aria-label="Show legend"
+                      >
+                        <HelpCircle className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </th>
                   {days.map((d, i) => {
                     const isToday = dateKey(d) === todayKey;
                     const isLast = i === days.length - 1;
@@ -764,16 +802,38 @@ function HouseView() {
                 </tr>
               </thead>
               <tbody>
-                {rooms.map((r) => {
-                  const coveredSet = coveredDaysByRoom.get(r.id);
+                {roomGroups.map((group) => {
+                  const isCollapsed = collapsedGroups.has(group.key);
                   return (
-                    <tr key={r.id} className="group">
-                      <td
-                        className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-2 py-1.5 text-sm align-middle text-center"
-                        style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
-                      >
-                        <div className="font-medium tabular-nums">{r.room_number}</div>
-                      </td>
+                    <React.Fragment key={`grp-${group.key}`}>
+                      <tr>
+                        <td
+                          colSpan={1 + days.length}
+                          className="sticky z-40 bg-background/95 backdrop-blur-sm border-y border-gold/30 p-0"
+                          style={{ top: 38 }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(group.key)}
+                            className="sticky left-0 inline-flex items-center gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-gold hover:bg-gold-soft/20 w-full md:w-auto text-left"
+                            aria-expanded={!isCollapsed}
+                          >
+                            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isCollapsed && "-rotate-90")} />
+                            <span>{group.label}</span>
+                            <span className="text-muted-foreground font-normal normal-case tracking-normal">({group.rooms.length})</span>
+                          </button>
+                        </td>
+                      </tr>
+                      {!isCollapsed && group.rooms.map((r: any) => {
+                        const coveredSet = coveredDaysByRoom.get(r.id);
+                        return (
+                          <tr key={r.id} className="group">
+                            <td
+                              className="sticky left-0 z-30 bg-card border-b border-r-2 border-border px-2 py-1.5 text-sm align-middle text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.4)]"
+                              style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
+                            >
+                              <div className="font-medium tabular-nums">{r.room_number}</div>
+                            </td>
                       {/* Per-day cells with relative wrapper so we can position pills absolutely */}
                       {days.map((d, i) => {
                         const dk = dayKeys[i];
@@ -901,7 +961,10 @@ function HouseView() {
                           </td>
                         );
                       })}
-                    </tr>
+                            </tr>
+                          );
+                        })}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -909,8 +972,8 @@ function HouseView() {
           </div>
         )}
 
-        {/* Legend */}
-        <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+        {/* Legend (bottom fallback — kept for desktop) */}
+        <div className="hidden md:flex flex-wrap gap-3 text-[11px] text-muted-foreground">
           <Legend cls="bg-white border-gray-500" label="Pending / Confirmed" />
           <Legend cls="bg-blue-500/85 border-blue-700" label="Confirmed & Committed" />
           <Legend cls="bg-green-500/85 border-green-700" label="Checked-In" />
@@ -919,8 +982,32 @@ function HouseView() {
           <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
           <div className="flex items-center gap-1.5"><UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast included</div>
           <div className="flex items-center gap-1.5"><span>💳</span> Balance due</div>
+          <div className="flex items-center gap-1.5"><span className="font-semibold text-foreground">*</span> Unassigned / Unconfirmed Booking</div>
+          <div className="flex items-center gap-1.5"><span>🐾</span> Pet-Friendly Booking</div>
         </div>
       </div>
+
+      {/* Header-launched legend dialog (mobile-first; works on desktop too) */}
+      <Dialog open={legendOpen} onOpenChange={setLegendOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>House View Legend</DialogTitle>
+            <DialogDescription>Booking pill colours and icons.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 text-xs text-foreground">
+            <Legend cls="bg-white border-gray-500" label="Pending / Confirmed" />
+            <Legend cls="bg-blue-500/85 border-blue-700" label="Confirmed & Committed" />
+            <Legend cls="bg-green-500/85 border-green-700" label="Checked-In" />
+            <Legend cls="bg-gray-400/70 border-gray-600" label="Checked-Out / Stay Completed" />
+            <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />
+            <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
+            <div className="flex items-center gap-2"><UtensilsCrossed className="h-3.5 w-3.5 text-gold" /> Breakfast included</div>
+            <div className="flex items-center gap-2"><span>💳</span> Balance due</div>
+            <div className="flex items-center gap-2"><span className="font-semibold text-foreground w-3 text-center">*</span> Unassigned / Unconfirmed Booking</div>
+            <div className="flex items-center gap-2"><span>🐾</span> Pet-Friendly Booking</div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {selected && <BookingPopover b={selected} onClose={() => setSelected(null)} rooms={rooms}
         hasBreakfast={!!breakfastByBooking.get(selected.id)} businessDate={todayKey} />}
