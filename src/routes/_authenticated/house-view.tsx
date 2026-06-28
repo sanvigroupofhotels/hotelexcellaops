@@ -900,50 +900,81 @@ function HouseView() {
                                   <Plus className="h-3.5 w-3.5" />
                                 </button>
                               )}
-                              {startingBookings?.map((b) => {
-                                const startCol = b.check_in < rangeStart ? 0 : dayKeys.indexOf(b.check_in);
-                                const endExclusive = slotEndExclusive(b);
-                                const endIdx = dayKeys.indexOf(endExclusive);
-                                const endCol = endIdx < 0 ? DAY_COUNT : endIdx;
-                                const span = Math.max(1, endCol - startCol);
-                                if (span <= 0) return null;
+                              {(() => {
+                                const sb = startingBookings ?? [];
+                                if (sb.length === 0) return null;
+                                const showOverflow = sb.length > 3;
+                                const visibleCount = showOverflow ? 2 : sb.length;
+                                const slotCount = showOverflow ? 3 : sb.length;
+                                const overflowN = sb.length - visibleCount;
+                                const isGrouped = sb.length > 1;
                                 const cellW = isMobile ? CELL_W_MOB : CELL_W;
-                                const hasBreakfast = !!breakfastByBooking.get(b.id);
-                                const hasPet = !!petByBooking.get(b.id);
-                                const extraCharges = chargesByBooking.get(b.id) ?? 0;
-                                const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) + extraCharges - Number(b.advance_paid || 0));
-                                const moveEligibility = getMoveEligibility(b, r.id);
-                                // True caps: rounded only if visible start = real check-in
-                                // and visible end = real check-out (slotEndExclusive).
-                                const continuesLeft = b.check_in < rangeStart;
-                                const continuesRight = endIdx < 0; // endExclusive past range end
-                                // Pass primitives (not the eligibility object) so React.memo
-                                // on BookingChip stays effective across parent renders.
+                                const visible = sb.slice(0, visibleCount);
                                 return (
-                                  <BookingChip
-                                    key={`${b.id}-${b._slotKey ?? b.check_in}`}
-                                    b={b}
-                                    roomId={r.id}
-                                    span={span}
-                                    cellW={cellW}
-                                    hasBreakfast={hasBreakfast}
-                                    hasPet={hasPet}
-                                    balanceDue={balanceDue}
-                                    moveEligible={moveEligibility.eligible}
-                                    moveReason={moveEligibility.reason}
-                                    isMobile={isMobile}
-                                    highlight={highlightId === b.id}
-                                    continuesLeft={continuesLeft}
-                                    continuesRight={continuesRight}
-                                    origCheckIn={b.check_in}
-                                    origCheckOut={b.check_out}
-                                    onSelect={handleChipSelect}
-                                    onLongPress={handleChipLongPress}
-                                    onDragStartAvail={handleChipDragStartAvail}
-                                    onDragEnd={handleChipDragEnd}
-                                  />
+                                  <>
+                                    {visible.map((b, idx) => {
+                                      const startCol = b.check_in < rangeStart ? 0 : dayKeys.indexOf(b.check_in);
+                                      const endExclusive = slotEndExclusive(b);
+                                      const endIdx = dayKeys.indexOf(endExclusive);
+                                      const endCol = endIdx < 0 ? DAY_COUNT : endIdx;
+                                      const span = Math.max(1, endCol - startCol);
+                                      if (span <= 0) return null;
+                                      const hasBreakfast = !!breakfastByBooking.get(b.id);
+                                      const hasPet = !!petByBooking.get(b.id);
+                                      const extraCharges = chargesByBooking.get(b.id) ?? 0;
+                                      const balanceDue = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, Number(b.amount) + extraCharges - Number(b.advance_paid || 0));
+                                      const moveEligibility = getMoveEligibility(b, r.id);
+                                      const continuesLeft = b.check_in < rangeStart;
+                                      const continuesRight = endIdx < 0;
+                                      return (
+                                        <BookingChip
+                                          key={`${b.id}-${b._slotKey ?? b.check_in}`}
+                                          b={b}
+                                          roomId={r.id}
+                                          span={span}
+                                          cellW={cellW}
+                                          hasBreakfast={hasBreakfast}
+                                          hasPet={hasPet}
+                                          balanceDue={balanceDue}
+                                          moveEligible={moveEligibility.eligible}
+                                          moveReason={moveEligibility.reason}
+                                          isMobile={isMobile}
+                                          highlight={highlightId === b.id}
+                                          continuesLeft={continuesLeft}
+                                          continuesRight={continuesRight}
+                                          origCheckIn={b.check_in}
+                                          origCheckOut={b.check_out}
+                                          groupSlot={isGrouped ? idx : 0}
+                                          groupSlots={isGrouped ? slotCount : 1}
+                                          onSelect={handleChipSelect}
+                                          onLongPress={handleChipLongPress}
+                                          onDragStartAvail={handleChipDragStartAvail}
+                                          onDragEnd={handleChipDragEnd}
+                                        />
+                                      );
+                                    })}
+                                    {showOverflow && (() => {
+                                      const gap = 4;
+                                      const inset = 2;
+                                      const inner = cellW - inset * 2;
+                                      const w = (inner - (slotCount - 1) * gap) / slotCount;
+                                      const left = inset + (slotCount - 1) * (w + gap);
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleChipSelect(sb[visibleCount])}
+                                          className="absolute top-0.5 bottom-0.5 rounded-xl border-2 border-opacity-90 px-1 text-[11px] font-medium flex items-center justify-center overflow-hidden bg-secondary/60 text-foreground/80 border-border hover:ring-2 hover:ring-gold/50 transition shadow-[0_1px_1.5px_rgba(0,0,0,0.08)]"
+                                          style={{ left, width: w, zIndex: 20 }}
+                                          title={`${overflowN} more booking${overflowN > 1 ? "s" : ""} on this day`}
+                                        >
+                                          +{overflowN}
+                                        </button>
+                                      );
+                                    })()}
+                                  </>
                                 );
-                              })}
+                              })()}
+
 
                               {startingBlocks?.map((m: any) => {
                                 const startCol = m.start_date < rangeStart ? 0 : dayKeys.indexOf(m.start_date);
