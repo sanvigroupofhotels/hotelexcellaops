@@ -768,7 +768,7 @@ function HouseView() {
               <thead>
                 <tr>
                   <th
-                    className="sticky left-0 top-0 z-30 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.45)]"
+                    className="sticky left-0 top-0 z-[60] bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.45)]"
                     style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                   >
                     <div className="flex items-center justify-center gap-1">
