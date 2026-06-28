@@ -818,7 +818,7 @@ function HouseView() {
                           <button
                             type="button"
                             onClick={() => toggleGroup(group.key)}
-                            className="sticky left-0 inline-flex h-full items-center gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-gold hover:bg-gold-soft/20 w-full md:w-auto text-left"
+                            className="sticky left-0 inline-flex h-full items-center gap-2 pl-5 pr-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-gold hover:bg-gold-soft/20 w-full md:w-auto text-left"
                             aria-expanded={!isCollapsed}
                           >
                             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isCollapsed && "-rotate-90")} />
