@@ -153,7 +153,7 @@ function EditBooking() {
         part_payment_type: "percent",
         part_payment_value: paymentFlags.part_payment_value,
       });
-      const primary = primaryToLineItem(stay, resolvedRate);
+      const primary = primaryToLineItem(stay, effectivePrimaryRate);
       await replaceBookingItems(id, [primary, ...extras]);
     },
     onSuccess: () => {
