@@ -266,13 +266,31 @@ export function StayFormSections({
             </select>
           </Field>
           <Field label="Rooms">
-            <Stepper value={value.rooms} min={1} onChange={(v) => update("rooms", v)} />
+            <Stepper
+              value={value.rooms}
+              min={1}
+              max={availability ? Math.max(1, cap.available) : undefined}
+              onChange={(v) => {
+                // Clamp against live inventory (single source of truth — see room-inventory.ts).
+                const clamped = availability ? Math.min(v, Math.max(1, cap.available)) : v;
+                update("rooms", Math.max(1, clamped));
+              }}
+            />
+            {availability && (
+              <p className={cn(
+                "text-[10px] mt-1.5",
+                cap.available <= 0 ? "text-destructive" : cap.available < value.rooms ? "text-warning" : "text-muted-foreground",
+              )}>
+                {cap.label}
+              </p>
+            )}
           </Field>
         </div>
         <div className="mt-4">
           <PolicyFields form={value as any} update={update as any} apply={apply as any} />
         </div>
       </Card>
+
 
       {/* 4. Additional Rooms / Split Stay — collapsed by default.
           Hosts may opt-out (hideExtras) and render <AdditionalRoomsCollapsibleCard /> in a custom slot
