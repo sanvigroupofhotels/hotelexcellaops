@@ -135,11 +135,13 @@ function DuesPage() {
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] space-y-6 pb-32 lg:pb-8">
 
         {/* Summary cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <SummaryCard label="Total Outstanding" value={summary.totalOutstanding} tone="danger" />
           <SummaryCard label="Due Today" value={summary.dueToday} tone="gold" />
           <SummaryCard label="Overdue" value={summary.overdue} tone="danger" />
+          <SummaryCard label="Future Dues" value={summary.future} tone="info" />
         </div>
+
 
         {/* Filter chips + search */}
         <div className="flex flex-wrap items-center gap-2">
