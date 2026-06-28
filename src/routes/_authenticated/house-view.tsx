@@ -948,8 +948,8 @@ function HouseView() {
                                 const cellW = isMobile ? CELL_W_MOB : CELL_W;
                                 return (
                                   <button key={m.id} onClick={() => setSelectedBlock(m)}
-                                    className="absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden shadow-sm bg-amber-700 text-white border-amber-900 hover:ring-2 hover:ring-amber-400"
-                                    style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: 5 }}
+                                    className="absolute top-0.5 bottom-0.5 left-0.5 rounded-lg border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden shadow-sm bg-amber-700 text-white border-amber-900 hover:ring-2 hover:ring-amber-400"
+                                    style={{ width: `calc(${span} * ${cellW}px - 4px)`, zIndex: 5 }}
                                     title={`Blocked: ${m.reason || "Maintenance"}`}>
                                     <AlertTriangle className="h-3 w-3 shrink-0" />
                                     <span className="truncate">{m.reason || "Blocked"}</span>
