@@ -811,20 +811,14 @@ function HouseView() {
                     <tbody key={`grp-${group.key}`}>
                       <tr>
                         <td
-                          className="sticky left-0 z-[28] bg-card border-b border-r-2 border-gold/30 p-0 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.35)]"
-                          style={{ top: DATE_HEADER_H, width: ROOM_COL_W, minWidth: ROOM_COL_W, height: GROUP_HEADER_H }}
-                          aria-hidden="true"
-                        />
-                        <td
-                          colSpan={days.length}
-                          className="sticky z-[28] bg-card border-b border-gold/30 p-0"
+                          colSpan={days.length + 1}
+                          className="sticky left-0 z-[28] bg-card border-b border-gold/30 p-0"
                           style={{ top: DATE_HEADER_H, height: GROUP_HEADER_H }}
                         >
                           <button
                             type="button"
                             onClick={() => toggleGroup(group.key)}
-                            className="sticky inline-flex h-full items-center gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-gold hover:bg-gold-soft/20 w-full md:w-auto text-left"
-                            style={{ left: ROOM_COL_W }}
+                            className="sticky left-0 inline-flex h-full items-center gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-gold hover:bg-gold-soft/20 w-full md:w-auto text-left"
                             aria-expanded={!isCollapsed}
                           >
                             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isCollapsed && "-rotate-90")} />
