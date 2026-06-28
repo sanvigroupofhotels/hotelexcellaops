@@ -207,6 +207,28 @@ function HouseView() {
 
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
+  // Group rooms into floors: Oak (101–106), Mapple (201+). Anything else falls under "Other".
+  const roomGroups = useMemo(() => {
+    const oak: any[] = [], mapple: any[] = [], other: any[] = [];
+    (rooms as any[]).forEach((r) => {
+      const n = parseInt(String(r.room_number).replace(/\D/g, ""), 10);
+      if (n >= 101 && n <= 106) oak.push(r);
+      else if (n >= 201) mapple.push(r);
+      else other.push(r);
+    });
+    const groups: { key: string; label: string; rooms: any[] }[] = [];
+    if (oak.length) groups.push({ key: "oak", label: "Oak Rooms", rooms: oak });
+    if (mapple.length) groups.push({ key: "mapple", label: "Mapple Rooms", rooms: mapple });
+    if (other.length) groups.push({ key: "other", label: "Other Rooms", rooms: other });
+    return groups;
+  }, [rooms]);
+  const toggleGroup = useCallback((key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: blocks = [] } = useQuery({
     queryKey: ["room_maintenance", "active"],
