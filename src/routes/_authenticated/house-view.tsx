@@ -1632,8 +1632,8 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   });
   // True caps: rounded only on true check-in / check-out edges.
   const radiusClasses = cn(
-    continuesLeft ? "rounded-l-none" : "rounded-l-lg",
-    continuesRight ? "rounded-r-none" : "rounded-r-lg",
+    continuesLeft ? "rounded-l-none" : "rounded-l-xl",
+    continuesRight ? "rounded-r-none" : "rounded-r-xl",
   );
   return (
     <button
@@ -1658,7 +1658,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       }}
       onDragEnd={onDragEnd}
       className={cn(
-        "absolute top-0.5 bottom-0.5 border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
+        "absolute top-0.5 bottom-0.5 border-2 border-opacity-90 px-2.5 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-[0_1px_1.5px_rgba(0,0,0,0.08)]",
         radiusClasses,
         blockClasses(b),
         b._virtual && "border-dashed",
