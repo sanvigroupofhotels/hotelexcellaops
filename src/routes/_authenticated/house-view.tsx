@@ -769,9 +769,22 @@ function HouseView() {
               <thead>
                 <tr>
                   <th
-                    className="sticky left-0 top-0 z-40 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center"
+                    className="sticky left-0 top-0 z-50 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.45)]"
                     style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
-                  >Room</th>
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Room</span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setLegendOpen(true); }}
+                        className="p-0.5 rounded-full text-muted-foreground hover:text-gold hover:bg-gold-soft/30"
+                        title="Show legend"
+                        aria-label="Show legend"
+                      >
+                        <HelpCircle className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </th>
                   {days.map((d, i) => {
                     const isToday = dateKey(d) === todayKey;
                     const isLast = i === days.length - 1;
