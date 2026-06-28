@@ -960,10 +960,11 @@ function HouseView() {
                             </div>
                           </td>
                         );
-                      </tr>
-                    );
-                  })}
-                  </React.Fragment>
+                      })}
+                            </tr>
+                          );
+                        })}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
