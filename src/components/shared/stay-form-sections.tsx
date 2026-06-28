@@ -185,6 +185,13 @@ export function StayFormSections({
   // Ensure the currently-selected value is always visible even if it has been deactivated.
   const leadOptions = leadSources.includes(value.lead_source) ? leadSources : [value.lead_source, ...leadSources].filter(Boolean);
 
+  // Live inventory — same helper used by Quick Booking + any future widget.
+  // Auto-refreshes on date change AND on any mutation that invalidates the
+  // bookings/assignments/maintenance keys (Create/Edit/Cancel/Delete/Extend).
+  const { data: availability } = useRoomTypeAvailability(value.check_in, value.check_out, excludeBookingId ?? null);
+  const cap = maxSelectableRooms(availability, value.room_type, 0);
+
+
   return (
     <div className="space-y-6">
       {/* 1. Guest Details */}
