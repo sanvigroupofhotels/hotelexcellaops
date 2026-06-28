@@ -685,10 +685,11 @@ function HouseView() {
         <div className="flex items-stretch gap-2">
           <button
             onClick={() => setStatsOpen(true)}
-            className="md:hidden shrink-0 px-3 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5"
+            className="md:hidden shrink-0 h-9 w-9 rounded-md border border-gold/40 bg-gold-soft/30 hover:bg-gold-soft/50 flex items-center justify-center"
             title="House Overview Stats"
+            aria-label="House Overview Stats"
           >
-            <Hotel className="h-3.5 w-3.5" /> Stats
+            <BarChart3 className="h-4 w-4 text-gold" />
           </button>
           <div className="luxe-card rounded-xl p-1.5 md:p-3 flex-1 md:flex-1 max-w-full">
             <div className="relative">
