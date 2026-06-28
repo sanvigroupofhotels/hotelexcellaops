@@ -1628,8 +1628,8 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   });
   // True caps: rounded only on true check-in / check-out edges.
   const radiusClasses = cn(
-    continuesLeft ? "rounded-l-none" : "rounded-l-full",
-    continuesRight ? "rounded-r-none" : "rounded-r-full",
+    continuesLeft ? "rounded-l-none" : "rounded-l-lg",
+    continuesRight ? "rounded-r-none" : "rounded-r-lg",
   );
   return (
     <button
@@ -1654,7 +1654,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       }}
       onDragEnd={onDragEnd}
       className={cn(
-        "absolute top-1.5 bottom-1.5 border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
+        "absolute top-0.5 bottom-0.5 border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
         radiusClasses,
         blockClasses(b),
         b._virtual && "border-dashed",
@@ -1669,8 +1669,8 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         highlight && "ring-4 ring-gold animate-pulse",
       )}
       style={{
-        left: continuesLeft ? 0 : 4,
-        width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 4}px - ${continuesRight ? 0 : 4}px)`,
+        left: continuesLeft ? 0 : 2,
+        width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 2}px - ${continuesRight ? 0 : 2}px)`,
         zIndex: highlight ? 25 : 20,
         touchAction: dragEnabled && isMobile ? "manipulation" : undefined,
       }}
