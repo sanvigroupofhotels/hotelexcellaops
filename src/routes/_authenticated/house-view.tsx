@@ -789,7 +789,7 @@ function HouseView() {
                     const isLast = i === days.length - 1;
                     return (
                       <th key={d.toISOString()}
-                        className={cn("sticky top-0 z-30 border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
+                        className={cn("sticky top-0 z-20 border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
                           isToday ? "house-business-date-header border-gold/60" : "bg-card text-muted-foreground",
                           isLast && "border-r-0")}
                         style={{ minWidth: isMobile ? CELL_W_MOB : CELL_W, width: isMobile ? CELL_W_MOB : CELL_W }}>
