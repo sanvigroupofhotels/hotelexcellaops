@@ -165,11 +165,14 @@ export interface StayFormSectionsProps {
   hideAdditional?: boolean;
   /** Hide the Additional Rooms / Split Stay card. Hosts can render <AdditionalRoomsCollapsibleCard /> in their own slot. */
   hideExtras?: boolean;
+  /** When editing an existing booking, exclude it from the live inventory check. */
+  excludeBookingId?: string | null;
 }
 
 export function StayFormSections({
-  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel, hideAdditional, hideExtras,
+  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel, hideAdditional, hideExtras, excludeBookingId,
 }: StayFormSectionsProps) {
+
   const update = <K extends keyof SharedStayValue>(k: K, v: SharedStayValue[K]) =>
     onChange({ ...value, [k]: v });
   // Atomic multi-field write — prevents the closure-based clobber that
