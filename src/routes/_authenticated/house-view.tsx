@@ -808,7 +808,7 @@ function HouseView() {
                       <tr>
                         <td
                           colSpan={1 + days.length}
-                          className="sticky z-20 bg-background/95 backdrop-blur-sm border-y border-gold/30 p-0"
+                          className="sticky z-[30] bg-background/95 backdrop-blur-sm border-y border-gold/30 p-0"
                           style={{ top: 38 }}
                         >
                           <button
