@@ -47,6 +47,8 @@ const DAY_COUNT = 7;
 const CELL_W = 184;
 const CELL_W_MOB = 140;
 const ROOM_COL_W = 56;
+const DATE_HEADER_H = 52;
+const GROUP_HEADER_H = 34;
 const LONG_PRESS_DELAY_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE = 24; // px — tolerate real mobile finger jitter before treating it as scroll
 
@@ -763,13 +765,16 @@ function HouseView() {
         {isLoading ? (
           <div className="p-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>
         ) : (
-          <div className="luxe-card rounded-xl p-0 overflow-auto relative max-h-[calc(100vh-180px)] md:max-h-[calc(100vh-220px)]" data-house-grid>
+          <div
+            className="luxe-card rounded-xl p-0 overflow-auto relative z-0 isolate max-h-[calc(100vh-180px)] md:max-h-[calc(100vh-220px)]"
+            data-house-grid
+          >
             <table className="border-separate border-spacing-0 min-w-fit">
               <thead>
                 <tr>
                   <th
-                    className="sticky left-0 top-0 z-[60] bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.45)]"
-                    style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
+                    className="sticky left-0 top-0 z-[35] bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.45)]"
+                    style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W, height: DATE_HEADER_H }}
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Room</span>
@@ -789,10 +794,10 @@ function HouseView() {
                     const isLast = i === days.length - 1;
                     return (
                       <th key={d.toISOString()}
-                        className={cn("sticky top-0 z-[50] border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
+                        className={cn("sticky top-0 z-[32] border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
                           isToday ? "house-business-date-header border-gold/60" : "bg-card text-muted-foreground",
                           isLast && "border-r-0")}
-                        style={{ minWidth: isMobile ? CELL_W_MOB : CELL_W, width: isMobile ? CELL_W_MOB : CELL_W }}>
+                        style={{ minWidth: isMobile ? CELL_W_MOB : CELL_W, width: isMobile ? CELL_W_MOB : CELL_W, height: DATE_HEADER_H }}>
                         <div className="font-semibold">{isToday ? "TODAY" : d.toLocaleDateString("en-IN", { weekday: "short" })}</div>
                         <div className={cn("text-xs", isToday ? "text-current" : "text-foreground")}>{fmtShort(d)}</div>
                       </th>
@@ -800,21 +805,26 @@ function HouseView() {
                   })}
                 </tr>
               </thead>
-              <tbody>
-                {roomGroups.map((group) => {
+              {roomGroups.map((group) => {
                   const isCollapsed = collapsedGroups.has(group.key);
                   return (
-                    <React.Fragment key={`grp-${group.key}`}>
+                    <tbody key={`grp-${group.key}`}>
                       <tr>
                         <td
-                          colSpan={1 + days.length}
-                          className="sticky z-[30] bg-background/95 backdrop-blur-sm border-y border-gold/30 p-0"
-                          style={{ top: 38 }}
+                          className="sticky left-0 z-[28] bg-card border-y border-r-2 border-gold/30 p-0 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.35)]"
+                          style={{ top: DATE_HEADER_H, width: ROOM_COL_W, minWidth: ROOM_COL_W, height: GROUP_HEADER_H }}
+                          aria-hidden="true"
+                        />
+                        <td
+                          colSpan={days.length}
+                          className="sticky z-[28] bg-card border-y border-gold/30 p-0"
+                          style={{ top: DATE_HEADER_H, height: GROUP_HEADER_H }}
                         >
                           <button
                             type="button"
                             onClick={() => toggleGroup(group.key)}
-                            className="sticky left-0 inline-flex items-center gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-gold hover:bg-gold-soft/20 w-full md:w-auto text-left"
+                            className="sticky inline-flex h-full items-center gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-gold hover:bg-gold-soft/20 w-full md:w-auto text-left"
+                            style={{ left: ROOM_COL_W }}
                             aria-expanded={!isCollapsed}
                           >
                             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isCollapsed && "-rotate-90")} />
@@ -828,7 +838,7 @@ function HouseView() {
                         return (
                           <tr key={r.id} className="group">
                             <td
-                              className="sticky left-0 z-[40] bg-card border-b border-r-2 border-border px-2 py-1.5 text-sm align-middle text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.4)]"
+                              className="sticky left-0 z-[30] bg-card border-b border-r-2 border-border px-2 py-1.5 text-sm align-middle text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.4)]"
                               style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                             >
                               <div className="font-medium tabular-nums">{r.room_number}</div>
@@ -963,10 +973,9 @@ function HouseView() {
                             </tr>
                           );
                         })}
-                    </React.Fragment>
+                    </tbody>
                   );
                 })}
-              </tbody>
             </table>
           </div>
         )}
