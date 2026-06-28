@@ -207,19 +207,18 @@ function HouseView() {
 
 
   const { data: rooms = [], isLoading: lr } = useQuery({ queryKey: ["rooms", "active"], queryFn: () => listRooms(true) });
-  // Group rooms into floors: Oak (101–106), Mapple (201+). Anything else falls under "Other".
+  // Group rooms by Hotel Excella room category while preserving the existing room order.
   const roomGroups = useMemo(() => {
-    const oak: any[] = [], mapple: any[] = [], other: any[] = [];
+    const oak: any[] = [], mapple: any[] = [];
+    const mappleRoomNumbers = new Set(["106", "206", "306", "406"]);
     (rooms as any[]).forEach((r) => {
-      const n = parseInt(String(r.room_number).replace(/\D/g, ""), 10);
-      if (n >= 101 && n <= 106) oak.push(r);
-      else if (n >= 201) mapple.push(r);
-      else other.push(r);
+      const roomNumber = String(r.room_number ?? "").trim();
+      if (mappleRoomNumbers.has(roomNumber)) mapple.push(r);
+      else oak.push(r);
     });
     const groups: { key: string; label: string; rooms: any[] }[] = [];
     if (oak.length) groups.push({ key: "oak", label: "Oak Rooms", rooms: oak });
     if (mapple.length) groups.push({ key: "mapple", label: "Mapple Rooms", rooms: mapple });
-    if (other.length) groups.push({ key: "other", label: "Other Rooms", rooms: other });
     return groups;
   }, [rooms]);
   const toggleGroup = useCallback((key: string) => {
