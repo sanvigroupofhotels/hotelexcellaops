@@ -1632,8 +1632,8 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   });
   // True caps: rounded only on true check-in / check-out edges.
   const radiusClasses = cn(
-    continuesLeft ? "rounded-l-none" : "rounded-l-lg",
-    continuesRight ? "rounded-r-none" : "rounded-r-lg",
+    continuesLeft ? "rounded-l-none" : "rounded-l-xl",
+    continuesRight ? "rounded-r-none" : "rounded-r-xl",
   );
   return (
     <button
