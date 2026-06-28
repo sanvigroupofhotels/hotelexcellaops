@@ -802,16 +802,38 @@ function HouseView() {
                 </tr>
               </thead>
               <tbody>
-                {rooms.map((r) => {
-                  const coveredSet = coveredDaysByRoom.get(r.id);
+                {roomGroups.map((group) => {
+                  const isCollapsed = collapsedGroups.has(group.key);
                   return (
-                    <tr key={r.id} className="group">
-                      <td
-                        className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-2 py-1.5 text-sm align-middle text-center"
-                        style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
-                      >
-                        <div className="font-medium tabular-nums">{r.room_number}</div>
-                      </td>
+                    <React.Fragment key={`grp-${group.key}`}>
+                      <tr>
+                        <td
+                          colSpan={1 + days.length}
+                          className="sticky z-40 bg-background/95 backdrop-blur-sm border-y border-gold/30 p-0"
+                          style={{ top: 38 }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(group.key)}
+                            className="sticky left-0 inline-flex items-center gap-2 px-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-gold hover:bg-gold-soft/20 w-full md:w-auto text-left"
+                            aria-expanded={!isCollapsed}
+                          >
+                            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isCollapsed && "-rotate-90")} />
+                            <span>{group.label}</span>
+                            <span className="text-muted-foreground font-normal normal-case tracking-normal">({group.rooms.length})</span>
+                          </button>
+                        </td>
+                      </tr>
+                      {!isCollapsed && group.rooms.map((r: any) => {
+                        const coveredSet = coveredDaysByRoom.get(r.id);
+                        return (
+                          <tr key={r.id} className="group">
+                            <td
+                              className="sticky left-0 z-30 bg-card border-b border-r-2 border-border px-2 py-1.5 text-sm align-middle text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.4)]"
+                              style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
+                            >
+                              <div className="font-medium tabular-nums">{r.room_number}</div>
+                            </td>
                       {/* Per-day cells with relative wrapper so we can position pills absolutely */}
                       {days.map((d, i) => {
                         const dk = dayKeys[i];
