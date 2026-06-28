@@ -274,6 +274,10 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     const balance = ((b as any).status === "Cancelled" || (b as any).status === "No-Show") ? 0 : Math.max(0, payable - advance);
     // Stay extras = stay subtotal beyond the pure room charges line(s)
     const additionalStay = Math.max(0, subtotal - roomCharges);
+    // Discount = items total (pre-discount) - taxable subtotal (post-discount).
+    // Only meaningful when booking_items captured the gross stay charges.
+    const itemsTotal = (itemRows ?? []).reduce((s: number, r: any) => s + Number(r.subtotal || 0), 0);
+    const discount = Math.max(0, itemsTotal - subtotal);
 
     let minPartPayment = 0;
     const ptype = (b as any).part_payment_type as string | null;
@@ -301,6 +305,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       taxesIncluded,
       roomCharges,
       additionalStay,
+      discount,
       chargesTotal,
       charges,
       payable,

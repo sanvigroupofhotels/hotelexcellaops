@@ -768,7 +768,7 @@ function HouseView() {
               <thead>
                 <tr>
                   <th
-                    className="sticky left-0 top-0 z-50 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.45)]"
+                    className="sticky left-0 top-0 z-30 bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.45)]"
                     style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                   >
                     <div className="flex items-center justify-center gap-1">
@@ -789,7 +789,7 @@ function HouseView() {
                     const isLast = i === days.length - 1;
                     return (
                       <th key={d.toISOString()}
-                        className={cn("sticky top-0 z-30 border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
+                        className={cn("sticky top-0 z-20 border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-center",
                           isToday ? "house-business-date-header border-gold/60" : "bg-card text-muted-foreground",
                           isLast && "border-r-0")}
                         style={{ minWidth: isMobile ? CELL_W_MOB : CELL_W, width: isMobile ? CELL_W_MOB : CELL_W }}>
@@ -808,7 +808,7 @@ function HouseView() {
                       <tr>
                         <td
                           colSpan={1 + days.length}
-                          className="sticky z-40 bg-background/95 backdrop-blur-sm border-y border-gold/30 p-0"
+                          className="sticky z-20 bg-background/95 backdrop-blur-sm border-y border-gold/30 p-0"
                           style={{ top: 38 }}
                         >
                           <button
@@ -828,7 +828,7 @@ function HouseView() {
                         return (
                           <tr key={r.id} className="group">
                             <td
-                              className="sticky left-0 z-30 bg-card border-b border-r-2 border-border px-2 py-1.5 text-sm align-middle text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.4)]"
+                              className="sticky left-0 z-10 bg-card border-b border-r-2 border-border px-2 py-1.5 text-sm align-middle text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.4)]"
                               style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
                             >
                               <div className="font-medium tabular-nums">{r.room_number}</div>
@@ -1107,7 +1107,7 @@ function HouseView() {
         search={{ customerId: undefined, fromQuoteId: undefined } as any}
         title="New Booking"
         aria-label="New Booking"
-        className="house-fab fixed z-40 h-12 w-12 md:h-14 md:w-14 rounded-full gold-gradient text-charcoal shadow-lg flex items-center justify-center hover:scale-105 hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.45)] transition-all duration-200 translate-y-0 opacity-100"
+        className="house-fab fixed z-30 h-12 w-12 md:h-14 md:w-14 rounded-full gold-gradient text-charcoal shadow-lg flex items-center justify-center hover:scale-105 hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.45)] transition-all duration-200 translate-y-0 opacity-100"
         style={{
           right: "max(0.75rem, env(safe-area-inset-right))",
           bottom: "max(0.875rem, calc(env(safe-area-inset-bottom) + 0.5rem))",
