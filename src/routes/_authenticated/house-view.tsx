@@ -972,8 +972,8 @@ function HouseView() {
           </div>
         )}
 
-        {/* Legend */}
-        <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+        {/* Legend (bottom fallback — kept for desktop) */}
+        <div className="hidden md:flex flex-wrap gap-3 text-[11px] text-muted-foreground">
           <Legend cls="bg-white border-gray-500" label="Pending / Confirmed" />
           <Legend cls="bg-blue-500/85 border-blue-700" label="Confirmed & Committed" />
           <Legend cls="bg-green-500/85 border-green-700" label="Checked-In" />
@@ -982,8 +982,32 @@ function HouseView() {
           <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
           <div className="flex items-center gap-1.5"><UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast included</div>
           <div className="flex items-center gap-1.5"><span>💳</span> Balance due</div>
+          <div className="flex items-center gap-1.5"><span className="font-semibold text-foreground">*</span> Unassigned / Unconfirmed Booking</div>
+          <div className="flex items-center gap-1.5"><span>🐾</span> Pet-Friendly Booking</div>
         </div>
       </div>
+
+      {/* Header-launched legend dialog (mobile-first; works on desktop too) */}
+      <Dialog open={legendOpen} onOpenChange={setLegendOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>House View Legend</DialogTitle>
+            <DialogDescription>Booking pill colours and icons.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 text-xs text-foreground">
+            <Legend cls="bg-white border-gray-500" label="Pending / Confirmed" />
+            <Legend cls="bg-blue-500/85 border-blue-700" label="Confirmed & Committed" />
+            <Legend cls="bg-green-500/85 border-green-700" label="Checked-In" />
+            <Legend cls="bg-gray-400/70 border-gray-600" label="Checked-Out / Stay Completed" />
+            <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />
+            <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
+            <div className="flex items-center gap-2"><UtensilsCrossed className="h-3.5 w-3.5 text-gold" /> Breakfast included</div>
+            <div className="flex items-center gap-2"><span>💳</span> Balance due</div>
+            <div className="flex items-center gap-2"><span className="font-semibold text-foreground w-3 text-center">*</span> Unassigned / Unconfirmed Booking</div>
+            <div className="flex items-center gap-2"><span>🐾</span> Pet-Friendly Booking</div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {selected && <BookingPopover b={selected} onClose={() => setSelected(null)} rooms={rooms}
         hasBreakfast={!!breakfastByBooking.get(selected.id)} businessDate={todayKey} />}
