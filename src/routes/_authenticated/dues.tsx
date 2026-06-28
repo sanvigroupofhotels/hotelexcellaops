@@ -47,10 +47,12 @@ function daysBetween(fromYmd: string, toYmd: string): number {
 
 function overdueLabel(dueDate: string, businessDate: string): string {
   const n = daysBetween(dueDate, businessDate);
-  if (n <= 0) return "Due Today";
-  if (n === 1) return "Overdue by 1 Day";
-  return `Overdue by ${n} Days`;
+  if (n === 0) return "Due Today";
+  if (n > 0) return n === 1 ? "Overdue by 1 Day" : `Overdue by ${n} Days`;
+  const days = -n;
+  return days === 1 ? "Due Tomorrow" : `Due in ${days} Days`;
 }
+
 
 function DuesPage() {
   useRealtimeInvalidate(
