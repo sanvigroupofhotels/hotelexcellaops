@@ -44,8 +44,8 @@ export const Route = createFileRoute("/_authenticated/house-view")({
 });
 
 const DAY_COUNT = 7;
-const CELL_W = 170;
-const CELL_W_MOB = 128;
+const CELL_W = 184;
+const CELL_W_MOB = 140;
 const ROOM_COL_W = 56;
 const LONG_PRESS_DELAY_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE = 24; // px — tolerate real mobile finger jitter before treating it as scroll
@@ -850,7 +850,7 @@ function HouseView() {
                         return (
                           <td key={i}
                             className={cn(
-                              "relative border-b border-r border-border/40 align-top h-10 p-0 group/cell",
+                              "relative border-b border-r border-border/40 align-top h-[44px] p-0 group/cell",
                               isToday && "house-business-date-cell",
                               !isToday && (i % 2 === 0 ? "bg-secondary/[0.04]" : "bg-secondary/[0.015]"),
                               i === days.length - 1 && "border-r-0",
@@ -948,8 +948,8 @@ function HouseView() {
                                 const cellW = isMobile ? CELL_W_MOB : CELL_W;
                                 return (
                                   <button key={m.id} onClick={() => setSelectedBlock(m)}
-                                    className="absolute top-1.5 bottom-1.5 left-1 rounded-full border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden shadow-sm bg-amber-700 text-white border-amber-900 hover:ring-2 hover:ring-amber-400"
-                                    style={{ width: `calc(${span} * ${cellW}px - 8px)`, zIndex: 5 }}
+                                    className="absolute top-0.5 bottom-0.5 left-0.5 rounded-lg border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden shadow-sm bg-amber-700 text-white border-amber-900 hover:ring-2 hover:ring-amber-400"
+                                    style={{ width: `calc(${span} * ${cellW}px - 4px)`, zIndex: 5 }}
                                     title={`Blocked: ${m.reason || "Maintenance"}`}>
                                     <AlertTriangle className="h-3 w-3 shrink-0" />
                                     <span className="truncate">{m.reason || "Blocked"}</span>
@@ -1628,8 +1628,8 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   });
   // True caps: rounded only on true check-in / check-out edges.
   const radiusClasses = cn(
-    continuesLeft ? "rounded-l-none" : "rounded-l-full",
-    continuesRight ? "rounded-r-none" : "rounded-r-full",
+    continuesLeft ? "rounded-l-none" : "rounded-l-lg",
+    continuesRight ? "rounded-r-none" : "rounded-r-lg",
   );
   return (
     <button
@@ -1654,7 +1654,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       }}
       onDragEnd={onDragEnd}
       className={cn(
-        "absolute top-1.5 bottom-1.5 border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
+        "absolute top-0.5 bottom-0.5 border-2 px-2 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition shadow-sm",
         radiusClasses,
         blockClasses(b),
         b._virtual && "border-dashed",
@@ -1669,8 +1669,8 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         highlight && "ring-4 ring-gold animate-pulse",
       )}
       style={{
-        left: continuesLeft ? 0 : 4,
-        width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 4}px - ${continuesRight ? 0 : 4}px)`,
+        left: continuesLeft ? 0 : 2,
+        width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 2}px - ${continuesRight ? 0 : 2}px)`,
         zIndex: highlight ? 25 : 20,
         touchAction: dragEnabled && isMobile ? "manipulation" : undefined,
       }}
