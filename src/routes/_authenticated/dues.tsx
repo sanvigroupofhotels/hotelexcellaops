@@ -28,14 +28,16 @@ export const Route = createFileRoute("/_authenticated/dues")({
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const fmtStay = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
-type FilterKey = "today" | "overdue" | "all" | "inhouse";
+type FilterKey = "today" | "overdue" | "future" | "all" | "inhouse";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "today",      label: "Due Today" },
   { key: "overdue",    label: "Overdue" },
+  { key: "future",     label: "Future Dues" },
   { key: "all",        label: "All Dues" },
   { key: "inhouse",    label: "In-House" },
 ];
+
 
 function daysBetween(fromYmd: string, toYmd: string): number {
   const a = new Date(fromYmd + "T00:00:00").getTime();
