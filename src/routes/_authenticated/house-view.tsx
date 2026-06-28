@@ -811,13 +811,13 @@ function HouseView() {
                     <tbody key={`grp-${group.key}`}>
                       <tr>
                         <td
-                          className="sticky left-0 z-[28] bg-card border-y border-r-2 border-gold/30 p-0 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.35)]"
+                          className="sticky left-0 z-[28] bg-card border-b border-r-2 border-gold/30 p-0 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.35)]"
                           style={{ top: DATE_HEADER_H, width: ROOM_COL_W, minWidth: ROOM_COL_W, height: GROUP_HEADER_H }}
                           aria-hidden="true"
                         />
                         <td
                           colSpan={days.length}
-                          className="sticky z-[28] bg-card border-y border-gold/30 p-0"
+                          className="sticky z-[28] bg-card border-b border-gold/30 p-0"
                           style={{ top: DATE_HEADER_H, height: GROUP_HEADER_H }}
                         >
                           <button
