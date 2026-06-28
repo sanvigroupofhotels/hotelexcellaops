@@ -943,6 +943,7 @@ function PricingBreakdown({ b }: { b: any }) {
           <Row label="Room Charges" value={inr(b.roomCharges || 0)} />
           {b.additionalStay > 0 && <Row label="Additional Stay Charges" value={inr(b.additionalStay)} />}
           {b.chargesTotal > 0 && <Row label="In-House Charges" value={inr(b.chargesTotal)} />}
+          {Number(b.discount || 0) > 0 && <Row label="Discount" value={`-${inr(b.discount)}`} tone="success" />}
           <Row label="Taxable Amount" value={inr(taxableAmount + (b.chargesTotal || 0))} />
           <Row label={`Tax${taxPct ? ` (${taxPct}%)` : ""}${b.taxesIncluded ? " · included" : ""}`} value={inr(taxes)} />
           <Row label="Final Amount" value={inr(b.payable)} strong />
