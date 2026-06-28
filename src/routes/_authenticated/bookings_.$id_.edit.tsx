@@ -45,11 +45,18 @@ function EditBooking() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [totalOverride, setTotalOverride] = useState<number | null>(null);
   const [taxesIncluded, setTaxesIncluded] = useState<boolean>(false);
+  // P0 — Override-rate preservation: capture the original per-night rate stamped on
+  // the primary booking_item at load time. When reception extends the stay (or makes
+  // any edit), this rate is reapplied to every night — including the newly added
+  // ones — so a custom/overridden rate never silently reverts to the default tariff.
+  // null means "no original rate captured yet" → fall back to useResolvedRate().
+  const [originalPrimaryRate, setOriginalPrimaryRate] = useState<number | null>(null);
   const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags>({
     allow_full_payment: true, allow_part_payment: true, allow_pay_at_hotel: true, part_payment_value: 25,
   });
   const [loaded, setLoaded] = useState(false);
   const { canManage } = useUserRole();
+
 
   useEffect(() => {
     if (!b || loaded) return;
