@@ -1641,6 +1641,8 @@ interface BookingChipProps {
   continuesRight: boolean;
   origCheckIn: string;
   origCheckOut: string;
+  groupSlot?: number;
+  groupSlots?: number;
   onSelect: (b: any) => void;
   onLongPress: (b: any, roomId: string) => void;
   onDragStartAvail: (b: any, payload: string) => string;
@@ -1650,8 +1652,10 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
     b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligible, moveReason,
     isMobile, highlight, continuesLeft, continuesRight, origCheckIn, origCheckOut,
+    groupSlot = 0, groupSlots = 1,
     onSelect, onLongPress, onDragStartAvail, onDragEnd,
   } = props;
+
   const dragEnabled = moveEligible;
   const longPress = useLongPress({
     enabled: dragEnabled && isMobile,
