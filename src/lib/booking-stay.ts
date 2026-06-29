@@ -192,7 +192,11 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
     }
 
     if (newIn !== oldIn || newOut !== oldOut) {
-      const delta = ymdDiffDays(newIn, oldIn);
+      // Anchor-based item resize: items that shared the booking's old start
+      // adopt the new start; items that shared the booking's old end adopt
+      // the new end. This correctly handles both whole-booking shifts and
+      // pure extensions (where only check_out changes), so per-item night
+      // counts stay aligned with the booking's true stay length.
       const { data: items, error: itemsErr } = await supabase
         .from("booking_items" as any)
         .select("id, check_in, check_out")
@@ -202,9 +206,10 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
         const itemIn = item.check_in || oldIn;
         const itemOut = item.check_out || oldOut;
         const patch = {
-          check_in: ymdAddDays(itemIn, delta),
-          check_out: ymdAddDays(itemOut, delta),
+          check_in: itemIn === oldIn ? newIn : itemIn,
+          check_out: itemOut === oldOut ? newOut : itemOut,
         };
+        if (patch.check_in === itemIn && patch.check_out === itemOut) continue;
         const { error: itemErr } = await supabase
           .from("booking_items" as any)
           .update(patch)
