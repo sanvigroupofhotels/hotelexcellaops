@@ -81,6 +81,11 @@ function EditBooking() {
     setRoomId((b as any).room_id ?? null);
     setTotalOverride((b as any).total_override == null ? null : Number((b as any).total_override));
     setTaxesIncluded(!!(b as any).taxes_included);
+    if ((b as any).total_override != null) {
+      const nights = Math.max(1, Math.round((new Date(b.check_out + "T00:00:00").getTime() - new Date(b.check_in + "T00:00:00").getTime()) / 86400000));
+      setOriginalOverride(Number((b as any).total_override));
+      setOriginalNights(nights);
+    }
     setPaymentFlags({
       allow_full_payment: (b as any).allow_full_payment !== false,
       allow_part_payment: (b as any).allow_part_payment !== false,
