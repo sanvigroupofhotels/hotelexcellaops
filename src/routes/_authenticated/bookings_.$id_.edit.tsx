@@ -106,6 +106,19 @@ function EditBooking() {
     setLoaded(true);
   }, [b, existingItems, loaded]);
 
+  // Pro-rata override extension: keep visible Total Amount in sync with nights.
+  // Runs only when an override existed at load time; if the user later edits
+  // the Total Amount field manually, that becomes the new baseline (originals
+  // are updated below in the NumField onChange).
+  useEffect(() => {
+    if (!loaded || originalOverride == null || !originalNights || originalNights <= 0) return;
+    if (!stay.check_in || !stay.check_out || stay.check_out <= stay.check_in) return;
+    const nights = Math.max(1, Math.round((new Date(stay.check_out + "T00:00:00").getTime() - new Date(stay.check_in + "T00:00:00").getTime()) / 86400000));
+    if (nights === originalNights) return;
+    const next = Math.round((originalOverride / originalNights) * nights);
+    setTotalOverride((cur) => (cur === next ? cur : next));
+  }, [loaded, originalOverride, originalNights, stay.check_in, stay.check_out]);
+
   const resolvedRate = useResolvedRate(stay.room_type, stay.check_in, stay.check_out, stay.breakfast_included);
   // If the booking already had an overridden rate, keep using it; otherwise fall
   // back to the standard rates engine. Switching room type clears the override.
