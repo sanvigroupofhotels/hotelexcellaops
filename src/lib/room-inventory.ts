@@ -24,7 +24,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { listAvailableRoomsForStay } from "@/lib/room-availability";
+
 
 export interface RoomTypeAvailabilityRow {
   room_type: string;
@@ -46,54 +46,96 @@ export interface RoomTypeAvailabilityInput {
   exclude_booking_id?: string | null;
 }
 
+/**
+ * Committed-demand model:
+ *
+ * A room is committed the moment a booking is created in a non-terminal,
+ * non-draft status — payment status is irrelevant. We sum `booking_items.rooms`
+ * grouped by normalized room_type across every overlapping committed booking,
+ * then subtract from total inventory. Active maintenance blocks count against
+ * the blocked room's specific type.
+ *
+ * Statuses counted as committed demand:
+ *   Pending, Confirmed, Advance Paid, Full Paid, Checked-In
+ * Statuses NOT counted (release inventory):
+ *   Draft, Cancelled, Checked-Out, Stay Completed, No-Show
+ *
+ * This automatically reacts to: new bookings, cancellations, deletions,
+ * room-count edits on items, and room-type changes — because all of those
+ * mutate the same `booking_items` / `bookings` rows this query reads.
+ */
 export async function getRoomTypeAvailability(
   input: RoomTypeAvailabilityInput,
 ): Promise<RoomTypeAvailability> {
   const { check_in, check_out, exclude_booking_id } = input;
   if (!check_in || !check_out || check_in >= check_out) return { byType: {} };
 
-  // Count active rooms per type — this is "total inventory".
-  const { data: rooms, error } = await supabase
-    .from("rooms")
-    .select("id, room_type, active")
-    .eq("active", true);
-  if (error) throw error;
+  const closedStatuses = ["Draft", "Cancelled", "Checked-Out", "Stay Completed", "No-Show"];
+  const closedIn = `(${closedStatuses.map((s) => `"${s}"`).join(",")})`;
 
-  const totalByType: Record<string, number> = {};
+  const [{ data: rooms, error: rErr }, { data: items, error: iErr }, { data: blocks, error: mErr }] =
+    await Promise.all([
+      supabase.from("rooms").select("id, room_type, active").eq("active", true),
+      // Pull every booking_item belonging to a committed booking that overlaps
+      // the requested window. We filter overlap on the parent booking's dates
+      // via the inner join so per-item date overrides still resolve to the
+      // owning booking's effective stay.
+      supabase
+        .from("booking_items" as any)
+        .select("booking_id, room_type, rooms, bookings!inner(id, status, check_in, check_out)")
+        .lt("bookings.check_in", check_out)
+        .gt("bookings.check_out", check_in)
+        .not("bookings.status", "in", closedIn),
+      supabase
+        .from("room_maintenance" as any)
+        .select("room_id, start_date, end_date, active, rooms!inner(room_type)")
+        .eq("active", true)
+        .lt("start_date", check_out)
+        .gt("end_date", check_in),
+    ]);
+  if (rErr) throw rErr;
+  if (iErr) throw iErr;
+  if (mErr) throw mErr;
+
+  // Total inventory per canonical type key.
+  const totalByKey: Record<string, { label: string; total: number }> = {};
   for (const r of (rooms ?? []) as any[]) {
-    const t = r.room_type ?? "Other";
-    totalByType[t] = (totalByType[t] ?? 0) + 1;
+    const label = r.room_type ?? "Other";
+    const key = normalizeRoomTypeKey(label);
+    if (!totalByKey[key]) totalByKey[key] = { label, total: 0 };
+    totalByKey[key].total += 1;
   }
 
-  // Available rooms for this exact stay — reuses the existing helper so
-  // overlap / assignment / maintenance logic stays in ONE place.
-  const available = await listAvailableRoomsForStay({
-    check_in,
-    check_out,
-    exclude_booking_id: exclude_booking_id ?? null,
-  });
-  const availableByType: Record<string, number> = {};
-  for (const r of available) {
-    const t = r.room_type ?? "Other";
-    availableByType[t] = (availableByType[t] ?? 0) + 1;
+  // Committed demand from booking_items (room_type may use display labels
+  // like "Oak Room" — normalize so it matches the rooms.room_type bucket).
+  const bookedByKey: Record<string, number> = {};
+  for (const it of (items ?? []) as any[]) {
+    if (exclude_booking_id && it.booking_id === exclude_booking_id) continue;
+    const key = normalizeRoomTypeKey(it.room_type ?? "");
+    if (!key) continue;
+    const n = Math.max(1, Number(it.rooms ?? 1) || 1);
+    bookedByKey[key] = (bookedByKey[key] ?? 0) + n;
+  }
+
+  // Maintenance blocks count against the blocked room's specific type.
+  const blockedByKey: Record<string, number> = {};
+  for (const m of (blocks ?? []) as any[]) {
+    const label = m.rooms?.room_type ?? "";
+    const key = normalizeRoomTypeKey(label);
+    if (!key) continue;
+    blockedByKey[key] = (blockedByKey[key] ?? 0) + 1;
   }
 
   const byType: Record<string, RoomTypeAvailabilityRow> = {};
-  for (const [room_type, total] of Object.entries(totalByType)) {
-    const avail = availableByType[room_type] ?? 0;
-    byType[room_type] = {
-      room_type,
-      total,
-      available: avail,
-      // We don't separately track blocked here — listAvailableRoomsForStay
-      // already excludes blocked rooms from `available`, so they're folded
-      // into (total - available). Booked is the dominant signal callers need.
-      blocked: 0,
-      booked: Math.max(0, total - avail),
-    };
+  for (const [key, { label, total }] of Object.entries(totalByKey)) {
+    const booked = bookedByKey[key] ?? 0;
+    const blocked = blockedByKey[key] ?? 0;
+    const available = Math.max(0, total - booked - blocked);
+    byType[label] = { room_type: label, total, available, blocked, booked };
   }
   return { byType };
 }
+
 
 /**
  * React Query hook — use this from any form/widget that needs live availability.
