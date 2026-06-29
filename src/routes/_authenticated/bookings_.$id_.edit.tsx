@@ -51,6 +51,13 @@ function EditBooking() {
   // ones — so a custom/overridden rate never silently reverts to the default tariff.
   // null means "no original rate captured yet" → fall back to useResolvedRate().
   const [originalPrimaryRate, setOriginalPrimaryRate] = useState<number | null>(null);
+  // P0 — Pro-rata override extension: when reception extends/changes nights on
+  // a booking that already has an overridden Total Amount, scale the override
+  // by (newNights / originalNights) so the per-night agreed price holds.
+  // The original snapshot is captured at load time once; subsequent date
+  // changes recompute the visible override automatically (effect below).
+  const [originalOverride, setOriginalOverride] = useState<number | null>(null);
+  const [originalNights, setOriginalNights] = useState<number | null>(null);
   const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags>({
     allow_full_payment: true, allow_part_payment: true, allow_pay_at_hotel: true, part_payment_value: 25,
   });
