@@ -128,13 +128,34 @@ export function useRoomTypeAvailability(
  * (so the user can keep their own selection — only foreign bookings reduce
  * the cap).
  */
+/**
+ * Normalize room_type labels so the Booking Form (which uses "Oak Room" /
+ * "Mapple Room" from ROOM_TARIFFS) matches the canonical short labels stored
+ * on `rooms.room_type` ("Oak" / "Mapple"). Trims a trailing " Room" suffix
+ * and lowercases for comparison; never alters the on-screen label itself.
+ */
+function normalizeRoomTypeKey(label: string): string {
+  return String(label || "").trim().replace(/\s+room$/i, "").toLowerCase();
+}
+
 export function maxSelectableRooms(
   availability: RoomTypeAvailability | undefined,
   room_type: string,
   currentlySelected = 0,
 ): { max: number; available: number; total: number; label: string } {
-  const row = availability?.byType?.[room_type];
-  if (!row) return { max: Math.max(1, currentlySelected), available: 0, total: 0, label: "Availability unknown" };
+  if (!availability) {
+    return { max: Math.max(1, currentlySelected), available: 0, total: 0, label: "Availability unknown" };
+  }
+  const want = normalizeRoomTypeKey(room_type);
+  let row = availability.byType?.[room_type];
+  if (!row) {
+    for (const key of Object.keys(availability.byType ?? {})) {
+      if (normalizeRoomTypeKey(key) === want) { row = availability.byType[key]; break; }
+    }
+  }
+  if (!row) {
+    return { max: Math.max(1, currentlySelected), available: 0, total: 0, label: `No ${room_type} inventory configured` };
+  }
   const max = Math.max(currentlySelected, row.available + currentlySelected);
   const label =
     row.available <= 0

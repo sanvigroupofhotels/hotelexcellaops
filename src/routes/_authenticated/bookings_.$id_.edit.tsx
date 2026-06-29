@@ -51,6 +51,13 @@ function EditBooking() {
   // ones — so a custom/overridden rate never silently reverts to the default tariff.
   // null means "no original rate captured yet" → fall back to useResolvedRate().
   const [originalPrimaryRate, setOriginalPrimaryRate] = useState<number | null>(null);
+  // P0 — Pro-rata override extension: when reception extends/changes nights on
+  // a booking that already has an overridden Total Amount, scale the override
+  // by (newNights / originalNights) so the per-night agreed price holds.
+  // The original snapshot is captured at load time once; subsequent date
+  // changes recompute the visible override automatically (effect below).
+  const [originalOverride, setOriginalOverride] = useState<number | null>(null);
+  const [originalNights, setOriginalNights] = useState<number | null>(null);
   const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags>({
     allow_full_payment: true, allow_part_payment: true, allow_pay_at_hotel: true, part_payment_value: 25,
   });
@@ -74,6 +81,11 @@ function EditBooking() {
     setRoomId((b as any).room_id ?? null);
     setTotalOverride((b as any).total_override == null ? null : Number((b as any).total_override));
     setTaxesIncluded(!!(b as any).taxes_included);
+    if ((b as any).total_override != null) {
+      const nights = Math.max(1, Math.round((new Date(b.check_out + "T00:00:00").getTime() - new Date(b.check_in + "T00:00:00").getTime()) / 86400000));
+      setOriginalOverride(Number((b as any).total_override));
+      setOriginalNights(nights);
+    }
     setPaymentFlags({
       allow_full_payment: (b as any).allow_full_payment !== false,
       allow_part_payment: (b as any).allow_part_payment !== false,
@@ -93,6 +105,19 @@ function EditBooking() {
     if (Number.isFinite(primaryRate) && primaryRate > 0) setOriginalPrimaryRate(primaryRate);
     setLoaded(true);
   }, [b, existingItems, loaded]);
+
+  // Pro-rata override extension: keep visible Total Amount in sync with nights.
+  // Runs only when an override existed at load time; if the user later edits
+  // the Total Amount field manually, that becomes the new baseline (originals
+  // are updated below in the NumField onChange).
+  useEffect(() => {
+    if (!loaded || originalOverride == null || !originalNights || originalNights <= 0) return;
+    if (!stay.check_in || !stay.check_out || stay.check_out <= stay.check_in) return;
+    const nights = Math.max(1, Math.round((new Date(stay.check_out + "T00:00:00").getTime() - new Date(stay.check_in + "T00:00:00").getTime()) / 86400000));
+    if (nights === originalNights) return;
+    const next = Math.round((originalOverride / originalNights) * nights);
+    setTotalOverride((cur) => (cur === next ? cur : next));
+  }, [loaded, originalOverride, originalNights, stay.check_in, stay.check_out]);
 
   const resolvedRate = useResolvedRate(stay.room_type, stay.check_in, stay.check_out, stay.breakfast_included);
   // If the booking already had an overridden rate, keep using it; otherwise fall
@@ -194,7 +219,14 @@ function EditBooking() {
                     label="Total Amount (₹)"
                     value={totalOverride != null ? totalOverride : amount}
                     min={0}
-                    onChange={(v) => setTotalOverride(Number(v))}
+                    onChange={(v) => {
+                      const next = Number(v);
+                      setTotalOverride(next);
+                      // Re-baseline the pro-rata extension anchor to the staff-entered value.
+                      const nights = Math.max(1, Math.round((new Date(stay.check_out + "T00:00:00").getTime() - new Date(stay.check_in + "T00:00:00").getTime()) / 86400000));
+                      setOriginalOverride(next);
+                      setOriginalNights(nights);
+                    }}
                     prefix="₹"
                   />
                   <label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
