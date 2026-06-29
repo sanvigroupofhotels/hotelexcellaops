@@ -103,7 +103,7 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   // Load current booking
   const { data: current, error: loadErr } = await supabase
     .from("bookings")
-    .select("id, status, room_id, check_in, check_out, booking_reference")
+    .select("id, status, room_id, check_in, check_out, booking_reference, total_override")
     .eq("id", booking_id)
     .maybeSingle();
   if (loadErr) throw loadErr;
@@ -117,6 +117,7 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   const oldRoom: string | null = (current as any).room_id ?? null;
   const oldIn: string = (current as any).check_in;
   const oldOut: string = (current as any).check_out;
+  const oldOverride: number | null = (current as any).total_override == null ? null : Number((current as any).total_override);
 
   const newIn = input.new_check_in ?? oldIn;
   const newOut = input.new_check_out ?? oldOut;
@@ -158,6 +159,20 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   if (newIn !== oldIn) update.check_in = newIn;
   if (newOut !== oldOut) update.check_out = newOut;
     if (!sameRoom && (!moveFromRoom || moveFromRoom === oldRoom)) update.room_id = newRoom;
+
+  // Pro-rata override extension: when reception extends/changes nights on a
+  // booking that already has an overridden total, scale the override by the
+  // ratio of new to old nights so the per-night agreed price is preserved.
+  // Example: 2N override ₹4000 → extend to 3N → new override ₹6000.
+  // Existing payments, discounts, and the pricing engine itself remain
+  // untouched — only `total_override` is recomputed; downstream pricing
+  // (subtotal, taxes, balance, portal, PDFs) recomputes from this single field.
+  const oldNights = ymdDiffDays(oldOut, oldIn);
+  const newNights = ymdDiffDays(newOut, newIn);
+  if (oldOverride != null && oldNights > 0 && newNights > 0 && newNights !== oldNights) {
+    update.total_override = Math.round((oldOverride / oldNights) * newNights);
+  }
+
 
   try {
     const { error: bErr } = await supabase
