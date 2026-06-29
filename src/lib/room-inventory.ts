@@ -24,7 +24,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { listAvailableRoomsForStay } from "@/lib/room-availability";
+
 
 export interface RoomTypeAvailabilityRow {
   room_type: string;
