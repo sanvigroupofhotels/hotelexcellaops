@@ -219,7 +219,14 @@ function EditBooking() {
                     label="Total Amount (₹)"
                     value={totalOverride != null ? totalOverride : amount}
                     min={0}
-                    onChange={(v) => setTotalOverride(Number(v))}
+                    onChange={(v) => {
+                      const next = Number(v);
+                      setTotalOverride(next);
+                      // Re-baseline the pro-rata extension anchor to the staff-entered value.
+                      const nights = Math.max(1, Math.round((new Date(stay.check_out + "T00:00:00").getTime() - new Date(stay.check_in + "T00:00:00").getTime()) / 86400000));
+                      setOriginalOverride(next);
+                      setOriginalNights(nights);
+                    }}
                     prefix="₹"
                   />
                   <label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
