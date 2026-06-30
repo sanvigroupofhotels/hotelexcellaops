@@ -574,6 +574,16 @@ function QuickBookingPage() {
               {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Create Booking
             </button>
+          ) : isDirty ? (
+            <button
+              type="button"
+              onClick={() => updateExisting.mutate()}
+              disabled={updateExisting.isPending || errors.length > 0}
+              className="flex-[1.2] inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient text-charcoal text-sm py-2.5 font-medium disabled:opacity-50"
+            >
+              {updateExisting.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Changes
+            </button>
           ) : (
             <button
               type="button"
