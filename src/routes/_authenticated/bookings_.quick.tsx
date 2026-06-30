@@ -202,7 +202,7 @@ function QuickBookingPage() {
       const booking: Omit<BookingInput, "customer_id"> = {
         source_quote_id: null,
         guest_name: guestName.trim(),
-        phone: phone.trim(),
+        phone: normalizedPhone,
         email: email.trim() || null,
         check_in: checkIn,
         check_out: checkOut,
@@ -228,9 +228,12 @@ function QuickBookingPage() {
         part_payment_value: settings.default_part_percent,
       };
 
+      // Quick Booking treats mobile number as the unique customer key.
+      // If we already detected an existing customer, link to it; otherwise
+      // submitNewBooking + DB trigger will safely create / link by phone.
       const { booking: created, createdCustomerId: newCustId } = await submitNewBooking({
         linkedCustomerId: linkedCustomer?.id ?? null,
-        forceNew,
+        forceNew: false,
         booking,
         items, // rooms only — Other Charges is NOT in booking_items
         advance: advanceAmount > 0 ? { amount: advanceAmount, payment_mode: paymentMode } : undefined,
