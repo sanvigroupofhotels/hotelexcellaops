@@ -306,38 +306,52 @@ function QuickBookingPage() {
           </div>
         </section>
 
-        {/* GROUP 2 — Guest details */}
+        {/* GROUP 2 — Guest details (Mobile → Name → Email; phone is the unique key) */}
         <section className="luxe-card rounded-xl p-4 space-y-3">
           <div className="text-xs uppercase tracking-wider text-gold">Guest</div>
-          <Field label="Guest name *">
-            <input ref={nameRef} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Full name" className="qb-input" />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Mobile *">
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
-                placeholder="10-digit"
-                inputMode="tel"
-                className="qb-input"
-              />
-            </Field>
-            <Field label="Email (optional)">
-              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="guest@example.com" inputMode="email" className="qb-input" />
-            </Field>
-          </div>
-          <CustomerAutocomplete
-            name={guestName}
-            phone={phone}
-            email={email}
-            onPick={(c) => { setLinkedCustomer(c); setGuestName(c.guest_name); setPhone(c.phone ?? ""); setEmail(c.email ?? ""); setForceNew(false); }}
-          />
-          {linkedCustomer && (
-            <ExistingCustomerBanner
-              customer={linkedCustomer}
-              onUseExisting={() => { /* already linked — no-op */ }}
-              onCreateNew={() => { setLinkedCustomer(null); setForceNew(true); toast.message("Will create a new customer record on save"); }}
+          <Field label="Mobile *">
+            <input
+              ref={phoneRef}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+91 98765 43210"
+              inputMode="tel"
+              autoComplete="tel"
+              className="qb-input"
             />
+            {phone.trim() && !phoneValid && (
+              <div className="text-[11px] text-destructive mt-1">Enter a valid Indian mobile number.</div>
+            )}
+          </Field>
+          <Field label="Guest name *">
+            <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Full name" className="qb-input" />
+          </Field>
+          <Field label="Email (optional)">
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="guest@example.com" inputMode="email" className="qb-input" />
+          </Field>
+          {linkedCustomer && (
+            <div className="rounded-lg border border-gold/40 bg-gold-soft p-3">
+              <div className="flex items-start gap-2">
+                <UserCheck className="h-4 w-4 text-gold mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0 text-sm">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] uppercase tracking-wider text-gold font-semibold">Existing Customer</span>
+                    {linkedCustomer.total_bookings > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 px-1.5 py-0.5 text-[10px] text-gold">
+                        <Star className="h-2.5 w-2.5 fill-gold" /> Repeat
+                      </span>
+                    )}
+                  </div>
+                  <Link to="/customers/$id" params={{ id: linkedCustomer.id }} className="font-medium hover:text-gold">
+                    {linkedCustomer.guest_name}
+                  </Link>
+                  <span className="text-muted-foreground"> · {linkedCustomer.phone}</span>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {linkedCustomer.total_bookings} booking{linkedCustomer.total_bookings === 1 ? "" : "s"} · auto-linked by mobile
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </section>
 
