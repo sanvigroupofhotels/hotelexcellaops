@@ -174,13 +174,20 @@ function HouseView() {
   // second and would re-render the entire HouseView (and every chip) per tick.
   // Toggle a class on the FAB element directly via a ref instead.
   const fabRef = useRef<HTMLAnchorElement | null>(null);
+  const fabSecondaryRef = useRef<HTMLAnchorElement | null>(null);
   useEffect(() => {
     if (!isMobile) return;
     const grid = document.querySelector("[data-house-grid]");
     if (!grid) return;
     let t: any = null;
-    const show = () => { fabRef.current?.classList.remove("fab-hidden"); };
-    const hide = () => { fabRef.current?.classList.add("fab-hidden"); };
+    const show = () => {
+      fabRef.current?.classList.remove("fab-hidden");
+      fabSecondaryRef.current?.classList.remove("fab-hidden");
+    };
+    const hide = () => {
+      fabRef.current?.classList.add("fab-hidden");
+      fabSecondaryRef.current?.classList.add("fab-hidden");
+    };
     const onScroll = () => {
       hide();
       if (t) clearTimeout(t);
