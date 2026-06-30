@@ -105,24 +105,22 @@ function NewBooking() {
     setMatchedCustomer(cust);
   }, [cust]);
 
-  // Existing-customer auto-detect by contact
+  // Existing-customer auto-detect — shared resolution hook used by every booking source.
+  const { matchedCustomer: lookupMatch, exactMatch } = useExistingCustomerByContact({
+    phone: stay.phone,
+    email: stay.email,
+    name: stay.guest_name,
+    enabled: !forceNew && !linkedCustomerId,
+  });
   useEffect(() => {
     if (forceNew || linkedCustomerId) return;
-    const phone = stay.phone.trim();
-    const email = stay.email.trim();
-    const phoneOk = phone.length >= 7;
-    const emailOk = !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    if (!phoneOk && !emailOk) { setMatchedCustomer(null); return; }
-    const t = setTimeout(async () => {
-      const c = await findCustomerByContact(phoneOk ? phone : undefined, emailOk ? email : undefined, stay.guest_name);
-      if (!c) { setMatchedCustomer(null); return; }
-      const exact = phoneOk && c.phone === phone
-        && (c.guest_name ?? "").trim().toLowerCase() === stay.guest_name.trim().toLowerCase();
-      if (exact) { setLinkedCustomerId(c.id); setMatchedCustomer(null); return; }
-      setMatchedCustomer(c);
-    }, 400);
-    return () => clearTimeout(t);
-  }, [stay.phone, stay.email, stay.guest_name, forceNew, linkedCustomerId]);
+    if (exactMatch) {
+      setLinkedCustomerId(exactMatch.id);
+      setMatchedCustomer(null);
+    } else {
+      setMatchedCustomer(lookupMatch);
+    }
+  }, [lookupMatch, exactMatch, forceNew, linkedCustomerId]);
 
   // P1 SAFETY: if user edits phone after a customer is linked, and the new phone
   // does not match the linked customer's phone, automatically unlink so the booking
