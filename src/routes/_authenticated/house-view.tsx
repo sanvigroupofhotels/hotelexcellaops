@@ -9,7 +9,7 @@ import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
 import { updateBookingStay } from "@/lib/booking-stay";
 import { listAvailableRoomsForStay, type AvailableRoomRow } from "@/lib/room-availability";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck, Move, BarChart3, HelpCircle, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck, Move, BarChart3, HelpCircle, ChevronDown, BedDouble } from "lucide-react";
 import { NightAuditDialog } from "@/components/night-audit-dialog";
 import { useOpsTimeLabels } from "@/lib/check-times";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
@@ -174,13 +174,20 @@ function HouseView() {
   // second and would re-render the entire HouseView (and every chip) per tick.
   // Toggle a class on the FAB element directly via a ref instead.
   const fabRef = useRef<HTMLAnchorElement | null>(null);
+  const fabSecondaryRef = useRef<HTMLAnchorElement | null>(null);
   useEffect(() => {
     if (!isMobile) return;
     const grid = document.querySelector("[data-house-grid]");
     if (!grid) return;
     let t: any = null;
-    const show = () => { fabRef.current?.classList.remove("fab-hidden"); };
-    const hide = () => { fabRef.current?.classList.add("fab-hidden"); };
+    const show = () => {
+      fabRef.current?.classList.remove("fab-hidden");
+      fabSecondaryRef.current?.classList.remove("fab-hidden");
+    };
+    const hide = () => {
+      fabRef.current?.classList.add("fab-hidden");
+      fabSecondaryRef.current?.classList.add("fab-hidden");
+    };
     const onScroll = () => {
       hide();
       if (t) clearTimeout(t);
@@ -1137,15 +1144,30 @@ function HouseView() {
         </div>
       )}
 
-      {/* Floating action button — quick walk-in booking.
+      {/* Floating action buttons — two FABs stacked at bottom-right.
+          Primary (gold) → Quick Booking (the fast Reception flow).
+          Secondary (outline) → Detailed Booking Form (full pricing/inventory editor).
           Visibility toggle is imperative (ref + class) to avoid re-rendering
           the entire House View grid on every scroll tick. */}
       <Link
-        ref={fabRef as any}
+        ref={fabSecondaryRef as any}
         to="/bookings/new"
         search={{ customerId: undefined, fromQuoteId: undefined } as any}
-        title="New Booking"
-        aria-label="New Booking"
+        title="Detailed Booking"
+        aria-label="Detailed Booking"
+        className="house-fab fixed z-30 h-10 w-10 md:h-12 md:w-12 rounded-full bg-card border border-gold/40 text-gold shadow-md flex items-center justify-center hover:scale-105 hover:shadow-[0_0_18px_oklch(0.82_0.13_82/0.35)] transition-all duration-200 translate-y-0 opacity-100"
+        style={{
+          right: "max(0.75rem, env(safe-area-inset-right))",
+          bottom: "max(4.25rem, calc(env(safe-area-inset-bottom) + 3.75rem))",
+        }}
+      >
+        <BedDouble className="h-4 w-4 md:h-5 md:w-5" />
+      </Link>
+      <Link
+        ref={fabRef as any}
+        to="/bookings/quick"
+        title="Quick Booking"
+        aria-label="Quick Booking"
         className="house-fab fixed z-30 h-12 w-12 md:h-14 md:w-14 rounded-full gold-gradient text-charcoal shadow-lg flex items-center justify-center hover:scale-105 hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.45)] transition-all duration-200 translate-y-0 opacity-100"
         style={{
           right: "max(0.75rem, env(safe-area-inset-right))",

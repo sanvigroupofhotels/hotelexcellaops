@@ -84,6 +84,7 @@ import { Route as AuthenticatedNightAuditEodReportRouteImport } from './routes/_
 import { Route as AuthenticatedNightAuditCriticalTasksRouteImport } from './routes/_authenticated/night-audit.critical-tasks'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
 import { Route as AuthenticatedComplaintsIdRouteImport } from './routes/_authenticated/complaints_.$id'
+import { Route as AuthenticatedBookingsQuickRouteImport } from './routes/_authenticated/bookings_.quick'
 import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenticated/bookings_.new'
 import { Route as AuthenticatedBookingsIdRouteImport } from './routes/_authenticated/bookings_.$id'
 import { Route as AuthenticatedStaffIdLedgerRouteImport } from './routes/_authenticated/staff_.$id.ledger'
@@ -498,6 +499,12 @@ const AuthenticatedComplaintsIdRoute =
     path: '/complaints/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedBookingsQuickRoute =
+  AuthenticatedBookingsQuickRouteImport.update({
+    id: '/bookings_/quick',
+    path: '/bookings/quick',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedBookingsNewRoute =
   AuthenticatedBookingsNewRouteImport.update({
     id: '/bookings_/new',
@@ -576,6 +583,7 @@ export interface FileRoutesByFullPath {
   '/portal/': typeof PortalIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
+  '/bookings/quick': typeof AuthenticatedBookingsQuickRoute
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
@@ -654,6 +662,7 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
+  '/bookings/quick': typeof AuthenticatedBookingsQuickRoute
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
   '/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
@@ -738,6 +747,7 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
   '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
+  '/_authenticated/bookings_/quick': typeof AuthenticatedBookingsQuickRoute
   '/_authenticated/complaints_/$id': typeof AuthenticatedComplaintsIdRoute
   '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
   '/_authenticated/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
@@ -822,6 +832,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/bookings/$id'
     | '/bookings/new'
+    | '/bookings/quick'
     | '/complaints/$id'
     | '/customers/$id'
     | '/night-audit/critical-tasks'
@@ -900,6 +911,7 @@ export interface FileRouteTypes {
     | '/portal'
     | '/bookings/$id'
     | '/bookings/new'
+    | '/bookings/quick'
     | '/complaints/$id'
     | '/customers/$id'
     | '/night-audit/critical-tasks'
@@ -983,6 +995,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/_authenticated/bookings_/$id'
     | '/_authenticated/bookings_/new'
+    | '/_authenticated/bookings_/quick'
     | '/_authenticated/complaints_/$id'
     | '/_authenticated/customers_/$id'
     | '/_authenticated/night-audit/critical-tasks'
@@ -1566,6 +1579,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedComplaintsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/bookings_/quick': {
+      id: '/_authenticated/bookings_/quick'
+      path: '/bookings/quick'
+      fullPath: '/bookings/quick'
+      preLoaderRoute: typeof AuthenticatedBookingsQuickRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/bookings_/new': {
       id: '/_authenticated/bookings_/new'
       path: '/bookings/new'
@@ -1758,6 +1778,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedBookingsIdRoute: typeof AuthenticatedBookingsIdRoute
   AuthenticatedBookingsNewRoute: typeof AuthenticatedBookingsNewRoute
+  AuthenticatedBookingsQuickRoute: typeof AuthenticatedBookingsQuickRoute
   AuthenticatedComplaintsIdRoute: typeof AuthenticatedComplaintsIdRoute
   AuthenticatedCustomersIdRoute: typeof AuthenticatedCustomersIdRoute
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
@@ -1799,6 +1820,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedBookingsIdRoute: AuthenticatedBookingsIdRoute,
   AuthenticatedBookingsNewRoute: AuthenticatedBookingsNewRoute,
+  AuthenticatedBookingsQuickRoute: AuthenticatedBookingsQuickRoute,
   AuthenticatedComplaintsIdRoute: AuthenticatedComplaintsIdRoute,
   AuthenticatedCustomersIdRoute: AuthenticatedCustomersIdRoute,
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,

@@ -5,9 +5,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getCustomer, findCustomerByContact, type CustomerRow } from "@/lib/customers-api";
 import { getQuote } from "@/lib/quotes-api";
-import { createBooking, type BookingInput } from "@/lib/bookings-api";
+import { type BookingInput } from "@/lib/bookings-api";
+import { submitNewBooking } from "@/lib/booking-create";
 import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
-import { addBookingItems, quoteItemsToBookingInputs } from "@/lib/booking-items-api";
 import { listQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
 import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
 import {
@@ -229,23 +229,8 @@ function NewBooking() {
 
   const save = useMutation({
     mutationFn: async () => {
-      // P0A FIX: when user explicitly clicks "Create New Customer Anyway",
-      // pre-create the customer here so the link_or_create_customer trigger
-      // does not silently reuse the existing phone match.
-      let effectiveCustomerId: string | null = linkedCustomerId;
-      if (!effectiveCustomerId && forceNew) {
-        const { createCustomer } = await import("@/lib/customers-api");
-        const created = await createCustomer({
-          guest_name: stay.guest_name,
-          phone: stay.phone || null,
-          email: stay.email || null,
-          lead_source: stay.lead_source || "Direct",
-        });
-        effectiveCustomerId = created.id;
-        toast.success(`New customer created: ${created.guest_name} (${created.customer_reference})`);
-      }
-      const input: BookingInput = {
-        customer_id: effectiveCustomerId,
+      const primary = primaryToLineItem(stay, resolvedRate);
+      const booking: Omit<BookingInput, "customer_id"> = {
         source_quote_id: fromQuoteId ?? null,
         guest_name: stay.guest_name, phone: stay.phone, email: stay.email,
         check_in: stay.check_in, check_out: stay.check_out,
@@ -256,8 +241,6 @@ function NewBooking() {
         subtotal: pricing.subtotal,
         taxes: pricing.taxes,
         tax_rate: pricing.taxRate,
-        // Don't write advance_paid directly — booking_payments trigger recomputes it.
-        advance_paid: advancePaid > 0 ? 0 : 0,
         discount: stay.discount,
         notes: stay.special_requests, internal_notes: stay.internal_notes,
         payment_status: "None",
@@ -270,34 +253,15 @@ function NewBooking() {
         part_payment_type: "percent",
         part_payment_value: paymentFlags?.part_payment_value ?? paymentDefaults.default_part_percent,
       };
-      const b = await createBooking(input);
-      const primary = primaryToLineItem(stay, resolvedRate);
-      await addBookingItems(b.id, [primary, ...extras]);
-
-      // If an initial advance was entered, record it as a real booking payment.
-      // The DB trigger will (a) recompute b.advance_paid and (b) auto-create a CashBook
-      // collection entry when payment_mode = Cash.
-      if (advancePaid > 0) {
-        try {
-          const { createBookingPayment } = await import("@/lib/booking-payments-api");
-          const { listStaff } = await import("@/lib/cash-api");
-          const staff = await listStaff(true);
-          const collectedBy = staff[0]?.name ?? "Front Desk";
-          await createBookingPayment({
-            booking_id: b.id, customer_id: b.customer_id,
-            amount: advancePaid, payment_mode: paymentMethod,
-            collected_by: collectedBy,
-            notes: `Initial advance · ${b.booking_reference}`,
-          });
-        } catch (e: any) { toast.error("Booking saved, but advance entry failed: " + e.message); }
-      }
-
-      if (fromQuoteId) {
-        try {
-          const { setStatus: setQuoteStatus } = await import("@/lib/quotes-api");
-          await setQuoteStatus(fromQuoteId, "Confirmed");
-        } catch {}
-      }
+      const { booking: b, createdCustomerId } = await submitNewBooking({
+        linkedCustomerId,
+        forceNew,
+        fromQuoteId: fromQuoteId ?? null,
+        booking,
+        items: [primary, ...extras],
+        advance: advancePaid > 0 ? { amount: advancePaid, payment_mode: paymentMethod } : undefined,
+      });
+      if (createdCustomerId) toast.success(`New customer created for ${b.guest_name}`);
       return b;
     },
     onSuccess: (b) => {
