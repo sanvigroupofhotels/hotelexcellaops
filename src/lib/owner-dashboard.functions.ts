@@ -87,7 +87,6 @@ export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
 
 
     // ---- Stay-derived KPIs (overlap with range) ----
-    let roomsSold = 0;
     let roomRevenue = 0;
     let alosSum = 0;
     let alosCount = 0;
@@ -139,17 +138,16 @@ export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
         }
       }
 
-      // Revenue & rooms-sold — only for counted statuses; prorated by overlap
-      if (!COUNTED_FOR_REVENUE.has(status)) continue;
-      const totalNights = nightsBetween(s.check_in, s.check_out) || 1;
-      const inRange = overlapNights(s.check_in, s.check_out, range_start, range_end);
-      if (inRange <= 0) continue;
-      roomsSold += inRange;
-      const prorated = Number(s.amount ?? 0) * (inRange / totalNights);
+      // Revenue — prorate by the same room-night overlap fraction used by the
+      // shared helper, so revenue and rooms-sold always agree.
+      const breakdown = nightsByBooking.get(s.id);
+      if (!breakdown || breakdown.inRange <= 0 || breakdown.total <= 0) continue;
+      const prorated = Number(s.amount ?? 0) * (breakdown.inRange / breakdown.total);
       roomRevenue += prorated;
       const cat = String(s.room_details ?? "—");
       revenueByCategory.set(cat, (revenueByCategory.get(cat) ?? 0) + prorated);
     }
+
 
     // ---- Outstanding dues (current snapshot — not range-bound) ----
     const { data: openBookings } = await supabase
