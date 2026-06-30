@@ -24,20 +24,22 @@
  */
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { Loader2, Plus, Minus, Sparkles, Star, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
-import { findCustomerByContact, type CustomerRow } from "@/lib/customers-api";
-import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
+import { type CustomerRow } from "@/lib/customers-api";
+import { useExistingCustomerByPhone } from "@/lib/customer-resolution";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
 import { PricingBreakdownCard } from "@/components/pricing-breakdown";
 import { type LineItem, nightsOf } from "@/components/line-items-editor";
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { submitNewBooking } from "@/lib/booking-create";
-import { type BookingInput } from "@/lib/bookings-api";
+import { updateBooking, type BookingInput } from "@/lib/bookings-api";
+import { updateBookingStay } from "@/lib/booking-stay";
+import { replaceBookingItems } from "@/lib/booking-items-api";
 import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
 import { toLocalYMD, localYMDOffset, cn } from "@/lib/utils";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
@@ -76,10 +78,6 @@ function QuickBookingPage() {
   const [email, setEmail] = useState("");
   const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(null);
 
-  // Normalize once — single source of truth for validation, lookup, and save.
-  const normalizedPhone = useMemo(() => normalizePhoneNumber(phone), [phone]);
-  const phoneValid = validatePhoneNumber(normalizedPhone);
-
   // ---- Occupancy & rooms ----
   const [adults, setAdults] = useState(2);
   const [kids, setKids] = useState(0);
@@ -97,14 +95,10 @@ function QuickBookingPage() {
   const phoneRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => { phoneRef.current?.focus(); }, []);
 
-  // ---- Existing customer match — phone is the unique identifier. ----
-  // Lookup ONLY by normalized phone; guest name never drives the search.
-  const { data: matchedCustomer } = useQuery({
-    queryKey: ["customer-match-phone", normalizedPhone],
-    queryFn: () => findCustomerByContact(normalizedPhone, undefined, undefined),
-    enabled: phoneValid,
-    staleTime: 30_000,
-  });
+  // Shared customer-resolution hook — single source of truth for normalization,
+  // validation, and existing-customer detection. Same hook is used by every
+  // booking source (Detailed, Quick, future Website/OTA/Walk-in/API flows).
+  const { normalizedPhone, isValid: phoneValid, matchedCustomer } = useExistingCustomerByPhone(phone);
   useEffect(() => {
     if (matchedCustomer) {
       setLinkedCustomer(matchedCustomer);
@@ -260,9 +254,113 @@ function QuickBookingPage() {
       qc.invalidateQueries({ queryKey: ["bookings"] });
       setCreatedBookingId(b.id);
       setCreatedCustomerId(b.customer_id);
+      savedSnapshotRef.current = currentSnapshot();
       toast.success(`Booking ${b.booking_reference} created`);
     },
     onError: (e: any) => toast.error(e?.message ?? "Could not create booking"),
+  });
+
+  // ----------------------------------------------------------------------
+  // EDIT MODE — once a booking has been created (via inline Add Charges /
+  // Add Payment or Create Booking), any subsequent change to a booking-
+  // affecting field flips the form into Edit Mode and the action button
+  // becomes "Save Changes". This reuses the existing edit pipeline:
+  //   • dates / room → updateBookingStay   (activity log + conflict checks)
+  //   • everything else → updateBooking
+  //   • items → replaceBookingItems
+  // There is NO separate save path for Quick Booking; it's just another
+  // consumer of the unified Booking Update pipeline.
+  // ----------------------------------------------------------------------
+  function currentSnapshot() {
+    return JSON.stringify({
+      checkIn, checkOut, adults, kids, oakRooms, mappleRooms,
+      otherCharges, otherDescription, discount,
+      totalOverride: overrideNum,
+      items: items.map((i) => ({ ...i })),
+    });
+  }
+  const savedSnapshotRef = useRef<string>("");
+  const isDirty = !!createdBookingId && savedSnapshotRef.current !== "" && savedSnapshotRef.current !== currentSnapshot();
+
+  const updateExisting = useMutation({
+    mutationFn: async () => {
+      if (!createdBookingId) throw new Error("Booking has not been created yet");
+      if (errors.length > 0) throw new Error(errors[0]);
+      const settings = await getPaymentSettings().catch(() => DEFAULT_PAYMENT_SETTINGS);
+      const roomDetails = [
+        oakRooms > 0 ? `Oak × ${oakRooms}` : null,
+        mappleRooms > 0 ? `Mapple × ${mappleRooms}` : null,
+      ].filter(Boolean).join(", ");
+
+      // 1. Dates (single source of truth — activity log + availability checks).
+      await updateBookingStay({
+        booking_id: createdBookingId,
+        new_check_in: checkIn,
+        new_check_out: checkOut,
+        source: "manual",
+        page: "Quick Booking",
+      });
+
+      // 2. Scalar booking fields (guests, pricing, override, payment flags).
+      await updateBooking(createdBookingId, {
+        guest_name: guestName.trim(),
+        phone: normalizedPhone,
+        email: email.trim() || null,
+        adults, children: kids, guests: adults + kids,
+        room_details: roomDetails,
+        amount: pricing.total,
+        subtotal: pricing.subtotal,
+        taxes: pricing.taxes,
+        tax_rate: pricing.taxRate,
+        discount: pricing.discount,
+        total_override: overrideNum,
+        taxes_included: taxesIncluded,
+        allow_full_payment: settings.allow_full_payment,
+        allow_part_payment: settings.allow_part_payment,
+        allow_pay_at_hotel: settings.allow_pay_at_hotel,
+        part_payment_type: "percent",
+        part_payment_value: settings.default_part_percent,
+      });
+
+      // 3. Rooms — replace booking_items (same path used by Detailed Edit).
+      await replaceBookingItems(createdBookingId, items);
+
+      // 4. Other Charges — keep a single "Quick Booking — other charges" row.
+      const { listBookingCharges, createBookingCharge, deleteBookingCharge, updateBookingCharge } =
+        await import("@/lib/booking-charges-api");
+      const existingCharges = await listBookingCharges(createdBookingId);
+      const ours = existingCharges.find((c) =>
+        c.category === "Other" && (c.notes ?? "").includes("Quick Booking"),
+      );
+      if (otherCharges > 0) {
+        if (ours) {
+          await updateBookingCharge(ours.id, {
+            other_description: otherDescription.trim() || "Quick Booking — other charges",
+            quantity: 1,
+            unit_price: otherCharges,
+          });
+        } else {
+          await createBookingCharge({
+            booking_id: createdBookingId,
+            category: "Other",
+            other_description: otherDescription.trim() || "Quick Booking — other charges",
+            quantity: 1,
+            unit_price: otherCharges,
+            notes: "Captured via Quick Booking",
+          });
+        }
+      } else if (ours) {
+        await deleteBookingCharge(ours.id);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["booking", createdBookingId] });
+      qc.invalidateQueries({ queryKey: ["booking-items", createdBookingId] });
+      savedSnapshotRef.current = currentSnapshot();
+      toast.success("Booking updated");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not update booking"),
   });
 
   // After creation, allow Reception to keep adding charges/payments OR jump to detail.
@@ -275,7 +373,15 @@ function QuickBookingPage() {
   ]);
 
   async function ensureBookingThen(open: (id: string) => void) {
-    if (createdBookingId) { open(createdBookingId); return; }
+    if (createdBookingId) {
+      // If the user changed something after creation, persist before opening
+      // the charge / payment dialog — guarantees pricing & balance are current.
+      if (isDirty) {
+        await updateExisting.mutateAsync().catch(() => null);
+      }
+      open(createdBookingId);
+      return;
+    }
     if (errors.length > 0) { toast.error(errors[0]); return; }
     const b = await save.mutateAsync().catch(() => null);
     if (b?.id) open(b.id);
@@ -467,6 +573,16 @@ function QuickBookingPage() {
             >
               {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Create Booking
+            </button>
+          ) : isDirty ? (
+            <button
+              type="button"
+              onClick={() => updateExisting.mutate()}
+              disabled={updateExisting.isPending || errors.length > 0}
+              className="flex-[1.2] inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient text-charcoal text-sm py-2.5 font-medium disabled:opacity-50"
+            >
+              {updateExisting.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Changes
             </button>
           ) : (
             <button
