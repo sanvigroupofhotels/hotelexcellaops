@@ -1,16 +1,31 @@
 /**
- * Single source of truth for room-COUNT math across HEOS.
+ * Single source of truth for room COUNTS and room-night KPIs across HEOS.
  *
- * Room counting is intentionally separate from room-type capacity:
- *   - `room-inventory.ts`    → sellable capacity per room type (Booking forms)
- *   - `stay-segments.ts`     → physical room ↔ stay-slot pairing primitives
- *   - `room-counts.ts` (this) → counts derived from those primitives
+ * Responsibility
+ * ──────────────
+ *   "How many rooms are occupied, sold, or consumed over a date or
+ *    date range?"
  *
- * Every dashboard / KPI / widget that needs a room count MUST consume one of
- * the helpers below — never count `bookings.id`, never count `bookings.room_id`
- * directly, and never re-implement the math inline. Multi-room bookings,
- * unassigned bookings and split stays are the common cases that get
- * miscounted when each surface rolls its own logic.
+ * Consumers (must NOT re-implement this logic inline — no exceptions)
+ * ───────────────────────────────────────────────────────────────────
+ *   • Home Dashboard ("Occupied Rooms", Welcome strip, Today's Operations)
+ *   • Owner Dashboard (ADR, RevPAR, Occupancy %, Room Nights Sold)
+ *   • Analytics & Reporting (charts, trend reports)
+ *   • Night Audit EOD snapshot
+ *   • House View "Occupied" / forecast statistics
+ *   • Forthcoming reports and widgets
+ *
+ * No future module may calculate occupied rooms, sold rooms, room nights or
+ * occupancy independently — every surface routes through the three helpers
+ * below. Never count `bookings.id`, never count `bookings.room_id`
+ * directly. Multi-room bookings, unassigned bookings and split stays are
+ * the common cases that get miscounted when each surface rolls its own
+ * logic.
+ *
+ * Related helpers — keep responsibilities separate:
+ *   • `room-inventory.ts`    → sellable capacity per ROOM TYPE (booking forms)
+ *   • `room-availability.ts` → which PHYSICAL rooms are free (assignment)
+ *   • `stay-segments.ts`     → physical room ↔ stay-slot pairing primitives
  *
  * Three operations cover every consumer:
  *

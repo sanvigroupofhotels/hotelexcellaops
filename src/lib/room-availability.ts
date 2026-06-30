@@ -1,3 +1,28 @@
+/**
+ * Single source of truth for PHYSICAL room availability.
+ *
+ * Responsibility
+ * ──────────────
+ *   "Which specific physical rooms (by room_id) can be assigned for a given
+ *    [check_in, check_out)?"
+ *
+ * Considers, in one round trip:
+ *   • overlapping bookings (any room_id on the booking row)
+ *   • overlapping `booking_room_assignments` (multi-room / split-stay)
+ *   • active `room_maintenance` blocks
+ *
+ * Consumers (must NOT re-implement this logic inline)
+ * ───────────────────────────────────────────────────
+ *   • Room Assignment dialog
+ *   • Check-In flow
+ *   • Room Move dialog (House View + Booking Detail)
+ *   • Housekeeping room picker
+ *   • Forthcoming Desktop Drag & Drop on House View
+ *
+ * Related helpers — keep responsibilities separate:
+ *   • `room-inventory.ts` → sellable capacity per ROOM TYPE (booking forms)
+ *   • `room-counts.ts`    → occupied / sold / room-night COUNTS (KPIs)
+ */
 import { supabase } from "@/integrations/supabase/client";
 
 export interface AvailableRoomsInput {
