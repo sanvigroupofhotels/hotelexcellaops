@@ -177,13 +177,13 @@ function QuickBookingPage() {
   const errors = useMemo(() => {
     const e: string[] = [];
     if (!guestName.trim()) e.push("Guest name is required");
-    if (!/^[6-9]\d{9}$/.test(phone.trim())) e.push("Enter a valid 10-digit Indian mobile number");
+    if (!phoneValid) e.push("Enter a valid Indian mobile number");
     if (!checkIn || !checkOut || checkOut <= checkIn) e.push("Check-out must be after Check-in");
     if (oakRooms + mappleRooms < 1) e.push("Select at least one room");
     if (oakRooms > oakInv.max || mappleRooms > mappleInv.max) e.push("Room count exceeds available inventory");
     if (adults < 1) e.push("At least one adult required");
     return e;
-  }, [guestName, phone, checkIn, checkOut, oakRooms, mappleRooms, oakInv.max, mappleInv.max, adults]);
+  }, [guestName, phoneValid, checkIn, checkOut, oakRooms, mappleRooms, oakInv.max, mappleInv.max, adults]);
 
   // ---- Booking creation (shared submitNewBooking helper) ----
   const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
