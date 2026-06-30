@@ -80,6 +80,12 @@ export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
     const rangeNights = nightsBetween(range_start, isoNext(range_end));
     const availableRoomNights = activeRooms * rangeNights;
 
+    // Single source of truth for committed room-nights (multi-room aware).
+    const itemsByBooking = groupStayItems((items ?? []) as any[]);
+    const { totalRoomNights: roomsSold, byBooking: nightsByBooking } =
+      sumCommittedRoomNights((stays ?? []) as any[], itemsByBooking, range_start, range_end);
+
+
     // ---- Stay-derived KPIs (overlap with range) ----
     let roomsSold = 0;
     let roomRevenue = 0;
