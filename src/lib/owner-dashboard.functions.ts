@@ -10,14 +10,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { ADR, RevPAR, OccupancyPct, nightsBetween, overlapNights } from "@/lib/kpi-defs";
+import { ADR, RevPAR, OccupancyPct, nightsBetween } from "@/lib/kpi-defs";
+import { groupStayItems } from "@/lib/stay-segments";
+import { sumCommittedRoomNights } from "@/lib/room-counts";
 
 const CANCELLED = new Set(["Cancelled"]);
 const NO_SHOW = new Set(["No-Show"]);
-const COUNTED_FOR_REVENUE = new Set([
-  "Confirmed", "Advance Paid", "Full Paid", "Checked-In", "Checked-Out", "Stay Completed", "Pending",
-]);
 const OTA_SOURCES = new Set(["Booking.com", "MakeMyTrip", "Goibibo", "Agoda", "Expedia", "Hotelzify", "OTA"]);
+
 
 export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
