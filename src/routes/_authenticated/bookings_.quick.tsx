@@ -322,7 +322,8 @@ function QuickBookingPage() {
           {linkedCustomer && (
             <ExistingCustomerBanner
               customer={linkedCustomer}
-              onForceNew={() => { setLinkedCustomer(null); setForceNew(true); toast.message("Will create a new customer record on save"); }}
+              onUseExisting={() => { /* already linked — no-op */ }}
+              onCreateNew={() => { setLinkedCustomer(null); setForceNew(true); toast.message("Will create a new customer record on save"); }}
             />
           )}
         </section>
