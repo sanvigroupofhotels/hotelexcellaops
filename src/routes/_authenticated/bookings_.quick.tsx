@@ -41,7 +41,6 @@ import { type BookingInput } from "@/lib/bookings-api";
 import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
 import { toLocalYMD, localYMDOffset, cn } from "@/lib/utils";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
-import { listChargeCategories } from "@/lib/charge-categories-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { NumField } from "@/components/num-field";
 import { useMasterData } from "@/hooks/use-master-data";
