@@ -175,7 +175,7 @@ function HomePage() {
   ];
 
   const quickActions: Array<{ label: string; icon: any; onClick: () => void; emoji: string }> = [
-    { label: "New Booking",        emoji: "➕", icon: Plus,                onClick: () => navigate({ to: "/bookings/new" }) },
+    { label: "Quick Booking",      emoji: "⚡", icon: Plus,                onClick: () => navigate({ to: "/bookings/quick" }) },
     { label: "House View",         emoji: "🏠", icon: Building2,           onClick: () => navigate({ to: "/house-view" }) },
     { label: "Collect Payment",    emoji: "💰", icon: Wallet,              onClick: () => setRoomAction("payment") },
     { label: "Add In-House Charge",emoji: "🧾", icon: Tag,                 onClick: () => setRoomAction("charge") },
