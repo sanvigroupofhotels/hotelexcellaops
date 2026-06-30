@@ -43,6 +43,12 @@ const endOfDayChildren = [
   { to: "/night-audit/history",           label: "Audit History",    icon: ShieldCheck, permission: "reporting.night_audit.view" },
 ] as const;
 
+const operationsChildren = [
+  { to: "/operations/inventory",      label: "Inventory",      icon: Boxes },
+  { to: "/operations/vendors",        label: "Vendors",        icon: Truck },
+  { to: "/operations/charge-catalog", label: "Charge Catalog", icon: ListChecks, adminOnly: true },
+] as const;
+
 const reportingChildren = [
   { to: "/reporting/owner-dashboard", label: "Owner Dashboard",     icon: BarChart3, permission: "reporting.analytics.view", adminOnly: true },
   { to: "/reporting/crm-analytics",   label: "CRM Analytics",       icon: TrendingUp, permission: "reporting.analytics.view" },
