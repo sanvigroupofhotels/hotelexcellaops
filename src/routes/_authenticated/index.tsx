@@ -20,6 +20,8 @@ import { useCheckInController } from "@/lib/check-in-flow";
 import { useMasterData } from "@/hooks/use-master-data";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { groupStayAssignments, groupStayItems, pairStaySlotsToRooms, segmentCoversDate } from "@/lib/stay-segments";
+import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
+
 import {
   BedDouble, Sunrise, LogIn, IndianRupee, MessageSquareWarning, Brush,
   Plus, Wallet, Tag, Building2, LogOut, FileBarChart,
@@ -120,18 +122,18 @@ function HomePage() {
   }, [bookings, itemsByBooking, assignmentsByBooking, rooms, chargeTotals, todayKey]);
 
   const active = bookings.filter((b) => b.status !== "Cancelled" && b.status !== "No-Show");
-  // Occupied rooms: count distinct rooms covered today by Checked-In stays
-  // (matches House View logic — multi-room bookings count each assigned room).
-  const occupiedRoomSet = new Set<string>();
-  for (const b of active) {
-    if (b.status !== "Checked-In") continue;
-    const { paired } = pairStaySlotsToRooms(b as any, itemsByBooking, assignmentsByBooking, rooms as any[]);
-    for (const { room_id, slot } of paired) {
-      if (segmentCoversDate(slot, todayKey)) occupiedRoomSet.add(room_id);
-    }
-  }
+  // Occupied rooms: shared helper — distinct PHYSICAL rooms covered today by
+  // in-house stays (multi-room aware, ignores Cancelled / Checked-Out).
+  const { occupied: occupiedRoomSet } = countOccupiedRoomsOnDate(
+    active as any[],
+    itemsByBooking,
+    assignmentsByBooking,
+    rooms as any[],
+    todayKey,
+  );
   const occupied = occupiedRoomSet.size;
   const arrivalsToday = active.filter((b) => b.check_in === today).length;
+
   const departuresToday = active.filter((b) => b.check_out === today).length;
   const pendingCheckins = active.filter((b) => b.check_in <= today && !["Checked-In","Checked-Out"].includes(b.status as string)).length;
   const dueCollection = active

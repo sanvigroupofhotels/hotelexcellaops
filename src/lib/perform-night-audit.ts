@@ -12,6 +12,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getPendingForAudit } from "@/lib/night-audit-api";
 import { openOrResumeSession, closeSession } from "@/lib/night-audit-sessions-api";
+import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
+import { groupStayItems, groupStayAssignments } from "@/lib/stay-segments";
+
 
 export interface PerformResult {
   ok: boolean;
@@ -52,14 +55,16 @@ async function snapshotEodTotals(businessDate: string): Promise<Record<string, a
   const dayStart = `${businessDate}T00:00:00`;
   const dayEnd = `${businessDate}T23:59:59`;
 
-  const [{ data: stays }, { data: rooms }, { data: payments }] = await Promise.all([
+  const [{ data: stays }, { data: rooms }, { data: items }, { data: assignments }, { data: payments }] = await Promise.all([
     supabase
       .from("bookings" as any)
       .select("id,amount,advance_paid,status,room_id,check_in,check_out")
       .lte("check_in", businessDate)
       .gt("check_out", businessDate)
       .not("status", "in", "(Cancelled,No-Show,Draft)"),
-    supabase.from("rooms" as any).select("id,active"),
+    supabase.from("rooms" as any).select("id,room_type,active"),
+    supabase.from("booking_items" as any).select("booking_id,position,room_type,rooms,check_in,check_out"),
+    supabase.from("booking_room_assignments" as any).select("booking_id,room_id,created_at"),
     supabase
       .from("booking_payments" as any)
       .select("amount,payment_mode,is_refund,occurred_at")
@@ -68,16 +73,28 @@ async function snapshotEodTotals(businessDate: string): Promise<Record<string, a
   ]);
 
   const activeRooms = (rooms ?? []).filter((r: any) => r.active !== false).length;
-  const occupiedRoomIds = new Set<string>();
+
+  // Shared room-count helper — counts every physical room occupied on the
+  // business date across multi-room and unassigned-then-assigned stays.
+  const itemsByBooking = groupStayItems((items ?? []) as any[]);
+  const assignmentsByBooking = groupStayAssignments((assignments ?? []) as any[]);
+  const { occupied } = countOccupiedRoomsOnDate(
+    (stays ?? []) as any[],
+    itemsByBooking,
+    assignmentsByBooking,
+    (rooms ?? []) as any[],
+    businessDate,
+  );
+
   let roomRevenue = 0;
   let pendingDues = 0;
   for (const s of (stays ?? []) as any[]) {
-    if (s.room_id) occupiedRoomIds.add(s.room_id);
     const amt = Number(s.amount ?? 0);
     const paid = Number(s.advance_paid ?? 0);
     roomRevenue += amt;
     pendingDues += Math.max(0, amt - paid);
   }
+
 
   let cashCollected = 0;
   let cardCollected = 0;
@@ -92,7 +109,7 @@ async function snapshotEodTotals(businessDate: string): Promise<Record<string, a
   }
   const totalCollected = cashCollected + cardCollected + onlineCollected;
   const totalRooms = activeRooms || 0;
-  const roomsSold = occupiedRoomIds.size;
+  const roomsSold = occupied.size;
 
   return {
     business_date: businessDate,

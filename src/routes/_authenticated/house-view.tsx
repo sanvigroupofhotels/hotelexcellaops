@@ -38,6 +38,8 @@ import {
   groupStayAssignments, groupStayItems, pairStaySlotsToRooms,
   segmentCoversDate, segmentOverlapsRange, segmentsOverlap, stayRoomTypesMatch, slotEndExclusive,
 } from "@/lib/stay-segments";
+import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
+
 
 export const Route = createFileRoute("/_authenticated/house-view")({
   component: HouseView,
@@ -588,31 +590,33 @@ function HouseView() {
 
   // -------- House Overview stats (for selected date = today) --------
   const todayKey = businessDate ?? dateKey(new Date());
-  const occupiedRooms = new Set<string>();
-  const inHouseBookings: any[] = [];
+  // Shared room-count helper — single source of truth for occupancy across
+  // Home / Owner Dashboard / House View / Night Audit.
+  const { occupied: occupiedRooms, inHouseBookings } = countOccupiedRoomsOnDate(
+    bookings as any[],
+    itemsByBooking,
+    assignmentsByBooking,
+    rooms as any[],
+    todayKey,
+  );
   let arrivalsToday = 0, departuresToday = 0;
   for (const b of (bookings as any[])) {
     if (b.status === "Cancelled" || b.status === "No-Show") continue;
     if (b.check_in === todayKey) arrivalsToday++;
     if (b.check_out === todayKey) departuresToday++;
-    if (b.status === "Checked-Out" || b.status === "Stay Completed") continue;
-    const { paired, slots } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
-    if (!slots.some((slot) => segmentCoversDate(slot, todayKey))) continue;
-    inHouseBookings.push(b);
-    for (const { room_id, slot } of paired) {
-      if (segmentCoversDate(slot, todayKey)) occupiedRooms.add(room_id);
-    }
   }
   const totalRooms = rooms.length;
   const vacant = totalRooms - occupiedRooms.size;
   const occPct = totalRooms ? Math.round((occupiedRooms.size / totalRooms) * 100) : 0;
 
-  const adultsInHouse = inHouseBookings.reduce((s, b) => s + (Number(b.adults) || 0), 0);
-  const childrenInHouse = inHouseBookings.reduce((s, b) => s + (Number(b.children) || 0), 0);
 
-  const breakfastBookings = inHouseBookings.filter((b) => breakfastByBooking.get(b.id));
-  const adultsBreakfast = breakfastBookings.reduce((s, b) => s + (Number(b.adults) || 0), 0);
-  const childrenBreakfast = breakfastBookings.reduce((s, b) => s + (Number(b.children) || 0), 0);
+  const adultsInHouse = inHouseBookings.reduce((s, b: any) => s + (Number(b.adults) || 0), 0);
+  const childrenInHouse = inHouseBookings.reduce((s, b: any) => s + (Number(b.children) || 0), 0);
+
+  const breakfastBookings = inHouseBookings.filter((b: any) => breakfastByBooking.get(b.id));
+  const adultsBreakfast = breakfastBookings.reduce((s, b: any) => s + (Number(b.adults) || 0), 0);
+  const childrenBreakfast = breakfastBookings.reduce((s, b: any) => s + (Number(b.children) || 0), 0);
+
 
   const roomNumber = (id: string | null) => {
     if (!id) return null;

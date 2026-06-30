@@ -10,14 +10,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { ADR, RevPAR, OccupancyPct, nightsBetween, overlapNights } from "@/lib/kpi-defs";
+import { ADR, RevPAR, OccupancyPct, nightsBetween } from "@/lib/kpi-defs";
+import { groupStayItems } from "@/lib/stay-segments";
+import { sumCommittedRoomNights } from "@/lib/room-counts";
 
 const CANCELLED = new Set(["Cancelled"]);
 const NO_SHOW = new Set(["No-Show"]);
-const COUNTED_FOR_REVENUE = new Set([
-  "Confirmed", "Advance Paid", "Full Paid", "Checked-In", "Checked-Out", "Stay Completed", "Pending",
-]);
 const OTA_SOURCES = new Set(["Booking.com", "MakeMyTrip", "Goibibo", "Agoda", "Expedia", "Hotelzify", "OTA"]);
+
 
 export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -39,6 +39,7 @@ export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
       { data: bdRow },
       { data: rooms },
       { data: stays },
+      { data: items },
       { data: payments },
       { data: charges },
       { data: cash },
@@ -50,6 +51,14 @@ export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
         .select("id,customer_id,status,source_channel,room_details,check_in,check_out,amount,advance_paid,created_at")
         .lt("check_in", isoNext(range_end))
         .gt("check_out", range_start),
+      // booking_items powers the shared room-count helper — sums rooms × nights
+      // across multi-room and split-stay bookings instead of counting parent
+      // booking rows. Filtered to the same date window as `stays`.
+      supabase
+        .from("booking_items" as any)
+        .select("booking_id,position,room_type,rooms,check_in,check_out,bookings!inner(check_in,check_out)")
+        .lt("bookings.check_in", isoNext(range_end))
+        .gt("bookings.check_out", range_start),
       supabase
         .from("booking_payments" as any)
         .select("amount,payment_mode,is_refund,occurred_at")
@@ -64,14 +73,20 @@ export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
       supabase.from("cash_transactions" as any).select("kind,amount").eq("active", true),
     ]);
 
+
     const businessDate = (bdRow as any)?.value?.date ?? calendarDate;
 
     const activeRooms = (rooms ?? []).filter((r: any) => r.active !== false).length;
     const rangeNights = nightsBetween(range_start, isoNext(range_end));
     const availableRoomNights = activeRooms * rangeNights;
 
+    // Single source of truth for committed room-nights (multi-room aware).
+    const itemsByBooking = groupStayItems((items ?? []) as any[]);
+    const { totalRoomNights: roomsSold, byBooking: nightsByBooking } =
+      sumCommittedRoomNights((stays ?? []) as any[], itemsByBooking, range_start, range_end);
+
+
     // ---- Stay-derived KPIs (overlap with range) ----
-    let roomsSold = 0;
     let roomRevenue = 0;
     let alosSum = 0;
     let alosCount = 0;
@@ -123,17 +138,16 @@ export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
         }
       }
 
-      // Revenue & rooms-sold — only for counted statuses; prorated by overlap
-      if (!COUNTED_FOR_REVENUE.has(status)) continue;
-      const totalNights = nightsBetween(s.check_in, s.check_out) || 1;
-      const inRange = overlapNights(s.check_in, s.check_out, range_start, range_end);
-      if (inRange <= 0) continue;
-      roomsSold += inRange;
-      const prorated = Number(s.amount ?? 0) * (inRange / totalNights);
+      // Revenue — prorate by the same room-night overlap fraction used by the
+      // shared helper, so revenue and rooms-sold always agree.
+      const breakdown = nightsByBooking.get(s.id);
+      if (!breakdown || breakdown.inRange <= 0 || breakdown.total <= 0) continue;
+      const prorated = Number(s.amount ?? 0) * (breakdown.inRange / breakdown.total);
       roomRevenue += prorated;
       const cat = String(s.room_details ?? "—");
       revenueByCategory.set(cat, (revenueByCategory.get(cat) ?? 0) + prorated);
     }
+
 
     // ---- Outstanding dues (current snapshot — not range-bound) ----
     const { data: openBookings } = await supabase
