@@ -24,20 +24,22 @@
  */
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { Loader2, Plus, Minus, Sparkles, Star, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
-import { findCustomerByContact, type CustomerRow } from "@/lib/customers-api";
-import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
+import { type CustomerRow } from "@/lib/customers-api";
+import { useExistingCustomerByPhone } from "@/lib/customer-resolution";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
 import { PricingBreakdownCard } from "@/components/pricing-breakdown";
 import { type LineItem, nightsOf } from "@/components/line-items-editor";
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { submitNewBooking } from "@/lib/booking-create";
-import { type BookingInput } from "@/lib/bookings-api";
+import { updateBooking, type BookingInput } from "@/lib/bookings-api";
+import { updateBookingStay } from "@/lib/booking-stay";
+import { replaceBookingItems } from "@/lib/booking-items-api";
 import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
 import { toLocalYMD, localYMDOffset, cn } from "@/lib/utils";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
