@@ -109,7 +109,7 @@ async function snapshotEodTotals(businessDate: string): Promise<Record<string, a
   }
   const totalCollected = cashCollected + cardCollected + onlineCollected;
   const totalRooms = activeRooms || 0;
-  const roomsSold = occupiedRoomIds.size;
+  const roomsSold = occupied.size;
 
   return {
     business_date: businessDate,
