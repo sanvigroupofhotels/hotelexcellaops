@@ -61,10 +61,7 @@ function HomePage() {
   const { data: tx = [] } = useQuery({ queryKey: ["cash-tx-home"], queryFn: () => listCashTx({}) });
   const { data: counterCash = 0 } = useQuery({ queryKey: ["cash-current-balance-home"], queryFn: getCurrentCashBalance });
   const { data: rooms = [] } = useQuery({ queryKey: ["rooms-home"], queryFn: () => listRooms() });
-  const { values: chargeCategories } = useMasterData("in_house_charge", [
-    "Food Order","Water Bottles","Laundry","Dental Kit","Shaving Kit","Coffee","Tea",
-    "Late Check-out","Early Check-in","Extra Pet","Extra Adult","Transportation","Other",
-  ]);
+  const { values: chargeCategories } = useChargeCategories();
   const { data: allItems = [] } = useQuery({
     queryKey: ["booking-items-all-home"],
     queryFn: async () => {

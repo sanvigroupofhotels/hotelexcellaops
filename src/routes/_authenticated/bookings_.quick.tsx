@@ -367,10 +367,8 @@ function QuickBookingPage() {
   const [chargeOpen, setChargeOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
 
-  // Charge categories — same master-data source the InHouseChargesSection uses.
-  const { values: chargeCategories } = useMasterData("in_house_charge", [
-    "Food & Beverage", "Laundry", "Mini Bar", "Spa", "Transport", "Other",
-  ]);
+  // Single source of truth: Charge Catalog (Operations → Charge Catalog).
+  const { values: chargeCategories } = useChargeCategories();
 
   async function ensureBookingThen(open: (id: string) => void) {
     if (createdBookingId) {

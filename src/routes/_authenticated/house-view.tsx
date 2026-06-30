@@ -1208,10 +1208,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
   const issueToken = useServerFn(issueBookingToken);
-  const { values: chargeCategories } = useMasterData("in_house_charge", [
-    "Food Order","Water Bottles","Laundry","Dental Kit","Shaving Kit","Coffee","Tea",
-    "Late Check-out","Early Check-in","Extra Pet","Extra Adult","Transportation","Other",
-  ]);
+  const { values: chargeCategories } = useChargeCategories();
   const isCheckedOut = status === "Checked-Out" || status === "Stay Completed";
   const canTransact = status !== "Cancelled" && !isCheckedOut;
 
