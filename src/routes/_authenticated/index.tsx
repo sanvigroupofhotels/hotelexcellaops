@@ -20,6 +20,8 @@ import { useCheckInController } from "@/lib/check-in-flow";
 import { useMasterData } from "@/hooks/use-master-data";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { groupStayAssignments, groupStayItems, pairStaySlotsToRooms, segmentCoversDate } from "@/lib/stay-segments";
+import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
+
 import {
   BedDouble, Sunrise, LogIn, IndianRupee, MessageSquareWarning, Brush,
   Plus, Wallet, Tag, Building2, LogOut, FileBarChart,
