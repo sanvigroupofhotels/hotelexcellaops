@@ -22,15 +22,15 @@
  *      auto-creates the booking first (validating identical rules), then
  *      opens the existing dialog against the new booking id.
  */
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
-import { Loader2, Plus, Minus, Receipt, Wallet, BedDouble, Sparkles } from "lucide-react";
+import { Loader2, Plus, Minus, Sparkles, Star, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
-import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
 import { findCustomerByContact, type CustomerRow } from "@/lib/customers-api";
+import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
 import { PricingBreakdownCard } from "@/components/pricing-breakdown";
 import { type LineItem, nightsOf } from "@/components/line-items-editor";
@@ -75,7 +75,10 @@ function QuickBookingPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(null);
-  const [forceNew, setForceNew] = useState(false);
+
+  // Normalize once — single source of truth for validation, lookup, and save.
+  const normalizedPhone = useMemo(() => normalizePhoneNumber(phone), [phone]);
+  const phoneValid = validatePhoneNumber(normalizedPhone);
 
   // ---- Occupancy & rooms ----
   const [adults, setAdults] = useState(2);
@@ -90,20 +93,27 @@ function QuickBookingPage() {
   const [totalOverride, setTotalOverride] = useState<string>("");
   const [taxesIncluded] = useState(true); // override entered as gross by default (Reception expectation)
 
-  // ---- Auto-focus name field on mount for speed ----
-  const nameRef = useRef<HTMLInputElement | null>(null);
-  useEffect(() => { nameRef.current?.focus(); }, []);
+  // ---- Auto-focus mobile field on mount for speed ----
+  const phoneRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => { phoneRef.current?.focus(); }, []);
 
-  // ---- Existing customer match detection ----
+  // ---- Existing customer match — phone is the unique identifier. ----
+  // Lookup ONLY by normalized phone; guest name never drives the search.
   const { data: matchedCustomer } = useQuery({
-    queryKey: ["customer-match", phone.trim(), guestName.trim(), email.trim()],
-    queryFn: () => findCustomerByContact(phone.trim(), email.trim(), guestName.trim()),
-    enabled: !!(phone.trim() || email.trim() || guestName.trim().length >= 3),
+    queryKey: ["customer-match-phone", normalizedPhone],
+    queryFn: () => findCustomerByContact(normalizedPhone, undefined, undefined),
+    enabled: phoneValid,
     staleTime: 30_000,
   });
   useEffect(() => {
-    if (matchedCustomer && !linkedCustomer && !forceNew) setLinkedCustomer(matchedCustomer);
-    if (!matchedCustomer && linkedCustomer) setLinkedCustomer(null);
+    if (matchedCustomer) {
+      setLinkedCustomer(matchedCustomer);
+      // Auto-populate name/email if the form is still empty.
+      setGuestName((g) => g.trim() ? g : (matchedCustomer.guest_name ?? ""));
+      setEmail((e) => e.trim() ? e : (matchedCustomer.email ?? ""));
+    } else {
+      setLinkedCustomer(null);
+    }
   }, [matchedCustomer]); // eslint-disable-line
 
   // ---- Rate resolution (same hook as Detailed form) ----
@@ -167,13 +177,13 @@ function QuickBookingPage() {
   const errors = useMemo(() => {
     const e: string[] = [];
     if (!guestName.trim()) e.push("Guest name is required");
-    if (!/^[6-9]\d{9}$/.test(phone.trim())) e.push("Enter a valid 10-digit Indian mobile number");
+    if (!phoneValid) e.push("Enter a valid Indian mobile number");
     if (!checkIn || !checkOut || checkOut <= checkIn) e.push("Check-out must be after Check-in");
     if (oakRooms + mappleRooms < 1) e.push("Select at least one room");
     if (oakRooms > oakInv.max || mappleRooms > mappleInv.max) e.push("Room count exceeds available inventory");
     if (adults < 1) e.push("At least one adult required");
     return e;
-  }, [guestName, phone, checkIn, checkOut, oakRooms, mappleRooms, oakInv.max, mappleInv.max, adults]);
+  }, [guestName, phoneValid, checkIn, checkOut, oakRooms, mappleRooms, oakInv.max, mappleInv.max, adults]);
 
   // ---- Booking creation (shared submitNewBooking helper) ----
   const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
@@ -192,7 +202,7 @@ function QuickBookingPage() {
       const booking: Omit<BookingInput, "customer_id"> = {
         source_quote_id: null,
         guest_name: guestName.trim(),
-        phone: phone.trim(),
+        phone: normalizedPhone,
         email: email.trim() || null,
         check_in: checkIn,
         check_out: checkOut,
@@ -218,9 +228,12 @@ function QuickBookingPage() {
         part_payment_value: settings.default_part_percent,
       };
 
+      // Quick Booking treats mobile number as the unique customer key.
+      // If we already detected an existing customer, link to it; otherwise
+      // submitNewBooking + DB trigger will safely create / link by phone.
       const { booking: created, createdCustomerId: newCustId } = await submitNewBooking({
         linkedCustomerId: linkedCustomer?.id ?? null,
-        forceNew,
+        forceNew: false,
         booking,
         items, // rooms only — Other Charges is NOT in booking_items
         advance: advanceAmount > 0 ? { amount: advanceAmount, payment_mode: paymentMode } : undefined,
@@ -293,38 +306,52 @@ function QuickBookingPage() {
           </div>
         </section>
 
-        {/* GROUP 2 — Guest details */}
+        {/* GROUP 2 — Guest details (Mobile → Name → Email; phone is the unique key) */}
         <section className="luxe-card rounded-xl p-4 space-y-3">
           <div className="text-xs uppercase tracking-wider text-gold">Guest</div>
-          <Field label="Guest name *">
-            <input ref={nameRef} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Full name" className="qb-input" />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Mobile *">
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
-                placeholder="10-digit"
-                inputMode="tel"
-                className="qb-input"
-              />
-            </Field>
-            <Field label="Email (optional)">
-              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="guest@example.com" inputMode="email" className="qb-input" />
-            </Field>
-          </div>
-          <CustomerAutocomplete
-            name={guestName}
-            phone={phone}
-            email={email}
-            onPick={(c) => { setLinkedCustomer(c); setGuestName(c.guest_name); setPhone(c.phone ?? ""); setEmail(c.email ?? ""); setForceNew(false); }}
-          />
-          {linkedCustomer && (
-            <ExistingCustomerBanner
-              customer={linkedCustomer}
-              onUseExisting={() => { /* already linked — no-op */ }}
-              onCreateNew={() => { setLinkedCustomer(null); setForceNew(true); toast.message("Will create a new customer record on save"); }}
+          <Field label="Mobile *">
+            <input
+              ref={phoneRef}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+91 98765 43210"
+              inputMode="tel"
+              autoComplete="tel"
+              className="qb-input"
             />
+            {phone.trim() && !phoneValid && (
+              <div className="text-[11px] text-destructive mt-1">Enter a valid Indian mobile number.</div>
+            )}
+          </Field>
+          <Field label="Guest name *">
+            <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Full name" className="qb-input" />
+          </Field>
+          <Field label="Email (optional)">
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="guest@example.com" inputMode="email" className="qb-input" />
+          </Field>
+          {linkedCustomer && (
+            <div className="rounded-lg border border-gold/40 bg-gold-soft p-3">
+              <div className="flex items-start gap-2">
+                <UserCheck className="h-4 w-4 text-gold mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0 text-sm">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] uppercase tracking-wider text-gold font-semibold">Existing Customer</span>
+                    {linkedCustomer.total_bookings > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 px-1.5 py-0.5 text-[10px] text-gold">
+                        <Star className="h-2.5 w-2.5 fill-gold" /> Repeat
+                      </span>
+                    )}
+                  </div>
+                  <Link to="/customers/$id" params={{ id: linkedCustomer.id }} className="font-medium hover:text-gold">
+                    {linkedCustomer.guest_name}
+                  </Link>
+                  <span className="text-muted-foreground"> · {linkedCustomer.phone}</span>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {linkedCustomer.total_bookings} booking{linkedCustomer.total_bookings === 1 ? "" : "s"} · auto-linked by mobile
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </section>
 
@@ -419,17 +446,17 @@ function QuickBookingPage() {
             type="button"
             onClick={() => ensureBookingThen(() => setChargeOpen(true))}
             disabled={save.isPending}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card text-sm py-2.5 hover:bg-secondary disabled:opacity-50"
+            className="flex-1 inline-flex items-center justify-center rounded-md border border-border bg-card text-sm py-2.5 font-medium hover:bg-secondary disabled:opacity-50"
           >
-            <Receipt className="h-4 w-4" /> Add Charges
+            Add Charges
           </button>
           <button
             type="button"
             onClick={() => ensureBookingThen(() => setPaymentOpen(true))}
             disabled={save.isPending}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card text-sm py-2.5 hover:bg-secondary disabled:opacity-50"
+            className="flex-1 inline-flex items-center justify-center rounded-md border border-border bg-card text-sm py-2.5 font-medium hover:bg-secondary disabled:opacity-50"
           >
-            <Wallet className="h-4 w-4" /> Add Payment
+            Add Payment
           </button>
           {!createdBookingId ? (
             <button
@@ -438,14 +465,14 @@ function QuickBookingPage() {
               disabled={save.isPending || errors.length > 0}
               className="flex-[1.2] inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient text-charcoal text-sm py-2.5 font-medium disabled:opacity-50"
             >
-              {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <BedDouble className="h-4 w-4" />}
+              {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Create Booking
             </button>
           ) : (
             <button
               type="button"
               onClick={() => navigate({ to: "/bookings/$id", params: { id: createdBookingId } })}
-              className="flex-[1.2] inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient text-charcoal text-sm py-2.5 font-medium"
+              className="flex-[1.2] inline-flex items-center justify-center rounded-md gold-gradient text-charcoal text-sm py-2.5 font-medium"
             >
               View Booking
             </button>
