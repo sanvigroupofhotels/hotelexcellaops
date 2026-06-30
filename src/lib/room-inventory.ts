@@ -1,20 +1,33 @@
 /**
- * Single source of truth for room-type availability.
+ * Single source of truth for ROOM-TYPE sellable availability.
  *
- * Both the Full Booking Form and the (forthcoming) Quick Booking Form must
- * call this helper to derive how many Oak / Mapple rooms can still be sold
- * for a given date range. House View, calendar tiles, and any future capacity
- * widget should also go through here — never compute availability inline.
+ * Responsibility
+ * ──────────────
+ *   "How many rooms of each type (Oak / Mapple / …) are sellable for a given
+ *    stay period [check_in, check_out)?"
  *
- * Implementation reuses `listAvailableRoomsForStay()` (which already accounts
- * for overlapping bookings, room_room_assignments, and active maintenance
- * blocks) and groups the result by `room_type`. No new SQL is introduced.
+ * Demand counted as 'booked' is committed bookings (Pending, Confirmed,
+ * Advance Paid, Full Paid, Checked-In) — independent of payment status and
+ * independent of physical room assignment. Active maintenance blocks reduce
+ * type capacity via `blocked`.
+ *
+ * Consumers (must NOT re-implement this logic inline)
+ * ───────────────────────────────────────────────────
+ *   • Full Booking Form (new + edit)
+ *   • Quick Booking Form
+ *   • Forthcoming Public Website Booking Engine
+ *   • Forthcoming Channel / Partner APIs
+ *   • Capacity widgets on House View / Calendar
+ *
+ * Related helpers — keep responsibilities separate:
+ *   • `room-availability.ts` → which PHYSICAL rooms are free (assignment)
+ *   • `room-counts.ts`       → occupied / sold / room-night COUNTS (KPIs)
  *
  * Returned shape per room type:
  *   total     — count of active rooms of that type
- *   booked    — total - available - blocked
- *   blocked   — active maintenance blocks overlapping the date range
- *   available — count of rooms with NO overlap for [check_in, check_out)
+ *   booked    — committed-demand rooms overlapping the range
+ *   blocked   — active maintenance blocks overlapping the range
+ *   available — max(0, total - booked - blocked)
  *
  * Auto-refresh:
  *   The consuming React Query hook below uses dates + exclude_booking_id as

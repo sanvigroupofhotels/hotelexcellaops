@@ -110,7 +110,8 @@ function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
   downloadCSV(`cash-${range}-${toLocalYMD()}.csv`, rows);
   toast.success("Exported");
 }
-import { buildDailyCashReport, computeOpeningBalance } from "@/lib/cash-report";
+import { buildDailyCashReport, computeOpeningBalance, printCashReport } from "@/lib/cash-report";
+import { Printer } from "lucide-react";
 
 
 function CashPage() {
@@ -1250,10 +1251,45 @@ function ReportsModal({ tx, onClose }: { tx: CashTxRow[]; onClose: () => void })
           )}
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button onClick={onExportExcel}
             className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
             <Download className="h-4 w-4 text-gold" /> Export CSV
+          </button>
+          <button onClick={() => {
+              try {
+                if (filtered.length === 0 && !(grouped && grouped.length)) {
+                  toast.error("Nothing to print for the current filters");
+                  return;
+                }
+                let opening: number | null = null;
+                if (range !== "all") {
+                  const fromD = new Date(fromDate + "T00:00:00");
+                  opening = 0;
+                  for (const t of tx) {
+                    if (!t.active) continue;
+                    if (new Date(t.occurred_at) < fromD) opening += t.kind === "collection" ? Number(t.amount) : -Number(t.amount);
+                  }
+                }
+                const fmtDate = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+                const periodLabel = range === "all" ? "All Time" : `${fmtDate(fromDate)} – ${fmtDate(toDate)}`;
+                const groupLabel = type === "day" ? "Date" : type === "category" ? "Category" : type === "staff" ? "Entered By" : null;
+                printCashReport({
+                  rows: filtered,
+                  grouped: type === "all" ? null : (grouped ?? []),
+                  groupLabel: groupLabel as any,
+                  totals: filteredTotals,
+                  opening,
+                  periodLabel,
+                  filters: { kind: kindFilter || undefined, category: categoryFilter || undefined, staff: staffFilter || undefined },
+                  showInactive,
+                });
+              } catch (e: any) {
+                toast.error(e?.message ?? "Could not print");
+              }
+            }}
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm hover:border-gold/40">
+            <Printer className="h-4 w-4 text-gold" /> Print / PDF
           </button>
           <button onClick={onCopyReport}
             className="inline-flex items-center gap-2 rounded-md gold-gradient text-charcoal px-4 py-2 text-sm font-medium">
