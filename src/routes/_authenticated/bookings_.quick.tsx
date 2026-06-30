@@ -75,7 +75,10 @@ function QuickBookingPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(null);
-  const [forceNew, setForceNew] = useState(false);
+
+  // Normalize once — single source of truth for validation, lookup, and save.
+  const normalizedPhone = useMemo(() => normalizePhoneNumber(phone), [phone]);
+  const phoneValid = validatePhoneNumber(normalizedPhone);
 
   // ---- Occupancy & rooms ----
   const [adults, setAdults] = useState(2);
@@ -90,20 +93,27 @@ function QuickBookingPage() {
   const [totalOverride, setTotalOverride] = useState<string>("");
   const [taxesIncluded] = useState(true); // override entered as gross by default (Reception expectation)
 
-  // ---- Auto-focus name field on mount for speed ----
-  const nameRef = useRef<HTMLInputElement | null>(null);
-  useEffect(() => { nameRef.current?.focus(); }, []);
+  // ---- Auto-focus mobile field on mount for speed ----
+  const phoneRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => { phoneRef.current?.focus(); }, []);
 
-  // ---- Existing customer match detection ----
+  // ---- Existing customer match — phone is the unique identifier. ----
+  // Lookup ONLY by normalized phone; guest name never drives the search.
   const { data: matchedCustomer } = useQuery({
-    queryKey: ["customer-match", phone.trim(), guestName.trim(), email.trim()],
-    queryFn: () => findCustomerByContact(phone.trim(), email.trim(), guestName.trim()),
-    enabled: !!(phone.trim() || email.trim() || guestName.trim().length >= 3),
+    queryKey: ["customer-match-phone", normalizedPhone],
+    queryFn: () => findCustomerByContact(normalizedPhone, undefined, undefined),
+    enabled: phoneValid,
     staleTime: 30_000,
   });
   useEffect(() => {
-    if (matchedCustomer && !linkedCustomer && !forceNew) setLinkedCustomer(matchedCustomer);
-    if (!matchedCustomer && linkedCustomer) setLinkedCustomer(null);
+    if (matchedCustomer) {
+      setLinkedCustomer(matchedCustomer);
+      // Auto-populate name/email if the form is still empty.
+      setGuestName((g) => g.trim() ? g : (matchedCustomer.guest_name ?? ""));
+      setEmail((e) => e.trim() ? e : (matchedCustomer.email ?? ""));
+    } else {
+      setLinkedCustomer(null);
+    }
   }, [matchedCustomer]); // eslint-disable-line
 
   // ---- Rate resolution (same hook as Detailed form) ----
