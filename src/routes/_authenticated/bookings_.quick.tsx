@@ -78,6 +78,23 @@ function QuickBookingPage() {
   const [email, setEmail] = useState("");
   const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(null);
 
+  // ---- Occupancy & rooms ----
+  const [adults, setAdults] = useState(2);
+  const [kids, setKids] = useState(0);
+  const [oakRooms, setOakRooms] = useState(1);
+  const [mappleRooms, setMappleRooms] = useState(0);
+
+  // ---- Pricing override / discount / other charges ----
+  const [otherCharges, setOtherCharges] = useState(0);
+  const [otherDescription, setOtherDescription] = useState("");
+  const [discount, setDiscount] = useState(0);
+  const [totalOverride, setTotalOverride] = useState<string>("");
+  const [taxesIncluded] = useState(true); // override entered as gross by default (Reception expectation)
+
+  // ---- Auto-focus mobile field on mount for speed ----
+  const phoneRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => { phoneRef.current?.focus(); }, []);
+
   // Shared customer-resolution hook — single source of truth for normalization,
   // validation, and existing-customer detection. Same hook is used by every
   // booking source (Detailed, Quick, future Website/OTA/Walk-in/API flows).
