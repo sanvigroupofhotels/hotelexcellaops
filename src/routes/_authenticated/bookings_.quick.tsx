@@ -22,15 +22,15 @@
  *      auto-creates the booking first (validating identical rules), then
  *      opens the existing dialog against the new booking id.
  */
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
-import { Loader2, Plus, Minus, Receipt, Wallet, BedDouble, Sparkles } from "lucide-react";
+import { Loader2, Plus, Minus, Sparkles, Star, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
-import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
 import { findCustomerByContact, type CustomerRow } from "@/lib/customers-api";
+import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
 import { PricingBreakdownCard } from "@/components/pricing-breakdown";
 import { type LineItem, nightsOf } from "@/components/line-items-editor";
