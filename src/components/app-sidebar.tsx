@@ -6,6 +6,7 @@ import {
   Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
   Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
   BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound, Moon, AlertTriangle, TrendingUp, CalendarDays,
+  Boxes, Truck, ListChecks,
 } from "lucide-react";
 import { useNightAuditStatus } from "@/hooks/use-night-audit-status";
 
@@ -40,6 +41,12 @@ const endOfDayChildren = [
   { to: "/night-audit/critical-tasks",    label: "Critical Tasks",   icon: AlertTriangle, permission: "house_view.view" },
   { to: "/night-audit/eod-report",        label: "End of Day Report",icon: FileBarChart, permission: "house_view.view" },
   { to: "/night-audit/history",           label: "Audit History",    icon: ShieldCheck, permission: "reporting.night_audit.view" },
+] as const;
+
+const operationsChildren = [
+  { to: "/operations/inventory",      label: "Inventory",      icon: Boxes },
+  { to: "/operations/vendors",        label: "Vendors",        icon: Truck },
+  { to: "/operations/charge-catalog", label: "Charge Catalog", icon: ListChecks, adminOnly: true },
 ] as const;
 
 const reportingChildren = [
@@ -221,6 +228,11 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         );
       })}
+      {/* Operations group — Inventory, Vendors, Charge Catalog */}
+      <ExpandableGroup
+        label="Operations" icon={Boxes} prefix="/operations"
+        children={operationsChildren} onNavigate={onNavigate} pathname={pathname}
+      />
       {/* Reporting group — visible to all signed-in staff (admin-only children are filtered inside) */}
       <ExpandableGroup
         label="Reporting" icon={FileBarChart} prefix="/reporting"

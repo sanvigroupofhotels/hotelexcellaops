@@ -71,6 +71,7 @@ const GROUPS: GroupDef[] = [
       { kind: "lookup", key: "cancellation_reason", label: "Cancellation Reasons", placeholder: "e.g. No Show" },
       { kind: "lookup", key: "override_reason", label: "Override Reasons", placeholder: "e.g. VIP Guest" },
       { kind: "lookup", key: "complaint_status", label: "Complaint Statuses", placeholder: "e.g. In Progress" },
+      { kind: "lookup", key: "inventory_category", label: "Inventory Categories", placeholder: "e.g. Beverages" },
     ],
   },
   {

@@ -918,6 +918,45 @@ export type Database = {
         }
         Relationships: []
       }
+      charge_catalog: {
+        Row: {
+          active: boolean
+          created_at: string
+          default_price: number
+          id: string
+          key: string
+          label: string
+          sort_order: number
+          taxable: boolean
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          default_price?: number
+          id?: string
+          key: string
+          label: string
+          sort_order?: number
+          taxable?: boolean
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          default_price?: number
+          id?: string
+          key?: string
+          label?: string
+          sort_order?: number
+          taxable?: boolean
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       complaint_activities: {
         Row: {
           action: string
@@ -1618,6 +1657,147 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      inventory_items: {
+        Row: {
+          active: boolean
+          auto_consume_catalog_key: string | null
+          category_value: string | null
+          created_at: string
+          current_stock: number
+          housekeeping_per_room: number | null
+          id: string
+          minimum_stock: number
+          name: string
+          photo_path: string | null
+          preferred_vendor_id: string | null
+          unit: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          auto_consume_catalog_key?: string | null
+          category_value?: string | null
+          created_at?: string
+          current_stock?: number
+          housekeeping_per_room?: number | null
+          id?: string
+          minimum_stock?: number
+          name: string
+          photo_path?: string | null
+          preferred_vendor_id?: string | null
+          unit?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          auto_consume_catalog_key?: string | null
+          category_value?: string | null
+          created_at?: string
+          current_stock?: number
+          housekeeping_per_room?: number | null
+          id?: string
+          minimum_stock?: number
+          name?: string
+          photo_path?: string | null
+          preferred_vendor_id?: string | null
+          unit?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_auto_consume_catalog_key_fkey"
+            columns: ["auto_consume_catalog_key"]
+            isOneToOne: false
+            referencedRelation: "charge_catalog"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "inventory_items_preferred_vendor_id_fkey"
+            columns: ["preferred_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_movements: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          batch_id: string | null
+          correlation_id: string | null
+          created_at: string
+          delta: number
+          id: string
+          item_id: string
+          notes: string | null
+          occurred_at: string
+          reason: Database["public"]["Enums"]["inventory_movement_reason"]
+          source_id: string | null
+          source_type: string | null
+          unit_cost: number | null
+          user_id: string | null
+          vendor_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          batch_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          delta: number
+          id?: string
+          item_id: string
+          notes?: string | null
+          occurred_at?: string
+          reason: Database["public"]["Enums"]["inventory_movement_reason"]
+          source_id?: string | null
+          source_type?: string | null
+          unit_cost?: number | null
+          user_id?: string | null
+          vendor_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          batch_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          delta?: number
+          id?: string
+          item_id?: string
+          notes?: string | null
+          occurred_at?: string
+          reason?: Database["public"]["Enums"]["inventory_movement_reason"]
+          source_id?: string | null
+          source_type?: string | null
+          unit_cost?: number | null
+          user_id?: string | null
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lead_activities: {
         Row: {
@@ -3075,6 +3255,51 @@ export type Database = {
         }
         Relationships: []
       }
+      vendors: {
+        Row: {
+          active: boolean
+          address: string | null
+          alt_phones: string[]
+          contact_person: string
+          created_at: string
+          id: string
+          maps_url: string | null
+          name: string
+          notes: string | null
+          phone: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          address?: string | null
+          alt_phones?: string[]
+          contact_person: string
+          created_at?: string
+          id?: string
+          maps_url?: string | null
+          name: string
+          notes?: string | null
+          phone: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          address?: string | null
+          alt_phones?: string[]
+          contact_person?: string
+          created_at?: string
+          id?: string
+          maps_url?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -3137,6 +3362,10 @@ export type Database = {
         Args: { p_customer_id: string }
         Returns: undefined
       }
+      recompute_inventory_stock: {
+        Args: { p_item_id: string }
+        Returns: number
+      }
       sweep_abandoned_leads: { Args: never; Returns: number }
       sweep_expired_draft_bookings: { Args: never; Returns: number }
       sweep_lost_leads: { Args: never; Returns: number }
@@ -3178,6 +3407,14 @@ export type Database = {
       complaint_priority: "Low" | "Medium" | "High" | "Critical"
       complaint_status: "Open" | "In Progress" | "Resolved"
       complaint_type: "Room" | "General"
+      inventory_movement_reason:
+        | "stock_in"
+        | "stock_out"
+        | "auto_charge"
+        | "auto_housekeeping"
+        | "reconciliation_adjust"
+        | "wastage"
+        | "correction"
       lead_status: "Interested" | "Abandoned" | "Converted" | "Lost"
       quote_status:
         | "Pending"
@@ -3351,6 +3588,15 @@ export const Constants = {
       complaint_priority: ["Low", "Medium", "High", "Critical"],
       complaint_status: ["Open", "In Progress", "Resolved"],
       complaint_type: ["Room", "General"],
+      inventory_movement_reason: [
+        "stock_in",
+        "stock_out",
+        "auto_charge",
+        "auto_housekeeping",
+        "reconciliation_adjust",
+        "wastage",
+        "correction",
+      ],
       lead_status: ["Interested", "Abandoned", "Converted", "Lost"],
       quote_status: [
         "Pending",
