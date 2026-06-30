@@ -256,12 +256,10 @@ function QuickBookingPage() {
   const [chargeOpen, setChargeOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
 
-  // Charge categories (reused dialog needs the list).
-  const { data: chargeCategories = [] } = useQuery({
-    queryKey: ["charge-categories", "names"],
-    queryFn: async () => (await listChargeCategories()).map((c) => c.name),
-    staleTime: 5 * 60_000,
-  });
+  // Charge categories — same master-data source the InHouseChargesSection uses.
+  const { values: chargeCategories } = useMasterData("in_house_charge", [
+    "Food & Beverage", "Laundry", "Mini Bar", "Spa", "Transport", "Other",
+  ]);
 
   async function ensureBookingThen(open: (id: string) => void) {
     if (createdBookingId) { open(createdBookingId); return; }
