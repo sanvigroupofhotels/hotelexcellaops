@@ -44,6 +44,7 @@ import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { listChargeCategories } from "@/lib/charge-categories-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { NumField } from "@/components/num-field";
+import { useMasterData } from "@/hooks/use-master-data";
 
 export const Route = createFileRoute("/_authenticated/bookings_/quick")({
   component: QuickBookingPage,
