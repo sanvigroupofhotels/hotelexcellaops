@@ -12,6 +12,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getPendingForAudit } from "@/lib/night-audit-api";
 import { openOrResumeSession, closeSession } from "@/lib/night-audit-sessions-api";
+import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
+import { groupStayItems, groupStayAssignments } from "@/lib/stay-segments";
+
 
 export interface PerformResult {
   ok: boolean;
