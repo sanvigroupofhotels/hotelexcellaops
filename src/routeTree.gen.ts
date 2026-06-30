@@ -33,6 +33,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedReportingRouteImport } from './routes/_authenticated/reporting'
 import { Route as AuthenticatedRatesRouteImport } from './routes/_authenticated/rates'
 import { Route as AuthenticatedPaymentsReportsRouteImport } from './routes/_authenticated/payments-reports'
+import { Route as AuthenticatedOperationsRouteImport } from './routes/_authenticated/operations'
 import { Route as AuthenticatedNightAuditRouteImport } from './routes/_authenticated/night-audit'
 import { Route as AuthenticatedMasterDataRouteImport } from './routes/_authenticated/master-data'
 import { Route as AuthenticatedHouseViewRouteImport } from './routes/_authenticated/house-view'
@@ -50,6 +51,7 @@ import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAccessSettingsRouteImport } from './routes/_authenticated/access-settings'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
+import { Route as AuthenticatedOperationsIndexRouteImport } from './routes/_authenticated/operations.index'
 import { Route as AuthenticatedNightAuditIndexRouteImport } from './routes/_authenticated/night-audit.index'
 import { Route as BookingEngineConfirmationRefRouteImport } from './routes/booking-engine.confirmation.$ref'
 import { Route as ApiPublicRazorpayWebhookRouteImport } from './routes/api/public/razorpay-webhook'
@@ -79,6 +81,9 @@ import { Route as AuthenticatedReportingCrmAnalyticsRouteImport } from './routes
 import { Route as AuthenticatedReportingAnalyticsRouteImport } from './routes/_authenticated/reporting.analytics'
 import { Route as AuthenticatedReportingActivityRouteImport } from './routes/_authenticated/reporting.activity'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
+import { Route as AuthenticatedOperationsVendorsRouteImport } from './routes/_authenticated/operations.vendors'
+import { Route as AuthenticatedOperationsInventoryRouteImport } from './routes/_authenticated/operations.inventory'
+import { Route as AuthenticatedOperationsChargeCatalogRouteImport } from './routes/_authenticated/operations.charge-catalog'
 import { Route as AuthenticatedNightAuditHistoryRouteImport } from './routes/_authenticated/night-audit.history'
 import { Route as AuthenticatedNightAuditEodReportRouteImport } from './routes/_authenticated/night-audit.eod-report'
 import { Route as AuthenticatedNightAuditCriticalTasksRouteImport } from './routes/_authenticated/night-audit.critical-tasks'
@@ -213,6 +218,11 @@ const AuthenticatedPaymentsReportsRoute =
     path: '/payments-reports',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedOperationsRoute = AuthenticatedOperationsRouteImport.update({
+  id: '/operations',
+  path: '/operations',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedNightAuditRoute = AuthenticatedNightAuditRouteImport.update({
   id: '/night-audit',
   path: '/night-audit',
@@ -299,6 +309,12 @@ const AuthenticatedSettingsIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedOperationsIndexRoute =
+  AuthenticatedOperationsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedOperationsRoute,
   } as any)
 const AuthenticatedNightAuditIndexRoute =
   AuthenticatedNightAuditIndexRouteImport.update({
@@ -469,6 +485,24 @@ const AuthenticatedQuoteIdRoute = AuthenticatedQuoteIdRouteImport.update({
   path: '/quote/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedOperationsVendorsRoute =
+  AuthenticatedOperationsVendorsRouteImport.update({
+    id: '/vendors',
+    path: '/vendors',
+    getParentRoute: () => AuthenticatedOperationsRoute,
+  } as any)
+const AuthenticatedOperationsInventoryRoute =
+  AuthenticatedOperationsInventoryRouteImport.update({
+    id: '/inventory',
+    path: '/inventory',
+    getParentRoute: () => AuthenticatedOperationsRoute,
+  } as any)
+const AuthenticatedOperationsChargeCatalogRoute =
+  AuthenticatedOperationsChargeCatalogRouteImport.update({
+    id: '/charge-catalog',
+    path: '/charge-catalog',
+    getParentRoute: () => AuthenticatedOperationsRoute,
+  } as any)
 const AuthenticatedNightAuditHistoryRoute =
   AuthenticatedNightAuditHistoryRouteImport.update({
     id: '/history',
@@ -562,6 +596,7 @@ export interface FileRoutesByFullPath {
   '/house-view': typeof AuthenticatedHouseViewRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
+  '/operations': typeof AuthenticatedOperationsRouteWithChildren
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/rates': typeof AuthenticatedRatesRoute
   '/reporting': typeof AuthenticatedReportingRouteWithChildren
@@ -589,6 +624,9 @@ export interface FileRoutesByFullPath {
   '/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
   '/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
+  '/operations/charge-catalog': typeof AuthenticatedOperationsChargeCatalogRoute
+  '/operations/inventory': typeof AuthenticatedOperationsInventoryRoute
+  '/operations/vendors': typeof AuthenticatedOperationsVendorsRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/activity': typeof AuthenticatedReportingActivityRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
@@ -618,6 +656,7 @@ export interface FileRoutesByFullPath {
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/booking-engine/confirmation/$ref': typeof BookingEngineConfirmationRefRoute
   '/night-audit/': typeof AuthenticatedNightAuditIndexRoute
+  '/operations/': typeof AuthenticatedOperationsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -668,6 +707,9 @@ export interface FileRoutesByTo {
   '/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
   '/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
+  '/operations/charge-catalog': typeof AuthenticatedOperationsChargeCatalogRoute
+  '/operations/inventory': typeof AuthenticatedOperationsInventoryRoute
+  '/operations/vendors': typeof AuthenticatedOperationsVendorsRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/activity': typeof AuthenticatedReportingActivityRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
@@ -697,6 +739,7 @@ export interface FileRoutesByTo {
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/booking-engine/confirmation/$ref': typeof BookingEngineConfirmationRefRoute
   '/night-audit': typeof AuthenticatedNightAuditIndexRoute
+  '/operations': typeof AuthenticatedOperationsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -725,6 +768,7 @@ export interface FileRoutesById {
   '/_authenticated/house-view': typeof AuthenticatedHouseViewRoute
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
   '/_authenticated/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
+  '/_authenticated/operations': typeof AuthenticatedOperationsRouteWithChildren
   '/_authenticated/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/_authenticated/rates': typeof AuthenticatedRatesRoute
   '/_authenticated/reporting': typeof AuthenticatedReportingRouteWithChildren
@@ -753,6 +797,9 @@ export interface FileRoutesById {
   '/_authenticated/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
   '/_authenticated/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/_authenticated/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
+  '/_authenticated/operations/charge-catalog': typeof AuthenticatedOperationsChargeCatalogRoute
+  '/_authenticated/operations/inventory': typeof AuthenticatedOperationsInventoryRoute
+  '/_authenticated/operations/vendors': typeof AuthenticatedOperationsVendorsRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/_authenticated/reporting/activity': typeof AuthenticatedReportingActivityRoute
   '/_authenticated/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
@@ -782,6 +829,7 @@ export interface FileRoutesById {
   '/api/public/razorpay-webhook': typeof ApiPublicRazorpayWebhookRoute
   '/booking-engine/confirmation/$ref': typeof BookingEngineConfirmationRefRoute
   '/_authenticated/night-audit/': typeof AuthenticatedNightAuditIndexRoute
+  '/_authenticated/operations/': typeof AuthenticatedOperationsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
@@ -811,6 +859,7 @@ export interface FileRouteTypes {
     | '/house-view'
     | '/master-data'
     | '/night-audit'
+    | '/operations'
     | '/payments-reports'
     | '/rates'
     | '/reporting'
@@ -838,6 +887,9 @@ export interface FileRouteTypes {
     | '/night-audit/critical-tasks'
     | '/night-audit/eod-report'
     | '/night-audit/history'
+    | '/operations/charge-catalog'
+    | '/operations/inventory'
+    | '/operations/vendors'
     | '/quote/$id'
     | '/reporting/activity'
     | '/reporting/analytics'
@@ -867,6 +919,7 @@ export interface FileRouteTypes {
     | '/api/public/razorpay-webhook'
     | '/booking-engine/confirmation/$ref'
     | '/night-audit/'
+    | '/operations/'
     | '/settings/'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
@@ -917,6 +970,9 @@ export interface FileRouteTypes {
     | '/night-audit/critical-tasks'
     | '/night-audit/eod-report'
     | '/night-audit/history'
+    | '/operations/charge-catalog'
+    | '/operations/inventory'
+    | '/operations/vendors'
     | '/quote/$id'
     | '/reporting/activity'
     | '/reporting/analytics'
@@ -946,6 +1002,7 @@ export interface FileRouteTypes {
     | '/api/public/razorpay-webhook'
     | '/booking-engine/confirmation/$ref'
     | '/night-audit'
+    | '/operations'
     | '/settings'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
@@ -973,6 +1030,7 @@ export interface FileRouteTypes {
     | '/_authenticated/house-view'
     | '/_authenticated/master-data'
     | '/_authenticated/night-audit'
+    | '/_authenticated/operations'
     | '/_authenticated/payments-reports'
     | '/_authenticated/rates'
     | '/_authenticated/reporting'
@@ -1001,6 +1059,9 @@ export interface FileRouteTypes {
     | '/_authenticated/night-audit/critical-tasks'
     | '/_authenticated/night-audit/eod-report'
     | '/_authenticated/night-audit/history'
+    | '/_authenticated/operations/charge-catalog'
+    | '/_authenticated/operations/inventory'
+    | '/_authenticated/operations/vendors'
     | '/_authenticated/quote/$id'
     | '/_authenticated/reporting/activity'
     | '/_authenticated/reporting/analytics'
@@ -1030,6 +1091,7 @@ export interface FileRouteTypes {
     | '/api/public/razorpay-webhook'
     | '/booking-engine/confirmation/$ref'
     | '/_authenticated/night-audit/'
+    | '/_authenticated/operations/'
     | '/_authenticated/settings/'
     | '/_authenticated/bookings_/$id_/edit'
     | '/_authenticated/quote/$id_/edit'
@@ -1222,6 +1284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPaymentsReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/operations': {
+      id: '/_authenticated/operations'
+      path: '/operations'
+      fullPath: '/operations'
+      preLoaderRoute: typeof AuthenticatedOperationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/night-audit': {
       id: '/_authenticated/night-audit'
       path: '/night-audit'
@@ -1340,6 +1409,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/operations/': {
+      id: '/_authenticated/operations/'
+      path: '/'
+      fullPath: '/operations/'
+      preLoaderRoute: typeof AuthenticatedOperationsIndexRouteImport
+      parentRoute: typeof AuthenticatedOperationsRoute
     }
     '/_authenticated/night-audit/': {
       id: '/_authenticated/night-audit/'
@@ -1544,6 +1620,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedQuoteIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/operations/vendors': {
+      id: '/_authenticated/operations/vendors'
+      path: '/vendors'
+      fullPath: '/operations/vendors'
+      preLoaderRoute: typeof AuthenticatedOperationsVendorsRouteImport
+      parentRoute: typeof AuthenticatedOperationsRoute
+    }
+    '/_authenticated/operations/inventory': {
+      id: '/_authenticated/operations/inventory'
+      path: '/inventory'
+      fullPath: '/operations/inventory'
+      preLoaderRoute: typeof AuthenticatedOperationsInventoryRouteImport
+      parentRoute: typeof AuthenticatedOperationsRoute
+    }
+    '/_authenticated/operations/charge-catalog': {
+      id: '/_authenticated/operations/charge-catalog'
+      path: '/charge-catalog'
+      fullPath: '/operations/charge-catalog'
+      preLoaderRoute: typeof AuthenticatedOperationsChargeCatalogRouteImport
+      parentRoute: typeof AuthenticatedOperationsRoute
+    }
     '/_authenticated/night-audit/history': {
       id: '/_authenticated/night-audit/history'
       path: '/history'
@@ -1651,6 +1748,28 @@ const AuthenticatedNightAuditRouteChildren: AuthenticatedNightAuditRouteChildren
 const AuthenticatedNightAuditRouteWithChildren =
   AuthenticatedNightAuditRoute._addFileChildren(
     AuthenticatedNightAuditRouteChildren,
+  )
+
+interface AuthenticatedOperationsRouteChildren {
+  AuthenticatedOperationsChargeCatalogRoute: typeof AuthenticatedOperationsChargeCatalogRoute
+  AuthenticatedOperationsInventoryRoute: typeof AuthenticatedOperationsInventoryRoute
+  AuthenticatedOperationsVendorsRoute: typeof AuthenticatedOperationsVendorsRoute
+  AuthenticatedOperationsIndexRoute: typeof AuthenticatedOperationsIndexRoute
+}
+
+const AuthenticatedOperationsRouteChildren: AuthenticatedOperationsRouteChildren =
+  {
+    AuthenticatedOperationsChargeCatalogRoute:
+      AuthenticatedOperationsChargeCatalogRoute,
+    AuthenticatedOperationsInventoryRoute:
+      AuthenticatedOperationsInventoryRoute,
+    AuthenticatedOperationsVendorsRoute: AuthenticatedOperationsVendorsRoute,
+    AuthenticatedOperationsIndexRoute: AuthenticatedOperationsIndexRoute,
+  }
+
+const AuthenticatedOperationsRouteWithChildren =
+  AuthenticatedOperationsRoute._addFileChildren(
+    AuthenticatedOperationsRouteChildren,
   )
 
 interface AuthenticatedReportingRouteChildren {
@@ -1764,6 +1883,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedHouseViewRoute: typeof AuthenticatedHouseViewRoute
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
   AuthenticatedNightAuditRoute: typeof AuthenticatedNightAuditRouteWithChildren
+  AuthenticatedOperationsRoute: typeof AuthenticatedOperationsRouteWithChildren
   AuthenticatedPaymentsReportsRoute: typeof AuthenticatedPaymentsReportsRoute
   AuthenticatedRatesRoute: typeof AuthenticatedRatesRoute
   AuthenticatedReportingRoute: typeof AuthenticatedReportingRouteWithChildren
@@ -1805,6 +1925,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedHouseViewRoute: AuthenticatedHouseViewRoute,
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
   AuthenticatedNightAuditRoute: AuthenticatedNightAuditRouteWithChildren,
+  AuthenticatedOperationsRoute: AuthenticatedOperationsRouteWithChildren,
   AuthenticatedPaymentsReportsRoute: AuthenticatedPaymentsReportsRoute,
   AuthenticatedRatesRoute: AuthenticatedRatesRoute,
   AuthenticatedReportingRoute: AuthenticatedReportingRouteWithChildren,
