@@ -386,7 +386,7 @@ function QuickBookingPage() {
           <div className="text-xs uppercase tracking-wider text-gold">Initial Advance (optional)</div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Amount (₹)">
-              <NumField value={advanceAmount} onChange={(n) => setAdvanceAmount(Math.max(0, Math.min(pricing.total, Number(n) || 0)))} min={0} max={pricing.total} />
+              <NumField value={advanceAmount} onChange={(n) => setAdvanceAmount(Math.max(0, Math.min(pricing.total, Number(n) || 0)))} min={0} />
             </Field>
             <Field label="Mode">
               <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="qb-input">
