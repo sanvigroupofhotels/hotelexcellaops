@@ -23,7 +23,7 @@ import { publicOrigin } from "@/lib/public-url";
 import { BlockRoomDialog } from "@/components/block-room-dialog";
 import { useCheckInController } from "@/lib/check-in-flow";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
-import { useMasterData } from "@/hooks/use-master-data";
+import { useChargeCategories } from "@/hooks/use-charge-categories";
 import { MetricCard, Money } from "@/components/money";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLongPress, emitLongPressDebug } from "@/hooks/use-long-press";
