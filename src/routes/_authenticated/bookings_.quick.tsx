@@ -78,35 +78,10 @@ function QuickBookingPage() {
   const [email, setEmail] = useState("");
   const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(null);
 
-  // Normalize once — single source of truth for validation, lookup, and save.
-  const normalizedPhone = useMemo(() => normalizePhoneNumber(phone), [phone]);
-  const phoneValid = validatePhoneNumber(normalizedPhone);
-
-  // ---- Occupancy & rooms ----
-  const [adults, setAdults] = useState(2);
-  const [kids, setKids] = useState(0);
-  const [oakRooms, setOakRooms] = useState(1);
-  const [mappleRooms, setMappleRooms] = useState(0);
-
-  // ---- Pricing override / discount / other charges ----
-  const [otherCharges, setOtherCharges] = useState(0);
-  const [otherDescription, setOtherDescription] = useState("");
-  const [discount, setDiscount] = useState(0);
-  const [totalOverride, setTotalOverride] = useState<string>("");
-  const [taxesIncluded] = useState(true); // override entered as gross by default (Reception expectation)
-
-  // ---- Auto-focus mobile field on mount for speed ----
-  const phoneRef = useRef<HTMLInputElement | null>(null);
-  useEffect(() => { phoneRef.current?.focus(); }, []);
-
-  // ---- Existing customer match — phone is the unique identifier. ----
-  // Lookup ONLY by normalized phone; guest name never drives the search.
-  const { data: matchedCustomer } = useQuery({
-    queryKey: ["customer-match-phone", normalizedPhone],
-    queryFn: () => findCustomerByContact(normalizedPhone, undefined, undefined),
-    enabled: phoneValid,
-    staleTime: 30_000,
-  });
+  // Shared customer-resolution hook — single source of truth for normalization,
+  // validation, and existing-customer detection. Same hook is used by every
+  // booking source (Detailed, Quick, future Website/OTA/Walk-in/API flows).
+  const { normalizedPhone, isValid: phoneValid, matchedCustomer } = useExistingCustomerByPhone(phone);
   useEffect(() => {
     if (matchedCustomer) {
       setLinkedCustomer(matchedCustomer);
