@@ -1,262 +1,245 @@
-## Shipment Plan – UAT Fixes & Operational Enhancements
+# HEOS Phase 2 – Operations Module
 
-This is a sizeable shipment. Confirming scope before I touch code so we ship the right pieces in the right order. I'll batch into logical chunks.
+**Architecture & UX proposal. No code in this shipment.**
+
+## 1. Guiding Principles
+
+- 23-room property → keep it **boringly simple**. No ERP fields, no SKUs, no GRNs, no PO workflow.
+- **Mobile-first**: every daily action ≤ 30 seconds, ≤ 3 taps.
+- **Two roles only matter**: Reception (front desk + manager view) and Housekeeping (consume + restock).
+- **Single source of truth**: every stock change is a *Stock Movement* row. No "current_stock" field that can drift — current stock is always `SUM(movements)`. Cached on the item row for speed, recomputed on write.
+- **Auto over manual**: if HEOS already knows a movement (Add Charge → Water Bottle ×2), staff never re-enter it.
+- **Reuse before invent**: photos via existing `guest_documents`-style storage bucket; vendors share the contact pattern from `customers`; activity logging uses the existing `activity_log`.
+
+## 2. Recommended Navigation
+
+I recommend a **phased rollout** and a slightly different menu shape than the brief:
+
+```text
+Operations
+├── Inventory         ← Phase 2A (ship first)
+│   ├── Items
+│   ├── Low Stock     ← landing tab on mobile
+│   ├── Movements     ← audit log
+│   └── Stock Take    ← periodic reconciliation
+├── Vendors           ← Phase 2A (shipped with Inventory)
+├── Laundry           ← Phase 2B (after Inventory is live ~2 weeks)
+└── Maintenance       ← Phase 2C (reuses Vendors + Photos + Movements concepts)
+```
+
+**Recommendation accepted**: postpone Laundry + Maintenance. Inventory will produce three reusable primitives (Vendor, StockMovement, Photo attachment) that both later modules will lean on. Designing them now without a concrete consumer risks over-engineering.
+
+Sidebar placement: new top-level **Operations** group (collapsible, same pattern as Reporting/Settings), visible to Admin/Owner/Reception. Housekeeping users (future role) get a trimmed view — Items + Low Stock + Quick Stock Out only.
+
+## 3. Database Design
+
+Four new tables. All in `public`, all with explicit GRANTs + RLS, `created_at/updated_at`, soft-delete via `active` boolean (no hard deletes — movement history must stay referential).
+
+### 3.1 `inventory_categories` (lookup, seedable)
+
+- `id`, `key` (slug), `label`, `sort_order`, `active`
+- Seed: Beverages, Toiletries, Cleaning, Kitchenware, Housekeeping Supplies, Disposables.
+- Kept as a table (not enum) so admins can add categories without a migration. Mirrors the `master_data` pattern already in HEOS.
+
+### 3.2 `vendors`
+
+
+| field               | notes                                                    |
+| ------------------- | -------------------------------------------------------- |
+| `name`              | required                                                 |
+| `contact_person`    | required                                                 |
+| `phone`             | required, normalized via existing `normalize_phone_in()` |
+| `alt_phones text[]` | optional                                                 |
+| `address`           | optional                                                 |
+| `maps_url`          | optional (Google Maps link)                              |
+| `notes`             | optional                                                 |
+| `active`            | default true                                             |
+
+
+Phone normalization reuses the existing trigger so vendor numbers land in canonical `+91XXXXXXXXXX` form and `tel:` links Just Work on mobile.
+
+### 3.3 `inventory_items`
+
+
+| field                             | notes                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------- |
+| `name`                            | required, unique (case-insensitive)                                                   |
+| `photo_path`                      | storage path in `inventory-photos` bucket (private, signed URLs)                      |
+| `category_id`                     | FK → `inventory_categories`                                                           |
+| `preferred_vendor_id`             | FK → `vendors` (nullable)                                                             |
+| `unit`                            | text — "bottle", "sachet", "litre", "piece" (free text, autosuggest from past values) |
+| `current_stock`                   | numeric, **cached**; recomputed by trigger on every movement                          |
+| `minimum_stock`                   | numeric                                                                               |
+| `auto_consume_charge_keys text[]` | links to charge catalog keys; see §5                                                  |
+| `housekeeping_per_room numeric`   | nullable; reserved for future HK auto-consumption (see §7)                            |
+| `active`                          | default true                                                                          |
+
+
+`unit` deliberately stays free text. A 23-room hotel does not need a UoM conversion engine.
+
+### 3.4 `inventory_movements`  *(the source of truth)*
+
+
+| field                                  | notes                                                                                                                       |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `item_id`                              | FK                                                                                                                          |
+| `delta`                                | numeric, signed. **Negative = out, Positive = in.**                                                                         |
+| `reason`                               | enum: `stock_in`, `stock_out`, `auto_charge`, `auto_housekeeping`, `stock_take_adjust`, `wastage`, `transfer`, `correction` |
+| `source_type`                          | nullable, e.g. `booking_charge`                                                                                             |
+| `source_id`                            | nullable FK (uuid) to the originating row — enables auto-reversal                                                           |
+| `unit_cost`                            | optional numeric (for future cost reporting; staff can ignore)                                                              |
+| `vendor_id`                            | nullable, only meaningful for `stock_in`                                                                                    |
+| `notes`                                | optional                                                                                                                    |
+| `actor_id`, `actor_name`, `actor_role` | populated by `current_actor()`                                                                                              |
+| `correlation_id`                       | links to `activity_log`                                                                                                     |
+
+
+Rules:
+
+- Movements are **append-only**. Edits = new compensating movement. This is the same pattern as `booking_payments` and is what makes audit trustworthy.
+- Trigger on insert: `UPDATE inventory_items SET current_stock = current_stock + NEW.delta`.
+- Trigger on the originating entity's update/delete (Add Charge changes water bottles 2→3, or row is deleted): the inventory linkage emits a compensating `auto_charge` movement. Idempotency key = `(source_type, source_id)`; the linker stores the *current* delta it has applied and writes only the difference on subsequent edits.
+
+### 3.5 Storage bucket
+
+- `inventory-photos` — private bucket. Same access pattern as `staff-documents`. Single photo per item is enough; multi-photo can come later by extending to a child table without breaking the API.
+
+## 4. Auto-Consumption: full scenario map
+
+The "Add Charge → Water Bottle ×2" flow is the load-bearing case. Every edge needs a defined behaviour:
+
+
+| Event on booking_charges                           | Inventory effect                                                                                                                                                      |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| INSERT charge with `auto_consume` mapping          | Insert movement `delta = -qty`, reason `auto_charge`, source = charge row                                                                                             |
+| UPDATE qty (2 → 3)                                 | Insert movement `delta = -1` (diff only)                                                                                                                              |
+| UPDATE qty (3 → 1)                                 | Insert movement `delta = +2`                                                                                                                                          |
+| UPDATE item (Water → Coffee)                       | Compensating movements: refund Water by old qty, deduct Coffee by new qty                                                                                             |
+| DELETE / VOID charge                               | Insert movement `delta = +originally_applied`                                                                                                                         |
+| Booking cancelled before checkout                  | Charges already deducted: reversed via per-charge delete cascade — **no separate booking-cancel handler needed**. This is why we anchor on charge rows, not bookings. |
+| Charge edited after night audit close              | Still allowed; inventory just records the compensating movement on today's business date. Audit history remains intact.                                               |
+| Mapping changes (admin links/unlinks a charge key) | Past movements untouched; only future charges follow the new rule.                                                                                                    |
+
+
+The mapping itself lives on `inventory_items.auto_consume_charge_keys` so admins control it from the Item screen — no separate "rules" table needed at 23 rooms.
+
+## 5. Shared Business Logic (`src/lib/`)
+
+Proposed pure modules, mirroring how `booking-status.ts` and `customer-resolution.ts` were structured:
+
+- `inventory-movements.ts` — single write path: `recordMovement({item, delta, reason, source, notes})`. All UI calls this; no direct table writes.
+- `inventory-auto-consume.ts` — `applyChargeDelta(chargeRow, previousChargeRow|null)` invoked from the existing charge save/delete pipeline. Idempotent.
+- `inventory-availability.ts` — `getLowStockItems()`, `getCurrentStock(itemId)`, mirroring `room-counts.ts` as single source of truth for any dashboard widget.
+- `vendors-api.ts` — thin CRUD + phone normalization passthrough.
+
+Everything else (forms, lists) is presentation.
+
+## 6. UX Wireframes
+
+### 6.1 Inventory landing (mobile, default tab = Low Stock)
+
+```text
+┌─────────────────────────────────┐
+│ Inventory          [＋ Item]    │
+│ [Low Stock•3] [All] [Movements] │
+├─────────────────────────────────┤
+│ ⚠ Hand Wash                     │
+│ 2 / 10 bottles                  │
+│ Sharma Supplies · 📞 Call       │
+│ [Stock In]                      │
+├─────────────────────────────────┤
+│ ⚠ Coffee Sachets                │
+│ 18 / 50 sachets                 │
+│ Nestlé Local · 📞 Call          │
+│ [Stock In]                      │
+└─────────────────────────────────┘
+```
+
+- `📞 Call` is a `tel:` link to the vendor's normalized phone — the manager-calls-supplier flow takes one tap.
+- `Stock In` opens a single-field sheet: quantity + optional invoice photo + optional unit cost. Vendor pre-filled from preferred vendor.
+
+### 6.2 Item detail
+
+```text
+[photo]
+Water Bottle 1L
+Beverages · Preferred: Sharma Supplies
+
+Current  48 bottles      Minimum  20
+Auto-consume: ☑ when "Water Bottle" charge is added
+
+[Stock In]  [Stock Out]  [Edit]
+
+Recent movements
+  −2  Booking #B1042  (auto) · 2h ago · Riya
+  +60 Stock In · Sharma Supplies · yesterday · Vikram
+  −1  Booking #B1039  (auto) · yesterday · Riya
+```
+
+The movement list IS the audit trail. No separate audit page needed for Phase 2A.
+
+### 6.3 Stock Out sheet (manual consumption)
+
+Single screen: item picker (search) → quantity → optional reason → Save. 3 taps for the common case (Hand Wash refilled in 102 → −1).
+
+### 6.4 Vendors
+
+Mirror Customers list pattern: search by name/phone, tap row → detail with `Call`, `WhatsApp`, `Open in Maps`, linked items, recent stock-ins.
+
+### 6.5 Stock Take
+
+Periodic (weekly/monthly). Renders a checklist of active items with current cached stock and an editable "counted" field. On save, generates `stock_take_adjust` movements for each diff in a single `correlation_id` so the audit shows them as one event.
+
+## 7. Future Extensibility (designed for, not built)
+
+The `housekeeping_per_room` field + `auto_housekeeping` movement reason are reserved hooks. When Housekeeping module ships, "Mark Room Clean" emits one auto-consumption movement per linked item (1 coffee sachet, 1 tea sachet, etc.) — **no schema change required**, only a new caller of `recordMovement()`. This is the payoff for treating movements as the primitive.
+
+Likewise Laundry can model linen as inventory items with custom reasons (`laundry_out`, `laundry_in`), and Maintenance can attach photos + vendors to work-order rows using the same storage bucket and vendor table.
+
+## 8. Risks & Mitigations
+
+
+| Risk                                            | Mitigation                                                                                                                                             |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Cached `current_stock` drifts from movement sum | Nightly job (extend Night Audit) recomputes from movements; mismatch logged to `activity_log`.                                                         |
+| Charge ↔ inventory mapping confusion for staff  | Mapping lives on the Item screen, not buried in Settings. Inline help: "When 'Water Bottle' is added to a bill, deduct 1 from this item."              |
+| Photo bloat in storage                          | Max 1 photo per item, resized client-side to ~800px before upload — same approach as guest documents.                                                  |
+| Reception forgets manual stock-outs (Hand Wash) | Low Stock screen surfaces them. Weekly Stock Take catches the rest. Accept that some categories will be approximate — that's appropriate for 23 rooms. |
+| Over-zealous auto-consumption on edits          | Idempotent per-source delta engine; comprehensive scenario table in §4 is the spec — every branch must have a test before code ships.                  |
+| Vendor data duplicated with `customers` later   | Keep `vendors` separate. They're a different domain (B2B supplier vs guest); merging causes more pain than it saves.                                   |
+
+
+## 9. Recommendations / Decisions Needed
+
+1. **Confirm phasing**: ship Inventory + Vendors as Phase 2A; defer Laundry + Maintenance. *(I recommend yes.)*
+2. **Roles**: do we add a `housekeeping` app_role now, or keep everything under Reception until the Housekeeping module lands? *(I recommend deferring — adding a role with no exclusive screens is noise.)*
+3. **Cost tracking**: store `unit_cost` on stock-in for future P&L, even though no UI surfaces it yet? *(I recommend yes — costs nothing now, unlocks reports later.)*
+4. **Charge catalog linkage**: today charges are free-text labels. To make auto-consume reliable we need either (a) a small "charge catalog" lookup, or (b) match by label. *(I recommend a tiny* `charge_catalog` *table — same shape as* `master_data`*. This is the only non-trivial prerequisite and worth deciding before coding.)*
+5. **Stock units**: keep free text + autosuggest, or constrain to a small enum? *(I recommend free text.)*
 
 ---
 
-### 1. Notification Center
-
-**A. Mobile bell**
-
-- Surface `NotificationBell` in the mobile shell (currently `hidden md:flex` in Topbar). Add it to the mobile header alongside the sidebar trigger so reception sees the badge + popover on phones. Same component, same actions (mark read, mark all, dismiss, navigate).
-
-**B. Push notifications**
-
-- Add a Web Push subscription flow on first sign-in (notification permission prompt, store subscription in a new `push_subscriptions` table keyed by user_id, RLS scoped to owner).
-- Add a server-side dispatcher (server fn + DB trigger fan-out) that fires a Web Push payload whenever a row lands in `public.notifications`. Uses VAPID keys stored as secrets (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`). Service worker handles click → deep-link to the entity URL embedded in payload.
-- iOS Safari requires "Add to Home Screen" to receive push — I'll surface a one-line hint on the bell when permission is denied or PWA not installed.
-- **Question:** OK to add VAPID keys as secrets? I'll generate them and add via secret tool. No third-party push provider needed.
-
-**C. Lead Abandoned → Draft Booking**
-
-- Today the `lead_abandoned` notification metadata points at the lead row. I'll change `notify_lead_abandoned` (or the click handler) so the entity link resolves to the draft booking created for that lead. If no draft booking exists, fall back to the lead detail page. Click navigates straight to `/bookings/<draft_id>/edit`.
-
----
-
-### 2. Guest Portal Search (PMS side, `portal.tsx` admin search)
-
-- Consolidate into one search box that accepts: full portal URL, raw token, booking reference, or mobile number. Detect input type by pattern (URL/UUID/`BK-…`/digits).
-- Remove the duplicate second search section.
-- Mobile number flow:
-  - 1 active booking → open it
-  - &nbsp;
-  > 1 active → list selector
-  - 0 active → most recent booking
-- Wire each path end-to-end and remove dead branches.
-
----
-
-### 3. Portal "Secured by Razorpay" line
-
-Move the security note from the bottom of the portal to directly under the "Complete Your Booking" payment options (`PortalPaymentOptions`), above the Additional Services group.
-
----
-
-### 4. House View Mobile Layout
-
-- Row 1: Stats + Search side-by-side
-- Row 2: Today button + Business Date selector side-by-side
-- Tighten top padding, collapse vertical gaps, raise the timeline grid.
-- Preserve sticky headers, sticky room column, drag & drop, long-press, debug overlay.
-- Mobile only — desktop layout unchanged.
-
----
-
-### 5. FabHotels Integration
-
-- Investigate why save/test errors mention Gmail. Likely a shared validator gating on `gmail_connected` regardless of provider.
-- Decouple: each integration's validator only checks its own required config (FabHotels needs property credentials, not Gmail).
-- Return clear error messages per missing field.
-- Verify save → test → enable → run end-to-end.
-
----
-
-### 6. Due Collection Logic Rework
-
-- Eligibility = `balance_due > 0 AND status NOT IN (Cancelled, Draft)` AND `check_in <= business_date`.
-- Due Date = original `check_in` date (frozen).
-- Show every Business Date until balance ≤ 0 or cancelled — drop any check-out-based filter.
-- Overdue label computed from `business_date - check_in`:
-  - 0 → "Due Today"
-  - N>0 → "Overdue by N day(s)"
-- Page reads Business Date (Asia/Kolkata) from `app_settings`, not calendar date.
-- Confirms with existing Night Audit (no schema changes needed — list is a query over `bookings`).
-
----
-
-### 7. UAT validation
-
-After each chunk, Playwright in headless against `localhost:8080` for the affected page (portal search, house view mobile viewport, dues). Notification push needs a real device for end-to-end — I'll verify permission flow + service worker registration + a manual send round-trip in the sandbox; real-device push verification will be the user's UAT step.
-
----
-
-### Order of execution
-
-1. House View mobile layout (low risk, visible win)
-2. Portal Razorpay message move (trivial)
-3. Guest Portal search consolidation
-4. Notification bell on mobile + Lead Abandoned navigation
-5. Due Collection logic
-6. FabHotels validator fix
-7. Web Push (largest, last — touches SW, DB, secrets)
-
-### Technical notes
-
-- New table `push_subscriptions(user_id, endpoint, p256dh, auth, user_agent, created_at)` with RLS scoped to `auth.uid()`.
-- Service worker at `public/sw.js` (or extend existing) for `push` and `notificationclick`.
-- Push dispatch via a `createServerFn` invoked by a Postgres trigger using `pg_net` → `/api/public/dispatch-push` (HMAC-signed), since DB triggers can't hit `web-push` directly. Webhook handler signs with VAPID and sends to each subscription, prunes 410s.
-
----
-
-### Confirm before I start
-
-1. **OK to add a** `push_subscriptions` **table + VAPID secrets and a** `/api/public/dispatch-push` **webhook for push fan-out?** (Alternative: skip push for now, ship 1A+1C and the rest.)
-2. **Lead Abandoned click target** — confirm: open the auto-created draft booking edit page; if none exists, open the lead. Correct?
-3. **Dues "most recent booking" rule** — the spec says portal mobile-number search falls back to most recent when none active. Confirm "most recent" = latest by `check_in DESC`. Correct?
-
-- Once you confirm (or say "go" to all), I'll execute in the order above.
-
-The plan looks good overall. Please proceed with the shipment.
+**Next step**: please review §4 (auto-consumption matrix) and §9 (decisions). Once you confirm, I will produce Shipment 2A.1: schema migration + Vendors CRUD + Inventory Items CRUD with photos, with the auto-consume engine following in 2A.2.
 
 &nbsp;
 
-A few clarifications before implementation:
+&nbsp;
+
+My comments - 
 
 &nbsp;
 
-1. Push Notifications
+Overall, I like the proposed architecture. It aligns well with the direction I want HEOS to take. I have a few comments before implementation:
 
 &nbsp;
 
-Yes, you may proceed with the proposed architecture.
+1. Inventory Categories
 
 &nbsp;
 
-I'm happy with:
+Please reuse our existing Master Data module for Inventory Categories instead of introducing a separate inventory_categories table. This keeps all configurable lookup values in one place.
 
 &nbsp;
-
-- "push_subscriptions" table
-
-- VAPID keys as secrets
-
-- Service Worker
-
-- "/api/public/dispatch-push" webhook
-
-- No third-party push provider
-
-&nbsp;
-
-Please keep the implementation generic and reusable so all future operational notifications can use the same framework.
-
-&nbsp;
-
----
-
-&nbsp;
-
-2. Lead Abandoned Navigation
-
-&nbsp;
-
-Confirmed.
-
-&nbsp;
-
-When a Lead Abandoned notification is clicked:
-
-&nbsp;
-
-- If a Draft Booking has already been created, open the Draft Booking directly.
-
-- If no Draft Booking exists, fall back to the Lead detail page.
-
-&nbsp;
-
-That is the expected behaviour.
-
-&nbsp;
-
----
-
-&nbsp;
-
-3. Guest Portal Search
-
-&nbsp;
-
-Confirmed.
-
-&nbsp;
-
-For Mobile Number search:
-
-&nbsp;
-
-- If exactly one active booking exists → open it directly.
-
-- If multiple active bookings exist → show a booking selection list.
-
-- If there are no active bookings → open the most recent booking (latest by Check-In Date).
-
-&nbsp;
-
-Please ensure all of the following are supported from a single search box:
-
-&nbsp;
-
-- Full Guest Portal URL
-
-- Portal Token
-
-- Booking Reference
-
-- Mobile Number
-
-&nbsp;
-
-Remove the duplicate search section once this is complete.
-
-&nbsp;
-
----
-
-&nbsp;
-
-4. Due Collection Logic
-
-&nbsp;
-
-The proposed logic is almost correct.
-
-&nbsp;
-
-Please make one important adjustment.
-
-&nbsp;
-
-The page should not simply show all checked-in bookings with balance_due > 0.
-
-&nbsp;
-
-Instead:
-
-&nbsp;
-
-- The original Due Date should be the Check-In Date.
-
-- Once the booking becomes due, it should remain in the Due Collection list on every subsequent Business Date until:
-
-  - Outstanding balance becomes zero, or
-
-  - Booking is cancelled.
-
-&nbsp;
-
-If the guest extends the stay, the booking should continue appearing in Due Collection until payment is collected.
-
-&nbsp;
-
-The Business Date drives the Due Collection page.
-
-&nbsp;
-
-The original Due Date should remain unchanged.
-
-&nbsp;
-
-The overdue calculation should always be based on the original Check-In Date.
 
 &nbsp;
 
@@ -264,10 +247,284 @@ The overdue calculation should always be based on the original Check-In Date.
 
 &nbsp;
 
-Everything else in the shipment looks good.
+2. Vendor Module
 
 &nbsp;
 
-Please proceed in the planned execution order and provide the shipment summary after completion.
+The Vendor screen should remain lightweight.
 
 &nbsp;
+
+Mandatory fields:
+
+&nbsp;
+
+Vendor Name
+
+&nbsp;
+
+Contact Person
+
+&nbsp;
+
+Mobile Number
+
+&nbsp;
+
+&nbsp;
+
+Optional fields:
+
+&nbsp;
+
+Google Maps Location
+
+&nbsp;
+
+Physical Address
+
+&nbsp;
+
+Alternate Mobile Numbers (Add More)
+
+&nbsp;
+
+Notes
+
+&nbsp;
+
+Active / Inactive
+
+&nbsp;
+
+&nbsp;
+
+No GST, payment terms, banking details, etc. at this stage.
+
+&nbsp;
+
+&nbsp;
+
+---
+
+&nbsp;
+
+3. Inventory Simplicity
+
+&nbsp;
+
+Please always remember that HEOS is being built for a 23-room hotel.
+
+&nbsp;
+
+The inventory workflow should remain extremely simple so staff actually use it.
+
+&nbsp;
+
+Our guiding principle should be:
+
+&nbsp;
+
+> If HEOS already knows something happened, staff should never have to enter it again.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Examples:
+
+&nbsp;
+
+Water Bottles sold through Add Charge → Inventory should reduce automatically.
+
+&nbsp;
+
+If the charge quantity changes, inventory should adjust only by the difference.
+
+&nbsp;
+
+If the charge is deleted/cancelled, inventory should be restored automatically.
+
+&nbsp;
+
+Housekeeping consumables (cleaning chemicals, handwash, etc.) remain manual stock movements.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+---
+
+&nbsp;
+
+4. Charge Mapping
+
+&nbsp;
+
+I agree that matching free-text labels is not a good long-term solution.
+
+&nbsp;
+
+I support introducing a small Charge Catalog so inventory auto-consumption is mapped to a charge definition instead of relying on text matching.
+
+&nbsp;
+
+&nbsp;
+
+---
+
+&nbsp;
+
+5. Bulk Operations
+
+&nbsp;
+
+Please include support for:
+
+&nbsp;
+
+Bulk Stock In (one purchase containing multiple inventory items)
+
+&nbsp;
+
+Bulk Stock Out (one consumption entry affecting multiple inventory items)
+
+&nbsp;
+
+&nbsp;
+
+This will make day-to-day inventory updates much faster.
+
+&nbsp;
+
+&nbsp;
+
+---
+
+&nbsp;
+
+6. Low Stock Screen
+
+&nbsp;
+
+The Low Stock screen should display:
+
+&nbsp;
+
+Item
+
+&nbsp;
+
+Current Stock
+
+&nbsp;
+
+Minimum Stock
+
+&nbsp;
+
+Preferred Vendor
+
+&nbsp;
+
+Vendor Mobile Number
+
+&nbsp;
+
+&nbsp;
+
+The idea is that the manager should be able to identify the shortage and immediately contact the supplier.
+
+&nbsp;
+
+&nbsp;
+
+---
+
+&nbsp;
+
+7. Unit Cost
+
+&nbsp;
+
+I agree with storing Unit Cost in the database for future reporting, but there is no need to expose it in the UI right now.
+
+&nbsp;
+
+&nbsp;
+
+---
+
+&nbsp;
+
+8. Inventory Reconciliation
+
+&nbsp;
+
+I suggest renaming Stock Take to Inventory Reconciliation (or Physical Stock Verification) as it is more intuitive for our staff.
+
+&nbsp;
+
+&nbsp;
+
+---
+
+&nbsp;
+
+9. Photos
+
+&nbsp;
+
+One photo per inventory item is sufficient.
+
+&nbsp;
+
+Please do not add invoice photo uploads at this stage.
+
+&nbsp;
+
+&nbsp;
+
+---
+
+&nbsp;
+
+10. Overall Goal
+
+&nbsp;
+
+The Operations module should follow the same philosophy as the Booking module:
+
+&nbsp;
+
+Keep it simple.
+
+&nbsp;
+
+Keep it fast.
+
+&nbsp;
+
+Mobile-first.
+
+&nbsp;
+
+Minimize clicks.
+
+&nbsp;
+
+Reuse shared business logic.
+
+&nbsp;
+
+Avoid ERP-style complexity.
+
+&nbsp;
+
+&nbsp;
+
+If a common task takes more than 30 seconds, we should rethink the workflow before implementing it.
