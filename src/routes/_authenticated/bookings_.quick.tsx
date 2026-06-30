@@ -446,17 +446,17 @@ function QuickBookingPage() {
             type="button"
             onClick={() => ensureBookingThen(() => setChargeOpen(true))}
             disabled={save.isPending}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card text-sm py-2.5 hover:bg-secondary disabled:opacity-50"
+            className="flex-1 inline-flex items-center justify-center rounded-md border border-border bg-card text-sm py-2.5 font-medium hover:bg-secondary disabled:opacity-50"
           >
-            <Receipt className="h-4 w-4" /> Add Charges
+            Add Charges
           </button>
           <button
             type="button"
             onClick={() => ensureBookingThen(() => setPaymentOpen(true))}
             disabled={save.isPending}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card text-sm py-2.5 hover:bg-secondary disabled:opacity-50"
+            className="flex-1 inline-flex items-center justify-center rounded-md border border-border bg-card text-sm py-2.5 font-medium hover:bg-secondary disabled:opacity-50"
           >
-            <Wallet className="h-4 w-4" /> Add Payment
+            Add Payment
           </button>
           {!createdBookingId ? (
             <button
@@ -465,14 +465,14 @@ function QuickBookingPage() {
               disabled={save.isPending || errors.length > 0}
               className="flex-[1.2] inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient text-charcoal text-sm py-2.5 font-medium disabled:opacity-50"
             >
-              {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <BedDouble className="h-4 w-4" />}
+              {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Create Booking
             </button>
           ) : (
             <button
               type="button"
               onClick={() => navigate({ to: "/bookings/$id", params: { id: createdBookingId } })}
-              className="flex-[1.2] inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient text-charcoal text-sm py-2.5 font-medium"
+              className="flex-[1.2] inline-flex items-center justify-center rounded-md gold-gradient text-charcoal text-sm py-2.5 font-medium"
             >
               View Booking
             </button>
