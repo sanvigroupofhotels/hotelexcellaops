@@ -39,6 +39,7 @@ export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
       { data: bdRow },
       { data: rooms },
       { data: stays },
+      { data: items },
       { data: payments },
       { data: charges },
       { data: cash },
@@ -50,6 +51,14 @@ export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
         .select("id,customer_id,status,source_channel,room_details,check_in,check_out,amount,advance_paid,created_at")
         .lt("check_in", isoNext(range_end))
         .gt("check_out", range_start),
+      // booking_items powers the shared room-count helper — sums rooms × nights
+      // across multi-room and split-stay bookings instead of counting parent
+      // booking rows. Filtered to the same date window as `stays`.
+      supabase
+        .from("booking_items" as any)
+        .select("booking_id,position,room_type,rooms,check_in,check_out,bookings!inner(check_in,check_out)")
+        .lt("bookings.check_in", isoNext(range_end))
+        .gt("bookings.check_out", range_start),
       supabase
         .from("booking_payments" as any)
         .select("amount,payment_mode,is_refund,occurred_at")
@@ -63,6 +72,7 @@ export const getOwnerDashboardKpis = createServerFn({ method: "POST" })
       // current cash balance — active only
       supabase.from("cash_transactions" as any).select("kind,amount").eq("active", true),
     ]);
+
 
     const businessDate = (bdRow as any)?.value?.date ?? calendarDate;
 
