@@ -5,9 +5,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getCustomer, findCustomerByContact, type CustomerRow } from "@/lib/customers-api";
 import { getQuote } from "@/lib/quotes-api";
-import { createBooking, type BookingInput } from "@/lib/bookings-api";
+import { type BookingInput } from "@/lib/bookings-api";
+import { submitNewBooking } from "@/lib/booking-create";
 import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
-import { addBookingItems, quoteItemsToBookingInputs } from "@/lib/booking-items-api";
 import { listQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
 import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
 import {
