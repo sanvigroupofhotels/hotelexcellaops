@@ -228,6 +228,11 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         );
       })}
+      {/* Operations group — Inventory, Vendors, Charge Catalog */}
+      <ExpandableGroup
+        label="Operations" icon={Boxes} prefix="/operations"
+        children={operationsChildren} onNavigate={onNavigate} pathname={pathname}
+      />
       {/* Reporting group — visible to all signed-in staff (admin-only children are filtered inside) */}
       <ExpandableGroup
         label="Reporting" icon={FileBarChart} prefix="/reporting"
