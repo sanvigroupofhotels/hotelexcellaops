@@ -38,6 +38,8 @@ import {
   groupStayAssignments, groupStayItems, pairStaySlotsToRooms,
   segmentCoversDate, segmentOverlapsRange, segmentsOverlap, stayRoomTypesMatch, slotEndExclusive,
 } from "@/lib/stay-segments";
+import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
+
 
 export const Route = createFileRoute("/_authenticated/house-view")({
   component: HouseView,
