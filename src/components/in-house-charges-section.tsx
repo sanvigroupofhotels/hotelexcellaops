@@ -6,24 +6,19 @@ import {
   listBookingCharges, createBookingCharge, updateBookingCharge,
   deleteBookingCharge, chargesTotal, type BookingChargeRow,
 } from "@/lib/booking-charges-api";
-import { useMasterData } from "@/hooks/use-master-data";
+import { useChargeCategories } from "@/hooks/use-charge-categories";
 import { useUserRole } from "@/hooks/use-role";
 import { listStaff } from "@/lib/cash-api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { NumField } from "@/components/num-field";
-
-const DEFAULT_CATEGORIES = [
-  "Food Order", "Water Bottles", "Laundry", "Dental Kit", "Shaving Kit",
-  "Coffee", "Tea", "Late Check-out", "Early Check-in", "Extra Pet",
-  "Extra Adult", "Transportation", "Other",
-];
 
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 
 export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
   const qc = useQueryClient();
   const { isAdmin } = useUserRole();
-  const { values: categories } = useMasterData("in_house_charge", DEFAULT_CATEGORIES);
+  // Single source of truth: Charge Catalog (Operations → Charge Catalog).
+  const { values: categories } = useChargeCategories();
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState<BookingChargeRow | null>(null);
 

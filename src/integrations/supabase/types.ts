@@ -921,9 +921,11 @@ export type Database = {
       charge_catalog: {
         Row: {
           active: boolean
+          auto_consume_qty: number
           created_at: string
           default_price: number
           id: string
+          inventory_item_id: string | null
           key: string
           label: string
           sort_order: number
@@ -933,9 +935,11 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          auto_consume_qty?: number
           created_at?: string
           default_price?: number
           id?: string
+          inventory_item_id?: string | null
           key: string
           label: string
           sort_order?: number
@@ -945,9 +949,11 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          auto_consume_qty?: number
           created_at?: string
           default_price?: number
           id?: string
+          inventory_item_id?: string | null
           key?: string
           label?: string
           sort_order?: number
@@ -955,7 +961,15 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "charge_catalog_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       complaint_activities: {
         Row: {

@@ -23,7 +23,7 @@ import { publicOrigin } from "@/lib/public-url";
 import { BlockRoomDialog } from "@/components/block-room-dialog";
 import { useCheckInController } from "@/lib/check-in-flow";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
-import { useMasterData } from "@/hooks/use-master-data";
+import { useChargeCategories } from "@/hooks/use-charge-categories";
 import { MetricCard, Money } from "@/components/money";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLongPress, emitLongPressDebug } from "@/hooks/use-long-press";
@@ -1208,10 +1208,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
   const issueToken = useServerFn(issueBookingToken);
-  const { values: chargeCategories } = useMasterData("in_house_charge", [
-    "Food Order","Water Bottles","Laundry","Dental Kit","Shaving Kit","Coffee","Tea",
-    "Late Check-out","Early Check-in","Extra Pet","Extra Adult","Transportation","Other",
-  ]);
+  const { values: chargeCategories } = useChargeCategories();
   const isCheckedOut = status === "Checked-Out" || status === "Stay Completed";
   const canTransact = status !== "Cancelled" && !isCheckedOut;
 

@@ -8,6 +8,8 @@ export interface ChargeCatalogRow {
   taxable: boolean;
   sort_order: number;
   active: boolean;
+  inventory_item_id: string | null;
+  auto_consume_qty: number;
   created_at: string;
   updated_at: string;
 }
@@ -19,6 +21,8 @@ export interface ChargeCatalogInput {
   taxable?: boolean;
   sort_order?: number;
   active?: boolean;
+  inventory_item_id?: string | null;
+  auto_consume_qty?: number;
 }
 
 function slugify(s: string) {
