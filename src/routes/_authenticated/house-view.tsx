@@ -610,12 +610,13 @@ function HouseView() {
   const occPct = totalRooms ? Math.round((occupiedRooms.size / totalRooms) * 100) : 0;
 
 
-  const adultsInHouse = inHouseBookings.reduce((s, b) => s + (Number(b.adults) || 0), 0);
-  const childrenInHouse = inHouseBookings.reduce((s, b) => s + (Number(b.children) || 0), 0);
+  const adultsInHouse = inHouseBookings.reduce((s, b: any) => s + (Number(b.adults) || 0), 0);
+  const childrenInHouse = inHouseBookings.reduce((s, b: any) => s + (Number(b.children) || 0), 0);
 
-  const breakfastBookings = inHouseBookings.filter((b) => breakfastByBooking.get(b.id));
-  const adultsBreakfast = breakfastBookings.reduce((s, b) => s + (Number(b.adults) || 0), 0);
-  const childrenBreakfast = breakfastBookings.reduce((s, b) => s + (Number(b.children) || 0), 0);
+  const breakfastBookings = inHouseBookings.filter((b: any) => breakfastByBooking.get(b.id));
+  const adultsBreakfast = breakfastBookings.reduce((s, b: any) => s + (Number(b.adults) || 0), 0);
+  const childrenBreakfast = breakfastBookings.reduce((s, b: any) => s + (Number(b.children) || 0), 0);
+
 
   const roomNumber = (id: string | null) => {
     if (!id) return null;
