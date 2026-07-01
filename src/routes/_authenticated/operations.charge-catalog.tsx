@@ -2,12 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, X, Loader2, Trash2 } from "lucide-react";
+import { Plus, X, Loader2, Trash2, Boxes } from "lucide-react";
 import { AdminOnly } from "@/components/admin-only";
 import {
   listChargeCatalog, createChargeCatalog, updateChargeCatalog, deleteChargeCatalog,
   type ChargeCatalogRow,
 } from "@/lib/charge-catalog-api";
+import { listInventoryItems } from "@/lib/inventory-items-api";
 
 export const Route = createFileRoute("/_authenticated/operations/charge-catalog")({ component: ChargeCatalogPage });
 
@@ -53,8 +54,15 @@ function Inner() {
             <button key={r.id} onClick={() => setEditing(r)}
               className="w-full text-left p-3 flex items-center gap-3 hover:bg-muted/30">
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">{r.label} {!r.active && <span className="text-[10px] text-muted-foreground ml-1">(inactive)</span>}</div>
-                <div className="text-[11px] text-muted-foreground">key: {r.key} · sort {r.sort_order}{r.taxable && " · taxable"}</div>
+                <div className="text-sm font-medium flex items-center gap-1.5">
+                  {r.label}
+                  {r.inventory_item_id && <Boxes className="h-3 w-3 text-gold" aria-label="Auto-consume linked" />}
+                  {!r.active && <span className="text-[10px] text-muted-foreground ml-1">(inactive)</span>}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  key: {r.key} · sort {r.sort_order}{r.taxable && " · taxable"}
+                  {r.inventory_item_id && ` · deducts ${Number(r.auto_consume_qty || 1)} / unit`}
+                </div>
               </div>
               <div className="text-sm tabular-nums">₹{Number(r.default_price).toLocaleString("en-IN")}</div>
               <span onClick={(e) => { e.stopPropagation(); toggle.mutate(r); }}
@@ -80,6 +88,9 @@ function CatalogDialog({ row, onClose }: { row?: ChargeCatalogRow; onClose: () =
   const [sort, setSort] = useState(String(row?.sort_order ?? 100));
   const [taxable, setTaxable] = useState(row?.taxable ?? false);
   const [active, setActive] = useState(row?.active ?? true);
+  const [invItemId, setInvItemId] = useState<string>(row?.inventory_item_id ?? "");
+  const [autoQty, setAutoQty] = useState(String(row?.auto_consume_qty ?? 1));
+  const { data: items = [] } = useQuery({ queryKey: ["inventory-items", "active"], queryFn: () => listInventoryItems({ activeOnly: true }) });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -87,6 +98,8 @@ function CatalogDialog({ row, onClose }: { row?: ChargeCatalogRow; onClose: () =
         key: key || label.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
         label, default_price: Number(price) || 0, sort_order: Number(sort) || 100,
         taxable, active,
+        inventory_item_id: invItemId || null,
+        auto_consume_qty: invItemId ? Math.max(Number(autoQty) || 1, 0.0001) : 1,
       };
       if (row) await updateChargeCatalog(row.id, payload);
       else await createChargeCatalog(payload);
@@ -124,6 +137,24 @@ function CatalogDialog({ row, onClose }: { row?: ChargeCatalogRow; onClose: () =
           </div>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Taxable</label>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active</label>
+
+          <div className="border-t border-border pt-3 mt-1 space-y-2">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Boxes className="h-3.5 w-3.5 text-gold" /> Inventory link (optional)
+            </div>
+            <div className="grid grid-cols-[1fr_100px] gap-2">
+              <select className={inputCls} value={invItemId} onChange={(e) => setInvItemId(e.target.value)}>
+                <option value="">— None (no auto-deduction) —</option>
+                {items.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+              </select>
+              <input className={inputCls} type="number" step="any" value={autoQty}
+                onChange={(e) => setAutoQty(e.target.value)} placeholder="qty"
+                disabled={!invItemId} title="Units deducted per 1 charge quantity" />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              When linked, adding this charge to a bill auto-deducts stock (charge qty × units above). Editing or deleting the charge, or cancelling the booking, reverses the movement automatically.
+            </p>
+          </div>
         </div>
         <div className="px-4 py-3 border-t border-border flex items-center gap-2">
           {row && (

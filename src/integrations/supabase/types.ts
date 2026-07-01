@@ -3384,6 +3384,10 @@ export type Database = {
       sweep_expired_draft_bookings: { Args: never; Returns: number }
       sweep_lost_leads: { Args: never; Returns: number }
       sweep_stay_completed: { Args: never; Returns: number }
+      sync_inventory_for_charge: {
+        Args: { p_charge_id: string }
+        Returns: undefined
+      }
       user_effective_permissions: {
         Args: { _user_id: string }
         Returns: {
