@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Plus, Phone, AlertTriangle, Package, History as HistoryIcon, Search,
-  ArrowDown, ArrowUp, X, Loader2, Trash2, Camera,
+  ArrowDown, ArrowUp, X, Loader2, Trash2, Camera, MoreVertical, Layers, ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMasterData } from "@/hooks/use-master-data";
@@ -16,7 +16,7 @@ import {
   uploadItemPhoto, removeItemPhoto, signedPhotoUrl, type InventoryItemRow,
 } from "@/lib/inventory-items-api";
 import {
-  listMovements, stockIn, stockOut, formatReason, type InventoryMovementRow,
+  listMovements, stockIn, stockOut, recordBulkMovement, formatReason, type InventoryMovementRow,
 } from "@/lib/inventory-movements";
 
 export const Route = createFileRoute("/_authenticated/operations/inventory")({ component: InventoryPage });
