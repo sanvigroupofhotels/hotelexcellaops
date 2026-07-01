@@ -54,8 +54,15 @@ function Inner() {
             <button key={r.id} onClick={() => setEditing(r)}
               className="w-full text-left p-3 flex items-center gap-3 hover:bg-muted/30">
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">{r.label} {!r.active && <span className="text-[10px] text-muted-foreground ml-1">(inactive)</span>}</div>
-                <div className="text-[11px] text-muted-foreground">key: {r.key} · sort {r.sort_order}{r.taxable && " · taxable"}</div>
+                <div className="text-sm font-medium flex items-center gap-1.5">
+                  {r.label}
+                  {r.inventory_item_id && <Boxes className="h-3 w-3 text-gold" aria-label="Auto-consume linked" />}
+                  {!r.active && <span className="text-[10px] text-muted-foreground ml-1">(inactive)</span>}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  key: {r.key} · sort {r.sort_order}{r.taxable && " · taxable"}
+                  {r.inventory_item_id && ` · deducts ${Number(r.auto_consume_qty || 1)} / unit`}
+                </div>
               </div>
               <div className="text-sm tabular-nums">₹{Number(r.default_price).toLocaleString("en-IN")}</div>
               <span onClick={(e) => { e.stopPropagation(); toggle.mutate(r); }}
