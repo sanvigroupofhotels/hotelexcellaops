@@ -88,6 +88,9 @@ function CatalogDialog({ row, onClose }: { row?: ChargeCatalogRow; onClose: () =
   const [sort, setSort] = useState(String(row?.sort_order ?? 100));
   const [taxable, setTaxable] = useState(row?.taxable ?? false);
   const [active, setActive] = useState(row?.active ?? true);
+  const [invItemId, setInvItemId] = useState<string>(row?.inventory_item_id ?? "");
+  const [autoQty, setAutoQty] = useState(String(row?.auto_consume_qty ?? 1));
+  const { data: items = [] } = useQuery({ queryKey: ["inventory-items", "active"], queryFn: () => listInventoryItems({ activeOnly: true }) });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -95,6 +98,8 @@ function CatalogDialog({ row, onClose }: { row?: ChargeCatalogRow; onClose: () =
         key: key || label.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
         label, default_price: Number(price) || 0, sort_order: Number(sort) || 100,
         taxable, active,
+        inventory_item_id: invItemId || null,
+        auto_consume_qty: invItemId ? Math.max(Number(autoQty) || 1, 0.0001) : 1,
       };
       if (row) await updateChargeCatalog(row.id, payload);
       else await createChargeCatalog(payload);
