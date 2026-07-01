@@ -32,6 +32,9 @@ function InventoryPage() {
   const [editing, setEditing] = useState<InventoryItemRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [movementFor, setMovementFor] = useState<{ item: InventoryItemRow; kind: "in" | "out" } | null>(null);
+  const [bulk, setBulk] = useState<null | "in" | "out">(null);
+  const [reconcile, setReconcile] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["inventory-items"], queryFn: () => listInventoryItems(),
@@ -57,10 +60,26 @@ function InventoryPage() {
           <TabBtn active={tab === "items"} onClick={() => setTab("items")}><Package className="h-3.5 w-3.5" /> Items</TabBtn>
           <TabBtn active={tab === "history"} onClick={() => setTab("history")}><HistoryIcon className="h-3.5 w-3.5" /> History</TabBtn>
         </div>
-        <button onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-1.5 gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium whitespace-nowrap">
-          <Plus className="h-3.5 w-3.5" /> Item
-        </button>
+        <div className="flex items-center gap-1 relative">
+          <button onClick={() => setCreating(true)}
+            className="inline-flex items-center gap-1.5 gold-gradient text-charcoal rounded-md px-3 py-2 text-xs font-medium whitespace-nowrap">
+            <Plus className="h-3.5 w-3.5" /> Item
+          </button>
+          <button onClick={() => setMenuOpen((v) => !v)} title="More"
+            className="h-8 w-8 rounded-md border border-border text-muted-foreground inline-flex items-center justify-center">
+            <MoreVertical className="h-4 w-4" />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-[110%] z-40 min-w-[200px] bg-card border border-border rounded-md shadow-2xl p-1 text-sm">
+                <button onClick={() => { setBulk("in"); setMenuOpen(false); }} className="w-full text-left px-3 py-2 rounded hover:bg-muted/40 flex items-center gap-2"><Layers className="h-4 w-4 text-gold" /> Bulk Stock In</button>
+                <button onClick={() => { setBulk("out"); setMenuOpen(false); }} className="w-full text-left px-3 py-2 rounded hover:bg-muted/40 flex items-center gap-2"><Layers className="h-4 w-4" /> Bulk Stock Out</button>
+                <button onClick={() => { setReconcile(true); setMenuOpen(false); }} className="w-full text-left px-3 py-2 rounded hover:bg-muted/40 flex items-center gap-2"><ClipboardCheck className="h-4 w-4" /> Inventory Reconciliation</button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {tab === "low" && (
@@ -94,6 +113,8 @@ function InventoryPage() {
         <MovementDialog item={movementFor.item} kind={movementFor.kind}
           vendors={vendors} onClose={() => setMovementFor(null)} />
       )}
+      {bulk && <BulkMovementDialog kind={bulk} items={items.filter((i) => i.active)} vendors={vendors} onClose={() => setBulk(null)} />}
+      {reconcile && <ReconciliationDialog items={items.filter((i) => i.active)} onClose={() => setReconcile(false)} />}
     </div>
   );
 }
