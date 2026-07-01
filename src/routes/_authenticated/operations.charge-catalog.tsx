@@ -137,6 +137,24 @@ function CatalogDialog({ row, onClose }: { row?: ChargeCatalogRow; onClose: () =
           </div>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Taxable</label>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active</label>
+
+          <div className="border-t border-border pt-3 mt-1 space-y-2">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Boxes className="h-3.5 w-3.5 text-gold" /> Inventory link (optional)
+            </div>
+            <div className="grid grid-cols-[1fr_100px] gap-2">
+              <select className={inputCls} value={invItemId} onChange={(e) => setInvItemId(e.target.value)}>
+                <option value="">— None (no auto-deduction) —</option>
+                {items.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+              </select>
+              <input className={inputCls} type="number" step="any" value={autoQty}
+                onChange={(e) => setAutoQty(e.target.value)} placeholder="qty"
+                disabled={!invItemId} title="Units deducted per 1 charge quantity" />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              When linked, adding this charge to a bill auto-deducts stock (charge qty × units above). Editing or deleting the charge, or cancelling the booking, reverses the movement automatically.
+            </p>
+          </div>
         </div>
         <div className="px-4 py-3 border-t border-border flex items-center gap-2">
           {row && (
