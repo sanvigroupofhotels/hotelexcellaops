@@ -2,12 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, X, Loader2, Trash2 } from "lucide-react";
+import { Plus, X, Loader2, Trash2, Boxes } from "lucide-react";
 import { AdminOnly } from "@/components/admin-only";
 import {
   listChargeCatalog, createChargeCatalog, updateChargeCatalog, deleteChargeCatalog,
   type ChargeCatalogRow,
 } from "@/lib/charge-catalog-api";
+import { listInventoryItems } from "@/lib/inventory-items-api";
 
 export const Route = createFileRoute("/_authenticated/operations/charge-catalog")({ component: ChargeCatalogPage });
 
