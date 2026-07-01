@@ -98,6 +98,41 @@ export async function stockOut(input: {
   });
 }
 
+/** Group several movements under one batch_id + correlation_id. Every line goes through recordMovement — same idempotent write path. */
+export async function recordBulkMovement(input: {
+  reason: InventoryMovementReason;
+  vendor_id?: string | null;
+  notes?: string | null;
+  lines: Array<{ item_id: string; quantity: number; unit_cost?: number | null; notes?: string | null }>;
+}): Promise<{ batch_id: string; movements: InventoryMovementRow[] }> {
+  if (!input.lines?.length) throw new Error("Add at least one line");
+  const batch_id = (globalThis as any).crypto?.randomUUID?.() ?? String(Date.now());
+  const correlation_id = batch_id;
+  const isOut = input.reason === "stock_out" || input.reason === "wastage" || input.reason === "reconciliation_adjust";
+  const rows: InventoryMovementRow[] = [];
+  for (const l of input.lines) {
+    if (!l.item_id) continue;
+    const q = Number(l.quantity);
+    if (!Number.isFinite(q) || q === 0) continue;
+    // For reconciliation, quantity is a signed delta from caller; otherwise magnitude + sign by reason.
+    const signed = input.reason === "reconciliation_adjust"
+      ? q
+      : (isOut ? -Math.abs(q) : Math.abs(q));
+    const r = await recordMovement({
+      item_id: l.item_id,
+      delta: signed,
+      reason: input.reason,
+      unit_cost: l.unit_cost ?? null,
+      vendor_id: input.vendor_id ?? null,
+      notes: l.notes ?? input.notes ?? null,
+      batch_id,
+      correlation_id,
+    });
+    rows.push(r);
+  }
+  return { batch_id, movements: rows };
+}
+
 export async function listMovements(opts?: {
   item_id?: string; limit?: number;
 }): Promise<InventoryMovementRow[]> {
