@@ -565,3 +565,181 @@ function DialogFooter({ children }: { children: React.ReactNode }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1"><div className={labelCls}>{label}</div>{children}</div>;
 }
+
+/* ---------------------------------------------------- Bulk Stock In / Out */
+
+type BulkLine = { key: string; item_id: string; quantity: string; unit_cost: string };
+
+function BulkMovementDialog({ kind, items, vendors, onClose }: {
+  kind: "in" | "out"; items: InventoryItemRow[]; vendors: VendorRow[]; onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [vendorId, setVendorId] = useState<string>("");
+  const [reason, setReason] = useState("");
+  const [lines, setLines] = useState<BulkLine[]>([
+    { key: crypto.randomUUID(), item_id: "", quantity: "", unit_cost: "" },
+  ]);
+
+  const update = (key: string, patch: Partial<BulkLine>) =>
+    setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  const add = () => setLines((ls) => [...ls, { key: crypto.randomUUID(), item_id: "", quantity: "", unit_cost: "" }]);
+  const remove = (key: string) => setLines((ls) => ls.filter((l) => l.key !== key));
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const clean = lines
+        .filter((l) => l.item_id && Number(l.quantity) > 0)
+        .map((l) => ({
+          item_id: l.item_id,
+          quantity: Number(l.quantity),
+          unit_cost: kind === "in" && l.unit_cost ? Number(l.unit_cost) : null,
+        }));
+      if (!clean.length) throw new Error("Add at least one item with a quantity");
+      await recordBulkMovement({
+        reason: kind === "in" ? "stock_in" : "stock_out",
+        vendor_id: kind === "in" ? (vendorId || null) : null,
+        notes: kind === "out" ? (reason || null) : null,
+        lines: clean,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inventory-items"] });
+      qc.invalidateQueries({ queryKey: ["inv-movements"] });
+      toast.success(kind === "in" ? "Bulk Stock In recorded" : "Bulk Stock Out recorded");
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.message ?? "Save failed"),
+  });
+
+  return (
+    <DialogShell title={kind === "in" ? "Bulk Stock In" : "Bulk Stock Out"} onClose={onClose}>
+      <div className="grid gap-3">
+        {kind === "in" ? (
+          <Field label="Vendor">
+            <select className={inputCls} value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+              <option value="">— None —</option>
+              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </Field>
+        ) : (
+          <Field label="Reason / Notes">
+            <input className={inputCls} value={reason} onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Monthly housekeeping refill" />
+          </Field>
+        )}
+
+        <div className="space-y-2">
+          <div className={labelCls}>Items</div>
+          {lines.map((l) => (
+            <div key={l.key} className="grid grid-cols-[1fr_80px_80px_28px] gap-1.5 items-center">
+              <select className={inputCls} value={l.item_id} onChange={(e) => update(l.key, { item_id: e.target.value })}>
+                <option value="">— Select item —</option>
+                {items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+              <input className={inputCls} type="number" inputMode="decimal" placeholder="Qty"
+                value={l.quantity} onChange={(e) => update(l.key, { quantity: e.target.value })} />
+              {kind === "in" ? (
+                <input className={inputCls} type="number" inputMode="decimal" placeholder="₹/unit"
+                  value={l.unit_cost} onChange={(e) => update(l.key, { unit_cost: e.target.value })} />
+              ) : <div />}
+              <button onClick={() => remove(l.key)}
+                className="h-9 w-7 inline-flex items-center justify-center text-muted-foreground hover:text-destructive"
+                title="Remove"><Trash2 className="h-3.5 w-3.5" /></button>
+            </div>
+          ))}
+          <button onClick={add} className="text-xs text-gold hover:underline">+ Add item</button>
+        </div>
+      </div>
+      <DialogFooter>
+        <div className="flex-1" />
+        <button onClick={onClose} className="px-3 py-2 text-xs">Cancel</button>
+        <button onClick={() => save.mutate()} disabled={save.isPending}
+          className="inline-flex items-center gap-1.5 gold-gradient text-charcoal rounded-md px-4 py-2 text-xs font-medium disabled:opacity-60">
+          {save.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
+        </button>
+      </DialogFooter>
+    </DialogShell>
+  );
+}
+
+/* --------------------------------------------------- Inventory Reconciliation */
+
+function ReconciliationDialog({ items, onClose }: { items: InventoryItemRow[]; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [counts, setCounts] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState("");
+
+  const diffs = items
+    .map((i) => {
+      const raw = counts[i.id];
+      if (raw === undefined || raw === "") return null;
+      const counted = Number(raw);
+      if (!Number.isFinite(counted)) return null;
+      const delta = counted - Number(i.current_stock);
+      return { item: i, counted, delta };
+    })
+    .filter((x): x is { item: InventoryItemRow; counted: number; delta: number } => !!x && x.delta !== 0);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!diffs.length) throw new Error("Enter counts that differ from current stock");
+      await recordBulkMovement({
+        reason: "reconciliation_adjust",
+        notes: notes || "Inventory Reconciliation",
+        lines: diffs.map((d) => ({ item_id: d.item.id, quantity: d.delta, notes: `Counted ${d.counted} (was ${d.item.current_stock})` })),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inventory-items"] });
+      qc.invalidateQueries({ queryKey: ["inv-movements"] });
+      toast.success(`Reconciled ${diffs.length} item${diffs.length === 1 ? "" : "s"}`);
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.message ?? "Save failed"),
+  });
+
+  return (
+    <DialogShell title="Inventory Reconciliation" onClose={onClose}>
+      <div className="grid gap-3">
+        <Field label="Notes (optional)">
+          <input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g. Month-end count · 30 Jun" />
+        </Field>
+        <div className="border border-border rounded-md divide-y divide-border/40 max-h-[50vh] overflow-y-auto">
+          {items.map((i) => {
+            const raw = counts[i.id] ?? "";
+            const counted = raw === "" ? null : Number(raw);
+            const delta = counted == null || !Number.isFinite(counted) ? null : counted - Number(i.current_stock);
+            return (
+              <div key={i.id} className="p-2.5 flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm truncate">{i.name}</div>
+                  <div className="text-[11px] text-muted-foreground">Current: <span className="tabular-nums">{Number(i.current_stock)}</span> {i.unit}</div>
+                </div>
+                <input className={cn(inputCls, "w-24")} type="number" inputMode="decimal" placeholder="Counted"
+                  value={raw} onChange={(e) => setCounts((c) => ({ ...c, [i.id]: e.target.value }))} />
+                <div className={cn(
+                  "w-14 text-right text-xs tabular-nums",
+                  delta == null ? "text-muted-foreground" : delta === 0 ? "text-muted-foreground" : delta > 0 ? "text-emerald-500" : "text-destructive",
+                )}>
+                  {delta == null ? "—" : (delta > 0 ? "+" : "") + delta}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          {diffs.length} item{diffs.length === 1 ? "" : "s"} will be adjusted under a single audit batch.
+        </p>
+      </div>
+      <DialogFooter>
+        <div className="flex-1" />
+        <button onClick={onClose} className="px-3 py-2 text-xs">Cancel</button>
+        <button onClick={() => save.mutate()} disabled={save.isPending || !diffs.length}
+          className="inline-flex items-center gap-1.5 gold-gradient text-charcoal rounded-md px-4 py-2 text-xs font-medium disabled:opacity-60">
+          {save.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save Reconciliation
+        </button>
+      </DialogFooter>
+    </DialogShell>
+  );
+}
