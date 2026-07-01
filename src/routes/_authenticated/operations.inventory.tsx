@@ -393,7 +393,7 @@ function ItemDialog({ item, onClose, onStockIn, onStockOut }: {
             <option value="">— Manual only —</option>
             {catalog.map((c: ChargeCatalogRow) => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
-          <p className="text-[10px] text-muted-foreground mt-1">Auto-deduction will activate after Shipment 2.</p>
+          <p className="text-[10px] text-muted-foreground mt-1">Legacy per-item mapping. Prefer setting the Inventory link from <b>Operations → Charge Catalog</b> — that's the active auto-consume path.</p>
         </Field>
 
         <label className="flex items-center gap-2 text-xs">
