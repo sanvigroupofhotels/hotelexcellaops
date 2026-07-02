@@ -179,16 +179,23 @@ function LineItemRow({
   onChange,
   onDuplicate,
   onRemove,
+  excludeBookingId,
 }: {
   label: string;
   item: LineItem;
   onChange: (patch: Partial<LineItem>) => void;
   onDuplicate: () => void;
   onRemove: () => void;
+  excludeBookingId?: string | null;
 }) {
   // Collapsed by default — most bookings don't need extras.
   const [extrasOpen, setExtrasOpen] = useState(false);
   const n = nightsOf(item);
+  // Per-line inventory (shared helper — single source of truth). The line's
+  // own current selection is passed to `maxSelectableRooms` so the user can
+  // retain their existing count while foreign demand still lowers the cap.
+  const { data: availability } = useRoomTypeAvailability(item.check_in, item.check_out, excludeBookingId ?? null);
+  const cap = maxSelectableRooms(availability, item.room_type, item.rooms);
   return (
     <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
       <div className="flex items-center justify-between">
