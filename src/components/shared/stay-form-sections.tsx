@@ -296,7 +296,7 @@ export function StayFormSections({
           Hosts may opt-out (hideExtras) and render <AdditionalRoomsCollapsibleCard /> in a custom slot
           (e.g. the very end of the form, after Guest Portal Overrides). */}
       {!hideExtras && (
-        <AdditionalRoomsCollapsibleCard extras={extras} onExtrasChange={onExtrasChange} />
+        <AdditionalRoomsCollapsibleCard extras={extras} onExtrasChange={onExtrasChange} excludeBookingId={excludeBookingId ?? null} />
       )}
 
       {/* 5. Additional */}
