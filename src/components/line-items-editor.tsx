@@ -14,7 +14,9 @@ import {
   type PetSize,
 } from "@/lib/mock-data";
 import { NumField } from "@/components/num-field";
+import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
+
 
 export interface LineItem {
   room_type: string;
