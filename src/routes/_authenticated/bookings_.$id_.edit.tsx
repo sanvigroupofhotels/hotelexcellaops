@@ -270,7 +270,7 @@ function EditBooking() {
             />
 
             {/* Additional Rooms / Split Stay — last, only needed for multi-room or split dates */}
-            <AdditionalRoomsCollapsibleCard extras={extras} onExtrasChange={setExtras} />
+            <AdditionalRoomsCollapsibleCard extras={extras} onExtrasChange={setExtras} excludeBookingId={id} />
 
 
 
