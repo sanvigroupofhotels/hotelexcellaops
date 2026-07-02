@@ -311,8 +311,8 @@ export function StayFormSections({
 
 /** Additional Rooms / Split Stay — exported so hosts can mount it at the end of the form. */
 export function AdditionalRoomsCollapsibleCard({
-  extras, onExtrasChange,
-}: { extras: LineItem[]; onExtrasChange: (items: LineItem[]) => void }) {
+  extras, onExtrasChange, excludeBookingId,
+}: { extras: LineItem[]; onExtrasChange: (items: LineItem[]) => void; excludeBookingId?: string | null }) {
   return (
     <CollapsibleCard
       title="Additional Rooms / Split Stay"
@@ -320,7 +320,7 @@ export function AdditionalRoomsCollapsibleCard({
       badge={extras.length > 0 ? `${extras.length} added` : "Optional"}
       defaultOpen={extras.length > 0}
     >
-      <LineItemsEditor items={extras} onChange={onExtrasChange} />
+      <LineItemsEditor items={extras} onChange={onExtrasChange} excludeBookingId={excludeBookingId ?? null} />
     </CollapsibleCard>
   );
 }
