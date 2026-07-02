@@ -633,23 +633,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Stepper({
-  label, value, min, max, onChange, cls,
-}: { label: string; value: number; min: number; max: number; onChange: (n: number) => void; cls: string }) {
-  const dec = () => onChange(Math.max(min, value - 1));
-  const inc = () => onChange(Math.min(max, value + 1));
-  return (
-    <div>
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={dec} disabled={value <= min} className={cls} aria-label={`Decrease ${label}`}>
-          <Minus className="h-4 w-4" />
-        </button>
-        <div className="flex-1 text-center font-medium tabular-nums">{value}</div>
-        <button type="button" onClick={inc} disabled={value >= max} className={cls} aria-label={`Increase ${label}`}>
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
+// Stepper removed — Adults / Kids / Rooms now use the shared <NumField />
+// for free numeric input with paste-safe inventory clamping. Kept
+// intentionally empty to preserve the file's export surface stability.
+
