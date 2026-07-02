@@ -459,20 +459,26 @@ function QuickBookingPage() {
           )}
         </section>
 
-        {/* GROUP 3 — Occupancy + Rooms (kept side-by-side to reduce scroll) */}
+        {/* GROUP 3 — Occupancy + Rooms (kept side-by-side to reduce scroll)
+            Adults / Kids: free numeric input, no artificial max, numeric
+            keyboard on mobile. Same shared NumField as the Detailed Booking
+            Form (identical validation surface). */}
         <section className="luxe-card rounded-xl p-4 space-y-3">
           <div className="text-xs uppercase tracking-wider text-gold">Occupancy & Rooms</div>
           <div className="grid grid-cols-2 gap-3">
-            <Stepper label="Adults" value={adults} min={1} max={20} onChange={setAdults} cls={stepCls} />
-            <Stepper label="Kids" value={kids} min={0} max={20} onChange={setKids} cls={stepCls} />
+            <NumField label="Adults" value={adults} min={1} onChange={setAdults} />
+            <NumField label="Kids" value={kids} min={0} onChange={setKids} />
           </div>
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div>
-              <Stepper label="Oak Rooms" value={oakRooms} min={0} max={oakInv.max} onChange={setOakRooms} cls={stepCls} />
+              {/* Rooms clamped against live inventory via NumField `max`.
+                  Typing, paste, and stepper all funnel through the same clamp — the
+                  shared `room-inventory.ts` helper is the single source of truth. */}
+              <NumField label="Oak Rooms" value={oakRooms} min={0} max={Math.max(0, oakInv.max)} onChange={setOakRooms} />
               <div className={cn("text-[11px] mt-1", oakInv.available <= 0 ? "text-destructive" : "text-muted-foreground")}>{oakInv.label}</div>
             </div>
             <div>
-              <Stepper label="Mapple Rooms" value={mappleRooms} min={0} max={mappleInv.max} onChange={setMappleRooms} cls={stepCls} />
+              <NumField label="Mapple Rooms" value={mappleRooms} min={0} max={Math.max(0, mappleInv.max)} onChange={setMappleRooms} />
               <div className={cn("text-[11px] mt-1", mappleInv.available <= 0 ? "text-destructive" : "text-muted-foreground")}>{mappleInv.label}</div>
             </div>
           </div>
