@@ -26,7 +26,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
-import { Loader2, Plus, Minus, Sparkles, Star, UserCheck } from "lucide-react";
+import { Loader2, Sparkles, Star, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { type CustomerRow } from "@/lib/customers-api";
