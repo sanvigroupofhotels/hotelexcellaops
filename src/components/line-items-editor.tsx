@@ -166,6 +166,7 @@ export function LineItemsEditor({
           onChange={(patch) => update(idx, patch)}
           onDuplicate={() => duplicate(idx)}
           onRemove={() => remove(idx)}
+          excludeBookingId={excludeBookingId ?? null}
         />
       ))}
     </div>
