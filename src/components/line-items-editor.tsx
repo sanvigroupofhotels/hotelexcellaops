@@ -221,7 +221,23 @@ function LineItemRow({
             {roomTypes.map((r) => <option key={r.name}>{r.name}</option>)}
           </select>
         </label>
-        <NumField label="Rooms" value={item.rooms} min={1} onChange={(v) => onChange({ rooms: v })} />
+        <div>
+          <NumField
+            label="Rooms"
+            value={item.rooms}
+            min={1}
+            max={availability ? Math.max(1, cap.max) : undefined}
+            onChange={(v) => onChange({ rooms: v })}
+          />
+          {availability && (
+            <p className={cn(
+              "text-[10px] mt-1",
+              cap.available <= 0 ? "text-destructive" : cap.available < item.rooms ? "text-warning" : "text-muted-foreground",
+            )}>
+              {cap.label}
+            </p>
+          )}
+        </div>
         <NumField label="Adults" value={item.adults} min={1} onChange={(v) => onChange({ adults: v })} />
 
         <NumField label="Children" value={item.children} min={0} onChange={(v) => onChange({ children: v })} />
