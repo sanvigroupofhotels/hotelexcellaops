@@ -14,7 +14,9 @@ import {
   type PetSize,
 } from "@/lib/mock-data";
 import { NumField } from "@/components/num-field";
+import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
+
 
 export interface LineItem {
   room_type: string;
@@ -102,6 +104,7 @@ export function LineItemsEditor({
   title = "Additional Rooms / Stays",
   hint = "Add extra rooms with different occupancy, dates, or extras.",
   startIndex = 2,
+  excludeBookingId,
 }: {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
@@ -109,6 +112,9 @@ export function LineItemsEditor({
   hint?: string;
   /** Display number for the first line item (2 when editor is for extras; 1 when it's primary). */
   startIndex?: number;
+  /** Passed through to per-line inventory checks so the current booking's own
+   *  rooms aren't double-counted in Edit Booking. */
+  excludeBookingId?: string | null;
 }) {
   const update = (idx: number, patch: Partial<LineItem>) => {
     const next = items.map((it, i) => {
@@ -160,6 +166,7 @@ export function LineItemsEditor({
           onChange={(patch) => update(idx, patch)}
           onDuplicate={() => duplicate(idx)}
           onRemove={() => remove(idx)}
+          excludeBookingId={excludeBookingId ?? null}
         />
       ))}
     </div>
@@ -172,16 +179,23 @@ function LineItemRow({
   onChange,
   onDuplicate,
   onRemove,
+  excludeBookingId,
 }: {
   label: string;
   item: LineItem;
   onChange: (patch: Partial<LineItem>) => void;
   onDuplicate: () => void;
   onRemove: () => void;
+  excludeBookingId?: string | null;
 }) {
   // Collapsed by default — most bookings don't need extras.
   const [extrasOpen, setExtrasOpen] = useState(false);
   const n = nightsOf(item);
+  // Per-line inventory (shared helper — single source of truth). The line's
+  // own current selection is passed to `maxSelectableRooms` so the user can
+  // retain their existing count while foreign demand still lowers the cap.
+  const { data: availability } = useRoomTypeAvailability(item.check_in, item.check_out, excludeBookingId ?? null);
+  const cap = maxSelectableRooms(availability, item.room_type, item.rooms);
   return (
     <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -207,7 +221,23 @@ function LineItemRow({
             {roomTypes.map((r) => <option key={r.name}>{r.name}</option>)}
           </select>
         </label>
-        <NumField label="Rooms" value={item.rooms} min={1} onChange={(v) => onChange({ rooms: v })} />
+        <div>
+          <NumField
+            label="Rooms"
+            value={item.rooms}
+            min={1}
+            max={availability ? Math.max(1, cap.max) : undefined}
+            onChange={(v) => onChange({ rooms: v })}
+          />
+          {availability && (
+            <p className={cn(
+              "text-[10px] mt-1",
+              cap.available <= 0 ? "text-destructive" : cap.available < item.rooms ? "text-warning" : "text-muted-foreground",
+            )}>
+              {cap.label}
+            </p>
+          )}
+        </div>
         <NumField label="Adults" value={item.adults} min={1} onChange={(v) => onChange({ adults: v })} />
 
         <NumField label="Children" value={item.children} min={0} onChange={(v) => onChange({ children: v })} />

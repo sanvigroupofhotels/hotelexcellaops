@@ -208,6 +208,7 @@ function EditBooking() {
               mode="booking"
               hideAdditional
               hideExtras
+              excludeBookingId={id}
             />
 
             <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -270,7 +271,7 @@ function EditBooking() {
             />
 
             {/* Additional Rooms / Split Stay — last, only needed for multi-room or split dates */}
-            <AdditionalRoomsCollapsibleCard extras={extras} onExtrasChange={setExtras} />
+            <AdditionalRoomsCollapsibleCard extras={extras} onExtrasChange={setExtras} excludeBookingId={id} />
 
 
 

@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
  * Numeric input shared across forms.
  * Uses local string state so a user can clear the field while typing
  * (e.g. 1000 → 100 → 10 → 1 → empty) without snapping to 0 mid-edit.
- * On blur, empty / below-min is normalized back to `min`.
+ * On blur, empty / below-min is normalized back to `min`; above `max` is
+ * clamped to `max`. Typing and paste are also clamped so inventory-driven
+ * caps hold regardless of input method.
  *
  * Pass `decimal` to allow fractional values (e.g. unit price, payment amount).
  */
@@ -13,19 +15,26 @@ export function NumField({
   hint,
   value,
   min = 0,
+  max,
   onChange,
   prefix,
   decimal = false,
   step,
+  inputMode: inputModeProp,
+  placeholder,
 }: {
   label?: string;
   hint?: string;
   value: number;
   min?: number;
+  /** Optional hard upper bound. Enforced on typing, paste, blur. */
+  max?: number;
   onChange: (v: number) => void;
   prefix?: string;
   decimal?: boolean;
   step?: number;
+  inputMode?: "numeric" | "decimal" | "tel";
+  placeholder?: string;
 }) {
   const [raw, setRaw] = useState<string>(String(value));
   useEffect(() => {
@@ -37,6 +46,14 @@ export function NumField({
     decimal
       ? s.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") // keep first dot only
       : s.replace(/[^0-9]/g, "");
+
+  const clamp = (n: number) => {
+    if (!Number.isFinite(n)) return n;
+    let out = n;
+    if (typeof max === "number" && out > max) out = max;
+    if (out < min) out = min;
+    return out;
+  };
 
   return (
     <label className="block">
@@ -53,22 +70,35 @@ export function NumField({
         )}
         <input
           type="text"
-          inputMode={decimal ? "decimal" : "numeric"}
+          inputMode={inputModeProp ?? (decimal ? "decimal" : "numeric")}
           pattern={decimal ? "[0-9]*[.]?[0-9]*" : "[0-9]*"}
           value={raw}
           step={step}
+          placeholder={placeholder}
           onChange={(e) => {
             const v = sanitize(e.target.value);
-            setRaw(v);
-            if (v === "" || v === ".") return;
+            if (v === "" || v === ".") {
+              setRaw(v);
+              return;
+            }
             const n = decimal ? parseFloat(v) : parseInt(v, 10);
-            if (Number.isFinite(n) && n >= min) onChange(n);
+            if (!Number.isFinite(n)) return;
+            const clamped = clamp(n);
+            // Reflect the clamp in the visible field so typing/paste never
+            // exceeds `max` (inventory-driven caps depend on this guarantee).
+            setRaw(String(clamped));
+            if (clamped >= min) onChange(clamped);
           }}
           onBlur={() => {
-            if (raw === "" || raw === "." || Number(raw) < min || !Number.isFinite(Number(raw))) {
+            if (raw === "" || raw === "." || !Number.isFinite(Number(raw))) {
               setRaw(String(min));
               onChange(min);
+              return;
             }
+            const n = decimal ? parseFloat(raw) : parseInt(raw, 10);
+            const clamped = clamp(n);
+            if (clamped !== n) setRaw(String(clamped));
+            onChange(clamped);
           }}
           className={`w-full bg-input/60 border border-border rounded-md ${
             prefix ? "pl-7 pr-3" : "px-3"

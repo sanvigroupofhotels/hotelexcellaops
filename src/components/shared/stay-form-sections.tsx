@@ -296,7 +296,7 @@ export function StayFormSections({
           Hosts may opt-out (hideExtras) and render <AdditionalRoomsCollapsibleCard /> in a custom slot
           (e.g. the very end of the form, after Guest Portal Overrides). */}
       {!hideExtras && (
-        <AdditionalRoomsCollapsibleCard extras={extras} onExtrasChange={onExtrasChange} />
+        <AdditionalRoomsCollapsibleCard extras={extras} onExtrasChange={onExtrasChange} excludeBookingId={excludeBookingId ?? null} />
       )}
 
       {/* 5. Additional */}
@@ -311,8 +311,8 @@ export function StayFormSections({
 
 /** Additional Rooms / Split Stay — exported so hosts can mount it at the end of the form. */
 export function AdditionalRoomsCollapsibleCard({
-  extras, onExtrasChange,
-}: { extras: LineItem[]; onExtrasChange: (items: LineItem[]) => void }) {
+  extras, onExtrasChange, excludeBookingId,
+}: { extras: LineItem[]; onExtrasChange: (items: LineItem[]) => void; excludeBookingId?: string | null }) {
   return (
     <CollapsibleCard
       title="Additional Rooms / Split Stay"
@@ -320,7 +320,7 @@ export function AdditionalRoomsCollapsibleCard({
       badge={extras.length > 0 ? `${extras.length} added` : "Optional"}
       defaultOpen={extras.length > 0}
     >
-      <LineItemsEditor items={extras} onChange={onExtrasChange} />
+      <LineItemsEditor items={extras} onChange={onExtrasChange} excludeBookingId={excludeBookingId ?? null} />
     </CollapsibleCard>
   );
 }
