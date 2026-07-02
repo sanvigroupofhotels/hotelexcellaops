@@ -104,6 +104,7 @@ export function LineItemsEditor({
   title = "Additional Rooms / Stays",
   hint = "Add extra rooms with different occupancy, dates, or extras.",
   startIndex = 2,
+  excludeBookingId,
 }: {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
@@ -111,6 +112,9 @@ export function LineItemsEditor({
   hint?: string;
   /** Display number for the first line item (2 when editor is for extras; 1 when it's primary). */
   startIndex?: number;
+  /** Passed through to per-line inventory checks so the current booking's own
+   *  rooms aren't double-counted in Edit Booking. */
+  excludeBookingId?: string | null;
 }) {
   const update = (idx: number, patch: Partial<LineItem>) => {
     const next = items.map((it, i) => {
