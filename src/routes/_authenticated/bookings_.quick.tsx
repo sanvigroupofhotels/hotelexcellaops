@@ -385,7 +385,7 @@ function QuickBookingPage() {
     if (b?.id) open(b.id);
   }
 
-  const stepCls = "flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed";
+  // (Stepper class removed — Adults / Kids / Rooms use the shared NumField.)
 
   return (
     <div className="min-h-screen bg-background">
