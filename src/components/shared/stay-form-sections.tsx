@@ -18,7 +18,7 @@
  */
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { User, Phone, Mail, Users, CalendarDays, Bed, Plus, Minus, ChevronDown, ChevronRight } from "lucide-react";
+import { User, Phone, Mail, Users, CalendarDays, Bed, ChevronDown, ChevronRight } from "lucide-react";
 import {
   roomTypes,
   LEAD_SOURCES,
