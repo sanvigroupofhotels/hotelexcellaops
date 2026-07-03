@@ -471,14 +471,18 @@ function QuickBookingPage() {
           </div>
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div>
-              {/* Rooms clamped against live inventory via NumField `max`.
-                  Typing, paste, and stepper all funnel through the same clamp — the
-                  shared `room-inventory.ts` helper is the single source of truth. */}
-              <NumField label="Oak Rooms" value={oakRooms} min={0} max={Math.max(0, oakInv.max)} onChange={setOakRooms} />
+              {/* Rooms use the SAME shared RoomStepper as the Detailed Booking Form.
+                  The `max` prop is driven by the shared `room-inventory.ts` helper —
+                  the single source of truth — so the +/- buttons and any
+                  programmatic value change are clamped identically across every
+                  booking entry point. */}
+              <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Oak Rooms</span>
+              <RoomStepper value={oakRooms} min={0} max={Math.max(0, oakInv.max)} onChange={setOakRooms} />
               <div className={cn("text-[11px] mt-1", oakInv.available <= 0 ? "text-destructive" : "text-muted-foreground")}>{oakInv.label}</div>
             </div>
             <div>
-              <NumField label="Mapple Rooms" value={mappleRooms} min={0} max={Math.max(0, mappleInv.max)} onChange={setMappleRooms} />
+              <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Mapple Rooms</span>
+              <RoomStepper value={mappleRooms} min={0} max={Math.max(0, mappleInv.max)} onChange={setMappleRooms} />
               <div className={cn("text-[11px] mt-1", mappleInv.available <= 0 ? "text-destructive" : "text-muted-foreground")}>{mappleInv.label}</div>
             </div>
           </div>
