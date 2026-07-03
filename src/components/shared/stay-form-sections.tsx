@@ -27,6 +27,7 @@ import {
   type PetSize,
 } from "@/lib/mock-data";
 import { NumField } from "@/components/num-field";
+import { RoomStepper } from "@/components/room-stepper";
 import { PolicyFields } from "@/components/policy-fields";
 import {
   LineItemsEditor,
