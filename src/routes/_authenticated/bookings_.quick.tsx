@@ -45,6 +45,7 @@ import { toLocalYMD, localYMDOffset, cn } from "@/lib/utils";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { NumField } from "@/components/num-field";
+import { RoomStepper } from "@/components/room-stepper";
 import { useChargeCategories } from "@/hooks/use-charge-categories";
 
 export const Route = createFileRoute("/_authenticated/bookings_/quick")({
