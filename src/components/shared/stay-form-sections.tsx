@@ -376,21 +376,3 @@ function Field({ label, icon: Icon, children, required }: any) {
   );
 }
 
-function Stepper({ value, min = 0, max, onChange }: { value: number; min?: number; max?: number; onChange: (v: number) => void }) {
-  const atMax = max != null && value >= max;
-  return (
-    <div className="flex items-center bg-input/60 border border-border rounded-md overflow-hidden">
-      <button type="button" onClick={() => onChange(Math.max(min, value - 1))}
-        className="p-2.5 hover:bg-secondary transition text-muted-foreground hover:text-foreground">
-        <Minus className="h-3.5 w-3.5" />
-      </button>
-      <div className="flex-1 text-center text-sm font-medium">{value}</div>
-      <button type="button" disabled={atMax}
-        onClick={() => onChange(max != null ? Math.min(max, value + 1) : value + 1)}
-        className="p-2.5 hover:bg-secondary transition text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed">
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
