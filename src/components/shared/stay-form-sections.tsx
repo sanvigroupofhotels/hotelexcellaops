@@ -267,7 +267,7 @@ export function StayFormSections({
             </select>
           </Field>
           <Field label="Rooms">
-            <Stepper
+            <RoomStepper
               value={value.rooms}
               min={1}
               max={availability ? Math.max(1, cap.available) : undefined}
