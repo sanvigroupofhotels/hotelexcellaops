@@ -219,17 +219,10 @@ export function AddBookingPaymentModal({
               className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
           </label>
           <label className="col-span-2 block">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Collected By *</span>
-            {staff.length > 0 ? (
-              <select value={collectedBy} onChange={(e) => setCollectedBy(e.target.value)}
-                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                <option value="">Select…</option>
-                {staff.map((s: any) => <option key={s.id} value={s.name}>{s.name}</option>)}
-              </select>
-            ) : (
-              <input value={collectedBy} onChange={(e) => setCollectedBy(e.target.value)} placeholder="Staff name"
-                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
-            )}
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Collected By</span>
+            <div className="w-full bg-input/40 border border-border rounded-md px-3 py-2 text-sm text-muted-foreground">
+              {collectedBy || <span className="italic">Signed-in user</span>}
+            </div>
           </label>
           <label className="col-span-2 block">
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Date &amp; Time</span>
