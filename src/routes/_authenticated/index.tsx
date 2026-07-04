@@ -18,6 +18,8 @@ import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useCheckInController } from "@/lib/check-in-flow";
 import { useChargeCategories } from "@/hooks/use-charge-categories";
+import { useCurrentStaff } from "@/hooks/use-current-staff";
+import { useUserRole } from "@/hooks/use-role";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { groupStayAssignments, groupStayItems, pairStaySlotsToRooms, segmentCoversDate } from "@/lib/stay-segments";
 import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
