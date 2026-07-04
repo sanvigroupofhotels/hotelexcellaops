@@ -268,7 +268,7 @@ function BookingDetail() {
         customer_id: b?.customer_id ?? null,
         amount: refundAmount,
         payment_mode: refundMode,
-        collected_by: refundBy || "—",
+        collected_by: refundBy || currentStaff.name || "—",
         is_refund: true,
         refund_reason: refundReason || "Refund",
         notes: `Refund · ${refundReason || "Refund"} · ${refundMode}${refundRef ? ` · Ref ${refundRef}` : ""}`,
