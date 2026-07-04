@@ -39,12 +39,15 @@ export function AddBookingPaymentModal({
 }) {
   const qc = useQueryClient();
   const isEdit = !!payment;
-  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active", "cashbook"], queryFn: () => listStaff(true, { availability: "cashbook" }) });
+  // Auto-attribution: the signed-in staff member is the source of truth for
+  // "Collected By". No manual picker.
+  const currentStaff = useCurrentStaff();
   const { values: paymentModes } = useMasterData("payment_method", [...PAYMENT_MODES]);
 
   const [amount, setAmount] = useState<number>(payment ? Number(payment.amount) : Math.max(0, maxAmount));
   const [mode, setMode] = useState<string>(payment?.payment_mode ?? paymentModes[0] ?? PAYMENT_MODES[0]);
-  const [collectedBy, setCollectedBy] = useState<string>(payment?.collected_by ?? "");
+  // Preserve historical attribution on edit; otherwise use the signed-in user.
+  const collectedBy = payment?.collected_by ?? currentStaff.name;
   const [occurredAt, setOccurredAt] = useState<string>(() => {
     const d = payment ? new Date(payment.occurred_at) : new Date();
     const tz = d.getTimezoneOffset();
@@ -62,8 +65,6 @@ export function AddBookingPaymentModal({
   // Edit mode: show existing attachment + replace/delete
   const [attachmentPath, setAttachmentPath] = useState<string | null>(payment?.ocr_image_path ?? null);
   const [attachmentBusy, setAttachmentBusy] = useState(false);
-
-  useEffect(() => { if (!collectedBy && staff[0]?.name) setCollectedBy(staff[0].name); }, [staff, collectedBy]);
 
   const handleExtracted = (r: { extracted: ExtractedPayment; raw_text: string; image_path: string }) => {
     setOcrImagePath(r.image_path);
