@@ -190,7 +190,7 @@ function BookingDetail() {
           customer_id: b?.customer_id ?? null,
           amount: refundAmount,
           payment_mode: refundMode,
-          collected_by: refundCollectedBy || "—",
+          collected_by: refundCollectedBy || currentStaff.name || "—",
           is_refund: true,
           refund_reason: reason,
           notes: `Refund on cancellation · ${reason}`,
