@@ -84,9 +84,11 @@ export function NumField({
             const n = decimal ? parseFloat(v) : parseInt(v, 10);
             if (!Number.isFinite(n)) return;
             const clamped = clamp(n);
-            // Reflect the clamp in the visible field so typing/paste never
-            // exceeds `max` (inventory-driven caps depend on this guarantee).
-            setRaw(String(clamped));
+            // Preserve the user's in-progress string (e.g. "1." or "1.50") so
+            // decimal typing works. Only overwrite the visible field when the
+            // clamp actually changed the numeric value (max/min enforcement).
+            if (clamped !== n) setRaw(String(clamped));
+            else setRaw(v);
             if (clamped >= min) onChange(clamped);
           }}
           onBlur={() => {

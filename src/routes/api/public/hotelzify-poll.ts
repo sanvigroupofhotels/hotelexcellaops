@@ -887,8 +887,34 @@ async function processIntegration(
             }
           } else {
             if (!dryRun) {
+              // Check whether staff have edited line items on this booking.
+              // If the booking has anything other than a single synthetic row
+              // (multi-room, breakfast/pet/extra-bed/late-checkout charges,
+              // custom rates), preserve them and skip the line-item refresh.
+              const { data: existingItems } = await supabaseAdmin
+                .from("booking_items")
+                .select("id, position, room_type, rooms, adults, children, breakfast_included, extra_bed, extra_adults, drivers, early_check_in, late_check_out, pet_size")
+                .eq("booking_id", existing.id);
+              const items = existingItems ?? [];
+              const looksSynthetic =
+                items.length === 1 &&
+                (items[0].rooms ?? 1) === 1 &&
+                !items[0].breakfast_included &&
+                (items[0].extra_bed ?? 0) === 0 &&
+                (items[0].extra_adults ?? 0) === 0 &&
+                (items[0].drivers ?? 0) === 0 &&
+                !items[0].early_check_in &&
+                !items[0].late_check_out &&
+                ((items[0].pet_size ?? "none") === "none");
+              const staffEdited = items.length > 0 && !looksSynthetic;
+
               // Patch financial + status fields. Never overwrite guest identity,
               // phone, room assignment, or staff notes — those are owned by the PMS once created.
+              // If staff have customized line items, preserve their `total_override`
+              // as well so a manual amount override isn't silently wiped.
+              const { data: currentBooking } = staffEdited
+                ? await supabaseAdmin.from("bookings").select("total_override").eq("id", existing.id).single()
+                : { data: null as { total_override: number | null } | null };
               await supabaseAdmin.from("bookings").update({
                 amount: bookingPayload.amount,
                 subtotal: bookingPayload.subtotal,
@@ -896,18 +922,25 @@ async function processIntegration(
                 taxes: bookingPayload.taxes,
                 tax_rate: bookingPayload.tax_rate,
                 taxes_included: bookingPayload.taxes_included,
-                total_override: bookingPayload.total_override,
+                total_override: staffEdited && currentBooking?.total_override != null
+                  ? currentBooking.total_override
+                  : bookingPayload.total_override,
                 advance_paid: bookingPayload.advance_paid,
                 status: bookingPayload.status,
                 special_requests: bookingPayload.special_requests,
                 ...contactPatchFromParsed(existing, parsed, blockedEmails),
               } as any).eq("id", existing.id);
-              // Refresh the synthetic line item so Room Charges stays in sync.
-              await supabaseAdmin.from("booking_items").delete().eq("booking_id", existing.id);
-              await supabaseAdmin.from("booking_items").insert({
-                booking_id: existing.id,
-                ...syntheticItem,
-              } as any);
+              // Only refresh the synthetic line item when staff haven't customized it.
+              if (!staffEdited) {
+                await supabaseAdmin.from("booking_items").delete().eq("booking_id", existing.id);
+                const { error: itemErr } = await supabaseAdmin.from("booking_items").insert({
+                  booking_id: existing.id,
+                  ...syntheticItem,
+                } as any);
+                if (itemErr) {
+                  result.parser_errors.push(`msg ${m.id}: line item refresh failed (${itemErr.message?.slice(0, 120)})`);
+                }
+              }
             }
             result.updated++;
           }
