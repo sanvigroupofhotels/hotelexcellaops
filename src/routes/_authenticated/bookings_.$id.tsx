@@ -850,8 +850,9 @@ function BookingDetail() {
               </label>
               <label className="col-span-2 space-y-1">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refunded By (Staff)</div>
-                <input type="text" value={refundBy} onChange={(e) => setRefundBy(e.target.value)}
-                  placeholder="Staff name" className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5" />
+                <div className="w-full bg-muted/40 border border-border rounded-md px-2 py-1.5 text-sm">
+                  {currentStaff.name || "—"}
+                </div>
               </label>
             </div>
             <div className="flex justify-end gap-2 pt-1">
