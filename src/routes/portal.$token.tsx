@@ -138,11 +138,14 @@ function GuestPortal() {
       const order = await createOrder({ data: { token, amount, intent: choice.kind } });
       await loadRazorpayCheckout();
 
-      // Mobile → UPI Intent (app pickers). Desktop → Dynamic QR + Collect fallback.
-      // Cards / Netbanking / Wallets remain available via default blocks.
+      // Razorpay's recommended UPI flows: Intent (mobile app pickers) and
+      // Dynamic QR (desktop). We intentionally do NOT list "collect" — Razorpay
+      // recommends migrating away from UPI Collect, and Checkout will still
+      // surface it internally as a last-resort fallback if a device supports
+      // neither Intent nor QR. Cards / Netbanking / Wallets remain available.
       const isMobile = typeof navigator !== "undefined" &&
         /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-      const upiFlows = isMobile ? ["intent", "collect"] : ["qr", "collect"];
+      const upiFlows = isMobile ? ["intent"] : ["qr"];
 
       const rzp = new window.Razorpay({
         key: order.keyId,
