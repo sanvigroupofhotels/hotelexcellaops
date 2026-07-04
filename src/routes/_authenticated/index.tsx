@@ -211,7 +211,9 @@ function HomePage() {
   };
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+  const timeOfDay = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+  const staff = useCurrentStaff();
+  const greeting = staff.firstName ? `${timeOfDay}, ${staff.firstName}` : timeOfDay;
 
   return (
     <>
@@ -227,7 +229,11 @@ function HomePage() {
             <p className="text-sm md:text-base text-foreground mt-1">
               <span className="tabular-nums font-medium">{occupied}</span> Occupied ·{" "}
               <span className="tabular-nums font-medium">{arrivalsToday}</span> Arrivals Today ·{" "}
-              <span className="tabular-nums font-medium">₹{counterCash.toLocaleString("en-IN")}</span> Counter Cash ·{" "}
+              {!isFrontOffice && (
+                <>
+                  <span className="tabular-nums font-medium">₹{counterCash.toLocaleString("en-IN")}</span> Counter Cash ·{" "}
+                </>
+              )}
               <Link to="/dues" search={{ filter: "inhouse" }} className="font-medium hover:text-gold hover:underline">
                 <span className="tabular-nums">₹{dueTodayAmount.toLocaleString("en-IN")}</span> Due Today{dueRoomNumbers.length > 0 ? ` (${dueRoomNumbers.join(",")})` : ""}
               </Link>
