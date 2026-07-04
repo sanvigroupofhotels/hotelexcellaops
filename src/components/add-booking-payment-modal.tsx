@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   createBookingPayment, updateBookingPayment, replacePaymentAttachment,
   signedAttachmentUrl, PAYMENT_MODES, type BookingPaymentRow,
 } from "@/lib/booking-payments-api";
-import { listStaff } from "@/lib/cash-api";
+import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { useMasterData } from "@/hooks/use-master-data";
 import { toast } from "sonner";
 import { NumField } from "@/components/num-field";
