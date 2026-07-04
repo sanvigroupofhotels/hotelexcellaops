@@ -574,11 +574,18 @@ export const recordPayAtHotelIntent = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------------------
 // confirmRazorpayPayment (public) — client-side confirmation fallback.
+//
 // Razorpay's checkout.js handler returns razorpay_order_id / payment_id /
 // signature. We verify HMAC_SHA256(order_id|payment_id, key_secret) === signature
-// and, if valid, insert a booking_payments row. Idempotent on razorpay_payment_id.
+// and, if valid, insert a booking_payments row.
+//
+// Idempotency is enforced by a UNIQUE INDEX on booking_payments.razorpay_payment_id.
+// A concurrent webhook cannot double-credit — one of the two inserts loses on
+// the unique index and returns "already recorded".
+//
 // This complements the dashboard webhook so payments are never lost if the
-// webhook is misconfigured or delayed.
+// webhook is misconfigured or delayed. Booking confirmation is driven by
+// the DB trigger that recomputes advance_paid / derives status.
 // ---------------------------------------------------------------------------
 export const confirmRazorpayPayment = createServerFn({ method: "POST" })
   .inputValidator((input) =>
@@ -594,7 +601,7 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
     const keyId = process.env.RAZORPAY_KEY_ID;
     if (!keySecret || !keyId) throw new Error("Razorpay is not configured");
 
-    // Verify checkout signature
+    // Verify checkout signature — timing-safe.
     const { createHmac, timingSafeEqual } = await import("crypto");
     const expected = createHmac("sha256", keySecret)
       .update(`${data.razorpay_order_id}|${data.razorpay_payment_id}`)
@@ -620,17 +627,23 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
       throw new Error("Link is invalid or expired");
     }
 
-    // Idempotency — if we've already inserted this razorpay_payment_id, do nothing.
+    // Fast-path idempotency: if we've already inserted this razorpay_payment_id,
+    // just return. The unique index is still the ultimate guard below.
     const { data: existing } = await supabaseAdmin
       .from("booking_payments")
       .select("id")
-      .eq("booking_id", (tok as any).booking_id)
-      .ilike("notes", `%${data.razorpay_payment_id}%`)
+      .eq("razorpay_payment_id", data.razorpay_payment_id)
       .limit(1)
       .maybeSingle();
-    if (existing) return { ok: true, alreadyRecorded: true };
+    if (existing) {
+      await supabaseAdmin
+        .from("razorpay_orders")
+        .update({ status: "paid", captured_at: new Date().toISOString() } as any)
+        .eq("order_id", data.razorpay_order_id);
+      return { ok: true, alreadyRecorded: true };
+    }
 
-    // Fetch payment details from Razorpay to get authoritative amount/method
+    // Fetch payment details from Razorpay to get authoritative amount/method/status.
     const fetchRes = await fetch(
       `https://api.razorpay.com/v1/payments/${encodeURIComponent(data.razorpay_payment_id)}`,
       { headers: { Authorization: "Basic " + btoa(`${keyId}:${keySecret}`) } },
@@ -658,24 +671,42 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!booking) throw new Error("Booking not found");
 
-    const payment_mode = "Razorpay";
-
     const { error: insErr } = await supabaseAdmin.from("booking_payments").insert({
       booking_id: (tok as any).booking_id,
       customer_id: (booking as any).customer_id,
       amount: amountInr,
-      payment_mode,
+      payment_mode: "Razorpay",
       collected_by: "Guest Portal",
       occurred_at: new Date().toISOString(),
       notes: `Razorpay ${data.razorpay_payment_id}`,
       user_id: (booking as any).user_id,
+      razorpay_order_id: data.razorpay_order_id,
+      razorpay_payment_id: data.razorpay_payment_id,
+      razorpay_signature: data.razorpay_signature,
+      razorpay_method: payment.method ?? null,
     } as any);
     if (insErr) {
+      // 23505 = unique_violation → the webhook beat us to it. Treat as success.
+      if ((insErr as any).code === "23505" || String(insErr.message || "").toLowerCase().includes("duplicate")) {
+        await supabaseAdmin
+          .from("razorpay_orders")
+          .update({ status: "paid", captured_at: new Date().toISOString() } as any)
+          .eq("order_id", data.razorpay_order_id);
+        return { ok: true, alreadyRecorded: true };
+      }
       console.error("confirmRazorpayPayment insert failed", insErr);
       throw new Error("Could not record payment");
     }
+
+    // Mark the order as paid (best-effort; webhook may also update).
+    await supabaseAdmin
+      .from("razorpay_orders")
+      .update({ status: "paid", captured_at: new Date().toISOString() } as any)
+      .eq("order_id", data.razorpay_order_id);
+
     return { ok: true, alreadyRecorded: false };
   });
+
 
 // ===========================================================================
 // Guest Portal — Documents, Cancellation, Complaint, Review (Batch B)
