@@ -52,6 +52,7 @@ import {
 } from "@/lib/booking-room-assignments-api";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
+import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { listGuestDocuments } from "@/lib/guest-documents-api";
 import { getDocumentsRetention } from "@/lib/app-settings-api";
 import { toast } from "sonner";
@@ -67,6 +68,7 @@ function BookingDetail() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { isAdmin } = useUserRole();
+  const currentStaff = useCurrentStaff();
   useRealtimeInvalidate(["bookings"], [["booking", id], "bookings"], `booking-${id}`);
 
   const { data: b, isLoading } = useQuery({ queryKey: ["booking", id], queryFn: () => getBooking(id) });
@@ -188,7 +190,7 @@ function BookingDetail() {
           customer_id: b?.customer_id ?? null,
           amount: refundAmount,
           payment_mode: refundMode,
-          collected_by: refundCollectedBy || "—",
+          collected_by: refundCollectedBy || currentStaff.name || "—",
           is_refund: true,
           refund_reason: reason,
           notes: `Refund on cancellation · ${reason}`,
@@ -266,7 +268,7 @@ function BookingDetail() {
         customer_id: b?.customer_id ?? null,
         amount: refundAmount,
         payment_mode: refundMode,
-        collected_by: refundBy || "—",
+        collected_by: refundBy || currentStaff.name || "—",
         is_refund: true,
         refund_reason: refundReason || "Refund",
         notes: `Refund · ${refundReason || "Refund"} · ${refundMode}${refundRef ? ` · Ref ${refundRef}` : ""}`,
@@ -848,8 +850,9 @@ function BookingDetail() {
               </label>
               <label className="col-span-2 space-y-1">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refunded By (Staff)</div>
-                <input type="text" value={refundBy} onChange={(e) => setRefundBy(e.target.value)}
-                  placeholder="Staff name" className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5" />
+                <div className="w-full bg-muted/40 border border-border rounded-md px-2 py-1.5 text-sm">
+                  {currentStaff.name || "—"}
+                </div>
               </label>
             </div>
             <div className="flex justify-end gap-2 pt-1">
@@ -858,7 +861,7 @@ function BookingDetail() {
                 onClick={() => {
                   if (refundAmount <= 0) { toast.error("Enter refund amount"); return; }
                   if (!refundReason.trim()) { toast.error("Enter refund reason"); return; }
-                  if (!refundBy.trim()) { toast.error("Enter staff name"); return; }
+                  if (!(refundBy.trim() || currentStaff.name)) { toast.error("Signed-in staff not detected"); return; }
                   refundMut.mutate();
                 }}
                 disabled={refundMut.isPending}
@@ -925,9 +928,9 @@ function BookingDetail() {
                   </label>
                   <label className="col-span-2 block text-xs">
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Refunded By</span>
-                    <input value={cancelRefundBy} onChange={(e) => setCancelRefundBy(e.target.value)}
-                      className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-                      placeholder="Staff name" />
+                    <div className="w-full bg-muted/40 border border-border rounded-md px-3 py-2 text-sm">
+                      {currentStaff.name || "—"}
+                    </div>
                   </label>
                 </div>
                 <div className="flex gap-1.5 flex-wrap">
@@ -947,21 +950,20 @@ function BookingDetail() {
           <AlertDialogFooter>
             <AlertDialogCancel>Close</AlertDialogCancel>
             <AlertDialogAction
-              disabled={!cancelReason.trim() || cancelBooking.isPending || (cancelRefundAmount > 0 && !cancelRefundBy.trim())}
+              disabled={!cancelReason.trim() || cancelBooking.isPending || (cancelRefundAmount > 0 && !currentStaff.name)}
               onClick={(e) => {
                 const r = cancelReason.trim();
                 if (!r) { e.preventDefault(); toast.error("Please enter a reason"); return; }
-                if (cancelRefundAmount > 0 && !cancelRefundBy.trim()) { e.preventDefault(); toast.error("Enter staff name for refund"); return; }
+                if (cancelRefundAmount > 0 && !currentStaff.name) { e.preventDefault(); toast.error("Signed-in staff not detected"); return; }
                 setCancelOpen(false);
                 cancelBooking.mutate({
                   reason: r,
                   refundAmount: cancelRefundAmount,
                   refundMode: cancelRefundMode,
-                  refundCollectedBy: cancelRefundBy.trim(),
+                  refundCollectedBy: currentStaff.name || "—",
                 });
                 setCancelReason("");
                 setCancelRefundAmount(0);
-                setCancelRefundBy("");
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {cancelRefundAmount > 0 ? `Cancel & Refund ₹${cancelRefundAmount.toLocaleString("en-IN")}` : "Cancel Booking"}
