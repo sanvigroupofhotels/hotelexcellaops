@@ -183,22 +183,10 @@ export function ChargeFormDialog({
           </div>
           <div className="text-sm">Amount: <span className="font-medium text-gold">{inr(amount)}</span></div>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Added By *">
-              {staff.length > 0 ? (
-                <select value={addedBy} onChange={(e) => setAddedBy(e.target.value)}
-                  className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                  <option value="">Select…</option>
-                  {/* Preserve historical staff name even if deactivated */}
-                  {addedBy && !staff.some((s: any) => s.name === addedBy) && (
-                    <option value={addedBy}>{addedBy} (inactive)</option>
-                  )}
-                  {staff.map((s: any) => <option key={s.id} value={s.name}>{s.name}</option>)}
-                </select>
-              ) : (
-                <input value={addedBy} onChange={(e) => setAddedBy(e.target.value)}
-                  placeholder="Staff name"
-                  className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
-              )}
+            <Field label="Added By">
+              <div className="w-full bg-input/40 border border-border rounded-md px-3 py-2 text-sm text-muted-foreground">
+                {addedBy || <span className="italic">Signed-in user</span>}
+              </div>
             </Field>
             <Field label="Date & Time">
               <input type="datetime-local" value={occurredAt}
