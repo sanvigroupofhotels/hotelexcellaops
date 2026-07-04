@@ -950,21 +950,20 @@ function BookingDetail() {
           <AlertDialogFooter>
             <AlertDialogCancel>Close</AlertDialogCancel>
             <AlertDialogAction
-              disabled={!cancelReason.trim() || cancelBooking.isPending || (cancelRefundAmount > 0 && !cancelRefundBy.trim())}
+              disabled={!cancelReason.trim() || cancelBooking.isPending || (cancelRefundAmount > 0 && !currentStaff.name)}
               onClick={(e) => {
                 const r = cancelReason.trim();
                 if (!r) { e.preventDefault(); toast.error("Please enter a reason"); return; }
-                if (cancelRefundAmount > 0 && !cancelRefundBy.trim()) { e.preventDefault(); toast.error("Enter staff name for refund"); return; }
+                if (cancelRefundAmount > 0 && !currentStaff.name) { e.preventDefault(); toast.error("Signed-in staff not detected"); return; }
                 setCancelOpen(false);
                 cancelBooking.mutate({
                   reason: r,
                   refundAmount: cancelRefundAmount,
                   refundMode: cancelRefundMode,
-                  refundCollectedBy: cancelRefundBy.trim(),
+                  refundCollectedBy: currentStaff.name || "—",
                 });
                 setCancelReason("");
                 setCancelRefundAmount(0);
-                setCancelRefundBy("");
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {cancelRefundAmount > 0 ? `Cancel & Refund ₹${cancelRefundAmount.toLocaleString("en-IN")}` : "Cancel Booking"}
