@@ -861,7 +861,7 @@ function BookingDetail() {
                 onClick={() => {
                   if (refundAmount <= 0) { toast.error("Enter refund amount"); return; }
                   if (!refundReason.trim()) { toast.error("Enter refund reason"); return; }
-                  if (!refundBy.trim()) { toast.error("Enter staff name"); return; }
+                  if (!(refundBy.trim() || currentStaff.name)) { toast.error("Signed-in staff not detected"); return; }
                   refundMut.mutate();
                 }}
                 disabled={refundMut.isPending}
