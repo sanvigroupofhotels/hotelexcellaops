@@ -52,6 +52,7 @@ import {
 } from "@/lib/booking-room-assignments-api";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
+import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { listGuestDocuments } from "@/lib/guest-documents-api";
 import { getDocumentsRetention } from "@/lib/app-settings-api";
 import { toast } from "sonner";
