@@ -68,6 +68,7 @@ function BookingDetail() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { isAdmin } = useUserRole();
+  const currentStaff = useCurrentStaff();
   useRealtimeInvalidate(["bookings"], [["booking", id], "bookings"], `booking-${id}`);
 
   const { data: b, isLoading } = useQuery({ queryKey: ["booking", id], queryFn: () => getBooking(id) });
