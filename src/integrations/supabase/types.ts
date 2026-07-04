@@ -352,6 +352,10 @@ export type Database = {
           ocr_image_path: string | null
           paid_to: string | null
           payment_mode: string
+          razorpay_method: string | null
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
+          razorpay_signature: string | null
           refund_reason: string | null
           updated_at: string
           user_id: string
@@ -373,6 +377,10 @@ export type Database = {
           ocr_image_path?: string | null
           paid_to?: string | null
           payment_mode: string
+          razorpay_method?: string | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
           refund_reason?: string | null
           updated_at?: string
           user_id: string
@@ -394,6 +402,10 @@ export type Database = {
           ocr_image_path?: string | null
           paid_to?: string | null
           payment_mode?: string
+          razorpay_method?: string | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
           refund_reason?: string | null
           updated_at?: string
           user_id?: string
@@ -2645,6 +2657,98 @@ export type Database = {
           rate?: number
           room_type?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      razorpay_orders: {
+        Row: {
+          amount_paise: number
+          booking_id: string
+          captured_at: string | null
+          created_at: string
+          currency: string
+          id: string
+          intent: string
+          notes: Json | null
+          order_id: string
+          receipt: string | null
+          status: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          amount_paise: number
+          booking_id: string
+          captured_at?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          intent: string
+          notes?: Json | null
+          order_id: string
+          receipt?: string | null
+          status?: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          amount_paise?: number
+          booking_id?: string
+          captured_at?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          intent?: string
+          notes?: Json | null
+          order_id?: string
+          receipt?: string | null
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "razorpay_orders_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      razorpay_webhook_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          id: string
+          payload: Json
+          processed_at: string | null
+          processing_error: string | null
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
+          received_at: string
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          id?: string
+          payload: Json
+          processed_at?: string | null
+          processing_error?: string | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          received_at?: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          processing_error?: string | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          received_at?: string
         }
         Relationships: []
       }
