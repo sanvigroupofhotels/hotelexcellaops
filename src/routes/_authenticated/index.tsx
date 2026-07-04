@@ -159,6 +159,12 @@ function HomePage() {
   const totalRooms = rooms.filter((r: any) => r.active !== false).length;
   const occupancyPct = totalRooms > 0 ? Math.round((occupied / totalRooms) * 100) : 0;
 
+  // Front-office staff must not see management financials (revenue,
+  // collections). We gate the Revenue Today card on role. Admin / owner /
+  // reception continue to see the full metric set.
+  const { role } = useUserRole();
+  const isFrontOffice = role === "staff";
+
   // Cards: counts render plain numbers (no ₹), currency cards opt-in.
   const stats: Array<{ label: string; value: number; icon: any; emoji: string; to: string; currency?: boolean }> = [
     { label: "Occupied Rooms",    value: occupied,                 icon: BedDouble,            emoji: "🏨", to: "/house-view" },
@@ -166,7 +172,7 @@ function HomePage() {
     { label: "Departures Today",  value: departuresToday,          icon: LogOut,               emoji: "🚶", to: "/bookings" },
     { label: "Pending Check-ins", value: pendingCheckins,          icon: LogIn,                emoji: "🔴", to: "/bookings" },
     { label: "Due Collection",    value: dueCollection,            icon: IndianRupee,          emoji: "💰", to: "/dues", currency: true },
-    { label: "Revenue Today",     value: revenueCollectedToday,    icon: TrendingUp,           emoji: "📈", to: "/payments-reports", currency: true },
+    ...(isFrontOffice ? [] : [{ label: "Revenue Today", value: revenueCollectedToday, icon: TrendingUp, emoji: "📈", to: "/payments-reports", currency: true }]),
     { label: "New Bookings Today",value: newBookingsToday,         icon: CalendarPlus,         emoji: "🆕", to: "/bookings" },
     { label: "Occupancy %",       value: occupancyPct,             icon: PieChart,             emoji: "📊", to: "/house-view" },
     { label: "Complaints Open",   value: complaintsOpen,           icon: MessageSquareWarning, emoji: "🛎", to: "/complaints" },
