@@ -8,7 +8,7 @@ import {
 } from "@/lib/booking-charges-api";
 import { useChargeCategories } from "@/hooks/use-charge-categories";
 import { useUserRole } from "@/hooks/use-role";
-import { listStaff } from "@/lib/cash-api";
+import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { NumField } from "@/components/num-field";
 
