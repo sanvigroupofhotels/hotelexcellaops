@@ -18,6 +18,8 @@ import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useCheckInController } from "@/lib/check-in-flow";
 import { useChargeCategories } from "@/hooks/use-charge-categories";
+import { useCurrentStaff } from "@/hooks/use-current-staff";
+import { useUserRole } from "@/hooks/use-role";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { groupStayAssignments, groupStayItems, pairStaySlotsToRooms, segmentCoversDate } from "@/lib/stay-segments";
 import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
@@ -157,6 +159,12 @@ function HomePage() {
   const totalRooms = rooms.filter((r: any) => r.active !== false).length;
   const occupancyPct = totalRooms > 0 ? Math.round((occupied / totalRooms) * 100) : 0;
 
+  // Front-office staff must not see management financials (revenue,
+  // collections). We gate the Revenue Today card on role. Admin / owner /
+  // reception continue to see the full metric set.
+  const { role } = useUserRole();
+  const isFrontOffice = role === "staff";
+
   // Cards: counts render plain numbers (no ₹), currency cards opt-in.
   const stats: Array<{ label: string; value: number; icon: any; emoji: string; to: string; currency?: boolean }> = [
     { label: "Occupied Rooms",    value: occupied,                 icon: BedDouble,            emoji: "🏨", to: "/house-view" },
@@ -164,7 +172,7 @@ function HomePage() {
     { label: "Departures Today",  value: departuresToday,          icon: LogOut,               emoji: "🚶", to: "/bookings" },
     { label: "Pending Check-ins", value: pendingCheckins,          icon: LogIn,                emoji: "🔴", to: "/bookings" },
     { label: "Due Collection",    value: dueCollection,            icon: IndianRupee,          emoji: "💰", to: "/dues", currency: true },
-    { label: "Revenue Today",     value: revenueCollectedToday,    icon: TrendingUp,           emoji: "📈", to: "/payments-reports", currency: true },
+    ...(isFrontOffice ? [] : [{ label: "Revenue Today", value: revenueCollectedToday, icon: TrendingUp, emoji: "📈", to: "/payments-reports", currency: true }]),
     { label: "New Bookings Today",value: newBookingsToday,         icon: CalendarPlus,         emoji: "🆕", to: "/bookings" },
     { label: "Occupancy %",       value: occupancyPct,             icon: PieChart,             emoji: "📊", to: "/house-view" },
     { label: "Complaints Open",   value: complaintsOpen,           icon: MessageSquareWarning, emoji: "🛎", to: "/complaints" },
@@ -203,7 +211,9 @@ function HomePage() {
   };
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+  const timeOfDay = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+  const staff = useCurrentStaff();
+  const greeting = staff.firstName ? `${timeOfDay}, ${staff.firstName}` : timeOfDay;
 
   return (
     <>
@@ -219,7 +229,11 @@ function HomePage() {
             <p className="text-sm md:text-base text-foreground mt-1">
               <span className="tabular-nums font-medium">{occupied}</span> Occupied ·{" "}
               <span className="tabular-nums font-medium">{arrivalsToday}</span> Arrivals Today ·{" "}
-              <span className="tabular-nums font-medium">₹{counterCash.toLocaleString("en-IN")}</span> Counter Cash ·{" "}
+              {!isFrontOffice && (
+                <>
+                  <span className="tabular-nums font-medium">₹{counterCash.toLocaleString("en-IN")}</span> Counter Cash ·{" "}
+                </>
+              )}
               <Link to="/dues" search={{ filter: "inhouse" }} className="font-medium hover:text-gold hover:underline">
                 <span className="tabular-nums">₹{dueTodayAmount.toLocaleString("en-IN")}</span> Due Today{dueRoomNumbers.length > 0 ? ` (${dueRoomNumbers.join(",")})` : ""}
               </Link>

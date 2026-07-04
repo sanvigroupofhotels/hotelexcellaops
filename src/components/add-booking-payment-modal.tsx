@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   createBookingPayment, updateBookingPayment, replacePaymentAttachment,
   signedAttachmentUrl, PAYMENT_MODES, type BookingPaymentRow,
 } from "@/lib/booking-payments-api";
-import { listStaff } from "@/lib/cash-api";
+import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { useMasterData } from "@/hooks/use-master-data";
 import { toast } from "sonner";
 import { NumField } from "@/components/num-field";
@@ -39,12 +39,15 @@ export function AddBookingPaymentModal({
 }) {
   const qc = useQueryClient();
   const isEdit = !!payment;
-  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active", "cashbook"], queryFn: () => listStaff(true, { availability: "cashbook" }) });
+  // Auto-attribution: the signed-in staff member is the source of truth for
+  // "Collected By". No manual picker.
+  const currentStaff = useCurrentStaff();
   const { values: paymentModes } = useMasterData("payment_method", [...PAYMENT_MODES]);
 
   const [amount, setAmount] = useState<number>(payment ? Number(payment.amount) : Math.max(0, maxAmount));
   const [mode, setMode] = useState<string>(payment?.payment_mode ?? paymentModes[0] ?? PAYMENT_MODES[0]);
-  const [collectedBy, setCollectedBy] = useState<string>(payment?.collected_by ?? "");
+  // Preserve historical attribution on edit; otherwise use the signed-in user.
+  const collectedBy = payment?.collected_by ?? currentStaff.name;
   const [occurredAt, setOccurredAt] = useState<string>(() => {
     const d = payment ? new Date(payment.occurred_at) : new Date();
     const tz = d.getTimezoneOffset();
@@ -62,8 +65,6 @@ export function AddBookingPaymentModal({
   // Edit mode: show existing attachment + replace/delete
   const [attachmentPath, setAttachmentPath] = useState<string | null>(payment?.ocr_image_path ?? null);
   const [attachmentBusy, setAttachmentBusy] = useState(false);
-
-  useEffect(() => { if (!collectedBy && staff[0]?.name) setCollectedBy(staff[0].name); }, [staff, collectedBy]);
 
   const handleExtracted = (r: { extracted: ExtractedPayment; raw_text: string; image_path: string }) => {
     setOcrImagePath(r.image_path);
@@ -218,17 +219,10 @@ export function AddBookingPaymentModal({
               className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
           </label>
           <label className="col-span-2 block">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Collected By *</span>
-            {staff.length > 0 ? (
-              <select value={collectedBy} onChange={(e) => setCollectedBy(e.target.value)}
-                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                <option value="">Select…</option>
-                {staff.map((s: any) => <option key={s.id} value={s.name}>{s.name}</option>)}
-              </select>
-            ) : (
-              <input value={collectedBy} onChange={(e) => setCollectedBy(e.target.value)} placeholder="Staff name"
-                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
-            )}
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Collected By</span>
+            <div className="w-full bg-input/40 border border-border rounded-md px-3 py-2 text-sm text-muted-foreground">
+              {collectedBy || <span className="italic">Signed-in user</span>}
+            </div>
           </label>
           <label className="col-span-2 block">
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Date &amp; Time</span>

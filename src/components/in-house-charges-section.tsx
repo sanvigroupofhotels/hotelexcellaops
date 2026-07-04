@@ -8,7 +8,7 @@ import {
 } from "@/lib/booking-charges-api";
 import { useChargeCategories } from "@/hooks/use-charge-categories";
 import { useUserRole } from "@/hooks/use-role";
-import { listStaff } from "@/lib/cash-api";
+import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { NumField } from "@/components/num-field";
 
@@ -115,12 +115,16 @@ export function ChargeFormDialog({
   bookingId: string; categories: string[]; editing: BookingChargeRow | null;
 }) {
   const qc = useQueryClient();
-  const { data: staff = [] } = useQuery({ queryKey: ["staff", "active", "cashbook"], queryFn: () => listStaff(true, { availability: "cashbook" }) });
+  // Auto-attribution: the signed-in staff member is the source of truth for
+  // "Added By". No manual picker — one staff cannot post charges under another.
+  const currentStaff = useCurrentStaff();
   const [category, setCategory] = useState(editing?.category ?? categories[0] ?? "Food Order");
   const [otherDesc, setOtherDesc] = useState(editing?.other_description ?? "");
   const [quantity, setQuantity] = useState<number>(editing?.quantity ?? 1);
   const [unitPrice, setUnitPrice] = useState<number>(editing?.unit_price ?? 0);
-  const [addedBy, setAddedBy] = useState(editing?.added_by ?? "");
+  // Preserve original attribution when editing; otherwise attribute to the
+  // signed-in user. Never overwrite a historical row's added_by silently.
+  const addedBy = editing?.added_by ?? currentStaff.name;
   const [occurredAt, setOccurredAt] = useState<string>(
     editing?.occurred_at ? new Date(editing.occurred_at).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
   );
@@ -179,22 +183,10 @@ export function ChargeFormDialog({
           </div>
           <div className="text-sm">Amount: <span className="font-medium text-gold">{inr(amount)}</span></div>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Added By *">
-              {staff.length > 0 ? (
-                <select value={addedBy} onChange={(e) => setAddedBy(e.target.value)}
-                  className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                  <option value="">Select…</option>
-                  {/* Preserve historical staff name even if deactivated */}
-                  {addedBy && !staff.some((s: any) => s.name === addedBy) && (
-                    <option value={addedBy}>{addedBy} (inactive)</option>
-                  )}
-                  {staff.map((s: any) => <option key={s.id} value={s.name}>{s.name}</option>)}
-                </select>
-              ) : (
-                <input value={addedBy} onChange={(e) => setAddedBy(e.target.value)}
-                  placeholder="Staff name"
-                  className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
-              )}
+            <Field label="Added By">
+              <div className="w-full bg-input/40 border border-border rounded-md px-3 py-2 text-sm text-muted-foreground">
+                {addedBy || <span className="italic">Signed-in user</span>}
+              </div>
             </Field>
             <Field label="Date & Time">
               <input type="datetime-local" value={occurredAt}
