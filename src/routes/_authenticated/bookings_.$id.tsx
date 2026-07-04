@@ -928,9 +928,9 @@ function BookingDetail() {
                   </label>
                   <label className="col-span-2 block text-xs">
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Refunded By</span>
-                    <input value={cancelRefundBy} onChange={(e) => setCancelRefundBy(e.target.value)}
-                      className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-                      placeholder="Staff name" />
+                    <div className="w-full bg-muted/40 border border-border rounded-md px-3 py-2 text-sm">
+                      {currentStaff.name || "—"}
+                    </div>
                   </label>
                 </div>
                 <div className="flex gap-1.5 flex-wrap">
