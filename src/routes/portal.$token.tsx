@@ -137,11 +137,39 @@ function GuestPortal() {
       const amount = choice.kind === "full" ? b.balanceDue : choice.amount;
       const order = await createOrder({ data: { token, amount, intent: choice.kind } });
       await loadRazorpayCheckout();
+
+      // Mobile → UPI Intent (app pickers). Desktop → Dynamic QR + Collect fallback.
+      // Cards / Netbanking / Wallets remain available via default blocks.
+      const isMobile = typeof navigator !== "undefined" &&
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      const upiFlows = isMobile ? ["intent", "collect"] : ["qr", "collect"];
+
       const rzp = new window.Razorpay({
-        key: order.keyId, order_id: order.orderId, amount: order.amount, currency: order.currency,
-        name: "Hotel Excella", description: `Booking ${order.bookingReference}`,
+        key: order.keyId,
+        order_id: order.orderId,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Hotel Excella",
+        description: `Booking ${order.bookingReference}`,
         prefill: { name: order.guestName, contact: order.phone || "" },
         theme: { color: "#D4AF37" },
+        // Prefer UPI (Intent on mobile, QR on desktop) but keep every other method visible.
+        config: {
+          display: {
+            blocks: {
+              upi_pref: {
+                name: "Pay via UPI",
+                instruments: [{ method: "upi", flows: upiFlows }],
+              },
+            },
+            sequence: ["block.upi_pref"],
+            preferences: { show_default_blocks: true },
+          },
+        },
+        // Retry: allow Razorpay to offer retry within the same order on failure.
+        retry: { enabled: true, max_count: 3 },
+        // Client handler is a PROVISIONAL success signal. Booking confirmation
+        // is finalized only by the verified webhook path.
         handler: async (resp: any) => {
           try {
             await confirmPayment({
@@ -156,15 +184,21 @@ function GuestPortal() {
             toast.success("Payment received. Thank you!");
           } catch (e: any) {
             console.error("confirmRazorpayPayment failed", e);
-            toast.error(errMsg(e, "Payment received but could not be confirmed. Our team will reconcile shortly."));
+            // Do NOT mark as done — the webhook will reconcile if the payment
+            // truly succeeded upstream.
+            toast.message("Payment submitted. We're confirming with the bank — this may take a moment.");
           } finally {
             q.refetch();
             setBusy(false);
           }
         },
-        modal: { ondismiss: () => setBusy(false) },
+        modal: { ondismiss: () => setBusy(false), confirm_close: true, escape: false },
       });
-      rzp.on("payment.failed", (resp: any) => { toast.error(resp?.error?.description || "Payment failed"); setBusy(false); });
+      rzp.on("payment.failed", (resp: any) => {
+        console.warn("Razorpay payment.failed", resp?.error);
+        toast.error(resp?.error?.description || "Payment failed. You can retry.");
+        setBusy(false);
+      });
       rzp.open();
     } catch (e: any) {
       toast.error(errMsg(e, "Could not start payment"));

@@ -414,13 +414,21 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------------------
 // createRazorpayOrder (public)
+//
+// - Validates the portal token and computes the true payable balance server-side
+//   (never trusts the client amount — clamped to the balance).
+// - Reuses an existing OPEN razorpay_orders row for the same booking + intent
+//   + amount when present, so a browser refresh / retry doesn't spawn duplicate
+//   Razorpay orders. This is Razorpay's recommended one-open-order-per-intent
+//   pattern.
+// - Persists every order in `razorpay_orders` for reconciliation.
 // ---------------------------------------------------------------------------
 export const createRazorpayOrder = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z
       .object({
         token: z.string().min(8).max(128),
-        amount: z.number().positive().max(10_000_000), // paise validated separately
+        amount: z.number().positive().max(10_000_000),
         intent: z.enum(["full", "part"]),
       })
       .parse(input),
@@ -443,10 +451,13 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
     }
     const { data: b } = await supabaseAdmin
       .from("bookings")
-      .select("id, amount, advance_paid, booking_reference, guest_name, phone")
+      .select("id, amount, advance_paid, booking_reference, guest_name, phone, status")
       .eq("id", tok.booking_id)
       .maybeSingle();
     if (!b) throw new Error("Booking not found");
+    if ((b as any).status === "Cancelled" || (b as any).status === "No-Show") {
+      throw new Error("This booking is closed. Please contact reception.");
+    }
 
     const { data: chargeRows } = await supabaseAdmin
       .from("booking_charges").select("amount").eq("booking_id", (b as any).id);
@@ -457,40 +468,79 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
     if (balance <= 0) throw new Error("No balance due on this booking");
     const amount = Math.min(balance, Math.round(data.amount));
     if (amount <= 0) throw new Error("Amount must be greater than zero");
-
     const amountPaise = Math.round(amount * 100);
-    const receipt = `bk_${(b as any).booking_reference || (b as any).id}`.slice(0, 40);
 
-    const res = await fetch("https://api.razorpay.com/v1/orders", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Basic " + btoa(`${keyId}:${keySecret}`),
-      },
-      body: JSON.stringify({
-        amount: amountPaise,
-        currency: "INR",
-        receipt,
-        notes: {
-          booking_id: (b as any).id,
-          booking_reference: (b as any).booking_reference,
-          intent: data.intent,
-          token: data.token,
+    // Reuse an existing OPEN order for the same booking + intent + amount.
+    const { data: reusable } = await supabaseAdmin
+      .from("razorpay_orders")
+      .select("order_id, amount_paise, currency, status")
+      .eq("booking_id", (b as any).id)
+      .eq("intent", data.intent)
+      .eq("amount_paise", amountPaise)
+      .in("status", ["created", "attempted"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let orderId: string;
+    let orderAmount: number;
+    let orderCurrency: string;
+
+    if (reusable) {
+      orderId = (reusable as any).order_id;
+      orderAmount = Number((reusable as any).amount_paise);
+      orderCurrency = (reusable as any).currency ?? "INR";
+    } else {
+      const receipt = `bk_${(b as any).booking_reference || (b as any).id}_${Date.now().toString(36)}`.slice(0, 40);
+      const orderNotes = {
+        booking_id: (b as any).id,
+        booking_reference: (b as any).booking_reference,
+        intent: data.intent,
+        token: data.token,
+      };
+      const res = await fetch("https://api.razorpay.com/v1/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Basic " + btoa(`${keyId}:${keySecret}`),
         },
-      }),
-    });
-    if (!res.ok) {
-      const txt = await res.text();
-      console.error("Razorpay order error:", res.status, txt);
-      throw new Error("Could not initiate payment. Please try again.");
+        body: JSON.stringify({
+          amount: amountPaise,
+          currency: "INR",
+          receipt,
+          notes: orderNotes,
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        console.error("Razorpay order error:", res.status, txt);
+        throw new Error("Could not initiate payment. Please try again.");
+      }
+      const order = (await res.json()) as { id: string; amount: number; currency: string };
+      orderId = order.id;
+      orderAmount = order.amount;
+      orderCurrency = order.currency;
+
+      const { error: insErr } = await supabaseAdmin.from("razorpay_orders").insert({
+        booking_id: (b as any).id,
+        token: data.token,
+        intent: data.intent,
+        order_id: orderId,
+        amount_paise: amountPaise,
+        currency: orderCurrency,
+        receipt,
+        notes: orderNotes,
+      } as any);
+      if (insErr && !String(insErr.message || "").toLowerCase().includes("duplicate")) {
+        console.error("razorpay_orders insert failed:", insErr);
+      }
     }
-    const order = (await res.json()) as { id: string; amount: number; currency: string };
 
     return {
       keyId,
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
+      orderId,
+      amount: orderAmount,
+      currency: orderCurrency,
       bookingReference: (b as any).booking_reference,
       guestName: (b as any).guest_name,
       phone: (b as any).phone,
@@ -524,11 +574,18 @@ export const recordPayAtHotelIntent = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------------------
 // confirmRazorpayPayment (public) — client-side confirmation fallback.
+//
 // Razorpay's checkout.js handler returns razorpay_order_id / payment_id /
 // signature. We verify HMAC_SHA256(order_id|payment_id, key_secret) === signature
-// and, if valid, insert a booking_payments row. Idempotent on razorpay_payment_id.
+// and, if valid, insert a booking_payments row.
+//
+// Idempotency is enforced by a UNIQUE INDEX on booking_payments.razorpay_payment_id.
+// A concurrent webhook cannot double-credit — one of the two inserts loses on
+// the unique index and returns "already recorded".
+//
 // This complements the dashboard webhook so payments are never lost if the
-// webhook is misconfigured or delayed.
+// webhook is misconfigured or delayed. Booking confirmation is driven by
+// the DB trigger that recomputes advance_paid / derives status.
 // ---------------------------------------------------------------------------
 export const confirmRazorpayPayment = createServerFn({ method: "POST" })
   .inputValidator((input) =>
@@ -544,7 +601,7 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
     const keyId = process.env.RAZORPAY_KEY_ID;
     if (!keySecret || !keyId) throw new Error("Razorpay is not configured");
 
-    // Verify checkout signature
+    // Verify checkout signature — timing-safe.
     const { createHmac, timingSafeEqual } = await import("crypto");
     const expected = createHmac("sha256", keySecret)
       .update(`${data.razorpay_order_id}|${data.razorpay_payment_id}`)
@@ -570,17 +627,23 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
       throw new Error("Link is invalid or expired");
     }
 
-    // Idempotency — if we've already inserted this razorpay_payment_id, do nothing.
+    // Fast-path idempotency: if we've already inserted this razorpay_payment_id,
+    // just return. The unique index is still the ultimate guard below.
     const { data: existing } = await supabaseAdmin
       .from("booking_payments")
       .select("id")
-      .eq("booking_id", (tok as any).booking_id)
-      .ilike("notes", `%${data.razorpay_payment_id}%`)
+      .eq("razorpay_payment_id", data.razorpay_payment_id)
       .limit(1)
       .maybeSingle();
-    if (existing) return { ok: true, alreadyRecorded: true };
+    if (existing) {
+      await supabaseAdmin
+        .from("razorpay_orders")
+        .update({ status: "paid", captured_at: new Date().toISOString() } as any)
+        .eq("order_id", data.razorpay_order_id);
+      return { ok: true, alreadyRecorded: true };
+    }
 
-    // Fetch payment details from Razorpay to get authoritative amount/method
+    // Fetch payment details from Razorpay to get authoritative amount/method/status.
     const fetchRes = await fetch(
       `https://api.razorpay.com/v1/payments/${encodeURIComponent(data.razorpay_payment_id)}`,
       { headers: { Authorization: "Basic " + btoa(`${keyId}:${keySecret}`) } },
@@ -608,24 +671,42 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!booking) throw new Error("Booking not found");
 
-    const payment_mode = "Razorpay";
-
     const { error: insErr } = await supabaseAdmin.from("booking_payments").insert({
       booking_id: (tok as any).booking_id,
       customer_id: (booking as any).customer_id,
       amount: amountInr,
-      payment_mode,
+      payment_mode: "Razorpay",
       collected_by: "Guest Portal",
       occurred_at: new Date().toISOString(),
       notes: `Razorpay ${data.razorpay_payment_id}`,
       user_id: (booking as any).user_id,
+      razorpay_order_id: data.razorpay_order_id,
+      razorpay_payment_id: data.razorpay_payment_id,
+      razorpay_signature: data.razorpay_signature,
+      razorpay_method: payment.method ?? null,
     } as any);
     if (insErr) {
+      // 23505 = unique_violation → the webhook beat us to it. Treat as success.
+      if ((insErr as any).code === "23505" || String(insErr.message || "").toLowerCase().includes("duplicate")) {
+        await supabaseAdmin
+          .from("razorpay_orders")
+          .update({ status: "paid", captured_at: new Date().toISOString() } as any)
+          .eq("order_id", data.razorpay_order_id);
+        return { ok: true, alreadyRecorded: true };
+      }
       console.error("confirmRazorpayPayment insert failed", insErr);
       throw new Error("Could not record payment");
     }
+
+    // Mark the order as paid (best-effort; webhook may also update).
+    await supabaseAdmin
+      .from("razorpay_orders")
+      .update({ status: "paid", captured_at: new Date().toISOString() } as any)
+      .eq("order_id", data.razorpay_order_id);
+
     return { ok: true, alreadyRecorded: false };
   });
+
 
 // ===========================================================================
 // Guest Portal — Documents, Cancellation, Complaint, Review (Batch B)
