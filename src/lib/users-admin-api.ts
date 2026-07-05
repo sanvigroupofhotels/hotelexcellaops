@@ -4,6 +4,7 @@ import type { AppRole } from "@/hooks/use-role";
 export interface UserRow {
   id: string;
   email: string | null;
+  username: string | null;
   display_name: string | null;
   role: AppRole;
   created_at: string;
