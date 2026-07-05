@@ -24,9 +24,9 @@
  */
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
-import { Loader2, Sparkles, Star, UserCheck } from "lucide-react";
+import { Loader2, Sparkles, Star, UserCheck, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { type CustomerRow } from "@/lib/customers-api";
@@ -47,6 +47,9 @@ import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { NumField } from "@/components/num-field";
 import { RoomStepper } from "@/components/room-stepper";
 import { useChargeCategories } from "@/hooks/use-charge-categories";
+import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/payment-settings-section";
+import { useMasterData } from "@/hooks/use-master-data";
+import { LEAD_SOURCES } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_authenticated/bookings_/quick")({
   component: QuickBookingPage,
@@ -86,11 +89,39 @@ function QuickBookingPage() {
   const [mappleRooms, setMappleRooms] = useState(0);
 
   // ---- Pricing override / discount / other charges ----
+  // Parity with Detailed Booking: totalOverride is number|null and taxesIncluded
+  // is user-toggleable via the shared editable PricingBreakdownCard.
   const [otherCharges, setOtherCharges] = useState(0);
   const [otherDescription, setOtherDescription] = useState("");
   const [discount, setDiscount] = useState(0);
-  const [totalOverride, setTotalOverride] = useState<string>("");
-  const [taxesIncluded] = useState(true); // override entered as gross by default (Reception expectation)
+  const [totalOverride, setTotalOverride] = useState<number | null>(null);
+  const [taxesIncluded, setTaxesIncluded] = useState<boolean>(true);
+
+  // ---- Per-booking payment flags (parity with Detailed Booking). Collapsed by default. ----
+  const { data: paymentDefaults = DEFAULT_PAYMENT_SETTINGS } = useQuery({
+    queryKey: ["app-settings", "payment_settings"],
+    queryFn: getPaymentSettings,
+    staleTime: 5 * 60 * 1000,
+  });
+  const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags | null>(null);
+  useEffect(() => {
+    if (paymentFlags) return;
+    setPaymentFlags({
+      allow_full_payment: paymentDefaults.allow_full_payment,
+      allow_part_payment: paymentDefaults.allow_part_payment,
+      allow_pay_at_hotel: paymentDefaults.allow_pay_at_hotel,
+      part_payment_value: paymentDefaults.default_part_percent,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentDefaults]);
+
+  // ---- More Options (lead source / requests / internal notes) ----
+  const [leadSource, setLeadSource] = useState<string>("Direct");
+  const [specialRequests, setSpecialRequests] = useState<string>("");
+  const [internalNotes, setInternalNotes] = useState<string>("");
+  const { values: leadSources } = useMasterData("lead_source", [...LEAD_SOURCES]);
+  const [moreOpen, setMoreOpen] = useState<boolean>(false);
+
 
   // ---- Auto-focus mobile field on mount for speed ----
   const phoneRef = useRef<HTMLInputElement | null>(null);
@@ -158,7 +189,7 @@ function QuickBookingPage() {
     return [...items, synthetic];
   }, [items, otherCharges, nights, checkIn, checkOut]);
 
-  const overrideNum = totalOverride.trim() === "" ? null : Number(totalOverride);
+  const overrideNum = totalOverride;
   const pricing = computePricing(pricingItems, discount, DEFAULT_TAX_RATE, {
     totalOverride: overrideNum,
     taxesIncluded,
@@ -210,17 +241,17 @@ function QuickBookingPage() {
         taxes: pricing.taxes,
         tax_rate: pricing.taxRate,
         discount: pricing.discount,
-        notes: null,
-        internal_notes: null,
+        notes: specialRequests.trim() || null,
+        internal_notes: internalNotes.trim() || null,
         payment_status: "None",
-        lead_source: "Direct",
+        lead_source: leadSource || "Direct",
         total_override: overrideNum,
         taxes_included: taxesIncluded,
-        allow_full_payment: settings.allow_full_payment,
-        allow_part_payment: settings.allow_part_payment,
-        allow_pay_at_hotel: settings.allow_pay_at_hotel,
+        allow_full_payment: paymentFlags?.allow_full_payment ?? settings.allow_full_payment,
+        allow_part_payment: paymentFlags?.allow_part_payment ?? settings.allow_part_payment,
+        allow_pay_at_hotel: paymentFlags?.allow_pay_at_hotel ?? settings.allow_pay_at_hotel,
         part_payment_type: "percent",
-        part_payment_value: settings.default_part_percent,
+        part_payment_value: paymentFlags?.part_payment_value ?? settings.default_part_percent,
       };
 
       // Quick Booking treats mobile number as the unique customer key.
@@ -276,7 +307,9 @@ function QuickBookingPage() {
     return JSON.stringify({
       checkIn, checkOut, adults, kids, oakRooms, mappleRooms,
       otherCharges, otherDescription, discount,
-      totalOverride: overrideNum,
+      totalOverride: overrideNum, taxesIncluded,
+      leadSource, specialRequests, internalNotes,
+      paymentFlags,
       items: items.map((i) => ({ ...i })),
     });
   }
@@ -314,13 +347,16 @@ function QuickBookingPage() {
         taxes: pricing.taxes,
         tax_rate: pricing.taxRate,
         discount: pricing.discount,
+        notes: specialRequests.trim() || null,
+        internal_notes: internalNotes.trim() || null,
+        lead_source: leadSource || "Direct",
         total_override: overrideNum,
         taxes_included: taxesIncluded,
-        allow_full_payment: settings.allow_full_payment,
-        allow_part_payment: settings.allow_part_payment,
-        allow_pay_at_hotel: settings.allow_pay_at_hotel,
+        allow_full_payment: paymentFlags?.allow_full_payment ?? settings.allow_full_payment,
+        allow_part_payment: paymentFlags?.allow_part_payment ?? settings.allow_part_payment,
+        allow_pay_at_hotel: paymentFlags?.allow_pay_at_hotel ?? settings.allow_pay_at_hotel,
         part_payment_type: "percent",
-        part_payment_value: settings.default_part_percent,
+        part_payment_value: paymentFlags?.part_payment_value ?? settings.default_part_percent,
       });
 
       // 3. Rooms — replace booking_items (same path used by Detailed Edit).
@@ -505,23 +541,58 @@ function QuickBookingPage() {
               <input value={otherDescription} onChange={(e) => setOtherDescription(e.target.value)} placeholder="e.g. Airport pickup" className="qb-input" />
             </Field>
           )}
-          <Field label="Total override (₹ — leave blank to use computed)">
-            <input
-              type="number"
-              value={totalOverride}
-              onChange={(e) => setTotalOverride(e.target.value)}
-              placeholder={String(pricing.total)}
-              className="qb-input"
-              inputMode="decimal"
-            />
-          </Field>
           <div className="text-[11px] text-muted-foreground leading-snug">
-            Lower override → Discount auto-derived · Higher override → Room Charges auto-increase. Identical logic to the Detailed Booking Form.
+            Override the Final Amount inline on the Pricing Summary below.
+            Lower override → Discount auto-derived · Higher override → Room Charges auto-increase.
+            Identical logic to the Detailed Booking Form.
           </div>
         </section>
 
-        {/* GROUP 5 — Pricing breakdown (shared component, same engine) */}
-        <PricingBreakdownCard pricing={pricing} />
+        {/* GROUP 5 — Pricing breakdown (shared component, editable override — parity with Detailed) */}
+        <PricingBreakdownCard
+          pricing={pricing}
+          editable={true}
+          overrideValue={totalOverride}
+          onOverrideChange={setTotalOverride}
+          onTaxesIncludedChange={setTaxesIncluded}
+          nights={nights}
+          guests={adults + kids}
+        />
+
+        {/* GROUP 5b — More Options (parity: lead source, requests, notes, per-booking payment flags) */}
+        <section className="luxe-card rounded-xl">
+          <button
+            type="button"
+            onClick={() => setMoreOpen((v) => !v)}
+            className="w-full flex items-center justify-between p-4 text-left"
+          >
+            <span className="text-xs uppercase tracking-wider text-gold">More Options</span>
+            {moreOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          </button>
+          {moreOpen && (
+            <div className="px-4 pb-4 space-y-3">
+              <Field label="Lead Source">
+                <select value={leadSource} onChange={(e) => setLeadSource(e.target.value)} className="qb-input">
+                  {leadSources.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </Field>
+              <Field label="Special Requests (guest-facing)">
+                <textarea rows={2} value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} placeholder="Early check-in, high floor, etc." className="qb-input resize-none" />
+              </Field>
+              <Field label="Internal Notes (never shared)">
+                <textarea rows={2} value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Internal remarks" className="qb-input resize-none" />
+              </Field>
+              {paymentFlags && (
+                <PaymentSettingsSection
+                  value={paymentFlags}
+                  onChange={setPaymentFlags}
+                  hint="Override global payment settings for this booking only."
+                />
+              )}
+            </div>
+          )}
+        </section>
+
 
         {/* GROUP 6 — Inline advance + actions */}
         <section className="luxe-card rounded-xl p-4 space-y-3">

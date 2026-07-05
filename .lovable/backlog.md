@@ -1,8 +1,7 @@
 # HEOS — Project Backlog
 
 Single source of truth for pending work on HEOS. Reconciled 2026-07-05
-against the full roadmap (P1–P11 + Won't Do) after Laundry Ship 2 and the
-Laundry transactional-RPC stabilization sprint. Completed items are removed.
+after **P1 Quick Booking Pricing Parity** sprint.
 
 **Governance rules (per user directive, 2026-07-05):**
 
@@ -13,12 +12,44 @@ Laundry transactional-RPC stabilization sprint. Completed items are removed.
   items, promote/demote priorities, log architectural decisions.
 - Architectural initiatives are kept separate from functional features.
 - Won't Do items are kept explicit so rejected ideas are not re-proposed.
-- When implementing a requested task, related low-risk items that
-  improve consistency may be bundled — always distinguish **Requested /
-  Recommended-related / Deferred** in the response.
+- Every completion report includes a **Reconciliation Summary**.
+- The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-05 (post Laundry transactional-RPC stabilization + roadmap reconciliation)
+- **Last updated:** 2026-07-05 (post Quick Booking Pricing Parity)
 - **Currently in flight:** _None._
+
+---
+
+## Platform Health — Module & Engine Status
+
+Legend: 🟢 Stable · 🟡 Partial · 🔵 In Progress · ⚪ Planned · ⛔ Not Started
+
+| Module / Engine | Status | Notes |
+|-----------------|--------|-------|
+| Booking (Detailed + Quick) | 🟢 Stable | Quick↔Detailed pricing parity closed 2026-07-05 |
+| Pricing Engine | 🟢 Stable | `computePricing` shared by Quotes, Bookings (Detailed + Quick), Invoices, WhatsApp, Portal |
+| Rates & Inventory | 🟢 Stable | Override → weekend/weekday → default; single resolver |
+| Customer / CRM | 🟢 Stable | Shared resolution hooks; leads pipeline live |
+| Payments (Cash + Razorpay) | 🟢 Stable | Cash Book auto-entries; Razorpay webhook verified |
+| Housekeeping | 🟢 Stable | Task lifecycle, DND, exceptions, checkout hook, laundry enqueue |
+| Laundry | 🟢 Stable | Ship 1 + Ship 2 + transactional RPCs complete |
+| Vendor | 🟢 Stable | `vendor_kind[]` tagging; laundry-scoped |
+| Complaints | 🟢 Stable | Categories, activities, HK integration |
+| Inventory | 🟢 Stable | Movements, categories, charge catalog |
+| Night Audit | 🟢 Stable | Sessions, decisions, EOD report, critical tasks |
+| Activity Log | 🟢 Stable | Universal audit trail; used by every module |
+| Access & Roles | 🟡 Partial | Role migration done; Access UX polish pending (P3) |
+| Notifications | 🟡 Partial | Push + email dispatch live; future-notification rules engine pending (P4) |
+| Analytics / Reporting | 🟡 Partial | Owner/payments/staff/NA reports live; HK + Laundry reports pending (P2) |
+| Maintenance | ⚪ Planned | Table `room_maintenance` exists; UI + workflow pending (P2) |
+| Booking Conflict Engine | ⚪ Planned | Piecemeal checks exist; unified surface pending (P2) |
+| Operational Rules Engine | ⚪ Planned | Internal principle; consolidate when Maintenance adds 5th rule (P2 arch) |
+| Guest Portal | 🟢 Stable | Documents, payments, profile completion live |
+| Booking Engine (public) | 🟢 Stable | Multi-step search → checkout → review → confirmation |
+| Master Data | 🟡 Partial | Data live; Masters rename + consolidation pending (P2) |
+| Documentation | ⛔ Not Started | Manuals + engine map + rules matrix pending (P3–P4) |
+
+---
 
 Priority ladder:
 
@@ -173,11 +204,11 @@ _None open._ Laundry transactional atomicity closed 2026-07-05.
 
 ## P1 — Operational Blockers
 
-- **Quick Booking Pricing Parity** — override total, override difference,
-  discount behaviour must reuse the Detailed Booking pricing engine
-  end-to-end. Today `bookings_.quick.tsx` computes totals independently.
-  *Engine:* Pricing. *Depends on:* `pricing.ts`, `useResolvedRate`.
-  *Blocks:* correctness of guest-facing quick quotes.
+- ~~**Quick Booking Pricing Parity**~~ — ✅ **DONE 2026-07-05.**
+  Quick Booking now reuses the shared editable `PricingBreakdownCard`,
+  `computePricing`, per-booking `PaymentSettingsSection`, and Master-Data
+  lead sources. Override + Taxes-Included behave identically to Detailed.
+  Field-by-field audit: `docs/booking-parity.md`.
 - **Housekeeping form draft persistence** — persist in-progress task
   screen selections (consumables/linen/issues/remarks) to
   `sessionStorage` keyed by `task_id`. Task state itself is safe; only
@@ -318,6 +349,14 @@ Confirmed 2026-07-05 against the roadmap. All items below remain
 ---
 
 ## Change Log
+
+- **2026-07-05 (night)** — **P1 Quick Booking Pricing Parity** shipped.
+  Quick Booking refactored to reuse editable `PricingBreakdownCard`
+  (`totalOverride: number|null`, user-toggleable `taxesIncluded`),
+  `PaymentSettingsSection` (per-booking flag overrides), and Master-Data
+  lead sources. Guest-facing `notes` and `internal_notes` wired through
+  both create and edit paths. Added Platform Health section to backlog.
+  Audit doc: `docs/booking-parity.md`. Typecheck green.
 
 - **2026-07-05 (evening)** — Full roadmap reconciliation. Added Quick
   Booking Pricing Parity (P1), Booking Conflict Engine (P2),
