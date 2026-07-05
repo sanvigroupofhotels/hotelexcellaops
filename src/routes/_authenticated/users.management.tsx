@@ -29,7 +29,7 @@ interface Row {
   created_at: string;
 }
 
-const ROLE_LABEL: Record<AppRole, string> = { admin: "Admin", owner: "Owner", reception: "Reception", staff: "Staff" };
+
 
 function UsersPage() {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
