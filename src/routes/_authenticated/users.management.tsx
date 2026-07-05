@@ -274,10 +274,21 @@ function CreateUserModal({ onClose, onSubmit }: any) {
 }
 
 function EditUserModal({ user, onClose, onSubmit }: any) {
-  const [v, setV] = useState({ display_name: user.display_name ?? "", email: user.email ?? "" });
+  const [v, setV] = useState({
+    display_name: user.display_name ?? "",
+    email: user.email ?? "",
+    username: user.username ?? "",
+  });
   return (
     <Modal title="Edit User" onClose={onClose}>
       <Field label="Display Name" value={v.display_name} onChange={(e: any) => setV({ ...v, display_name: e.target.value })} />
+      <Field
+        label="Username (3-32 chars: a-z 0-9 . _ -)"
+        value={v.username}
+        autoCapitalize="none"
+        autoCorrect="off"
+        onChange={(e: any) => setV({ ...v, username: e.target.value.toLowerCase().trim() })}
+      />
       <Field label="Email" type="email" value={v.email} onChange={(e: any) => setV({ ...v, email: e.target.value })} />
       <div className="flex justify-end gap-2 pt-2">
         <button onClick={onClose} className="text-xs rounded-md border border-border bg-card px-3 py-1.5">Cancel</button>
