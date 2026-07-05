@@ -337,18 +337,32 @@ function TaskScreen({ task, room, onClose, workingAs, candidates, onSelectPerfor
   return (
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border">
-        <div className="px-4 py-3 max-w-2xl mx-auto flex items-center gap-3">
-          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {isCheckout ? "Checkout Cleaning" : "Room Service"}
+        <div className="px-4 py-3 max-w-2xl mx-auto space-y-2">
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+            <div className="flex-1">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {isCheckout ? "Checkout Cleaning" : "Room Service"}
+              </div>
+              <div className="font-display text-base leading-tight">
+                {room?.room_number ?? "?"} · {room?.room_type ?? ""}
+              </div>
             </div>
-            <div className="font-display text-base leading-tight">
-              {room?.room_number ?? "?"} · {room?.room_type ?? ""}
+            <div className="text-right leading-tight">
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Performing</div>
+              <div className="text-xs text-gold font-medium max-w-[140px] truncate">{workingAs?.name ?? "—"}</div>
             </div>
           </div>
+          <WorkingAsBar
+            candidates={candidates}
+            selectedId={workingAs?.id ?? null}
+            onSelect={onSelectPerformer}
+            compact
+          />
         </div>
       </div>
+
+
 
       <div className="px-4 py-6 max-w-2xl mx-auto space-y-5">
         <BlockTitle n={1}>Consumables Refilled</BlockTitle>
