@@ -307,7 +307,9 @@ function QuickBookingPage() {
     return JSON.stringify({
       checkIn, checkOut, adults, kids, oakRooms, mappleRooms,
       otherCharges, otherDescription, discount,
-      totalOverride: overrideNum,
+      totalOverride: overrideNum, taxesIncluded,
+      leadSource, specialRequests, internalNotes,
+      paymentFlags,
       items: items.map((i) => ({ ...i })),
     });
   }
