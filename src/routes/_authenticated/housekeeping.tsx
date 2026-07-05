@@ -498,6 +498,45 @@ function BlockTitle({ n, children }: { n: number; children: React.ReactNode }) {
   );
 }
 
+/**
+ * Horizontal one-tap chip row for switching the Working-As performer.
+ * Order comes from useHkWorkingAs (logged-in first → housekeeping → fo_staff).
+ */
+function WorkingAsBar({ candidates, selectedId, onSelect, compact }: {
+  candidates: { id: string; name: string }[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  compact?: boolean;
+}) {
+  if (candidates.length === 0) return null;
+  return (
+    <div className={compact ? "" : "mt-1"}>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Working as</div>
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+        {candidates.map((c) => {
+          const active = c.id === selectedId;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => onSelect(c.id)}
+              className={
+                "shrink-0 rounded-full px-3 py-1.5 text-xs border transition " +
+                (active
+                  ? "bg-gold text-charcoal border-gold font-semibold shadow-[0_0_10px_oklch(0.82_0.13_82/0.35)]"
+                  : "bg-input/40 text-foreground border-border hover:bg-muted/40")
+              }
+            >
+              {c.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
 function formatFriendlyDate(d: string): string {
   try {
     const dt = new Date(`${d}T00:00:00`);
