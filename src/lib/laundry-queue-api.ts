@@ -15,7 +15,9 @@ export interface LaundryQueueRow {
   linen_name_at_time: string | null;
   qty: number;
   source_task_id: string | null;
-  state: "queued" | "sent" | "returned";
+  state: "queued" | "sent" | "returned" | "written_off";
+  batch_id?: string | null;
+  processing_method?: "vendor" | "in_house" | null;
   business_date: string;
   actor_id: string | null;
   actor_name: string | null;
