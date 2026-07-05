@@ -1,8 +1,7 @@
 # HEOS — Project Backlog
 
 Single source of truth for pending work on HEOS. Reconciled 2026-07-05
-against the full roadmap (P1–P11 + Won't Do) after Laundry Ship 2 and the
-Laundry transactional-RPC stabilization sprint. Completed items are removed.
+after **P1 Quick Booking Pricing Parity** sprint.
 
 **Governance rules (per user directive, 2026-07-05):**
 
@@ -13,12 +12,44 @@ Laundry transactional-RPC stabilization sprint. Completed items are removed.
   items, promote/demote priorities, log architectural decisions.
 - Architectural initiatives are kept separate from functional features.
 - Won't Do items are kept explicit so rejected ideas are not re-proposed.
-- When implementing a requested task, related low-risk items that
-  improve consistency may be bundled — always distinguish **Requested /
-  Recommended-related / Deferred** in the response.
+- Every completion report includes a **Reconciliation Summary**.
+- The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-05 (post Laundry transactional-RPC stabilization + roadmap reconciliation)
+- **Last updated:** 2026-07-05 (post Quick Booking Pricing Parity)
 - **Currently in flight:** _None._
+
+---
+
+## Platform Health — Module & Engine Status
+
+Legend: 🟢 Stable · 🟡 Partial · 🔵 In Progress · ⚪ Planned · ⛔ Not Started
+
+| Module / Engine | Status | Notes |
+|-----------------|--------|-------|
+| Booking (Detailed + Quick) | 🟢 Stable | Quick↔Detailed pricing parity closed 2026-07-05 |
+| Pricing Engine | 🟢 Stable | `computePricing` shared by Quotes, Bookings (Detailed + Quick), Invoices, WhatsApp, Portal |
+| Rates & Inventory | 🟢 Stable | Override → weekend/weekday → default; single resolver |
+| Customer / CRM | 🟢 Stable | Shared resolution hooks; leads pipeline live |
+| Payments (Cash + Razorpay) | 🟢 Stable | Cash Book auto-entries; Razorpay webhook verified |
+| Housekeeping | 🟢 Stable | Task lifecycle, DND, exceptions, checkout hook, laundry enqueue |
+| Laundry | 🟢 Stable | Ship 1 + Ship 2 + transactional RPCs complete |
+| Vendor | 🟢 Stable | `vendor_kind[]` tagging; laundry-scoped |
+| Complaints | 🟢 Stable | Categories, activities, HK integration |
+| Inventory | 🟢 Stable | Movements, categories, charge catalog |
+| Night Audit | 🟢 Stable | Sessions, decisions, EOD report, critical tasks |
+| Activity Log | 🟢 Stable | Universal audit trail; used by every module |
+| Access & Roles | 🟡 Partial | Role migration done; Access UX polish pending (P3) |
+| Notifications | 🟡 Partial | Push + email dispatch live; future-notification rules engine pending (P4) |
+| Analytics / Reporting | 🟡 Partial | Owner/payments/staff/NA reports live; HK + Laundry reports pending (P2) |
+| Maintenance | ⚪ Planned | Table `room_maintenance` exists; UI + workflow pending (P2) |
+| Booking Conflict Engine | ⚪ Planned | Piecemeal checks exist; unified surface pending (P2) |
+| Operational Rules Engine | ⚪ Planned | Internal principle; consolidate when Maintenance adds 5th rule (P2 arch) |
+| Guest Portal | 🟢 Stable | Documents, payments, profile completion live |
+| Booking Engine (public) | 🟢 Stable | Multi-step search → checkout → review → confirmation |
+| Master Data | 🟡 Partial | Data live; Masters rename + consolidation pending (P2) |
+| Documentation | ⛔ Not Started | Manuals + engine map + rules matrix pending (P3–P4) |
+
+---
 
 Priority ladder:
 
