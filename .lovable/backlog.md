@@ -352,6 +352,18 @@ Confirmed 2026-07-05 against the roadmap. All items below remain
 
 ## Change Log
 
+- **2026-07-05 (late night)** — **P1 Housekeeping + Laundry Reporting**
+  shipped. New shared reporting engine `src/lib/reporting/`
+  (`date-range.ts`, `hk-reporting.ts`, `laundry-reporting.ts`) — pure
+  aggregation only, no duplicated business logic. Two new routes:
+  `/reporting/housekeeping` and `/reporting/laundry`, both permission-gated
+  (`reporting.housekeeping.view/export`, `reporting.laundry.view/export`)
+  and wired into the sidebar + Reporting layout. Presets (Today, Yesterday,
+  Business Date, This Week, This Month, Custom) resolved through the
+  Business Date engine via `getBusinessDate`. Reusable
+  `ReportDateRangePicker` component ready for Maintenance + Billing reuse.
+  CSV export uses shared `downloadCSV`. Typecheck green.
+
 - **2026-07-05 (night)** — **P1 Quick Booking Pricing Parity** shipped.
   Quick Booking refactored to reuse editable `PricingBreakdownCard`
   (`totalOverride: number|null`, user-toggleable `taxesIncluded`),
