@@ -1994,16 +1994,170 @@ export type Database = {
           },
         ]
       }
+      laundry_batch_lines: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          linen_name_at_time: string
+          linen_type_id: string
+          qty_damaged: number
+          qty_heos_queue: number
+          qty_in_house: number | null
+          qty_lost: number
+          qty_returned_ok: number
+          qty_sent: number
+          qty_short: number
+          updated_at: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          linen_name_at_time: string
+          linen_type_id: string
+          qty_damaged?: number
+          qty_heos_queue: number
+          qty_in_house?: number | null
+          qty_lost?: number
+          qty_returned_ok?: number
+          qty_sent: number
+          qty_short?: number
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          linen_name_at_time?: string
+          linen_type_id?: string
+          qty_damaged?: number
+          qty_heos_queue?: number
+          qty_in_house?: number | null
+          qty_lost?: number
+          qty_returned_ok?: number
+          qty_sent?: number
+          qty_short?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laundry_batch_lines_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "laundry_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laundry_batch_lines_linen_type_id_fkey"
+            columns: ["linen_type_id"]
+            isOneToOne: false
+            referencedRelation: "linen_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      laundry_batches: {
+        Row: {
+          batch_number: string | null
+          business_date: string
+          cancelled_at: string | null
+          cancelled_by_name: string | null
+          cancelled_by_user_id: string | null
+          correlation_id: string
+          created_at: string
+          id: string
+          invoice_id: string | null
+          pickup_remarks: string | null
+          pickup_slip_photo_path: string | null
+          return_photo_path: string | null
+          return_remarks: string | null
+          returned_at: string | null
+          returned_by_name: string | null
+          returned_by_user_id: string | null
+          sent_at: string
+          sent_by_name: string | null
+          sent_by_user_id: string | null
+          state: Database["public"]["Enums"]["laundry_batch_state"]
+          updated_at: string
+          vendor_id: string
+          vendor_name_at_time: string
+          vendor_slip_number: string | null
+        }
+        Insert: {
+          batch_number?: string | null
+          business_date: string
+          cancelled_at?: string | null
+          cancelled_by_name?: string | null
+          cancelled_by_user_id?: string | null
+          correlation_id?: string
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          pickup_remarks?: string | null
+          pickup_slip_photo_path?: string | null
+          return_photo_path?: string | null
+          return_remarks?: string | null
+          returned_at?: string | null
+          returned_by_name?: string | null
+          returned_by_user_id?: string | null
+          sent_at?: string
+          sent_by_name?: string | null
+          sent_by_user_id?: string | null
+          state?: Database["public"]["Enums"]["laundry_batch_state"]
+          updated_at?: string
+          vendor_id: string
+          vendor_name_at_time: string
+          vendor_slip_number?: string | null
+        }
+        Update: {
+          batch_number?: string | null
+          business_date?: string
+          cancelled_at?: string | null
+          cancelled_by_name?: string | null
+          cancelled_by_user_id?: string | null
+          correlation_id?: string
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          pickup_remarks?: string | null
+          pickup_slip_photo_path?: string | null
+          return_photo_path?: string | null
+          return_remarks?: string | null
+          returned_at?: string | null
+          returned_by_name?: string | null
+          returned_by_user_id?: string | null
+          sent_at?: string
+          sent_by_name?: string | null
+          sent_by_user_id?: string | null
+          state?: Database["public"]["Enums"]["laundry_batch_state"]
+          updated_at?: string
+          vendor_id?: string
+          vendor_name_at_time?: string
+          vendor_slip_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laundry_batches_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       laundry_queue: {
         Row: {
           actor_id: string | null
           actor_name: string | null
+          batch_id: string | null
           booking_id: string | null
           business_date: string
           created_at: string
           id: string
           linen_name_at_time: string | null
           linen_type_id: string
+          processing_method: string | null
           qty: number
           room_id: string
           source_task_id: string | null
@@ -2013,12 +2167,14 @@ export type Database = {
         Insert: {
           actor_id?: string | null
           actor_name?: string | null
+          batch_id?: string | null
           booking_id?: string | null
           business_date: string
           created_at?: string
           id?: string
           linen_name_at_time?: string | null
           linen_type_id: string
+          processing_method?: string | null
           qty?: number
           room_id: string
           source_task_id?: string | null
@@ -2028,12 +2184,14 @@ export type Database = {
         Update: {
           actor_id?: string | null
           actor_name?: string | null
+          batch_id?: string | null
           booking_id?: string | null
           business_date?: string
           created_at?: string
           id?: string
           linen_name_at_time?: string | null
           linen_type_id?: string
+          processing_method?: string | null
           qty?: number
           room_id?: string
           source_task_id?: string | null
@@ -2041,6 +2199,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "laundry_queue_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "laundry_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "laundry_queue_booking_id_fkey"
             columns: ["booking_id"]
@@ -3675,6 +3840,7 @@ export type Database = {
           phone: string
           updated_at: string
           user_id: string | null
+          vendor_kind: string[]
         }
         Insert: {
           active?: boolean
@@ -3689,6 +3855,7 @@ export type Database = {
           phone: string
           updated_at?: string
           user_id?: string | null
+          vendor_kind?: string[]
         }
         Update: {
           active?: boolean
@@ -3703,6 +3870,7 @@ export type Database = {
           phone?: string
           updated_at?: string
           user_id?: string | null
+          vendor_kind?: string[]
         }
         Relationships: []
       }
@@ -3755,6 +3923,10 @@ export type Database = {
         Returns: string
       }
       my_permissions: { Args: never; Returns: string[] }
+      next_laundry_batch_number: {
+        Args: { p_business_date: string }
+        Returns: string
+      }
       normalize_phone_in: { Args: { p: string }; Returns: string }
       recompute_booking_advance: {
         Args: { p_booking_id: string }
@@ -3845,7 +4017,8 @@ export type Database = {
         | "reconciliation_adjust"
         | "wastage"
         | "correction"
-      laundry_queue_state: "queued" | "sent" | "returned"
+      laundry_batch_state: "sent" | "returned" | "cancelled"
+      laundry_queue_state: "queued" | "sent" | "returned" | "written_off"
       lead_status: "Interested" | "Abandoned" | "Converted" | "Lost"
       quote_status:
         | "Pending"
@@ -4046,7 +4219,8 @@ export const Constants = {
         "wastage",
         "correction",
       ],
-      laundry_queue_state: ["queued", "sent", "returned"],
+      laundry_batch_state: ["sent", "returned", "cancelled"],
+      laundry_queue_state: ["queued", "sent", "returned", "written_off"],
       lead_status: ["Interested", "Abandoned", "Converted", "Lost"],
       quote_status: [
         "Pending",
