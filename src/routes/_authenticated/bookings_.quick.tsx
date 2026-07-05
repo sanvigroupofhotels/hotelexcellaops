@@ -89,11 +89,39 @@ function QuickBookingPage() {
   const [mappleRooms, setMappleRooms] = useState(0);
 
   // ---- Pricing override / discount / other charges ----
+  // Parity with Detailed Booking: totalOverride is number|null and taxesIncluded
+  // is user-toggleable via the shared editable PricingBreakdownCard.
   const [otherCharges, setOtherCharges] = useState(0);
   const [otherDescription, setOtherDescription] = useState("");
   const [discount, setDiscount] = useState(0);
-  const [totalOverride, setTotalOverride] = useState<string>("");
-  const [taxesIncluded] = useState(true); // override entered as gross by default (Reception expectation)
+  const [totalOverride, setTotalOverride] = useState<number | null>(null);
+  const [taxesIncluded, setTaxesIncluded] = useState<boolean>(true);
+
+  // ---- Per-booking payment flags (parity with Detailed Booking). Collapsed by default. ----
+  const { data: paymentDefaults = DEFAULT_PAYMENT_SETTINGS } = useQuery({
+    queryKey: ["app-settings", "payment_settings"],
+    queryFn: getPaymentSettings,
+    staleTime: 5 * 60 * 1000,
+  });
+  const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags | null>(null);
+  useEffect(() => {
+    if (paymentFlags) return;
+    setPaymentFlags({
+      allow_full_payment: paymentDefaults.allow_full_payment,
+      allow_part_payment: paymentDefaults.allow_part_payment,
+      allow_pay_at_hotel: paymentDefaults.allow_pay_at_hotel,
+      part_payment_value: paymentDefaults.default_part_percent,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentDefaults]);
+
+  // ---- More Options (lead source / requests / internal notes) ----
+  const [leadSource, setLeadSource] = useState<string>("Direct");
+  const [specialRequests, setSpecialRequests] = useState<string>("");
+  const [internalNotes, setInternalNotes] = useState<string>("");
+  const { values: leadSources } = useMasterData("lead_source", [...LEAD_SOURCES]);
+  const [moreOpen, setMoreOpen] = useState<boolean>(false);
+
 
   // ---- Auto-focus mobile field on mount for speed ----
   const phoneRef = useRef<HTMLInputElement | null>(null);
