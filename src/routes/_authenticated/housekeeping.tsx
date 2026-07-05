@@ -73,6 +73,30 @@ function HousekeepingPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const skipMut = useMutation({
+    mutationFn: async (input: { task: HkTaskRow; reason: HkSkipReason }) => {
+      if (!me.id) throw new Error("Not signed in");
+      const actor = { id: me.id, name: me.name || me.firstName || "user" };
+      await skipTask(input.task.id, input.reason, actor);
+      if (input.reason === "not_required" || input.reason === "dnd") {
+        // Record an exception row so tomorrow's generator honours it.
+        await supabase.from("housekeeping_room_exceptions" as any).upsert({
+          room_id: input.task.room_id,
+          business_date: input.task.business_date,
+          reason: input.reason === "dnd" ? "do_not_disturb" : "service_not_required",
+          set_by_user_id: actor.id,
+          set_by_name: actor.name,
+        } as any, { onConflict: "room_id,business_date" } as any);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hk-tasks"] });
+      qc.invalidateQueries({ queryKey: ["rooms"] });
+      toast.success("Task skipped");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   if (openTask) {
     return (
       <TaskScreen
