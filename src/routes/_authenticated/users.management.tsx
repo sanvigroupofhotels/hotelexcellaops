@@ -23,6 +23,7 @@ export const Route = createFileRoute("/_authenticated/users/management")({
 interface Row {
   id: string;
   email: string | null;
+  username: string | null;
   display_name: string | null;
   role: AppRole;
   active: boolean;
