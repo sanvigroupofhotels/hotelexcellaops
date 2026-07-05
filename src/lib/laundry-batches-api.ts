@@ -132,13 +132,12 @@ export interface CreateBatchInput {
 }
 
 /**
- * Create a batch and flip the underlying queue rows:
- *   - N oldest queued rows per linen type where N = qty_sent → state='sent', batch_id, processing_method='vendor'
- *   - remainder (qty_heos_queue − qty_sent) → state='returned', processing_method='in_house'
+ * Create a batch atomically via the `create_laundry_batch` Postgres RPC.
  *
- * The whole thing is best-effort atomic from the client. On failure after
- * batch insert we don't rollback (edge cases would need a server fn); we
- * surface the error and log for operational review.
+ * The RPC performs all row inserts, queue flips, and activity_log writes
+ * inside a single database transaction — if any step fails, the whole
+ * operation rolls back. Photos are uploaded to storage *before* the RPC
+ * call under a staged path; a failed upload is non-fatal.
  */
 export async function createBatch(input: CreateBatchInput): Promise<LaundryBatchRow> {
   if (!input.vendor_id) throw new Error("Vendor is required");
@@ -146,133 +145,36 @@ export async function createBatch(input: CreateBatchInput): Promise<LaundryBatch
     (l) => l.qty_heos_queue > 0 || l.qty_sent > 0,
   );
   if (activeLines.length === 0) throw new Error("Nothing to send — the queue is empty");
-  for (const l of activeLines) {
-    if (l.qty_sent < 0) throw new Error("Sent quantity cannot be negative");
-    if (l.qty_sent > l.qty_heos_queue) {
-      throw new Error(
-        `Sent (${l.qty_sent}) cannot exceed HEOS queue (${l.qty_heos_queue}) for ${l.linen_name_at_time}`,
-      );
-    }
-  }
 
-  const correlationId = newCorrelationId();
-
-  const { data: batch, error: bErr } = await supabase
-    .from("laundry_batches" as any)
-    .insert({
-      vendor_id: input.vendor_id,
-      vendor_name_at_time: input.vendor_name_at_time,
-      state: "sent",
-      business_date: input.business_date,
-      vendor_slip_number: input.vendor_slip_number?.trim() || null,
-      pickup_remarks: input.pickup_remarks?.trim() || null,
-      sent_by_user_id: input.performer.id,
-      sent_by_name: input.performer.name,
-      correlation_id: correlationId,
-    })
-    .select()
-    .single();
-  if (bErr) throw bErr;
-  const batchRow = batch as unknown as LaundryBatchRow;
-
-  // Optional slip photo
+  // Upload photo first under a staged UUID (RPC just stores the path).
+  let photoPath: string | null = null;
   if (input.slipPhotoFile) {
     try {
-      const path = await uploadLaundryPhoto(batchRow.id, "pickup", input.slipPhotoFile);
-      await supabase.from("laundry_batches" as any).update({ pickup_slip_photo_path: path }).eq("id", batchRow.id);
-      batchRow.pickup_slip_photo_path = path;
+      const stagedId = crypto.randomUUID();
+      photoPath = await uploadLaundryPhoto(stagedId, "pickup", input.slipPhotoFile);
     } catch (e) {
       console.error("Pickup slip photo upload failed", e);
     }
   }
 
-  // Insert lines
-  const lineRows = activeLines.map((l) => ({
-    batch_id: batchRow.id,
-    linen_type_id: l.linen_type_id,
-    linen_name_at_time: l.linen_name_at_time,
-    qty_heos_queue: Math.floor(l.qty_heos_queue),
-    qty_sent: Math.floor(l.qty_sent),
-  }));
-  const { error: lErr } = await supabase.from("laundry_batch_lines" as any).insert(lineRows);
-  if (lErr) throw lErr;
-
-  // Flip queue rows per linen type — oldest first.
-  for (const l of activeLines) {
-    const { data: rows, error: rErr } = await supabase
-      .from("laundry_queue" as any)
-      .select("id, qty")
-      .eq("state", "queued")
-      .eq("linen_type_id", l.linen_type_id)
-      .order("business_date", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (rErr) throw rErr;
-    let needSent = Math.floor(l.qty_sent);
-    let needInHouse = Math.floor(l.qty_heos_queue - l.qty_sent);
-    const sentIds: string[] = [];
-    const inHouseIds: string[] = [];
-    for (const r of ((rows ?? []) as any[])) {
-      // qty on each row is typically 1 (HK generator inserts one row per linen line),
-      // but we treat the number defensively — allocate whole rows greedily.
-      const q = Number(r.qty ?? 1);
-      if (needSent >= q) { sentIds.push(r.id); needSent -= q; continue; }
-      if (needInHouse >= q) { inHouseIds.push(r.id); needInHouse -= q; continue; }
-      break;
-    }
-    if (sentIds.length > 0) {
-      await supabase.from("laundry_queue" as any).update({
-        state: "sent",
-        batch_id: batchRow.id,
-        processing_method: "vendor",
-      }).in("id", sentIds);
-    }
-    if (inHouseIds.length > 0) {
-      await supabase.from("laundry_queue" as any).update({
-        state: "returned",
-        processing_method: "in_house",
-      }).in("id", inHouseIds);
-    }
-  }
-
-  const totalSent = activeLines.reduce((s, l) => s + l.qty_sent, 0);
-  const totalInHouse = activeLines.reduce((s, l) => s + (l.qty_heos_queue - l.qty_sent), 0);
-  const parts = activeLines
-    .filter((l) => l.qty_sent > 0)
-    .map((l) => `${l.qty_sent} ${l.linen_name_at_time}`)
-    .join(", ");
-
-  void logActivity({
-    page: "laundry",
-    action: "laundry_batch_sent",
-    entity_type: "laundry_batch",
-    entity_id: batchRow.id,
-    entity_reference: batchRow.batch_number,
-    summary: `Sent ${totalSent} pieces (${parts || "nothing"}) to ${input.vendor_name_at_time}${input.vendor_slip_number ? ` · slip #${input.vendor_slip_number}` : ""}`,
-    metadata: {
-      total_sent: totalSent,
-      total_in_house: totalInHouse,
-      vendor_id: input.vendor_id,
-      lines: activeLines,
-    },
-    correlation_id: correlationId,
-    source: "manual",
+  const { data, error } = await supabase.rpc("create_laundry_batch" as any, {
+    p_vendor_id: input.vendor_id,
+    p_vendor_name: input.vendor_name_at_time,
+    p_business_date: input.business_date,
+    p_vendor_slip_number: input.vendor_slip_number ?? null,
+    p_pickup_remarks: input.pickup_remarks ?? null,
+    p_pickup_slip_photo_path: photoPath,
+    p_performer_id: input.performer.id,
+    p_performer_name: input.performer.name,
+    p_lines: activeLines.map((l) => ({
+      linen_type_id: l.linen_type_id,
+      linen_name_at_time: l.linen_name_at_time,
+      qty_heos_queue: Math.floor(l.qty_heos_queue),
+      qty_sent: Math.floor(l.qty_sent),
+    })),
   });
-
-  if (totalInHouse > 0) {
-    void logActivity({
-      page: "laundry",
-      action: "laundry_in_house_recorded",
-      entity_type: "laundry_batch",
-      entity_id: batchRow.id,
-      entity_reference: batchRow.batch_number,
-      summary: `${totalInHouse} pieces washed in-house`,
-      metadata: { total_in_house: totalInHouse },
-      correlation_id: correlationId,
-      source: "manual",
-    });
-  }
-
-  return batchRow;
+  if (error) throw error;
+  return data as unknown as LaundryBatchRow;
 }
 
 /** Cancel a batch that hasn't been returned yet — reverts queue rows to `queued`. */
