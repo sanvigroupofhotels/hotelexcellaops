@@ -115,7 +115,8 @@ function UsersPage() {
                     "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs border",
                     u.role === "admin" ? "border-gold/40 bg-gold-soft text-gold" :
                     u.role === "owner" ? "border-blue-500/40 bg-blue-500/10 text-blue-400" :
-                    u.role === "reception" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" :
+                    (u.role === "fo_staff" || u.role === "reception") ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" :
+                    (u.role === "housekeeping" || u.role === "staff") ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-400" :
                     "border-border bg-muted/40 text-muted-foreground",
                   )}>
                     {u.role === "admin" ? <ShieldCheck className="h-3 w-3" /> : <UserIcon className="h-3 w-3" />}
