@@ -98,13 +98,17 @@ function QuickBookingPage() {
   const [taxesIncluded, setTaxesIncluded] = useState<boolean>(true);
 
   // ---- Per-booking payment flags (parity with Detailed Booking). Collapsed by default. ----
-  const { data: paymentDefaults = DEFAULT_PAYMENT_SETTINGS } = useQuery({
+  // Initialize only after the admin's saved settings actually load — otherwise a
+  // hardcoded fallback would seed the form and get persisted on submit, silently
+  // overriding options the owner explicitly turned off.
+  const { data: paymentDefaults, isSuccess: paymentDefaultsLoaded } = useQuery({
     queryKey: ["app-settings", "payment_settings"],
     queryFn: getPaymentSettings,
     staleTime: 5 * 60 * 1000,
   });
   const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags | null>(null);
   useEffect(() => {
+    if (!paymentDefaultsLoaded || !paymentDefaults) return;
     if (paymentFlags) return;
     setPaymentFlags({
       allow_full_payment: paymentDefaults.allow_full_payment,
@@ -113,7 +117,7 @@ function QuickBookingPage() {
       part_payment_value: paymentDefaults.default_part_percent,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentDefaults]);
+  }, [paymentDefaultsLoaded, paymentDefaults]);
 
   // ---- More Options (lead source / requests / internal notes) ----
   const [leadSource, setLeadSource] = useState<string>("Direct");
