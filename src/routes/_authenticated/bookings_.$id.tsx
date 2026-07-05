@@ -101,6 +101,14 @@ function BookingDetail() {
         from_status: from ?? null,
         to_status: s,
       });
+      // Housekeeping side-effect on checkout: mark rooms dirty + create checkout task.
+      // Non-blocking; failures are logged inside the hook.
+      if (s === "Checked-Out") {
+        try {
+          const { onBookingCheckedOut } = await import("@/lib/hk-checkout-hook");
+          await onBookingCheckedOut(id);
+        } catch { /* housekeeping errors never block reception */ }
+      }
       return s;
     },
     onSuccess: (s) => {
