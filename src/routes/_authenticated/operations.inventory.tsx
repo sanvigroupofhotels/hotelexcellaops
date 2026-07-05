@@ -303,6 +303,8 @@ function ItemDialog({ item, onClose, onStockIn, onStockOut }: {
   const [minimum, setMinimum] = useState(String(item?.minimum_stock ?? 0));
   const [active, setActive] = useState(item?.active ?? true);
   const [autoKey, setAutoKey] = useState(item?.auto_consume_catalog_key ?? "");
+  const [showInHk, setShowInHk] = useState<boolean>(((item as any)?.show_in_housekeeping ?? false) as boolean);
+  const [hkDefaultQty, setHkDefaultQty] = useState<string>(String(((item as any)?.hk_default_qty ?? 1)));
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   const { data: photoUrl } = useQuery({
