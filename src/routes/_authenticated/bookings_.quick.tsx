@@ -345,13 +345,16 @@ function QuickBookingPage() {
         taxes: pricing.taxes,
         tax_rate: pricing.taxRate,
         discount: pricing.discount,
+        notes: specialRequests.trim() || null,
+        internal_notes: internalNotes.trim() || null,
+        lead_source: leadSource || "Direct",
         total_override: overrideNum,
         taxes_included: taxesIncluded,
-        allow_full_payment: settings.allow_full_payment,
-        allow_part_payment: settings.allow_part_payment,
-        allow_pay_at_hotel: settings.allow_pay_at_hotel,
+        allow_full_payment: paymentFlags?.allow_full_payment ?? settings.allow_full_payment,
+        allow_part_payment: paymentFlags?.allow_part_payment ?? settings.allow_part_payment,
+        allow_pay_at_hotel: paymentFlags?.allow_pay_at_hotel ?? settings.allow_pay_at_hotel,
         part_payment_type: "percent",
-        part_payment_value: settings.default_part_percent,
+        part_payment_value: paymentFlags?.part_payment_value ?? settings.default_part_percent,
       });
 
       // 3. Rooms — replace booking_items (same path used by Detailed Edit).
