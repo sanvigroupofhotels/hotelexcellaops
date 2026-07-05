@@ -79,6 +79,8 @@ import { Route as AuthenticatedReportingStaffRouteImport } from './routes/_authe
 import { Route as AuthenticatedReportingPaymentsRouteImport } from './routes/_authenticated/reporting.payments'
 import { Route as AuthenticatedReportingOwnerDashboardRouteImport } from './routes/_authenticated/reporting.owner-dashboard'
 import { Route as AuthenticatedReportingNightAuditRouteImport } from './routes/_authenticated/reporting.night-audit'
+import { Route as AuthenticatedReportingLaundryRouteImport } from './routes/_authenticated/reporting.laundry'
+import { Route as AuthenticatedReportingHousekeepingRouteImport } from './routes/_authenticated/reporting.housekeeping'
 import { Route as AuthenticatedReportingCrmAnalyticsRouteImport } from './routes/_authenticated/reporting.crm-analytics'
 import { Route as AuthenticatedReportingAnalyticsRouteImport } from './routes/_authenticated/reporting.analytics'
 import { Route as AuthenticatedReportingActivityRouteImport } from './routes/_authenticated/reporting.activity'
@@ -477,6 +479,18 @@ const AuthenticatedReportingNightAuditRoute =
     path: '/night-audit',
     getParentRoute: () => AuthenticatedReportingRoute,
   } as any)
+const AuthenticatedReportingLaundryRoute =
+  AuthenticatedReportingLaundryRouteImport.update({
+    id: '/laundry',
+    path: '/laundry',
+    getParentRoute: () => AuthenticatedReportingRoute,
+  } as any)
+const AuthenticatedReportingHousekeepingRoute =
+  AuthenticatedReportingHousekeepingRouteImport.update({
+    id: '/housekeeping',
+    path: '/housekeeping',
+    getParentRoute: () => AuthenticatedReportingRoute,
+  } as any)
 const AuthenticatedReportingCrmAnalyticsRoute =
   AuthenticatedReportingCrmAnalyticsRouteImport.update({
     id: '/crm-analytics',
@@ -662,6 +676,8 @@ export interface FileRoutesByFullPath {
   '/reporting/activity': typeof AuthenticatedReportingActivityRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/crm-analytics': typeof AuthenticatedReportingCrmAnalyticsRoute
+  '/reporting/housekeeping': typeof AuthenticatedReportingHousekeepingRoute
+  '/reporting/laundry': typeof AuthenticatedReportingLaundryRoute
   '/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
   '/reporting/owner-dashboard': typeof AuthenticatedReportingOwnerDashboardRoute
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
@@ -749,6 +765,8 @@ export interface FileRoutesByTo {
   '/reporting/activity': typeof AuthenticatedReportingActivityRoute
   '/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/reporting/crm-analytics': typeof AuthenticatedReportingCrmAnalyticsRoute
+  '/reporting/housekeeping': typeof AuthenticatedReportingHousekeepingRoute
+  '/reporting/laundry': typeof AuthenticatedReportingLaundryRoute
   '/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
   '/reporting/owner-dashboard': typeof AuthenticatedReportingOwnerDashboardRoute
   '/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
@@ -843,6 +861,8 @@ export interface FileRoutesById {
   '/_authenticated/reporting/activity': typeof AuthenticatedReportingActivityRoute
   '/_authenticated/reporting/analytics': typeof AuthenticatedReportingAnalyticsRoute
   '/_authenticated/reporting/crm-analytics': typeof AuthenticatedReportingCrmAnalyticsRoute
+  '/_authenticated/reporting/housekeeping': typeof AuthenticatedReportingHousekeepingRoute
+  '/_authenticated/reporting/laundry': typeof AuthenticatedReportingLaundryRoute
   '/_authenticated/reporting/night-audit': typeof AuthenticatedReportingNightAuditRoute
   '/_authenticated/reporting/owner-dashboard': typeof AuthenticatedReportingOwnerDashboardRoute
   '/_authenticated/reporting/payments': typeof AuthenticatedReportingPaymentsRoute
@@ -937,6 +957,8 @@ export interface FileRouteTypes {
     | '/reporting/activity'
     | '/reporting/analytics'
     | '/reporting/crm-analytics'
+    | '/reporting/housekeeping'
+    | '/reporting/laundry'
     | '/reporting/night-audit'
     | '/reporting/owner-dashboard'
     | '/reporting/payments'
@@ -1024,6 +1046,8 @@ export interface FileRouteTypes {
     | '/reporting/activity'
     | '/reporting/analytics'
     | '/reporting/crm-analytics'
+    | '/reporting/housekeeping'
+    | '/reporting/laundry'
     | '/reporting/night-audit'
     | '/reporting/owner-dashboard'
     | '/reporting/payments'
@@ -1117,6 +1141,8 @@ export interface FileRouteTypes {
     | '/_authenticated/reporting/activity'
     | '/_authenticated/reporting/analytics'
     | '/_authenticated/reporting/crm-analytics'
+    | '/_authenticated/reporting/housekeeping'
+    | '/_authenticated/reporting/laundry'
     | '/_authenticated/reporting/night-audit'
     | '/_authenticated/reporting/owner-dashboard'
     | '/_authenticated/reporting/payments'
@@ -1657,6 +1683,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportingNightAuditRouteImport
       parentRoute: typeof AuthenticatedReportingRoute
     }
+    '/_authenticated/reporting/laundry': {
+      id: '/_authenticated/reporting/laundry'
+      path: '/laundry'
+      fullPath: '/reporting/laundry'
+      preLoaderRoute: typeof AuthenticatedReportingLaundryRouteImport
+      parentRoute: typeof AuthenticatedReportingRoute
+    }
+    '/_authenticated/reporting/housekeeping': {
+      id: '/_authenticated/reporting/housekeeping'
+      path: '/housekeeping'
+      fullPath: '/reporting/housekeeping'
+      preLoaderRoute: typeof AuthenticatedReportingHousekeepingRouteImport
+      parentRoute: typeof AuthenticatedReportingRoute
+    }
     '/_authenticated/reporting/crm-analytics': {
       id: '/_authenticated/reporting/crm-analytics'
       path: '/crm-analytics'
@@ -1861,6 +1901,8 @@ interface AuthenticatedReportingRouteChildren {
   AuthenticatedReportingActivityRoute: typeof AuthenticatedReportingActivityRoute
   AuthenticatedReportingAnalyticsRoute: typeof AuthenticatedReportingAnalyticsRoute
   AuthenticatedReportingCrmAnalyticsRoute: typeof AuthenticatedReportingCrmAnalyticsRoute
+  AuthenticatedReportingHousekeepingRoute: typeof AuthenticatedReportingHousekeepingRoute
+  AuthenticatedReportingLaundryRoute: typeof AuthenticatedReportingLaundryRoute
   AuthenticatedReportingNightAuditRoute: typeof AuthenticatedReportingNightAuditRoute
   AuthenticatedReportingOwnerDashboardRoute: typeof AuthenticatedReportingOwnerDashboardRoute
   AuthenticatedReportingPaymentsRoute: typeof AuthenticatedReportingPaymentsRoute
@@ -1873,6 +1915,9 @@ const AuthenticatedReportingRouteChildren: AuthenticatedReportingRouteChildren =
     AuthenticatedReportingAnalyticsRoute: AuthenticatedReportingAnalyticsRoute,
     AuthenticatedReportingCrmAnalyticsRoute:
       AuthenticatedReportingCrmAnalyticsRoute,
+    AuthenticatedReportingHousekeepingRoute:
+      AuthenticatedReportingHousekeepingRoute,
+    AuthenticatedReportingLaundryRoute: AuthenticatedReportingLaundryRoute,
     AuthenticatedReportingNightAuditRoute:
       AuthenticatedReportingNightAuditRoute,
     AuthenticatedReportingOwnerDashboardRoute:

@@ -1,7 +1,7 @@
 # HEOS — Project Backlog
 
 Single source of truth for pending work on HEOS. Reconciled 2026-07-05
-after **P1 Quick Booking Pricing Parity** sprint.
+after **P1 Housekeeping + Laundry Reporting** sprint.
 
 **Governance rules (per user directive, 2026-07-05):**
 
@@ -15,7 +15,7 @@ after **P1 Quick Booking Pricing Parity** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-05 (post Quick Booking Pricing Parity)
+- **Last updated:** 2026-07-05 (post HK + Laundry Reporting)
 - **Currently in flight:** _None._
 
 ---
@@ -40,7 +40,7 @@ Legend: 🟢 Stable · 🟡 Partial · 🔵 In Progress · ⚪ Planned · ⛔ No
 | Activity Log | 🟢 Stable | Universal audit trail; used by every module |
 | Access & Roles | 🟡 Partial | Role migration done; Access UX polish pending (P3) |
 | Notifications | 🟡 Partial | Push + email dispatch live; future-notification rules engine pending (P4) |
-| Analytics / Reporting | 🟡 Partial | Owner/payments/staff/NA reports live; HK + Laundry reports pending (P2) |
+| Analytics / Reporting | 🟢 Stable | Owner/payments/staff/NA + HK + Laundry reports live; shared `src/lib/reporting/*` engine |
 | Maintenance | ⚪ Planned | Table `room_maintenance` exists; UI + workflow pending (P2) |
 | Booking Conflict Engine | ⚪ Planned | Piecemeal checks exist; unified surface pending (P2) |
 | Operational Rules Engine | ⚪ Planned | Internal principle; consolidate when Maintenance adds 5th rule (P2 arch) |
@@ -226,14 +226,16 @@ _None open._ Laundry transactional atomicity closed 2026-07-05.
 
 ## P2 — High-Value UX / Reporting
 
-- **Housekeeping Reporting** — daily rooms cleaned by staff, avg
-  completion time per task type, consumables consumed, linen totals,
-  DND / Not-Required counts. Under `/reporting`, reuse existing shell.
-  Ship alongside Laundry Reporting so KPIs land together. *Engine:*
-  Analytics.
-- **Laundry Reporting** — daily/weekly/monthly sent, returned, in-house,
-  short, damaged, lost per linen type and per vendor. Feeds Monthly
-  Billing next. *Engine:* Analytics.
+- ~~**Housekeeping Reporting**~~ — ✅ **DONE 2026-07-05.**
+  `/reporting/housekeeping` — daily summary (checkout cleaned, service
+  completed, DND, not-required, pending, avg times) + per-staff
+  performance (checkout/service/total/avg time, consumables, linen sent,
+  issues raised). Uses HK snapshots only; no duplicate logic.
+- ~~**Laundry Reporting**~~ — ✅ **DONE 2026-07-05.**
+  `/reporting/laundry` — daily summary (sent, returned, in-house,
+  previous missing, outstanding, damaged, lost) + vendor summary
+  (batches, sent/returned/outstanding/damaged/lost, avg turnaround).
+  Foundation for Monthly Billing next.
 - **Laundry Monthly Billing / Reconciliation screen** — vendor-scoped
   month view, per-linen rate card, invoice reconciliation, export. No
   schema change required (batch lines carry everything).
@@ -349,6 +351,18 @@ Confirmed 2026-07-05 against the roadmap. All items below remain
 ---
 
 ## Change Log
+
+- **2026-07-05 (late night)** — **P1 Housekeeping + Laundry Reporting**
+  shipped. New shared reporting engine `src/lib/reporting/`
+  (`date-range.ts`, `hk-reporting.ts`, `laundry-reporting.ts`) — pure
+  aggregation only, no duplicated business logic. Two new routes:
+  `/reporting/housekeeping` and `/reporting/laundry`, both permission-gated
+  (`reporting.housekeeping.view/export`, `reporting.laundry.view/export`)
+  and wired into the sidebar + Reporting layout. Presets (Today, Yesterday,
+  Business Date, This Week, This Month, Custom) resolved through the
+  Business Date engine via `getBusinessDate`. Reusable
+  `ReportDateRangePicker` component ready for Maintenance + Billing reuse.
+  CSV export uses shared `downloadCSV`. Typecheck green.
 
 - **2026-07-05 (night)** — **P1 Quick Booking Pricing Parity** shipped.
   Quick Booking refactored to reuse editable `PricingBreakdownCard`
