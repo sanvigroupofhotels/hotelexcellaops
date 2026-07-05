@@ -226,14 +226,16 @@ _None open._ Laundry transactional atomicity closed 2026-07-05.
 
 ## P2 — High-Value UX / Reporting
 
-- **Housekeeping Reporting** — daily rooms cleaned by staff, avg
-  completion time per task type, consumables consumed, linen totals,
-  DND / Not-Required counts. Under `/reporting`, reuse existing shell.
-  Ship alongside Laundry Reporting so KPIs land together. *Engine:*
-  Analytics.
-- **Laundry Reporting** — daily/weekly/monthly sent, returned, in-house,
-  short, damaged, lost per linen type and per vendor. Feeds Monthly
-  Billing next. *Engine:* Analytics.
+- ~~**Housekeeping Reporting**~~ — ✅ **DONE 2026-07-05.**
+  `/reporting/housekeeping` — daily summary (checkout cleaned, service
+  completed, DND, not-required, pending, avg times) + per-staff
+  performance (checkout/service/total/avg time, consumables, linen sent,
+  issues raised). Uses HK snapshots only; no duplicate logic.
+- ~~**Laundry Reporting**~~ — ✅ **DONE 2026-07-05.**
+  `/reporting/laundry` — daily summary (sent, returned, in-house,
+  previous missing, outstanding, damaged, lost) + vendor summary
+  (batches, sent/returned/outstanding/damaged/lost, avg turnaround).
+  Foundation for Monthly Billing next.
 - **Laundry Monthly Billing / Reconciliation screen** — vendor-scoped
   month view, per-linen rate card, invoice reconciliation, export. No
   schema change required (batch lines carry everything).
