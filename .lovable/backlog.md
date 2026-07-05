@@ -350,6 +350,14 @@ Confirmed 2026-07-05 against the roadmap. All items below remain
 
 ## Change Log
 
+- **2026-07-05 (night)** — **P1 Quick Booking Pricing Parity** shipped.
+  Quick Booking refactored to reuse editable `PricingBreakdownCard`
+  (`totalOverride: number|null`, user-toggleable `taxesIncluded`),
+  `PaymentSettingsSection` (per-booking flag overrides), and Master-Data
+  lead sources. Guest-facing `notes` and `internal_notes` wired through
+  both create and edit paths. Added Platform Health section to backlog.
+  Audit doc: `docs/booking-parity.md`. Typecheck green.
+
 - **2026-07-05 (evening)** — Full roadmap reconciliation. Added Quick
   Booking Pricing Parity (P1), Booking Conflict Engine (P2),
   Laundry/HK Reporting (P2), Maintenance (P2), Notification Engine (P4),
