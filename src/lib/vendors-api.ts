@@ -37,7 +37,7 @@ function clean(input: VendorInput) {
   const alt_phones = (input.alt_phones ?? [])
     .map((p) => normalizePhoneNumber(p))
     .filter((p) => /^\+91\d{10}$/.test(p));
-  return {
+  const out: Record<string, unknown> = {
     name,
     contact_person,
     phone,
@@ -45,11 +45,12 @@ function clean(input: VendorInput) {
     address: input.address?.trim() || null,
     maps_url: input.maps_url?.trim() || null,
     notes: input.notes?.trim() || null,
-    vendor_kind: Array.isArray(input.vendor_kind)
-      ? Array.from(new Set(input.vendor_kind.filter(Boolean)))
-      : undefined,
     active: input.active ?? true,
   };
+  if (Array.isArray(input.vendor_kind)) {
+    out.vendor_kind = Array.from(new Set(input.vendor_kind.filter(Boolean)));
+  }
+  return out;
 }
 
 export async function listVendors(opts?: { activeOnly?: boolean; kind?: string }): Promise<VendorRow[]> {
