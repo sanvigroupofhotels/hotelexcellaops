@@ -55,6 +55,8 @@ const reportingChildren = [
   { to: "/reporting/owner-dashboard", label: "Owner Dashboard",     icon: BarChart3, permission: "reporting.analytics.view", adminOnly: true },
   { to: "/reporting/crm-analytics",   label: "CRM Analytics",       icon: TrendingUp, permission: "reporting.analytics.view" },
   { to: "/reporting/payments",        label: "Payment Reports",     icon: IndianRupee, permission: "reporting.payments.view" },
+  { to: "/reporting/housekeeping",    label: "Housekeeping",        icon: ListChecks, permission: "reporting.housekeeping.view" },
+  { to: "/reporting/laundry",         label: "Laundry",             icon: Truck, permission: "reporting.laundry.view" },
   { to: "/reporting/staff",           label: "Staff Reporting",     icon: FileBarChart, permission: "reporting.staff.view" },
   { to: "/reporting/activity",        label: "Activity Tracking",   icon: ShieldCheck },
 ] as const;
