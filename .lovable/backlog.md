@@ -204,11 +204,11 @@ _None open._ Laundry transactional atomicity closed 2026-07-05.
 
 ## P1 — Operational Blockers
 
-- **Quick Booking Pricing Parity** — override total, override difference,
-  discount behaviour must reuse the Detailed Booking pricing engine
-  end-to-end. Today `bookings_.quick.tsx` computes totals independently.
-  *Engine:* Pricing. *Depends on:* `pricing.ts`, `useResolvedRate`.
-  *Blocks:* correctness of guest-facing quick quotes.
+- ~~**Quick Booking Pricing Parity**~~ — ✅ **DONE 2026-07-05.**
+  Quick Booking now reuses the shared editable `PricingBreakdownCard`,
+  `computePricing`, per-booking `PaymentSettingsSection`, and Master-Data
+  lead sources. Override + Taxes-Included behave identically to Detailed.
+  Field-by-field audit: `docs/booking-parity.md`.
 - **Housekeeping form draft persistence** — persist in-progress task
   screen selections (consumables/linen/issues/remarks) to
   `sessionStorage` keyed by `task_id`. Task state itself is safe; only
