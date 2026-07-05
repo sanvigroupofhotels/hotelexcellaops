@@ -236,152 +236,43 @@ export interface ConfirmReturnInput {
 }
 
 /**
- * Confirm return of a batch. Validates ok+short+dmg+lost = qty_sent per line,
- * writes the return quantities on batch_lines, flips the batch to `returned`,
- * and reconciles the underlying queue rows:
- *   - OK        → state='returned' (final, remains linked to batch)
- *   - Short     → state='queued', batch_id=null, processing_method=null
- *                 (rolls forward — appears as "Previous Missing" next pickup)
- *   - Damaged   → state='written_off'
- *   - Lost      → state='written_off'
+ * Confirm return atomically via the `confirm_laundry_return` Postgres RPC.
+ *
+ * The RPC validates per-line sums, updates batch lines, reconciles queue
+ * rows (OK → returned, Short → re-queued for rollover, Damaged/Lost →
+ * written_off), flips the batch to `returned`, and writes the activity log
+ * — all inside a single transaction. The return photo is uploaded first;
+ * a failed upload is non-fatal.
  */
 export async function confirmReturn(input: ConfirmReturnInput): Promise<LaundryBatchRow> {
-  const { data: batch, error: bErr } = await supabase
-    .from("laundry_batches" as any).select("*").eq("id", input.batch_id).single();
-  if (bErr) throw bErr;
-  const b = batch as unknown as LaundryBatchRow;
-  if (b.state !== "sent") throw new Error(`Batch is ${b.state} — cannot confirm return`);
-
-  // Validate every line
-  for (const l of input.lines) {
-    const sum = l.qty_returned_ok + l.qty_short + l.qty_damaged + l.qty_lost;
-    if (sum !== l.qty_sent) {
-      throw new Error(
-        `${l.linen_name_at_time}: OK+Short+Damaged+Lost (${sum}) must equal Sent (${l.qty_sent})`,
-      );
-    }
-    if (l.qty_returned_ok < 0 || l.qty_short < 0 || l.qty_damaged < 0 || l.qty_lost < 0) {
-      throw new Error("Quantities cannot be negative");
-    }
-  }
-
-  // Optional return photo
   let returnPhotoPath: string | null = null;
   if (input.returnPhotoFile) {
     try {
-      returnPhotoPath = await uploadLaundryPhoto(b.id, "return", input.returnPhotoFile);
+      returnPhotoPath = await uploadLaundryPhoto(input.batch_id, "return", input.returnPhotoFile);
     } catch (e) {
       console.error("Return photo upload failed", e);
     }
   }
 
-  // Update lines (one by one so the validation trigger runs per row)
-  for (const l of input.lines) {
-    const { error } = await supabase
-      .from("laundry_batch_lines" as any)
-      .update({
-        qty_returned_ok: l.qty_returned_ok,
-        qty_short: l.qty_short,
-        qty_damaged: l.qty_damaged,
-        qty_lost: l.qty_lost,
-      })
-      .eq("id", l.line_id);
-    if (error) throw error;
-  }
-
-  // Reconcile queue rows for each linen type
-  for (const l of input.lines) {
-    const { data: rows, error: rErr } = await supabase
-      .from("laundry_queue" as any)
-      .select("id")
-      .eq("batch_id", input.batch_id)
-      .eq("linen_type_id", l.linen_type_id)
-      .eq("processing_method", "vendor")
-      .order("business_date", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (rErr) throw rErr;
-    const ids = (rows ?? []).map((r: any) => r.id as string);
-    // Allocate in order: short (roll forward), damaged, lost, then OK.
-    let idx = 0;
-    const shortIds = ids.slice(idx, idx += l.qty_short);
-    const dmgIds   = ids.slice(idx, idx += l.qty_damaged);
-    const lostIds  = ids.slice(idx, idx += l.qty_lost);
-    const okIds    = ids.slice(idx);
-
-    if (shortIds.length > 0) {
-      const { error } = await supabase.from("laundry_queue" as any)
-        .update({ state: "queued", batch_id: null, processing_method: null })
-        .in("id", shortIds);
-      if (error) throw error;
-    }
-    if (dmgIds.length > 0 || lostIds.length > 0) {
-      const woIds = [...dmgIds, ...lostIds];
-      const { error } = await supabase.from("laundry_queue" as any)
-        .update({ state: "written_off" })
-        .in("id", woIds);
-      if (error) throw error;
-    }
-    if (okIds.length > 0) {
-      const { error } = await supabase.from("laundry_queue" as any)
-        .update({ state: "returned" })
-        .in("id", okIds);
-      if (error) throw error;
-    }
-  }
-
-  // Flip the batch — do this last, after the validation-sensitive line updates.
-  const { data: updated, error: uErr } = await supabase
-    .from("laundry_batches" as any)
-    .update({
-      state: "returned",
-      returned_at: new Date().toISOString(),
-      returned_by_user_id: input.performer.id,
-      returned_by_name: input.performer.name,
-      return_remarks: input.return_remarks?.trim() || null,
-      ...(returnPhotoPath ? { return_photo_path: returnPhotoPath } : {}),
-    })
-    .eq("id", input.batch_id)
-    .select()
-    .single();
-  if (uErr) throw uErr;
-
-  const totalOk = input.lines.reduce((s, l) => s + l.qty_returned_ok, 0);
-  const totalShort = input.lines.reduce((s, l) => s + l.qty_short, 0);
-  const totalDmg = input.lines.reduce((s, l) => s + l.qty_damaged, 0);
-  const totalLost = input.lines.reduce((s, l) => s + l.qty_lost, 0);
-
-  const shortfallParts = input.lines
-    .filter((l) => l.qty_short + l.qty_damaged + l.qty_lost > 0)
-    .map((l) => {
-      const bits = [];
-      if (l.qty_short) bits.push(`${l.qty_short} short`);
-      if (l.qty_damaged) bits.push(`${l.qty_damaged} damaged`);
-      if (l.qty_lost) bits.push(`${l.qty_lost} lost`);
-      return `${l.linen_name_at_time}: ${bits.join(", ")}`;
-    })
-    .join(" · ");
-
-  void logActivity({
-    page: "laundry",
-    action: "laundry_batch_returned",
-    entity_type: "laundry_batch",
-    entity_id: b.id,
-    entity_reference: b.batch_number,
-    summary: totalShort + totalDmg + totalLost === 0
-      ? `Returned ${totalOk} pieces from ${b.vendor_name_at_time} — all OK`
-      : `Returned ${totalOk} OK from ${b.vendor_name_at_time} · ${shortfallParts}`,
-    metadata: {
-      total_ok: totalOk,
-      total_short: totalShort,
-      total_damaged: totalDmg,
-      total_lost: totalLost,
-      lines: input.lines,
-    },
-    correlation_id: b.correlation_id,
-    source: "manual",
+  const { data, error } = await supabase.rpc("confirm_laundry_return" as any, {
+    p_batch_id: input.batch_id,
+    p_return_remarks: input.return_remarks ?? null,
+    p_return_photo_path: returnPhotoPath,
+    p_performer_id: input.performer.id,
+    p_performer_name: input.performer.name,
+    p_lines: input.lines.map((l) => ({
+      line_id: l.line_id,
+      linen_type_id: l.linen_type_id,
+      linen_name_at_time: l.linen_name_at_time,
+      qty_sent: l.qty_sent,
+      qty_returned_ok: l.qty_returned_ok,
+      qty_short: l.qty_short,
+      qty_damaged: l.qty_damaged,
+      qty_lost: l.qty_lost,
+    })),
   });
-
-  return updated as unknown as LaundryBatchRow;
+  if (error) throw error;
+  return data as unknown as LaundryBatchRow;
 }
 
 export async function listBatches(opts?: {
