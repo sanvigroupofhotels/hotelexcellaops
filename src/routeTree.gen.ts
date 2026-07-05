@@ -83,6 +83,7 @@ import { Route as AuthenticatedReportingAnalyticsRouteImport } from './routes/_a
 import { Route as AuthenticatedReportingActivityRouteImport } from './routes/_authenticated/reporting.activity'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedOperationsVendorsRouteImport } from './routes/_authenticated/operations.vendors'
+import { Route as AuthenticatedOperationsLinenTypesRouteImport } from './routes/_authenticated/operations.linen-types'
 import { Route as AuthenticatedOperationsInventoryRouteImport } from './routes/_authenticated/operations.inventory'
 import { Route as AuthenticatedOperationsChargeCatalogRouteImport } from './routes/_authenticated/operations.charge-catalog'
 import { Route as AuthenticatedNightAuditHistoryRouteImport } from './routes/_authenticated/night-audit.history'
@@ -498,6 +499,12 @@ const AuthenticatedOperationsVendorsRoute =
     path: '/vendors',
     getParentRoute: () => AuthenticatedOperationsRoute,
   } as any)
+const AuthenticatedOperationsLinenTypesRoute =
+  AuthenticatedOperationsLinenTypesRouteImport.update({
+    id: '/linen-types',
+    path: '/linen-types',
+    getParentRoute: () => AuthenticatedOperationsRoute,
+  } as any)
 const AuthenticatedOperationsInventoryRoute =
   AuthenticatedOperationsInventoryRouteImport.update({
     id: '/inventory',
@@ -634,6 +641,7 @@ export interface FileRoutesByFullPath {
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/operations/charge-catalog': typeof AuthenticatedOperationsChargeCatalogRoute
   '/operations/inventory': typeof AuthenticatedOperationsInventoryRoute
+  '/operations/linen-types': typeof AuthenticatedOperationsLinenTypesRoute
   '/operations/vendors': typeof AuthenticatedOperationsVendorsRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/activity': typeof AuthenticatedReportingActivityRoute
@@ -718,6 +726,7 @@ export interface FileRoutesByTo {
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/operations/charge-catalog': typeof AuthenticatedOperationsChargeCatalogRoute
   '/operations/inventory': typeof AuthenticatedOperationsInventoryRoute
+  '/operations/linen-types': typeof AuthenticatedOperationsLinenTypesRoute
   '/operations/vendors': typeof AuthenticatedOperationsVendorsRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/activity': typeof AuthenticatedReportingActivityRoute
@@ -809,6 +818,7 @@ export interface FileRoutesById {
   '/_authenticated/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/_authenticated/operations/charge-catalog': typeof AuthenticatedOperationsChargeCatalogRoute
   '/_authenticated/operations/inventory': typeof AuthenticatedOperationsInventoryRoute
+  '/_authenticated/operations/linen-types': typeof AuthenticatedOperationsLinenTypesRoute
   '/_authenticated/operations/vendors': typeof AuthenticatedOperationsVendorsRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/_authenticated/reporting/activity': typeof AuthenticatedReportingActivityRoute
@@ -900,6 +910,7 @@ export interface FileRouteTypes {
     | '/night-audit/history'
     | '/operations/charge-catalog'
     | '/operations/inventory'
+    | '/operations/linen-types'
     | '/operations/vendors'
     | '/quote/$id'
     | '/reporting/activity'
@@ -984,6 +995,7 @@ export interface FileRouteTypes {
     | '/night-audit/history'
     | '/operations/charge-catalog'
     | '/operations/inventory'
+    | '/operations/linen-types'
     | '/operations/vendors'
     | '/quote/$id'
     | '/reporting/activity'
@@ -1074,6 +1086,7 @@ export interface FileRouteTypes {
     | '/_authenticated/night-audit/history'
     | '/_authenticated/operations/charge-catalog'
     | '/_authenticated/operations/inventory'
+    | '/_authenticated/operations/linen-types'
     | '/_authenticated/operations/vendors'
     | '/_authenticated/quote/$id'
     | '/_authenticated/reporting/activity'
@@ -1647,6 +1660,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOperationsVendorsRouteImport
       parentRoute: typeof AuthenticatedOperationsRoute
     }
+    '/_authenticated/operations/linen-types': {
+      id: '/_authenticated/operations/linen-types'
+      path: '/linen-types'
+      fullPath: '/operations/linen-types'
+      preLoaderRoute: typeof AuthenticatedOperationsLinenTypesRouteImport
+      parentRoute: typeof AuthenticatedOperationsRoute
+    }
     '/_authenticated/operations/inventory': {
       id: '/_authenticated/operations/inventory'
       path: '/inventory'
@@ -1773,6 +1793,7 @@ const AuthenticatedNightAuditRouteWithChildren =
 interface AuthenticatedOperationsRouteChildren {
   AuthenticatedOperationsChargeCatalogRoute: typeof AuthenticatedOperationsChargeCatalogRoute
   AuthenticatedOperationsInventoryRoute: typeof AuthenticatedOperationsInventoryRoute
+  AuthenticatedOperationsLinenTypesRoute: typeof AuthenticatedOperationsLinenTypesRoute
   AuthenticatedOperationsVendorsRoute: typeof AuthenticatedOperationsVendorsRoute
   AuthenticatedOperationsIndexRoute: typeof AuthenticatedOperationsIndexRoute
 }
@@ -1783,6 +1804,8 @@ const AuthenticatedOperationsRouteChildren: AuthenticatedOperationsRouteChildren
       AuthenticatedOperationsChargeCatalogRoute,
     AuthenticatedOperationsInventoryRoute:
       AuthenticatedOperationsInventoryRoute,
+    AuthenticatedOperationsLinenTypesRoute:
+      AuthenticatedOperationsLinenTypesRoute,
     AuthenticatedOperationsVendorsRoute: AuthenticatedOperationsVendorsRoute,
     AuthenticatedOperationsIndexRoute: AuthenticatedOperationsIndexRoute,
   }
