@@ -44,9 +44,11 @@ const endOfDayChildren = [
 ] as const;
 
 const operationsChildren = [
-  { to: "/operations/inventory",      label: "Inventory",      icon: Boxes },
-  { to: "/operations/vendors",        label: "Vendors",        icon: Truck },
-  { to: "/operations/charge-catalog", label: "Charge Catalog", icon: ListChecks, adminOnly: true },
+  { to: "/operations/inventory",         label: "Inventory",             icon: Boxes },
+  { to: "/operations/vendors",           label: "Vendors",               icon: Truck },
+  { to: "/operations/charge-catalog",    label: "Charge Catalog",        icon: ListChecks, adminOnly: true },
+  { to: "/operations/linen-types",       label: "Linen Types",           icon: ListChecks, adminOnly: true },
+  { to: "/operations/hk-issue-types",    label: "Housekeeping Issues",   icon: ListChecks, adminOnly: true },
 ] as const;
 
 const reportingChildren = [
