@@ -3880,6 +3880,93 @@ export type Database = {
     }
     Functions: {
       cleanup_expired_guest_documents: { Args: never; Returns: number }
+      confirm_laundry_return: {
+        Args: {
+          p_batch_id: string
+          p_lines: Json
+          p_performer_id: string
+          p_performer_name: string
+          p_return_photo_path: string
+          p_return_remarks: string
+        }
+        Returns: {
+          batch_number: string | null
+          business_date: string
+          cancelled_at: string | null
+          cancelled_by_name: string | null
+          cancelled_by_user_id: string | null
+          correlation_id: string
+          created_at: string
+          id: string
+          invoice_id: string | null
+          pickup_remarks: string | null
+          pickup_slip_photo_path: string | null
+          return_photo_path: string | null
+          return_remarks: string | null
+          returned_at: string | null
+          returned_by_name: string | null
+          returned_by_user_id: string | null
+          sent_at: string
+          sent_by_name: string | null
+          sent_by_user_id: string | null
+          state: Database["public"]["Enums"]["laundry_batch_state"]
+          updated_at: string
+          vendor_id: string
+          vendor_name_at_time: string
+          vendor_slip_number: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "laundry_batches"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_laundry_batch: {
+        Args: {
+          p_business_date: string
+          p_lines: Json
+          p_performer_id: string
+          p_performer_name: string
+          p_pickup_remarks: string
+          p_pickup_slip_photo_path: string
+          p_vendor_id: string
+          p_vendor_name: string
+          p_vendor_slip_number: string
+        }
+        Returns: {
+          batch_number: string | null
+          business_date: string
+          cancelled_at: string | null
+          cancelled_by_name: string | null
+          cancelled_by_user_id: string | null
+          correlation_id: string
+          created_at: string
+          id: string
+          invoice_id: string | null
+          pickup_remarks: string | null
+          pickup_slip_photo_path: string | null
+          return_photo_path: string | null
+          return_remarks: string | null
+          returned_at: string | null
+          returned_by_name: string | null
+          returned_by_user_id: string | null
+          sent_at: string
+          sent_by_name: string | null
+          sent_by_user_id: string | null
+          state: Database["public"]["Enums"]["laundry_batch_state"]
+          updated_at: string
+          vendor_id: string
+          vendor_name_at_time: string
+          vendor_slip_number: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "laundry_batches"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_actor: {
         Args: never
         Returns: {
