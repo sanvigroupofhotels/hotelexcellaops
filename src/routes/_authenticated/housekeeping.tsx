@@ -247,21 +247,6 @@ function TaskScreen({ task, room, onClose, workingAs, me }: {
     if (!workingAs) { toast.error("Choose 'Working As' first"); return; }
     setSaving(true);
     try {
-      const consumables = (consumSel && Object.keys(consumSel).length > 0)
-        ? Object.entries(consumSel)
-          .filter(([, v]) => v.on && v.qty > 0)
-          .map(([id, v]) => {
-            const item = (consumables as any[]).find((c) => c.id === id);
-            return { inventory_item_id: id, name_at_time: item?.name ?? "", qty: v.qty };
-          }).filter((r) => r.inventory_item_id)
-        : [];
-      // Rebuild consumables from state — the closure captured above shadowed `consumables`.
-      // Use the outer query results explicitly:
-      // (this block is unreachable — replaced below)
-      throw new Error("unreachable");
-    } catch { /* falls through into real submit */ }
-
-    try {
       const consLines = Object.entries(consumSel)
         .filter(([, v]) => v.on && v.qty > 0)
         .map(([id, v]) => {
