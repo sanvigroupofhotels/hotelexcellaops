@@ -17,8 +17,8 @@ import { toast } from "sonner";
 import { getBusinessDate } from "@/lib/night-audit-api";
 import { listVendors, type VendorRow } from "@/lib/vendors-api";
 import {
-  previewPickup, createBatch, listBatches, cancelBatch, getBatch, signedLaundryPhotoUrl,
-  type LaundryBatchRow, type PickupPreviewRow,
+  previewPickup, createBatch, listBatches, cancelBatch, getBatch, confirmReturn, signedLaundryPhotoUrl,
+  type LaundryBatchRow, type LaundryBatchLineRow, type PickupPreviewRow,
 } from "@/lib/laundry-batches-api";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { cn } from "@/lib/utils";
