@@ -10,10 +10,38 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+const SYNTH_EMAIL_DOMAIN = "hotelexcella.in";
+
+/**
+ * Sign in by username OR email.
+ *   - Contains "@" → treat as email, sign in directly.
+ *   - No "@"       → look the username up via `resolve_username_to_email`
+ *                    RPC (SECURITY DEFINER). Falls back to
+ *                    `<username>@hotelexcella.in` if no match exists (covers
+ *                    newly-created users where the synthesized email was set).
+ */
+async function signInWithIdentifier(identifier: string, password: string) {
+  const id = identifier.trim();
+  if (id.includes("@")) {
+    return supabase.auth.signInWithPassword({ email: id, password });
+  }
+  let email: string | null = null;
+  try {
+    const { data } = await supabase.rpc("resolve_username_to_email" as any, { _username: id } as any);
+    if (typeof data === "string" && data.length > 0) email = data;
+  } catch {
+    /* ignore — fall back to synthesized email */
+  }
+  return supabase.auth.signInWithPassword({
+    email: email ?? `${id.toLowerCase()}@${SYNTH_EMAIL_DOMAIN}`,
+    password,
+  });
+}
+
 function LoginPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -23,7 +51,7 @@ function LoginPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await signInWithIdentifier(identifier, password);
       if (error) throw error;
       toast.success("Welcome back");
       navigate({ to: "/" });
@@ -58,20 +86,23 @@ function LoginPage() {
 
           <h1 className="font-display text-3xl mb-1">Welcome back</h1>
           <p className="text-sm text-muted-foreground mb-6">
-            Sign in to manage your quotes.
+            Sign in with your username.
           </p>
 
           <form onSubmit={submit} className="space-y-3">
             <div>
               <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                Email
+                Username
               </label>
               <input
-                type="email"
+                type="text"
                 required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
               />
             </div>

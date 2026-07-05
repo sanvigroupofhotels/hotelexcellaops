@@ -2246,18 +2246,21 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          username: string | null
         }
         Insert: {
           created_at?: string
           display_name?: string | null
           email?: string | null
           id: string
+          username?: string | null
         }
         Update: {
           created_at?: string
           display_name?: string | null
           email?: string | null
           id?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -3484,6 +3487,10 @@ export type Database = {
         Args: { p_item_id: string }
         Returns: number
       }
+      resolve_username_to_email: {
+        Args: { _username: string }
+        Returns: string
+      }
       sweep_abandoned_leads: { Args: never; Returns: number }
       sweep_expired_draft_bookings: { Args: never; Returns: number }
       sweep_lost_leads: { Args: never; Returns: number }
@@ -3513,7 +3520,13 @@ export type Database = {
         | "note_added"
         | "deleted"
         | "duplicated"
-      app_role: "admin" | "staff" | "owner" | "reception"
+      app_role:
+        | "admin"
+        | "staff"
+        | "owner"
+        | "reception"
+        | "fo_staff"
+        | "housekeeping"
       attendance_status: "Present" | "Absent" | "HalfDay" | "Leave"
       booking_status:
         | "Draft"
@@ -3693,7 +3706,14 @@ export const Constants = {
         "deleted",
         "duplicated",
       ],
-      app_role: ["admin", "staff", "owner", "reception"],
+      app_role: [
+        "admin",
+        "staff",
+        "owner",
+        "reception",
+        "fo_staff",
+        "housekeeping",
+      ],
       attendance_status: ["Present", "Absent", "HalfDay", "Leave"],
       booking_status: [
         "Draft",
