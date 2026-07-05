@@ -273,6 +273,27 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         );
       })()}
+      {/* Laundry — sits next to Housekeeping in the sidebar. */}
+      {(() => {
+        const active = pathname === "/laundry" || pathname.startsWith("/laundry/");
+        return (
+          <Link
+            to="/laundry"
+            onClick={onNavigate}
+            className={cn(
+              "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-200",
+              active ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60",
+            )}
+          >
+            {active && (
+              <motion.div layoutId="sidebar-active" className="absolute inset-0 rounded-md bg-gold-soft border border-gold/30"
+                transition={{ type: "spring", stiffness: 380, damping: 30 }} />
+            )}
+            <Truck className={cn("relative h-4 w-4 shrink-0", active && "text-gold")} />
+            <span className="relative flex-1">Laundry</span>
+          </Link>
+        );
+      })()}
       <ExpandableGroup
         label="Operations" icon={Boxes} prefix="/operations"
         children={operationsChildren} onNavigate={onNavigate} pathname={pathname}

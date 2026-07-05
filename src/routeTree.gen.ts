@@ -36,6 +36,7 @@ import { Route as AuthenticatedPaymentsReportsRouteImport } from './routes/_auth
 import { Route as AuthenticatedOperationsRouteImport } from './routes/_authenticated/operations'
 import { Route as AuthenticatedNightAuditRouteImport } from './routes/_authenticated/night-audit'
 import { Route as AuthenticatedMasterDataRouteImport } from './routes/_authenticated/master-data'
+import { Route as AuthenticatedLaundryRouteImport } from './routes/_authenticated/laundry'
 import { Route as AuthenticatedHousekeepingRouteImport } from './routes/_authenticated/housekeeping'
 import { Route as AuthenticatedHouseViewRouteImport } from './routes/_authenticated/house-view'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
@@ -234,6 +235,11 @@ const AuthenticatedNightAuditRoute = AuthenticatedNightAuditRouteImport.update({
 const AuthenticatedMasterDataRoute = AuthenticatedMasterDataRouteImport.update({
   id: '/master-data',
   path: '/master-data',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedLaundryRoute = AuthenticatedLaundryRouteImport.update({
+  id: '/laundry',
+  path: '/laundry',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedHousekeepingRoute =
@@ -616,6 +622,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
   '/housekeeping': typeof AuthenticatedHousekeepingRoute
+  '/laundry': typeof AuthenticatedLaundryRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
   '/operations': typeof AuthenticatedOperationsRouteWithChildren
@@ -704,6 +711,7 @@ export interface FileRoutesByTo {
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
   '/housekeeping': typeof AuthenticatedHousekeepingRoute
+  '/laundry': typeof AuthenticatedLaundryRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/rates': typeof AuthenticatedRatesRoute
@@ -794,6 +802,7 @@ export interface FileRoutesById {
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/house-view': typeof AuthenticatedHouseViewRoute
   '/_authenticated/housekeeping': typeof AuthenticatedHousekeepingRoute
+  '/_authenticated/laundry': typeof AuthenticatedLaundryRoute
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
   '/_authenticated/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
   '/_authenticated/operations': typeof AuthenticatedOperationsRouteWithChildren
@@ -888,6 +897,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/house-view'
     | '/housekeeping'
+    | '/laundry'
     | '/master-data'
     | '/night-audit'
     | '/operations'
@@ -976,6 +986,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/house-view'
     | '/housekeeping'
+    | '/laundry'
     | '/master-data'
     | '/payments-reports'
     | '/rates'
@@ -1065,6 +1076,7 @@ export interface FileRouteTypes {
     | '/_authenticated/history'
     | '/_authenticated/house-view'
     | '/_authenticated/housekeeping'
+    | '/_authenticated/laundry'
     | '/_authenticated/master-data'
     | '/_authenticated/night-audit'
     | '/_authenticated/operations'
@@ -1342,6 +1354,13 @@ declare module '@tanstack/react-router' {
       path: '/master-data'
       fullPath: '/master-data'
       preLoaderRoute: typeof AuthenticatedMasterDataRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/laundry': {
+      id: '/_authenticated/laundry'
+      path: '/laundry'
+      fullPath: '/laundry'
+      preLoaderRoute: typeof AuthenticatedLaundryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/housekeeping': {
@@ -1948,6 +1967,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedHouseViewRoute: typeof AuthenticatedHouseViewRoute
   AuthenticatedHousekeepingRoute: typeof AuthenticatedHousekeepingRoute
+  AuthenticatedLaundryRoute: typeof AuthenticatedLaundryRoute
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
   AuthenticatedNightAuditRoute: typeof AuthenticatedNightAuditRouteWithChildren
   AuthenticatedOperationsRoute: typeof AuthenticatedOperationsRouteWithChildren
@@ -1991,6 +2011,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedHouseViewRoute: AuthenticatedHouseViewRoute,
   AuthenticatedHousekeepingRoute: AuthenticatedHousekeepingRoute,
+  AuthenticatedLaundryRoute: AuthenticatedLaundryRoute,
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
   AuthenticatedNightAuditRoute: AuthenticatedNightAuditRouteWithChildren,
   AuthenticatedOperationsRoute: AuthenticatedOperationsRouteWithChildren,
