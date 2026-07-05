@@ -371,20 +371,40 @@ function TaskScreen({ task, room, onClose, workingAs, candidates, onSelectPerfor
             <div className="text-xs text-muted-foreground">No housekeeping consumables configured. Ask admin to enable items under Inventory.</div>
           )}
           {(consumables as any[]).map((it) => {
-            const sel = consumSel[it.id] ?? { on: false, qty: it.hk_default_qty ?? 1 };
+            const defaultQty = Number(it.hk_default_qty ?? 1) || 1;
+            const sel = consumSel[it.id] ?? { on: false, qty: defaultQty };
+            const isEditing = consumEdit[it.id] === true;
             return (
-              <div key={it.id} className="flex items-center gap-2">
-                <input type="checkbox" checked={sel.on}
-                  onChange={(e) => setConsumSel((s) => ({ ...s, [it.id]: { on: e.target.checked, qty: sel.qty } }))} />
-                <div className="flex-1 text-sm">{it.name}</div>
-                <div className="w-24">
-                  <NumField
-                    value={sel.qty}
-                    min={0}
-                    onChange={(v) => setConsumSel((s) => ({ ...s, [it.id]: { on: sel.on, qty: v } }))}
-                    decimal
+              <div key={it.id} className="space-y-1">
+                <label className="flex items-center gap-3 text-sm py-1">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5"
+                    checked={sel.on}
+                    onChange={(e) => setConsumSel((s) => ({ ...s, [it.id]: { on: e.target.checked, qty: sel.qty } }))}
                   />
-                </div>
+                  <span className="flex-1">{it.name}</span>
+                  <span className="text-[11px] text-muted-foreground">× {sel.qty}</span>
+                  {sel.on && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setConsumEdit((s) => ({ ...s, [it.id]: !isEditing })); }}
+                      className="text-[10px] uppercase tracking-wider text-gold px-2 py-0.5 rounded border border-border"
+                    >
+                      {isEditing ? "Done" : "Edit"}
+                    </button>
+                  )}
+                </label>
+                {sel.on && isEditing && (
+                  <div className="ml-8 w-28">
+                    <NumField
+                      value={sel.qty}
+                      min={0}
+                      onChange={(v) => setConsumSel((s) => ({ ...s, [it.id]: { on: sel.on, qty: v } }))}
+                      decimal
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
