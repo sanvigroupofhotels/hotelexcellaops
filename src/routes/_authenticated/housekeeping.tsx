@@ -16,7 +16,7 @@ import { listRooms } from "@/lib/rooms-api";
 import { listInventoryItems } from "@/lib/inventory-items-api";
 import { listLinenTypes } from "@/lib/linen-master-api";
 import { listHkIssueTypes } from "@/lib/hk-issue-types-api";
-import { listTasksForDate, startTask, completeTask, type HkTaskRow } from "@/lib/hk-tasks";
+import { listTasksForDate, startTask, completeTask, skipTask, type HkTaskRow, type HkSkipReason } from "@/lib/hk-tasks";
 import { useHkWorkingAs } from "@/hooks/use-hk-working-as";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { NumField } from "@/components/num-field";
