@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Topbar } from "@/components/topbar";
-import { useUserRole, type AppRole } from "@/hooks/use-role";
+import { useUserRole, ROLE_LABEL, ACTIVE_ROLES, type AppRole } from "@/hooks/use-role";
 import { setUserRole } from "@/lib/users-admin-api";
 import {
   listUsersFn, createUserFn, updateUserFn, setUserActiveFn,
