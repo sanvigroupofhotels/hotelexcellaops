@@ -536,23 +536,58 @@ function QuickBookingPage() {
               <input value={otherDescription} onChange={(e) => setOtherDescription(e.target.value)} placeholder="e.g. Airport pickup" className="qb-input" />
             </Field>
           )}
-          <Field label="Total override (₹ — leave blank to use computed)">
-            <input
-              type="number"
-              value={totalOverride}
-              onChange={(e) => setTotalOverride(e.target.value)}
-              placeholder={String(pricing.total)}
-              className="qb-input"
-              inputMode="decimal"
-            />
-          </Field>
           <div className="text-[11px] text-muted-foreground leading-snug">
-            Lower override → Discount auto-derived · Higher override → Room Charges auto-increase. Identical logic to the Detailed Booking Form.
+            Override the Final Amount inline on the Pricing Summary below.
+            Lower override → Discount auto-derived · Higher override → Room Charges auto-increase.
+            Identical logic to the Detailed Booking Form.
           </div>
         </section>
 
-        {/* GROUP 5 — Pricing breakdown (shared component, same engine) */}
-        <PricingBreakdownCard pricing={pricing} />
+        {/* GROUP 5 — Pricing breakdown (shared component, editable override — parity with Detailed) */}
+        <PricingBreakdownCard
+          pricing={pricing}
+          editable={true}
+          overrideValue={totalOverride}
+          onOverrideChange={setTotalOverride}
+          onTaxesIncludedChange={setTaxesIncluded}
+          nights={nights}
+          guests={adults + kids}
+        />
+
+        {/* GROUP 5b — More Options (parity: lead source, requests, notes, per-booking payment flags) */}
+        <section className="luxe-card rounded-xl">
+          <button
+            type="button"
+            onClick={() => setMoreOpen((v) => !v)}
+            className="w-full flex items-center justify-between p-4 text-left"
+          >
+            <span className="text-xs uppercase tracking-wider text-gold">More Options</span>
+            {moreOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          </button>
+          {moreOpen && (
+            <div className="px-4 pb-4 space-y-3">
+              <Field label="Lead Source">
+                <select value={leadSource} onChange={(e) => setLeadSource(e.target.value)} className="qb-input">
+                  {leadSources.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </Field>
+              <Field label="Special Requests (guest-facing)">
+                <textarea rows={2} value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} placeholder="Early check-in, high floor, etc." className="qb-input resize-none" />
+              </Field>
+              <Field label="Internal Notes (never shared)">
+                <textarea rows={2} value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Internal remarks" className="qb-input resize-none" />
+              </Field>
+              {paymentFlags && (
+                <PaymentSettingsSection
+                  value={paymentFlags}
+                  onChange={setPaymentFlags}
+                  hint="Override global payment settings for this booking only."
+                />
+              )}
+            </div>
+          )}
+        </section>
+
 
         {/* GROUP 6 — Inline advance + actions */}
         <section className="luxe-card rounded-xl p-4 space-y-3">
