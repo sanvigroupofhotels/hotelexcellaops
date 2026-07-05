@@ -40,7 +40,7 @@ Legend: 🟢 Stable · 🟡 Partial · 🔵 In Progress · ⚪ Planned · ⛔ No
 | Activity Log | 🟢 Stable | Universal audit trail; used by every module |
 | Access & Roles | 🟡 Partial | Role migration done; Access UX polish pending (P3) |
 | Notifications | 🟡 Partial | Push + email dispatch live; future-notification rules engine pending (P4) |
-| Analytics / Reporting | 🟡 Partial | Owner/payments/staff/NA reports live; HK + Laundry reports pending (P2) |
+| Analytics / Reporting | 🟢 Stable | Owner/payments/staff/NA + HK + Laundry reports live; shared `src/lib/reporting/*` engine |
 | Maintenance | ⚪ Planned | Table `room_maintenance` exists; UI + workflow pending (P2) |
 | Booking Conflict Engine | ⚪ Planned | Piecemeal checks exist; unified surface pending (P2) |
 | Operational Rules Engine | ⚪ Planned | Internal principle; consolidate when Maintenance adds 5th rule (P2 arch) |
