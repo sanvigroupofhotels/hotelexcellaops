@@ -5,8 +5,8 @@ reports and design discussions. Completed items have been removed. This file
 MUST be updated at the end of every sprint (add new items, promote/demote
 priorities, remove shipped items).
 
-- **Last updated:** 2026-07-05 (post Laundry Ship 1)
-- **Currently in flight:** HEOS Phase 3B — Laundry Module (Ship 2: return path)
+- **Last updated:** 2026-07-05 (post Laundry Ship 2)
+- **Currently in flight:** _None._ Laundry send + return path shipped.
 
 Priority ladder:
 
@@ -24,10 +24,25 @@ Priority ladder:
 
 ## In Flight (not backlog)
 
-- **Phase 3B Ship 2 — Laundry Return Path**: return screen (OK / Short /
-  Damaged / Lost), return photo, return remarks, short-row detach so they
-  re-appear as Previous Missing; Vendor screen `is_laundry` filter chip;
-  batch activity feed.
+_None._
+
+---
+
+## Laundry — Deferred to Follow-up Sprint
+
+- **P2 — Monthly Billing / Reconciliation screen** — schema (batches +
+  lines) already carries queue / sent / in-house / OK / short / damaged /
+  lost per linen type; needs vendor-scoped month view, per-linen rate
+  card, invoice reconciliation, and export. No schema change required.
+- **P3 — Vendor screen `is_laundry` filter chip** — `vendor_kind` array
+  is populated; add the chip on the Vendors screen.
+- **P3 — Batch activity feed on Batch Detail** — reuse the shared
+  activity-log reader keyed by `entity_type='laundry_batch'`.
+- **P4 — Damaged linen → auto-complaint toggle** — silent in v1 per
+  approved design; add an app-setting toggle later.
+- **P4 — Cancel window guard** — currently open-ended; consider
+  restricting cancel to same `business_date`.
+
 
 ---
 

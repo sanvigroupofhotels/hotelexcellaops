@@ -314,6 +314,174 @@ export async function cancelBatch(batchId: string, performer: { id: string; name
   });
 }
 
+/* ─────────────────────────  Return path (Ship 2)  ───────────────────── */
+
+export interface ConfirmReturnInput {
+  batch_id: string;
+  lines: Array<{
+    line_id: string;
+    linen_type_id: string;
+    linen_name_at_time: string;
+    qty_sent: number;
+    qty_returned_ok: number;
+    qty_short: number;
+    qty_damaged: number;
+    qty_lost: number;
+  }>;
+  return_remarks?: string | null;
+  performer: { id: string; name: string };
+  returnPhotoFile?: File | null;
+}
+
+/**
+ * Confirm return of a batch. Validates ok+short+dmg+lost = qty_sent per line,
+ * writes the return quantities on batch_lines, flips the batch to `returned`,
+ * and reconciles the underlying queue rows:
+ *   - OK        → state='returned' (final, remains linked to batch)
+ *   - Short     → state='queued', batch_id=null, processing_method=null
+ *                 (rolls forward — appears as "Previous Missing" next pickup)
+ *   - Damaged   → state='written_off'
+ *   - Lost      → state='written_off'
+ */
+export async function confirmReturn(input: ConfirmReturnInput): Promise<LaundryBatchRow> {
+  const { data: batch, error: bErr } = await supabase
+    .from("laundry_batches" as any).select("*").eq("id", input.batch_id).single();
+  if (bErr) throw bErr;
+  const b = batch as unknown as LaundryBatchRow;
+  if (b.state !== "sent") throw new Error(`Batch is ${b.state} — cannot confirm return`);
+
+  // Validate every line
+  for (const l of input.lines) {
+    const sum = l.qty_returned_ok + l.qty_short + l.qty_damaged + l.qty_lost;
+    if (sum !== l.qty_sent) {
+      throw new Error(
+        `${l.linen_name_at_time}: OK+Short+Damaged+Lost (${sum}) must equal Sent (${l.qty_sent})`,
+      );
+    }
+    if (l.qty_returned_ok < 0 || l.qty_short < 0 || l.qty_damaged < 0 || l.qty_lost < 0) {
+      throw new Error("Quantities cannot be negative");
+    }
+  }
+
+  // Optional return photo
+  let returnPhotoPath: string | null = null;
+  if (input.returnPhotoFile) {
+    try {
+      returnPhotoPath = await uploadLaundryPhoto(b.id, "return", input.returnPhotoFile);
+    } catch (e) {
+      console.error("Return photo upload failed", e);
+    }
+  }
+
+  // Update lines (one by one so the validation trigger runs per row)
+  for (const l of input.lines) {
+    const { error } = await supabase
+      .from("laundry_batch_lines" as any)
+      .update({
+        qty_returned_ok: l.qty_returned_ok,
+        qty_short: l.qty_short,
+        qty_damaged: l.qty_damaged,
+        qty_lost: l.qty_lost,
+      })
+      .eq("id", l.line_id);
+    if (error) throw error;
+  }
+
+  // Reconcile queue rows for each linen type
+  for (const l of input.lines) {
+    const { data: rows, error: rErr } = await supabase
+      .from("laundry_queue" as any)
+      .select("id")
+      .eq("batch_id", input.batch_id)
+      .eq("linen_type_id", l.linen_type_id)
+      .eq("processing_method", "vendor")
+      .order("business_date", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (rErr) throw rErr;
+    const ids = (rows ?? []).map((r: any) => r.id as string);
+    // Allocate in order: short (roll forward), damaged, lost, then OK.
+    let idx = 0;
+    const shortIds = ids.slice(idx, idx += l.qty_short);
+    const dmgIds   = ids.slice(idx, idx += l.qty_damaged);
+    const lostIds  = ids.slice(idx, idx += l.qty_lost);
+    const okIds    = ids.slice(idx);
+
+    if (shortIds.length > 0) {
+      const { error } = await supabase.from("laundry_queue" as any)
+        .update({ state: "queued", batch_id: null, processing_method: null })
+        .in("id", shortIds);
+      if (error) throw error;
+    }
+    if (dmgIds.length > 0 || lostIds.length > 0) {
+      const woIds = [...dmgIds, ...lostIds];
+      const { error } = await supabase.from("laundry_queue" as any)
+        .update({ state: "written_off" })
+        .in("id", woIds);
+      if (error) throw error;
+    }
+    if (okIds.length > 0) {
+      const { error } = await supabase.from("laundry_queue" as any)
+        .update({ state: "returned" })
+        .in("id", okIds);
+      if (error) throw error;
+    }
+  }
+
+  // Flip the batch — do this last, after the validation-sensitive line updates.
+  const { data: updated, error: uErr } = await supabase
+    .from("laundry_batches" as any)
+    .update({
+      state: "returned",
+      returned_at: new Date().toISOString(),
+      returned_by_user_id: input.performer.id,
+      returned_by_name: input.performer.name,
+      return_remarks: input.return_remarks?.trim() || null,
+      ...(returnPhotoPath ? { return_photo_path: returnPhotoPath } : {}),
+    })
+    .eq("id", input.batch_id)
+    .select()
+    .single();
+  if (uErr) throw uErr;
+
+  const totalOk = input.lines.reduce((s, l) => s + l.qty_returned_ok, 0);
+  const totalShort = input.lines.reduce((s, l) => s + l.qty_short, 0);
+  const totalDmg = input.lines.reduce((s, l) => s + l.qty_damaged, 0);
+  const totalLost = input.lines.reduce((s, l) => s + l.qty_lost, 0);
+
+  const shortfallParts = input.lines
+    .filter((l) => l.qty_short + l.qty_damaged + l.qty_lost > 0)
+    .map((l) => {
+      const bits = [];
+      if (l.qty_short) bits.push(`${l.qty_short} short`);
+      if (l.qty_damaged) bits.push(`${l.qty_damaged} damaged`);
+      if (l.qty_lost) bits.push(`${l.qty_lost} lost`);
+      return `${l.linen_name_at_time}: ${bits.join(", ")}`;
+    })
+    .join(" · ");
+
+  void logActivity({
+    page: "laundry",
+    action: "laundry_batch_returned",
+    entity_type: "laundry_batch",
+    entity_id: b.id,
+    entity_reference: b.batch_number,
+    summary: totalShort + totalDmg + totalLost === 0
+      ? `Returned ${totalOk} pieces from ${b.vendor_name_at_time} — all OK`
+      : `Returned ${totalOk} OK from ${b.vendor_name_at_time} · ${shortfallParts}`,
+    metadata: {
+      total_ok: totalOk,
+      total_short: totalShort,
+      total_damaged: totalDmg,
+      total_lost: totalLost,
+      lines: input.lines,
+    },
+    correlation_id: b.correlation_id,
+    source: "manual",
+  });
+
+  return updated as unknown as LaundryBatchRow;
+}
+
 export async function listBatches(opts?: {
   vendorId?: string;
   state?: LaundryBatchState;
