@@ -221,20 +221,32 @@ function Field({ label, ...props }: any) {
 }
 
 function CreateUserModal({ onClose, onSubmit }: any) {
-  const [v, setV] = useState({ email: "", password: "", display_name: "", role: "staff" as AppRole });
+  const [v, setV] = useState({
+    username: "",
+    email: "",
+    password: "",
+    display_name: "",
+    role: "housekeeping" as AppRole,
+  });
   return (
     <Modal title="Create User" onClose={onClose}>
       <Field label="Display Name" value={v.display_name} onChange={(e: any) => setV({ ...v, display_name: e.target.value })} />
-      <Field label="Email" type="email" value={v.email} onChange={(e: any) => setV({ ...v, email: e.target.value })} />
+      <Field
+        label="Username (3-32 chars: a-z 0-9 . _ -)"
+        value={v.username}
+        autoCapitalize="none"
+        autoCorrect="off"
+        onChange={(e: any) => setV({ ...v, username: e.target.value.toLowerCase().trim() })}
+      />
+      <Field label="Email (optional — for password reset only)" type="email" value={v.email} onChange={(e: any) => setV({ ...v, email: e.target.value })} />
       <Field label="Initial Password (min 8)" type="password" autoComplete="new-password" value={v.password} onChange={(e: any) => setV({ ...v, password: e.target.value })} />
       <label className="block space-y-1">
         <span className="text-xs uppercase tracking-wider text-muted-foreground">Role</span>
         <select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as AppRole })}
           className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-          <option value="staff">Staff</option>
-          <option value="reception">Reception</option>
-          <option value="owner">Owner</option>
-          <option value="admin">Admin</option>
+          {ACTIVE_ROLES.map((r) => (
+            <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+          ))}
         </select>
       </label>
       <div className="flex justify-end gap-2 pt-2">
