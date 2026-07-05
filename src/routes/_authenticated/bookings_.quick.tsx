@@ -24,9 +24,9 @@
  */
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
-import { Loader2, Sparkles, Star, UserCheck } from "lucide-react";
+import { Loader2, Sparkles, Star, UserCheck, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { type CustomerRow } from "@/lib/customers-api";
@@ -47,6 +47,9 @@ import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { NumField } from "@/components/num-field";
 import { RoomStepper } from "@/components/room-stepper";
 import { useChargeCategories } from "@/hooks/use-charge-categories";
+import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/payment-settings-section";
+import { useMasterData } from "@/hooks/use-master-data";
+import { LEAD_SOURCES } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_authenticated/bookings_/quick")({
   component: QuickBookingPage,
