@@ -195,6 +195,16 @@ export async function closeSession(opts: {
     metadata: { totals: opts.totals ?? {}, override_reason: opts.overrideReason ?? null },
     source: "night_audit",
   });
+
+  // Fire-and-forget: generate continue-service tasks for the new business date.
+  // Best-effort — a generator failure must not roll back a completed audit.
+  void (async () => {
+    try {
+      const { generateContinueServiceTasks } = await import("@/lib/hk-generator");
+      await generateContinueServiceTasks(next);
+    } catch { /* logged inside the generator on partial failure */ }
+  })();
+
   return { newBusinessDate: next };
 }
 
