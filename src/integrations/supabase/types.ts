@@ -3487,6 +3487,10 @@ export type Database = {
         Args: { p_item_id: string }
         Returns: number
       }
+      resolve_username_to_email: {
+        Args: { _username: string }
+        Returns: string
+      }
       sweep_abandoned_leads: { Args: never; Returns: number }
       sweep_expired_draft_bookings: { Args: never; Returns: number }
       sweep_lost_leads: { Args: never; Returns: number }
