@@ -11,7 +11,7 @@
  * signal, and `processing_method` records how each row was handled.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { logActivity, newCorrelationId } from "@/lib/activity-log";
+import { logActivity } from "@/lib/activity-log";
 
 const SLIP_BUCKET = "laundry-slips";
 
