@@ -278,6 +278,7 @@ function TaskScreen({ task, room, onClose, workingAs, candidates, onSelectPerfor
   });
 
   const [consumSel, setConsumSel] = useState<Record<string, { on: boolean; qty: number }>>({});
+  const [consumEdit, setConsumEdit] = useState<Record<string, boolean>>({});
   const [linenSel, setLinenSel]   = useState<Record<string, boolean>>({});
   const [issueSel, setIssueSel]   = useState<Record<string, { on: boolean; note: string }>>({});
   const [remarks, setRemarks]     = useState<string>("");
