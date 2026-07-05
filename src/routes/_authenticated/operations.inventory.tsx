@@ -421,6 +421,20 @@ function ItemDialog({ item, onClose, onStockIn, onStockOut }: {
           <p className="text-[10px] text-muted-foreground mt-1">Legacy per-item mapping. Prefer setting the Inventory link from <b>Operations → Charge Catalog</b> — that's the active auto-consume path.</p>
         </Field>
 
+        {/* Housekeeping — surfaces this item in the task screen's "Consumables Refilled" list. */}
+        <div className="border-t border-border pt-3 space-y-2">
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={showInHk} onChange={(e) => setShowInHk(e.target.checked)} />
+            Show in Housekeeping task screen
+          </label>
+          {showInHk && (
+            <Field label="Default quantity per task">
+              <input className={inputCls} type="number" inputMode="numeric" min={1} value={hkDefaultQty}
+                onChange={(e) => setHkDefaultQty(e.target.value)} />
+            </Field>
+          )}
+        </div>
+
         <label className="flex items-center gap-2 text-xs">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
           Active
