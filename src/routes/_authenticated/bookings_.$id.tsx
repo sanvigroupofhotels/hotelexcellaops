@@ -145,6 +145,11 @@ function BookingDetail() {
         notes: reason,
         metadata: { outstanding_balance: balance },
       });
+      // Housekeeping side-effect on override-checkout (same as clean checkout).
+      try {
+        const { onBookingCheckedOut } = await import("@/lib/hk-checkout-hook");
+        await onBookingCheckedOut(id);
+      } catch { /* non-blocking */ }
     },
     onSuccess: () => { invalidateAll(); toast.warning("Checked-out with outstanding balance (override recorded)"); },
     onError: (e: any) => toast.error(e.message),
