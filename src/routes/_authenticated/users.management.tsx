@@ -181,16 +181,24 @@ function UsersPage() {
       {showCreate && (
         <CreateUserModal
           onClose={() => setShowCreate(false)}
-          onSubmit={async (vals: { email: string; password: string; display_name: string; role: AppRole }) => {
-            try { await create({ data: vals }); toast.success("User created"); invalidate(); setShowCreate(false); }
+          onSubmit={async (vals: { username: string; email: string; password: string; display_name: string; role: AppRole }) => {
+            if (!/^[a-z0-9._-]{3,32}$/.test(vals.username)) {
+              toast.error("Username must be 3-32 characters using a-z, 0-9, dot, underscore or dash.");
+              return;
+            }
+            try { await create({ data: vals as any }); toast.success("User created"); invalidate(); setShowCreate(false); }
             catch (e: any) { toast.error(e.message); }
           }}
         />
       )}
       {editing && (
         <EditUserModal user={editing} onClose={() => setEditing(null)}
-          onSubmit={async (vals: { display_name: string; email: string }) => {
-            try { await update({ data: { id: editing.id, ...vals } }); toast.success("User updated"); invalidate(); setEditing(null); }
+          onSubmit={async (vals: { display_name: string; email: string; username: string }) => {
+            if (vals.username && !/^[a-z0-9._-]{3,32}$/.test(vals.username)) {
+              toast.error("Username must be 3-32 characters using a-z, 0-9, dot, underscore or dash.");
+              return;
+            }
+            try { await update({ data: { id: editing.id, ...vals } as any }); toast.success("User updated"); invalidate(); setEditing(null); }
             catch (e: any) { toast.error(e.message); }
           }}
         />
