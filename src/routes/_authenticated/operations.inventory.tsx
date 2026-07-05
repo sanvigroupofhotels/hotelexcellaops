@@ -319,11 +319,13 @@ function ItemDialog({ item, onClose, onStockIn, onStockOut }: {
 
   const save = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: any = {
         name, unit, category_value: category || null,
         preferred_vendor_id: vendor || null,
         minimum_stock: Number(minimum) || 0,
         auto_consume_catalog_key: autoKey || null,
+        show_in_housekeeping: !!showInHk,
+        hk_default_qty: Math.max(1, Math.floor(Number(hkDefaultQty) || 1)),
         active,
       };
       let id = item?.id;
