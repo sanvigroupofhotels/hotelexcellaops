@@ -104,10 +104,13 @@ function HousekeepingPage() {
         room={roomById.get(openTask.room_id)}
         onClose={() => setOpenTaskId(null)}
         workingAs={workingAs}
+        candidates={waCandidates}
+        onSelectPerformer={setSelectedId}
         me={{ id: me.id ?? "", name: me.name || me.firstName || "user" }}
       />
     );
   }
+
 
   return (
     <div className="min-h-screen bg-background">
