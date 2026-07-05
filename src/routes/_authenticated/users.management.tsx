@@ -108,8 +108,15 @@ function UsersPage() {
             return (
               <div key={u.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 px-4 md:px-6 py-4 border-b border-border/60 last:border-0">
                 <div className="md:col-span-4">
-                  <div className="text-sm font-medium">{u.display_name || u.email}{self && <span className="ml-1.5 text-[10px] text-gold">(you)</span>}</div>
-                  <div className="text-[11px] text-muted-foreground">{u.email}</div>
+                  <div className="text-sm font-medium">
+                    {u.display_name || u.username || u.email}
+                    {self && <span className="ml-1.5 text-[10px] text-gold">(you)</span>}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {u.username ? <span className="text-foreground/80">@{u.username}</span> : null}
+                    {u.username && u.email ? " · " : ""}
+                    {u.email}
+                  </div>
                 </div>
                 <div className="md:col-span-2 flex items-center">
                   <span className={cn(
