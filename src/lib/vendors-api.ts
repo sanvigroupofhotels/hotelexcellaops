@@ -45,13 +45,17 @@ function clean(input: VendorInput) {
     address: input.address?.trim() || null,
     maps_url: input.maps_url?.trim() || null,
     notes: input.notes?.trim() || null,
+    vendor_kind: Array.isArray(input.vendor_kind)
+      ? Array.from(new Set(input.vendor_kind.filter(Boolean)))
+      : undefined,
     active: input.active ?? true,
   };
 }
 
-export async function listVendors(opts?: { activeOnly?: boolean }): Promise<VendorRow[]> {
+export async function listVendors(opts?: { activeOnly?: boolean; kind?: string }): Promise<VendorRow[]> {
   let q = supabase.from("vendors" as any).select("*").order("name");
   if (opts?.activeOnly) q = q.eq("active", true);
+  if (opts?.kind) q = q.contains("vendor_kind", [opts.kind]);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as any;
