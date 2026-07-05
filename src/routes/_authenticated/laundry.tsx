@@ -480,6 +480,7 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
   });
   const [pickupUrl, setPickupUrl] = useState<string | null>(null);
   const [returnUrl, setReturnUrl] = useState<string | null>(null);
+  const [returnMode, setReturnMode] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -514,6 +515,24 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
   }
   const { batch, lines } = data;
+
+  if (returnMode && batch.state === "sent") {
+    return (
+      <ReturnScreen
+        batch={batch}
+        lines={lines}
+        me={{ id: me.id ?? "", name: me.name || me.firstName || "user" }}
+        onClose={() => setReturnMode(false)}
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ["laundry-batch", batchId] });
+          qc.invalidateQueries({ queryKey: ["laundry-batches"] });
+          qc.invalidateQueries({ queryKey: ["laundry-preview"] });
+          setReturnMode(false);
+        }}
+      />
+    );
+  }
+
   const totals = lines.reduce(
     (a, l) => ({
       heos: a.heos + l.qty_heos_queue,
@@ -526,6 +545,7 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
     }),
     { heos: 0, sent: 0, inHouse: 0, ok: 0, short: 0, dmg: 0, lost: 0 },
   );
+  const outstanding = totals.sent - (totals.ok + totals.short + totals.dmg + totals.lost);
 
   return (
     <div className="min-h-screen bg-background">
@@ -553,6 +573,15 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
           <div><b>Sent:</b> {new Date(batch.sent_at).toLocaleString()} by {batch.sent_by_name}</div>
           {batch.returned_at && <div><b>Returned:</b> {new Date(batch.returned_at).toLocaleString()} by {batch.returned_by_name}</div>}
         </div>
+
+        {batch.state === "sent" && (
+          <button
+            onClick={() => setReturnMode(true)}
+            className="w-full py-3 rounded-md bg-gold text-charcoal font-medium flex items-center justify-center gap-2"
+          >
+            <ClipboardList className="h-4 w-4" /> Confirm Return
+          </button>
+        )}
 
         <div className="luxe-card rounded-lg overflow-hidden">
           <div className="px-4 py-2 border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">Lines</div>
@@ -588,6 +617,11 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
             <div className="col-span-1 text-right">{totals.dmg}</div>
             <div className="col-span-1 text-right">{totals.lost}</div>
           </div>
+          {batch.state === "sent" && outstanding > 0 && (
+            <div className="px-4 py-2 border-t border-border/60 text-[11px] text-amber-500">
+              Outstanding with vendor: <b>{outstanding}</b> pieces
+            </div>
+          )}
         </div>
 
         {(batch.pickup_remarks || batch.return_remarks) && (
@@ -602,12 +636,6 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
           <PhotoTile label="Return Bag" url={returnUrl} />
         </div>
 
-        <div className="rounded-lg border border-border/40 bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
-          Return workflow (OK / Short / Damaged / Lost + return photo) ships next.
-          For now, batches in "sent" state can be cancelled if pickup was recorded
-          in error — this restores the queue.
-        </div>
-
         {batch.state === "sent" && (
           <button
             onClick={() => {
@@ -620,6 +648,203 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
             <XCircle className="h-4 w-4" /> Cancel Batch
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────  Return Screen  ───────────────────────── */
+
+type ReturnDraft = Record<string, { ok: number; short: number; damaged: number; lost: number }>;
+
+function ReturnScreen({ batch, lines, me, onClose, onDone }: {
+  batch: LaundryBatchRow;
+  lines: LaundryBatchLineRow[];
+  me: { id: string; name: string };
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const qc = useQueryClient();
+  // Default: everything returned OK.
+  const [draft, setDraft] = useState<ReturnDraft>(() => {
+    const d: ReturnDraft = {};
+    for (const l of lines) {
+      d[l.id] = { ok: l.qty_sent, short: 0, damaged: 0, lost: 0 };
+    }
+    return d;
+  });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [remarks, setRemarks] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+
+  const totals = useMemo(() => {
+    let sent = 0, ok = 0, short = 0, dmg = 0, lost = 0;
+    for (const l of lines) {
+      const d = draft[l.id];
+      sent += l.qty_sent;
+      ok += d?.ok ?? 0; short += d?.short ?? 0; dmg += d?.damaged ?? 0; lost += d?.lost ?? 0;
+    }
+    return { sent, ok, short, dmg, lost, unaccounted: sent - ok - short - dmg - lost };
+  }, [lines, draft]);
+
+  const anyShortfall = totals.short + totals.dmg + totals.lost > 0;
+
+  const setBucket = (lineId: string, bucket: "short" | "damaged" | "lost", value: number) => {
+    setDraft((prev) => {
+      const cur = prev[lineId] ?? { ok: 0, short: 0, damaged: 0, lost: 0 };
+      const line = lines.find((l) => l.id === lineId);
+      if (!line) return prev;
+      const v = Math.max(0, Math.floor(value || 0));
+      const others = { short: cur.short, damaged: cur.damaged, lost: cur.lost, [bucket]: v };
+      const totalIssues = others.short + others.damaged + others.lost;
+      if (totalIssues > line.qty_sent) return prev; // ignore over-allocation
+      return { ...prev, [lineId]: { ...others, ok: line.qty_sent - totalIssues } };
+    });
+  };
+
+  const confirmMut = useMutation({
+    mutationFn: async () => {
+      if (!me.id) throw new Error("Not signed in");
+      return confirmReturn({
+        batch_id: batch.id,
+        return_remarks: remarks || null,
+        performer: me,
+        returnPhotoFile: photoFile,
+        lines: lines.map((l) => {
+          const d = draft[l.id] ?? { ok: l.qty_sent, short: 0, damaged: 0, lost: 0 };
+          return {
+            line_id: l.id,
+            linen_type_id: l.linen_type_id,
+            linen_name_at_time: l.linen_name_at_time,
+            qty_sent: l.qty_sent,
+            qty_returned_ok: d.ok,
+            qty_short: d.short,
+            qty_damaged: d.damaged,
+            qty_lost: d.lost,
+          };
+        }),
+      });
+    },
+    onSuccess: (b) => {
+      toast.success(`Batch ${b.batch_number} returned`);
+      qc.invalidateQueries({ queryKey: ["laundry-batch", batch.id] });
+      onDone();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border">
+        <div className="px-4 py-3 max-w-3xl mx-auto flex items-center gap-3">
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+          <div className="flex-1">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Confirm Return</div>
+            <div className="font-display text-base leading-tight">{batch.batch_number}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-6 max-w-3xl mx-auto space-y-4">
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-500">
+          All quantities default to <b>fully returned OK</b>. Tap a linen row only if something was short, damaged or lost.
+        </div>
+
+        <div className="luxe-card rounded-lg overflow-hidden">
+          <div className="grid grid-cols-12 gap-2 px-4 py-2 border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
+            <div className="col-span-5">Linen</div>
+            <div className="col-span-2 text-right">Sent</div>
+            <div className="col-span-2 text-right">OK</div>
+            <div className="col-span-3 text-right">Issues</div>
+          </div>
+          {lines.map((l) => {
+            const d = draft[l.id] ?? { ok: l.qty_sent, short: 0, damaged: 0, lost: 0 };
+            const issues = d.short + d.damaged + d.lost;
+            const isOpen = !!expanded[l.id];
+            return (
+              <div key={l.id} className="border-b border-border/60 last:border-0">
+                <button
+                  onClick={() => setExpanded((e) => ({ ...e, [l.id]: !e[l.id] }))}
+                  className="w-full grid grid-cols-12 items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-muted/10"
+                >
+                  <div className="col-span-5">{l.linen_name_at_time}</div>
+                  <div className="col-span-2 text-right text-muted-foreground">{l.qty_sent}</div>
+                  <div className={cn("col-span-2 text-right font-medium", issues > 0 ? "text-emerald-500" : "text-gold")}>{d.ok}</div>
+                  <div className={cn("col-span-3 text-right text-xs", issues > 0 ? "text-red-500" : "text-muted-foreground")}>
+                    {issues > 0 ? `${issues} issue${issues === 1 ? "" : "s"}` : "—"}
+                  </div>
+                </button>
+                {isOpen && (
+                  <div className="grid grid-cols-3 gap-2 px-4 pb-3">
+                    {(["short", "damaged", "lost"] as const).map((b) => (
+                      <div key={b}>
+                        <label className="text-[10px] uppercase tracking-wider text-muted-foreground">{b}</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={l.qty_sent}
+                          value={d[b]}
+                          onChange={(e) => setBucket(l.id, b, Number(e.target.value))}
+                          className="w-full bg-input/60 border border-border rounded-md px-2 py-1 text-right text-sm mt-0.5"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-muted/20 text-xs font-medium">
+            <div className="col-span-5">Totals</div>
+            <div className="col-span-2 text-right">{totals.sent}</div>
+            <div className="col-span-2 text-right text-gold">{totals.ok}</div>
+            <div className="col-span-3 text-right text-muted-foreground">
+              {totals.short}s · {totals.dmg}d · {totals.lost}l
+            </div>
+          </div>
+        </div>
+
+        {anyShortfall && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-500">
+            {totals.short > 0 && <>Short items ({totals.short}) will roll forward as <b>Previous Missing</b> in the next pickup. </>}
+            {(totals.dmg + totals.lost) > 0 && <>Damaged/Lost linen will be written off.</>}
+          </div>
+        )}
+
+        <div className="luxe-card rounded-lg p-3 space-y-3">
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <Camera className="h-3 w-3" /> Return Photo <span className="text-muted-foreground/60">(optional)</span>
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+              className="w-full text-xs mt-1"
+            />
+            {photoFile && <div className="text-[10px] text-emerald-500 mt-1">Ready: {photoFile.name}</div>}
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Return Remarks</label>
+            <textarea
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              rows={2}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={() => confirmMut.mutate()}
+          disabled={confirmMut.isPending || totals.unaccounted !== 0}
+          className="w-full py-3 rounded-md bg-gold text-charcoal font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {confirmMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          Confirm Return
+        </button>
       </div>
     </div>
   );
