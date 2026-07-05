@@ -13,7 +13,7 @@ export interface UserRow {
 /** List every staff/admin user with their current role. Admin-only screen. */
 export async function listUsers(): Promise<UserRow[]> {
   const [{ data: profiles, error: pErr }, { data: roles, error: rErr }] = await Promise.all([
-    supabase.from("profiles").select("id, email, display_name, created_at").order("created_at"),
+    supabase.from("profiles").select("id, email, display_name, username, created_at").order("created_at"),
     supabase.from("user_roles").select("user_id, role"),
   ]);
   if (pErr) throw pErr;
@@ -23,8 +23,9 @@ export async function listUsers(): Promise<UserRow[]> {
   return (profiles ?? []).map((p: any) => ({
     id: p.id,
     email: p.email,
+    username: p.username ?? null,
     display_name: p.display_name,
-    role: byUser.get(p.id) ?? "staff",
+    role: byUser.get(p.id) ?? "housekeeping",
     created_at: p.created_at,
   }));
 }
