@@ -248,11 +248,13 @@ function TaskCard({ task, room, actionLabel, onAction, busy, onSkip }: {
 
 /* ─────────────────────────────  Task Screen  ───────────────────────────── */
 
-function TaskScreen({ task, room, onClose, workingAs, me }: {
+function TaskScreen({ task, room, onClose, workingAs, candidates, onSelectPerformer, me }: {
   task: HkTaskRow;
   room: any;
   onClose: () => void;
   workingAs: { id: string; name: string } | null;
+  candidates: { id: string; name: string }[];
+  onSelectPerformer: (id: string) => void;
   me: { id: string; name: string };
 }) {
   const qc = useQueryClient();
