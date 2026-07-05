@@ -10,6 +10,7 @@ export interface VendorRow {
   address: string | null;
   maps_url: string | null;
   notes: string | null;
+  vendor_kind: string[];
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -23,6 +24,7 @@ export interface VendorInput {
   address?: string | null;
   maps_url?: string | null;
   notes?: string | null;
+  vendor_kind?: string[];
   active?: boolean;
 }
 
