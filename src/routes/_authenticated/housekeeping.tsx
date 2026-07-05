@@ -85,7 +85,14 @@ function HousekeepingPage() {
       return startTask(id, { id: workingAs.id, name: workingAs.name });
     },
     onSuccess: (_d, id) => { qc.invalidateQueries({ queryKey: ["hk-tasks"] }); setOpenTaskId(id); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any, id) => {
+      // Duplicate click / race — refetch and, if the task is now in_progress,
+      // open it rather than showing a scary error.
+      qc.invalidateQueries({ queryKey: ["hk-tasks"] });
+      const latest = (qc.getQueryData<HkTaskRow[]>(["hk-tasks", businessDate]) ?? []).find((t) => t.id === id);
+      if (latest?.state === "in_progress") setOpenTaskId(id);
+      else toast.error(e.message);
+    },
   });
 
   const skipMut = useMutation({
