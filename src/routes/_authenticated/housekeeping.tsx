@@ -104,10 +104,13 @@ function HousekeepingPage() {
         room={roomById.get(openTask.room_id)}
         onClose={() => setOpenTaskId(null)}
         workingAs={workingAs}
+        candidates={waCandidates}
+        onSelectPerformer={setSelectedId}
         me={{ id: me.id ?? "", name: me.name || me.firstName || "user" }}
       />
     );
   }
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -129,18 +132,12 @@ function HousekeepingPage() {
               </div>
             </div>
           </div>
-          <div className="mt-2">
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mr-2">Working as</label>
-            <select
-              value={workingAs?.id ?? ""}
-              onChange={(e) => setSelectedId(e.target.value)}
-              className="bg-input/60 border border-border rounded-md px-2 py-1 text-sm max-w-[70%]"
-            >
-              {waCandidates.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
+          <WorkingAsBar
+            candidates={waCandidates}
+            selectedId={workingAs?.id ?? null}
+            onSelect={setSelectedId}
+          />
+
         </div>
       </div>
 
@@ -251,11 +248,13 @@ function TaskCard({ task, room, actionLabel, onAction, busy, onSkip }: {
 
 /* ─────────────────────────────  Task Screen  ───────────────────────────── */
 
-function TaskScreen({ task, room, onClose, workingAs, me }: {
+function TaskScreen({ task, room, onClose, workingAs, candidates, onSelectPerformer, me }: {
   task: HkTaskRow;
   room: any;
   onClose: () => void;
   workingAs: { id: string; name: string } | null;
+  candidates: { id: string; name: string }[];
+  onSelectPerformer: (id: string) => void;
   me: { id: string; name: string };
 }) {
   const qc = useQueryClient();
@@ -279,6 +278,7 @@ function TaskScreen({ task, room, onClose, workingAs, me }: {
   });
 
   const [consumSel, setConsumSel] = useState<Record<string, { on: boolean; qty: number }>>({});
+  const [consumEdit, setConsumEdit] = useState<Record<string, boolean>>({});
   const [linenSel, setLinenSel]   = useState<Record<string, boolean>>({});
   const [issueSel, setIssueSel]   = useState<Record<string, { on: boolean; note: string }>>({});
   const [remarks, setRemarks]     = useState<string>("");
@@ -338,18 +338,32 @@ function TaskScreen({ task, room, onClose, workingAs, me }: {
   return (
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border">
-        <div className="px-4 py-3 max-w-2xl mx-auto flex items-center gap-3">
-          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {isCheckout ? "Checkout Cleaning" : "Room Service"}
+        <div className="px-4 py-3 max-w-2xl mx-auto space-y-2">
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+            <div className="flex-1">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {isCheckout ? "Checkout Cleaning" : "Room Service"}
+              </div>
+              <div className="font-display text-base leading-tight">
+                {room?.room_number ?? "?"} · {room?.room_type ?? ""}
+              </div>
             </div>
-            <div className="font-display text-base leading-tight">
-              {room?.room_number ?? "?"} · {room?.room_type ?? ""}
+            <div className="text-right leading-tight">
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Performing</div>
+              <div className="text-xs text-gold font-medium max-w-[140px] truncate">{workingAs?.name ?? "—"}</div>
             </div>
           </div>
+          <WorkingAsBar
+            candidates={candidates}
+            selectedId={workingAs?.id ?? null}
+            onSelect={onSelectPerformer}
+            compact
+          />
         </div>
       </div>
+
+
 
       <div className="px-4 py-6 max-w-2xl mx-auto space-y-5">
         <BlockTitle n={1}>Consumables Refilled</BlockTitle>
@@ -358,20 +372,40 @@ function TaskScreen({ task, room, onClose, workingAs, me }: {
             <div className="text-xs text-muted-foreground">No housekeeping consumables configured. Ask admin to enable items under Inventory.</div>
           )}
           {(consumables as any[]).map((it) => {
-            const sel = consumSel[it.id] ?? { on: false, qty: it.hk_default_qty ?? 1 };
+            const defaultQty = Number(it.hk_default_qty ?? 1) || 1;
+            const sel = consumSel[it.id] ?? { on: false, qty: defaultQty };
+            const isEditing = consumEdit[it.id] === true;
             return (
-              <div key={it.id} className="flex items-center gap-2">
-                <input type="checkbox" checked={sel.on}
-                  onChange={(e) => setConsumSel((s) => ({ ...s, [it.id]: { on: e.target.checked, qty: sel.qty } }))} />
-                <div className="flex-1 text-sm">{it.name}</div>
-                <div className="w-24">
-                  <NumField
-                    value={sel.qty}
-                    min={0}
-                    onChange={(v) => setConsumSel((s) => ({ ...s, [it.id]: { on: sel.on, qty: v } }))}
-                    decimal
+              <div key={it.id} className="space-y-1">
+                <label className="flex items-center gap-3 text-sm py-1">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5"
+                    checked={sel.on}
+                    onChange={(e) => setConsumSel((s) => ({ ...s, [it.id]: { on: e.target.checked, qty: sel.qty } }))}
                   />
-                </div>
+                  <span className="flex-1">{it.name}</span>
+                  <span className="text-[11px] text-muted-foreground">× {sel.qty}</span>
+                  {sel.on && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setConsumEdit((s) => ({ ...s, [it.id]: !isEditing })); }}
+                      className="text-[10px] uppercase tracking-wider text-gold px-2 py-0.5 rounded border border-border"
+                    >
+                      {isEditing ? "Done" : "Edit"}
+                    </button>
+                  )}
+                </label>
+                {sel.on && isEditing && (
+                  <div className="ml-8 w-28">
+                    <NumField
+                      value={sel.qty}
+                      min={0}
+                      onChange={(v) => setConsumSel((s) => ({ ...s, [it.id]: { on: sel.on, qty: v } }))}
+                      decimal
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -463,6 +497,45 @@ function BlockTitle({ n, children }: { n: number; children: React.ReactNode }) {
     </div>
   );
 }
+
+/**
+ * Horizontal one-tap chip row for switching the Working-As performer.
+ * Order comes from useHkWorkingAs (logged-in first → housekeeping → fo_staff).
+ */
+function WorkingAsBar({ candidates, selectedId, onSelect, compact }: {
+  candidates: { id: string; name: string }[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  compact?: boolean;
+}) {
+  if (candidates.length === 0) return null;
+  return (
+    <div className={compact ? "" : "mt-1"}>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Working as</div>
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+        {candidates.map((c) => {
+          const active = c.id === selectedId;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => onSelect(c.id)}
+              className={
+                "shrink-0 rounded-full px-3 py-1.5 text-xs border transition " +
+                (active
+                  ? "bg-gold text-charcoal border-gold font-semibold shadow-[0_0_10px_oklch(0.82_0.13_82/0.35)]"
+                  : "bg-input/40 text-foreground border-border hover:bg-muted/40")
+              }
+            >
+              {c.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 
 function formatFriendlyDate(d: string): string {
   try {
