@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -44,6 +44,10 @@ type InHouseRoomOption = {
 };
 
 function HomePage() {
+  // Housekeeping users land on Today's Tasks — never the finance-heavy dashboard.
+  const { isHousekeeping, isLoading: roleLoading } = useUserRole();
+  if (!roleLoading && isHousekeeping) return <Navigate to="/housekeeping" />;
+
   useRealtimeInvalidate(
     ["bookings", "complaints", "booking_charges", "booking_payments", "booking_items", "booking_room_assignments", "cash_transactions", "rooms"],
     ["bookings", "complaints", "all-charge-totals", "cash-tx-home", "cash-current-balance-home", "rooms-home", "booking-items-all-home", "booking-room-assignments-all-home", "booking-payments-today-home"],

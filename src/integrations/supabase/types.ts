@@ -1595,6 +1595,169 @@ export type Database = {
           },
         ]
       }
+      hk_issue_types: {
+        Row: {
+          active: boolean
+          created_at: string
+          default_complaint_category_id: string | null
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          default_complaint_category_id?: string | null
+          id?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          default_complaint_category_id?: string | null
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hk_issue_types_default_complaint_category_id_fkey"
+            columns: ["default_complaint_category_id"]
+            isOneToOne: false
+            referencedRelation: "complaint_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      housekeeping_room_exceptions: {
+        Row: {
+          business_date: string
+          created_at: string
+          notes: string | null
+          reason: Database["public"]["Enums"]["hk_exception_reason"]
+          room_id: string
+          set_by_name: string | null
+          set_by_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          business_date: string
+          created_at?: string
+          notes?: string | null
+          reason: Database["public"]["Enums"]["hk_exception_reason"]
+          room_id: string
+          set_by_name?: string | null
+          set_by_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          business_date?: string
+          created_at?: string
+          notes?: string | null
+          reason?: Database["public"]["Enums"]["hk_exception_reason"]
+          room_id?: string
+          set_by_name?: string | null
+          set_by_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "housekeeping_room_exceptions_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      housekeeping_tasks: {
+        Row: {
+          booking_id: string | null
+          business_date: string
+          consumables_snapshot: Json
+          correlation_id: string | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          issues_snapshot: Json
+          linen_snapshot: Json
+          performed_by_name: string | null
+          performed_by_user_id: string | null
+          recorded_by_name: string | null
+          recorded_by_user_id: string | null
+          remarks: string | null
+          room_id: string
+          skipped_reason: string | null
+          started_at: string | null
+          state: Database["public"]["Enums"]["housekeeping_task_state"]
+          type: Database["public"]["Enums"]["housekeeping_task_type"]
+          updated_at: string
+        }
+        Insert: {
+          booking_id?: string | null
+          business_date: string
+          consumables_snapshot?: Json
+          correlation_id?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          issues_snapshot?: Json
+          linen_snapshot?: Json
+          performed_by_name?: string | null
+          performed_by_user_id?: string | null
+          recorded_by_name?: string | null
+          recorded_by_user_id?: string | null
+          remarks?: string | null
+          room_id: string
+          skipped_reason?: string | null
+          started_at?: string | null
+          state?: Database["public"]["Enums"]["housekeeping_task_state"]
+          type: Database["public"]["Enums"]["housekeeping_task_type"]
+          updated_at?: string
+        }
+        Update: {
+          booking_id?: string | null
+          business_date?: string
+          consumables_snapshot?: Json
+          correlation_id?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          issues_snapshot?: Json
+          linen_snapshot?: Json
+          performed_by_name?: string | null
+          performed_by_user_id?: string | null
+          recorded_by_name?: string | null
+          recorded_by_user_id?: string | null
+          remarks?: string | null
+          room_id?: string
+          skipped_reason?: string | null
+          started_at?: string | null
+          state?: Database["public"]["Enums"]["housekeeping_task_state"]
+          type?: Database["public"]["Enums"]["housekeeping_task_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "housekeeping_tasks_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "housekeeping_tasks_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_runs: {
         Row: {
           created_count: number
@@ -1691,12 +1854,14 @@ export type Database = {
           category_value: string | null
           created_at: string
           current_stock: number
+          hk_default_qty: number
           housekeeping_per_room: number | null
           id: string
           minimum_stock: number
           name: string
           photo_path: string | null
           preferred_vendor_id: string | null
+          show_in_housekeeping: boolean
           unit: string
           updated_at: string
           user_id: string | null
@@ -1707,12 +1872,14 @@ export type Database = {
           category_value?: string | null
           created_at?: string
           current_stock?: number
+          hk_default_qty?: number
           housekeeping_per_room?: number | null
           id?: string
           minimum_stock?: number
           name: string
           photo_path?: string | null
           preferred_vendor_id?: string | null
+          show_in_housekeeping?: boolean
           unit?: string
           updated_at?: string
           user_id?: string | null
@@ -1723,12 +1890,14 @@ export type Database = {
           category_value?: string | null
           created_at?: string
           current_stock?: number
+          hk_default_qty?: number
           housekeeping_per_room?: number | null
           id?: string
           minimum_stock?: number
           name?: string
           photo_path?: string | null
           preferred_vendor_id?: string | null
+          show_in_housekeeping?: boolean
           unit?: string
           updated_at?: string
           user_id?: string | null
@@ -1821,6 +1990,83 @@ export type Database = {
             columns: ["vendor_id"]
             isOneToOne: false
             referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      laundry_queue: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          booking_id: string | null
+          business_date: string
+          created_at: string
+          id: string
+          linen_name_at_time: string | null
+          linen_type_id: string
+          qty: number
+          room_id: string
+          source_task_id: string | null
+          state: Database["public"]["Enums"]["laundry_queue_state"]
+          updated_at: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          booking_id?: string | null
+          business_date: string
+          created_at?: string
+          id?: string
+          linen_name_at_time?: string | null
+          linen_type_id: string
+          qty?: number
+          room_id: string
+          source_task_id?: string | null
+          state?: Database["public"]["Enums"]["laundry_queue_state"]
+          updated_at?: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          booking_id?: string | null
+          business_date?: string
+          created_at?: string
+          id?: string
+          linen_name_at_time?: string | null
+          linen_type_id?: string
+          qty?: number
+          room_id?: string
+          source_task_id?: string | null
+          state?: Database["public"]["Enums"]["laundry_queue_state"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laundry_queue_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laundry_queue_linen_type_id_fkey"
+            columns: ["linen_type_id"]
+            isOneToOne: false
+            referencedRelation: "linen_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laundry_queue_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laundry_queue_source_task_id_fkey"
+            columns: ["source_task_id"]
+            isOneToOne: false
+            referencedRelation: "housekeeping_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -1973,6 +2219,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      linen_types: {
+        Row: {
+          active: boolean
+          created_at: string
+          default_qty: number
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          default_qty?: number
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          default_qty?: number
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       master_data: {
         Row: {
@@ -2912,6 +3188,9 @@ export type Database = {
           active: boolean
           created_at: string
           floor: number
+          hk_status_changed_at: string | null
+          hk_status_changed_by: string | null
+          housekeeping_status: Database["public"]["Enums"]["housekeeping_status"]
           id: string
           notes: string | null
           room_number: string
@@ -2923,6 +3202,9 @@ export type Database = {
           active?: boolean
           created_at?: string
           floor: number
+          hk_status_changed_at?: string | null
+          hk_status_changed_by?: string | null
+          housekeeping_status?: Database["public"]["Enums"]["housekeeping_status"]
           id?: string
           notes?: string | null
           room_number: string
@@ -2934,6 +3216,9 @@ export type Database = {
           active?: boolean
           created_at?: string
           floor?: number
+          hk_status_changed_at?: string | null
+          hk_status_changed_by?: string | null
+          housekeeping_status?: Database["public"]["Enums"]["housekeeping_status"]
           id?: string
           notes?: string | null
           room_number?: string
@@ -3542,6 +3827,16 @@ export type Database = {
       complaint_priority: "Low" | "Medium" | "High" | "Critical"
       complaint_status: "Open" | "In Progress" | "Resolved"
       complaint_type: "Room" | "General"
+      hk_exception_reason: "service_not_required" | "do_not_disturb"
+      housekeeping_status:
+        | "ready"
+        | "dirty"
+        | "cleaning"
+        | "needs_service"
+        | "servicing"
+        | "out_of_service"
+      housekeeping_task_state: "open" | "in_progress" | "done" | "skipped"
+      housekeeping_task_type: "checkout_clean" | "continue_service"
       inventory_movement_reason:
         | "stock_in"
         | "stock_out"
@@ -3550,6 +3845,7 @@ export type Database = {
         | "reconciliation_adjust"
         | "wastage"
         | "correction"
+      laundry_queue_state: "queued" | "sent" | "returned"
       lead_status: "Interested" | "Abandoned" | "Converted" | "Lost"
       quote_status:
         | "Pending"
@@ -3730,6 +4026,17 @@ export const Constants = {
       complaint_priority: ["Low", "Medium", "High", "Critical"],
       complaint_status: ["Open", "In Progress", "Resolved"],
       complaint_type: ["Room", "General"],
+      hk_exception_reason: ["service_not_required", "do_not_disturb"],
+      housekeeping_status: [
+        "ready",
+        "dirty",
+        "cleaning",
+        "needs_service",
+        "servicing",
+        "out_of_service",
+      ],
+      housekeeping_task_state: ["open", "in_progress", "done", "skipped"],
+      housekeeping_task_type: ["checkout_clean", "continue_service"],
       inventory_movement_reason: [
         "stock_in",
         "stock_out",
@@ -3739,6 +4046,7 @@ export const Constants = {
         "wastage",
         "correction",
       ],
+      laundry_queue_state: ["queued", "sent", "returned"],
       lead_status: ["Interested", "Abandoned", "Converted", "Lost"],
       quote_status: [
         "Pending",

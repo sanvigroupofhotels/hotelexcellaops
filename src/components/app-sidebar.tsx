@@ -44,9 +44,11 @@ const endOfDayChildren = [
 ] as const;
 
 const operationsChildren = [
-  { to: "/operations/inventory",      label: "Inventory",      icon: Boxes },
-  { to: "/operations/vendors",        label: "Vendors",        icon: Truck },
-  { to: "/operations/charge-catalog", label: "Charge Catalog", icon: ListChecks, adminOnly: true },
+  { to: "/operations/inventory",         label: "Inventory",             icon: Boxes },
+  { to: "/operations/vendors",           label: "Vendors",               icon: Truck },
+  { to: "/operations/charge-catalog",    label: "Charge Catalog",        icon: ListChecks, adminOnly: true },
+  { to: "/operations/linen-types",       label: "Linen Types",           icon: ListChecks, adminOnly: true },
+  { to: "/operations/hk-issue-types",    label: "Housekeeping Issues",   icon: ListChecks, adminOnly: true },
 ] as const;
 
 const reportingChildren = [
@@ -172,13 +174,37 @@ function ExpandableGroup({
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { isAdmin, canManage } = useUserRole();
+  const { isAdmin, canManage, isHousekeeping } = useUserRole();
   const { has, hasAny, isLoading } = usePermissions();
   const naStatus = useNightAuditStatus();
+
+  // Housekeeping role: sidebar collapses to a single "Today's Tasks" entry.
+  if (isHousekeeping) {
+    const active = pathname === "/housekeeping" || pathname.startsWith("/housekeeping/");
+    return (
+      <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+        <Link
+          to="/housekeeping"
+          onClick={onNavigate}
+          className={cn(
+            "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-200",
+            active ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60",
+          )}
+        >
+          {active && (
+            <motion.div layoutId="sidebar-active" className="absolute inset-0 rounded-md bg-gold-soft border border-gold/30"
+              transition={{ type: "spring", stiffness: 380, damping: 30 }} />
+          )}
+          <ListChecks className={cn("relative h-4 w-4 shrink-0", active && "text-gold")} />
+          <span className="relative flex-1">Today's Tasks</span>
+        </Link>
+      </nav>
+    );
+  }
+
   const visible = nav.filter((n) => {
     if (isLoading) return false;
     if (n.adminOnly && !isAdmin) return false;
-    // managerOnly = Owner or Admin (canManage). Reception/Staff use House View.
     if (n.managerOnly && !canManage) return false;
     if (n.permission && !has(n.permission)) return false;
     if (n.anyOf && !hasAny(n.anyOf)) return false;
@@ -215,8 +241,6 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
                 <span className="relative flex-1">{item.label}</span>
               </Link>
             </motion.div>
-            {/* Inject End of Day group right after Bookings (or after House View when
-                Bookings is hidden by permission) so reception sees: House View → End of Day. */}
             {(item.to === "/bookings"
               || (item.to === "/house-view" && !visible.some((v) => v.to === "/bookings"))) && (
               <ExpandableGroup
@@ -228,12 +252,31 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         );
       })}
-      {/* Operations group — Inventory, Vendors, Charge Catalog */}
+      {/* Housekeeping — accessible from sidebar for admin/owner/fo_staff too. */}
+      {(() => {
+        const active = pathname === "/housekeeping" || pathname.startsWith("/housekeeping/");
+        return (
+          <Link
+            to="/housekeeping"
+            onClick={onNavigate}
+            className={cn(
+              "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-200",
+              active ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60",
+            )}
+          >
+            {active && (
+              <motion.div layoutId="sidebar-active" className="absolute inset-0 rounded-md bg-gold-soft border border-gold/30"
+                transition={{ type: "spring", stiffness: 380, damping: 30 }} />
+            )}
+            <ListChecks className={cn("relative h-4 w-4 shrink-0", active && "text-gold")} />
+            <span className="relative flex-1">Housekeeping</span>
+          </Link>
+        );
+      })()}
       <ExpandableGroup
         label="Operations" icon={Boxes} prefix="/operations"
         children={operationsChildren} onNavigate={onNavigate} pathname={pathname}
       />
-      {/* Reporting group — visible to all signed-in staff (admin-only children are filtered inside) */}
       <ExpandableGroup
         label="Reporting" icon={FileBarChart} prefix="/reporting"
         children={reportingChildren} onNavigate={onNavigate} pathname={pathname}

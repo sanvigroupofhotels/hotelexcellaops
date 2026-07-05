@@ -303,6 +303,8 @@ function ItemDialog({ item, onClose, onStockIn, onStockOut }: {
   const [minimum, setMinimum] = useState(String(item?.minimum_stock ?? 0));
   const [active, setActive] = useState(item?.active ?? true);
   const [autoKey, setAutoKey] = useState(item?.auto_consume_catalog_key ?? "");
+  const [showInHk, setShowInHk] = useState<boolean>(((item as any)?.show_in_housekeeping ?? false) as boolean);
+  const [hkDefaultQty, setHkDefaultQty] = useState<string>(String(((item as any)?.hk_default_qty ?? 1)));
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   const { data: photoUrl } = useQuery({
@@ -317,11 +319,13 @@ function ItemDialog({ item, onClose, onStockIn, onStockOut }: {
 
   const save = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: any = {
         name, unit, category_value: category || null,
         preferred_vendor_id: vendor || null,
         minimum_stock: Number(minimum) || 0,
         auto_consume_catalog_key: autoKey || null,
+        show_in_housekeeping: !!showInHk,
+        hk_default_qty: Math.max(1, Math.floor(Number(hkDefaultQty) || 1)),
         active,
       };
       let id = item?.id;
@@ -416,6 +420,20 @@ function ItemDialog({ item, onClose, onStockIn, onStockOut }: {
           </select>
           <p className="text-[10px] text-muted-foreground mt-1">Legacy per-item mapping. Prefer setting the Inventory link from <b>Operations → Charge Catalog</b> — that's the active auto-consume path.</p>
         </Field>
+
+        {/* Housekeeping — surfaces this item in the task screen's "Consumables Refilled" list. */}
+        <div className="border-t border-border pt-3 space-y-2">
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={showInHk} onChange={(e) => setShowInHk(e.target.checked)} />
+            Show in Housekeeping task screen
+          </label>
+          {showInHk && (
+            <Field label="Default quantity per task">
+              <input className={inputCls} type="number" inputMode="numeric" min={1} value={hkDefaultQty}
+                onChange={(e) => setHkDefaultQty(e.target.value)} />
+            </Field>
+          )}
+        </div>
 
         <label className="flex items-center gap-2 text-xs">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />

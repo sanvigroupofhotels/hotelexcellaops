@@ -36,6 +36,7 @@ import { Route as AuthenticatedPaymentsReportsRouteImport } from './routes/_auth
 import { Route as AuthenticatedOperationsRouteImport } from './routes/_authenticated/operations'
 import { Route as AuthenticatedNightAuditRouteImport } from './routes/_authenticated/night-audit'
 import { Route as AuthenticatedMasterDataRouteImport } from './routes/_authenticated/master-data'
+import { Route as AuthenticatedHousekeepingRouteImport } from './routes/_authenticated/housekeeping'
 import { Route as AuthenticatedHouseViewRouteImport } from './routes/_authenticated/house-view'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedGenerateRouteImport } from './routes/_authenticated/generate'
@@ -82,7 +83,9 @@ import { Route as AuthenticatedReportingAnalyticsRouteImport } from './routes/_a
 import { Route as AuthenticatedReportingActivityRouteImport } from './routes/_authenticated/reporting.activity'
 import { Route as AuthenticatedQuoteIdRouteImport } from './routes/_authenticated/quote.$id'
 import { Route as AuthenticatedOperationsVendorsRouteImport } from './routes/_authenticated/operations.vendors'
+import { Route as AuthenticatedOperationsLinenTypesRouteImport } from './routes/_authenticated/operations.linen-types'
 import { Route as AuthenticatedOperationsInventoryRouteImport } from './routes/_authenticated/operations.inventory'
+import { Route as AuthenticatedOperationsHkIssueTypesRouteImport } from './routes/_authenticated/operations.hk-issue-types'
 import { Route as AuthenticatedOperationsChargeCatalogRouteImport } from './routes/_authenticated/operations.charge-catalog'
 import { Route as AuthenticatedNightAuditHistoryRouteImport } from './routes/_authenticated/night-audit.history'
 import { Route as AuthenticatedNightAuditEodReportRouteImport } from './routes/_authenticated/night-audit.eod-report'
@@ -233,6 +236,12 @@ const AuthenticatedMasterDataRoute = AuthenticatedMasterDataRouteImport.update({
   path: '/master-data',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedHousekeepingRoute =
+  AuthenticatedHousekeepingRouteImport.update({
+    id: '/housekeeping',
+    path: '/housekeeping',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedHouseViewRoute = AuthenticatedHouseViewRouteImport.update({
   id: '/house-view',
   path: '/house-view',
@@ -491,10 +500,22 @@ const AuthenticatedOperationsVendorsRoute =
     path: '/vendors',
     getParentRoute: () => AuthenticatedOperationsRoute,
   } as any)
+const AuthenticatedOperationsLinenTypesRoute =
+  AuthenticatedOperationsLinenTypesRouteImport.update({
+    id: '/linen-types',
+    path: '/linen-types',
+    getParentRoute: () => AuthenticatedOperationsRoute,
+  } as any)
 const AuthenticatedOperationsInventoryRoute =
   AuthenticatedOperationsInventoryRouteImport.update({
     id: '/inventory',
     path: '/inventory',
+    getParentRoute: () => AuthenticatedOperationsRoute,
+  } as any)
+const AuthenticatedOperationsHkIssueTypesRoute =
+  AuthenticatedOperationsHkIssueTypesRouteImport.update({
+    id: '/hk-issue-types',
+    path: '/hk-issue-types',
     getParentRoute: () => AuthenticatedOperationsRoute,
   } as any)
 const AuthenticatedOperationsChargeCatalogRoute =
@@ -594,6 +615,7 @@ export interface FileRoutesByFullPath {
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
+  '/housekeeping': typeof AuthenticatedHousekeepingRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
   '/operations': typeof AuthenticatedOperationsRouteWithChildren
@@ -625,7 +647,9 @@ export interface FileRoutesByFullPath {
   '/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/operations/charge-catalog': typeof AuthenticatedOperationsChargeCatalogRoute
+  '/operations/hk-issue-types': typeof AuthenticatedOperationsHkIssueTypesRoute
   '/operations/inventory': typeof AuthenticatedOperationsInventoryRoute
+  '/operations/linen-types': typeof AuthenticatedOperationsLinenTypesRoute
   '/operations/vendors': typeof AuthenticatedOperationsVendorsRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/activity': typeof AuthenticatedReportingActivityRoute
@@ -679,6 +703,7 @@ export interface FileRoutesByTo {
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
+  '/housekeeping': typeof AuthenticatedHousekeepingRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/rates': typeof AuthenticatedRatesRoute
@@ -708,7 +733,9 @@ export interface FileRoutesByTo {
   '/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/operations/charge-catalog': typeof AuthenticatedOperationsChargeCatalogRoute
+  '/operations/hk-issue-types': typeof AuthenticatedOperationsHkIssueTypesRoute
   '/operations/inventory': typeof AuthenticatedOperationsInventoryRoute
+  '/operations/linen-types': typeof AuthenticatedOperationsLinenTypesRoute
   '/operations/vendors': typeof AuthenticatedOperationsVendorsRoute
   '/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/reporting/activity': typeof AuthenticatedReportingActivityRoute
@@ -766,6 +793,7 @@ export interface FileRoutesById {
   '/_authenticated/generate': typeof AuthenticatedGenerateRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/house-view': typeof AuthenticatedHouseViewRoute
+  '/_authenticated/housekeeping': typeof AuthenticatedHousekeepingRoute
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
   '/_authenticated/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
   '/_authenticated/operations': typeof AuthenticatedOperationsRouteWithChildren
@@ -798,7 +826,9 @@ export interface FileRoutesById {
   '/_authenticated/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/_authenticated/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
   '/_authenticated/operations/charge-catalog': typeof AuthenticatedOperationsChargeCatalogRoute
+  '/_authenticated/operations/hk-issue-types': typeof AuthenticatedOperationsHkIssueTypesRoute
   '/_authenticated/operations/inventory': typeof AuthenticatedOperationsInventoryRoute
+  '/_authenticated/operations/linen-types': typeof AuthenticatedOperationsLinenTypesRoute
   '/_authenticated/operations/vendors': typeof AuthenticatedOperationsVendorsRoute
   '/_authenticated/quote/$id': typeof AuthenticatedQuoteIdRoute
   '/_authenticated/reporting/activity': typeof AuthenticatedReportingActivityRoute
@@ -857,6 +887,7 @@ export interface FileRouteTypes {
     | '/generate'
     | '/history'
     | '/house-view'
+    | '/housekeeping'
     | '/master-data'
     | '/night-audit'
     | '/operations'
@@ -888,7 +919,9 @@ export interface FileRouteTypes {
     | '/night-audit/eod-report'
     | '/night-audit/history'
     | '/operations/charge-catalog'
+    | '/operations/hk-issue-types'
     | '/operations/inventory'
+    | '/operations/linen-types'
     | '/operations/vendors'
     | '/quote/$id'
     | '/reporting/activity'
@@ -942,6 +975,7 @@ export interface FileRouteTypes {
     | '/generate'
     | '/history'
     | '/house-view'
+    | '/housekeeping'
     | '/master-data'
     | '/payments-reports'
     | '/rates'
@@ -971,7 +1005,9 @@ export interface FileRouteTypes {
     | '/night-audit/eod-report'
     | '/night-audit/history'
     | '/operations/charge-catalog'
+    | '/operations/hk-issue-types'
     | '/operations/inventory'
+    | '/operations/linen-types'
     | '/operations/vendors'
     | '/quote/$id'
     | '/reporting/activity'
@@ -1028,6 +1064,7 @@ export interface FileRouteTypes {
     | '/_authenticated/generate'
     | '/_authenticated/history'
     | '/_authenticated/house-view'
+    | '/_authenticated/housekeeping'
     | '/_authenticated/master-data'
     | '/_authenticated/night-audit'
     | '/_authenticated/operations'
@@ -1060,7 +1097,9 @@ export interface FileRouteTypes {
     | '/_authenticated/night-audit/eod-report'
     | '/_authenticated/night-audit/history'
     | '/_authenticated/operations/charge-catalog'
+    | '/_authenticated/operations/hk-issue-types'
     | '/_authenticated/operations/inventory'
+    | '/_authenticated/operations/linen-types'
     | '/_authenticated/operations/vendors'
     | '/_authenticated/quote/$id'
     | '/_authenticated/reporting/activity'
@@ -1303,6 +1342,13 @@ declare module '@tanstack/react-router' {
       path: '/master-data'
       fullPath: '/master-data'
       preLoaderRoute: typeof AuthenticatedMasterDataRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/housekeeping': {
+      id: '/_authenticated/housekeeping'
+      path: '/housekeeping'
+      fullPath: '/housekeeping'
+      preLoaderRoute: typeof AuthenticatedHousekeepingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/house-view': {
@@ -1627,11 +1673,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOperationsVendorsRouteImport
       parentRoute: typeof AuthenticatedOperationsRoute
     }
+    '/_authenticated/operations/linen-types': {
+      id: '/_authenticated/operations/linen-types'
+      path: '/linen-types'
+      fullPath: '/operations/linen-types'
+      preLoaderRoute: typeof AuthenticatedOperationsLinenTypesRouteImport
+      parentRoute: typeof AuthenticatedOperationsRoute
+    }
     '/_authenticated/operations/inventory': {
       id: '/_authenticated/operations/inventory'
       path: '/inventory'
       fullPath: '/operations/inventory'
       preLoaderRoute: typeof AuthenticatedOperationsInventoryRouteImport
+      parentRoute: typeof AuthenticatedOperationsRoute
+    }
+    '/_authenticated/operations/hk-issue-types': {
+      id: '/_authenticated/operations/hk-issue-types'
+      path: '/hk-issue-types'
+      fullPath: '/operations/hk-issue-types'
+      preLoaderRoute: typeof AuthenticatedOperationsHkIssueTypesRouteImport
       parentRoute: typeof AuthenticatedOperationsRoute
     }
     '/_authenticated/operations/charge-catalog': {
@@ -1752,7 +1812,9 @@ const AuthenticatedNightAuditRouteWithChildren =
 
 interface AuthenticatedOperationsRouteChildren {
   AuthenticatedOperationsChargeCatalogRoute: typeof AuthenticatedOperationsChargeCatalogRoute
+  AuthenticatedOperationsHkIssueTypesRoute: typeof AuthenticatedOperationsHkIssueTypesRoute
   AuthenticatedOperationsInventoryRoute: typeof AuthenticatedOperationsInventoryRoute
+  AuthenticatedOperationsLinenTypesRoute: typeof AuthenticatedOperationsLinenTypesRoute
   AuthenticatedOperationsVendorsRoute: typeof AuthenticatedOperationsVendorsRoute
   AuthenticatedOperationsIndexRoute: typeof AuthenticatedOperationsIndexRoute
 }
@@ -1761,8 +1823,12 @@ const AuthenticatedOperationsRouteChildren: AuthenticatedOperationsRouteChildren
   {
     AuthenticatedOperationsChargeCatalogRoute:
       AuthenticatedOperationsChargeCatalogRoute,
+    AuthenticatedOperationsHkIssueTypesRoute:
+      AuthenticatedOperationsHkIssueTypesRoute,
     AuthenticatedOperationsInventoryRoute:
       AuthenticatedOperationsInventoryRoute,
+    AuthenticatedOperationsLinenTypesRoute:
+      AuthenticatedOperationsLinenTypesRoute,
     AuthenticatedOperationsVendorsRoute: AuthenticatedOperationsVendorsRoute,
     AuthenticatedOperationsIndexRoute: AuthenticatedOperationsIndexRoute,
   }
@@ -1881,6 +1947,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedGenerateRoute: typeof AuthenticatedGenerateRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedHouseViewRoute: typeof AuthenticatedHouseViewRoute
+  AuthenticatedHousekeepingRoute: typeof AuthenticatedHousekeepingRoute
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
   AuthenticatedNightAuditRoute: typeof AuthenticatedNightAuditRouteWithChildren
   AuthenticatedOperationsRoute: typeof AuthenticatedOperationsRouteWithChildren
@@ -1923,6 +1990,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedGenerateRoute: AuthenticatedGenerateRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedHouseViewRoute: AuthenticatedHouseViewRoute,
+  AuthenticatedHousekeepingRoute: AuthenticatedHousekeepingRoute,
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
   AuthenticatedNightAuditRoute: AuthenticatedNightAuditRouteWithChildren,
   AuthenticatedOperationsRoute: AuthenticatedOperationsRouteWithChildren,
