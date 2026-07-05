@@ -175,6 +175,7 @@ function HousekeepingPage() {
               actionLabel={t.state === "in_progress" ? "Continue" : "Start Service"}
               onAction={() => t.state === "in_progress" ? setOpenTaskId(t.id) : startMut.mutate(t.id)}
               busy={startMut.isPending}
+              onSkip={(reason) => skipMut.mutate({ task: t, reason })}
             />
           ))}
           {services.length === 0 && <EmptyMini>No service rooms in the queue.</EmptyMini>}
