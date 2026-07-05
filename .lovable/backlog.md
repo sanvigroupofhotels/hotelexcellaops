@@ -1,7 +1,7 @@
 # HEOS — Project Backlog
 
 Single source of truth for pending work on HEOS. Reconciled 2026-07-05
-after **P1 Quick Booking Pricing Parity** sprint.
+after **P1 Housekeeping + Laundry Reporting** sprint.
 
 **Governance rules (per user directive, 2026-07-05):**
 
@@ -15,7 +15,7 @@ after **P1 Quick Booking Pricing Parity** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-05 (post Quick Booking Pricing Parity)
+- **Last updated:** 2026-07-05 (post HK + Laundry Reporting)
 - **Currently in flight:** _None._
 
 ---
