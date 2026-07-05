@@ -159,6 +159,25 @@ function HousekeepingPage() {
             selectedId={workingAs?.id ?? null}
             onSelect={setSelectedId}
           />
+          {openAll.length > 4 && (
+            <div className="mt-2 relative">
+              <input
+                type="search"
+                inputMode="numeric"
+                value={roomFilter}
+                onChange={(e) => setRoomFilter(e.target.value)}
+                placeholder="Find room… (e.g. 201)"
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-1.5 text-xs"
+              />
+              {roomFilter && (
+                <button
+                  type="button"
+                  onClick={() => setRoomFilter("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] uppercase tracking-wider text-muted-foreground"
+                >Clear</button>
+              )}
+            </div>
+          )}
 
         </div>
       </div>
