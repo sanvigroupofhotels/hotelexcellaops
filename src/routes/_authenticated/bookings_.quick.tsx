@@ -189,7 +189,7 @@ function QuickBookingPage() {
     return [...items, synthetic];
   }, [items, otherCharges, nights, checkIn, checkOut]);
 
-  const overrideNum = totalOverride.trim() === "" ? null : Number(totalOverride);
+  const overrideNum = totalOverride;
   const pricing = computePricing(pricingItems, discount, DEFAULT_TAX_RATE, {
     totalOverride: overrideNum,
     taxesIncluded,
