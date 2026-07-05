@@ -5,8 +5,8 @@ reports and design discussions. Completed items have been removed. This file
 MUST be updated at the end of every sprint (add new items, promote/demote
 priorities, remove shipped items).
 
-- **Last updated:** 2026-07-05 (post Housekeeping Stabilization sprint)
-- **Currently in flight:** HEOS Phase 3B — Laundry Module (design → implementation)
+- **Last updated:** 2026-07-05 (post Laundry Ship 1)
+- **Currently in flight:** HEOS Phase 3B — Laundry Module (Ship 2: return path)
 
 Priority ladder:
 
@@ -24,8 +24,10 @@ Priority ladder:
 
 ## In Flight (not backlog)
 
-- **Phase 3B — Laundry Module** — architecture + implementation. Consumes
-  `laundry_queue` rows already produced by Housekeeping.
+- **Phase 3B Ship 2 — Laundry Return Path**: return screen (OK / Short /
+  Damaged / Lost), return photo, return remarks, short-row detach so they
+  re-appear as Previous Missing; Vendor screen `is_laundry` filter chip;
+  batch activity feed.
 
 ---
 

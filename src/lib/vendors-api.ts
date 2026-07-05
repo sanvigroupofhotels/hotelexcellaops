@@ -10,6 +10,7 @@ export interface VendorRow {
   address: string | null;
   maps_url: string | null;
   notes: string | null;
+  vendor_kind: string[];
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -23,6 +24,7 @@ export interface VendorInput {
   address?: string | null;
   maps_url?: string | null;
   notes?: string | null;
+  vendor_kind?: string[];
   active?: boolean;
 }
 
@@ -35,7 +37,7 @@ function clean(input: VendorInput) {
   const alt_phones = (input.alt_phones ?? [])
     .map((p) => normalizePhoneNumber(p))
     .filter((p) => /^\+91\d{10}$/.test(p));
-  return {
+  const out: Record<string, unknown> = {
     name,
     contact_person,
     phone,
@@ -45,11 +47,16 @@ function clean(input: VendorInput) {
     notes: input.notes?.trim() || null,
     active: input.active ?? true,
   };
+  if (Array.isArray(input.vendor_kind)) {
+    out.vendor_kind = Array.from(new Set(input.vendor_kind.filter(Boolean)));
+  }
+  return out;
 }
 
-export async function listVendors(opts?: { activeOnly?: boolean }): Promise<VendorRow[]> {
+export async function listVendors(opts?: { activeOnly?: boolean; kind?: string }): Promise<VendorRow[]> {
   let q = supabase.from("vendors" as any).select("*").order("name");
   if (opts?.activeOnly) q = q.eq("active", true);
+  if (opts?.kind) q = q.contains("vendor_kind", [opts.kind]);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as any;
