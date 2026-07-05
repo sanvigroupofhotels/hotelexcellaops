@@ -129,18 +129,12 @@ function HousekeepingPage() {
               </div>
             </div>
           </div>
-          <div className="mt-2">
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mr-2">Working as</label>
-            <select
-              value={workingAs?.id ?? ""}
-              onChange={(e) => setSelectedId(e.target.value)}
-              className="bg-input/60 border border-border rounded-md px-2 py-1 text-sm max-w-[70%]"
-            >
-              {waCandidates.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
+          <WorkingAsBar
+            candidates={waCandidates}
+            selectedId={workingAs?.id ?? null}
+            onSelect={setSelectedId}
+          />
+
         </div>
       </div>
 
