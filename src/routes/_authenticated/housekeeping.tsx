@@ -58,8 +58,23 @@ function HousekeepingPage() {
     return m;
   }, [rooms]);
 
-  const open = tasks.filter((t) => t.state === "open" || t.state === "in_progress");
+  // Room-number filter (lightweight FO helper — quickly locate a room to mark
+  // Service Not Required / DND without hunting through the list).
+  const [roomFilter, setRoomFilter] = useState<string>("");
+  const roomMatches = (t: HkTaskRow) => {
+    if (!roomFilter.trim()) return true;
+    const n = String(roomById.get(t.room_id)?.room_number ?? "").toLowerCase();
+    return n.includes(roomFilter.trim().toLowerCase());
+  };
+  const byRoomNumber = (a: HkTaskRow, b: HkTaskRow) => {
+    const an = String(roomById.get(a.room_id)?.room_number ?? "");
+    const bn = String(roomById.get(b.room_id)?.room_number ?? "");
+    return an.localeCompare(bn, undefined, { numeric: true });
+  };
+
+  const openAll = tasks.filter((t) => t.state === "open" || t.state === "in_progress");
   const done = tasks.filter((t) => t.state === "done" || t.state === "skipped");
+  const open = openAll.filter(roomMatches).sort(byRoomNumber);
   const checkouts = open.filter((t) => t.type === "checkout_clean");
   const services = open.filter((t) => t.type === "continue_service");
   const total = tasks.filter((t) => t.state !== "skipped" || t.skipped_reason !== "superseded_by_checkout").length;
