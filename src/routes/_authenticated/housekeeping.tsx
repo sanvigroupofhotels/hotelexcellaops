@@ -199,34 +199,53 @@ function EmptyMini({ children }: { children: React.ReactNode }) {
   return <div className="luxe-card rounded-lg p-4 text-xs text-muted-foreground">{children}</div>;
 }
 
-function TaskCard({ task, room, actionLabel, onAction, busy }: {
+function TaskCard({ task, room, actionLabel, onAction, busy, onSkip }: {
   task: HkTaskRow;
   room: any;
   actionLabel: string;
   onAction: () => void;
   busy?: boolean;
+  onSkip?: (reason: HkSkipReason) => void;
 }) {
   return (
-    <button
-      onClick={onAction}
-      disabled={busy}
-      className="w-full luxe-card rounded-lg px-4 py-3 flex items-center justify-between text-left hover:border-gold/50 transition disabled:opacity-60"
-    >
-      <div>
-        <div className="text-sm font-medium">
-          {room?.room_number ?? "?"} · {room?.room_type ?? ""}
+    <div className="luxe-card rounded-lg overflow-hidden">
+      <button
+        onClick={onAction}
+        disabled={busy}
+        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-muted/20 transition disabled:opacity-60"
+      >
+        <div>
+          <div className="text-sm font-medium">
+            {room?.room_number ?? "?"} · {room?.room_type ?? ""}
+          </div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">
+            {task.state === "in_progress"
+              ? `In progress · ${task.performed_by_name ?? ""}`
+              : (task.type === "checkout_clean" ? "Ready for cleaning" : "Needs service")}
+          </div>
         </div>
-        <div className="text-[11px] text-muted-foreground mt-0.5">
-          {task.state === "in_progress"
-            ? `In progress · ${task.performed_by_name ?? ""}`
-            : (task.type === "checkout_clean" ? "Ready for cleaning" : "Needs service")}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gold">{actionLabel}</span>
+          <ChevronRight className="h-4 w-4 text-gold" />
         </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-gold">{actionLabel}</span>
-        <ChevronRight className="h-4 w-4 text-gold" />
-      </div>
-    </button>
+      </button>
+      {onSkip && task.state !== "in_progress" && (
+        <div className="border-t border-border/60 flex text-[11px]">
+          <button
+            onClick={(e) => { e.stopPropagation(); onSkip("not_required"); }}
+            className="flex-1 py-2 text-muted-foreground hover:text-foreground border-r border-border/60"
+          >
+            Service Not Required
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onSkip("dnd"); }}
+            className="flex-1 py-2 text-muted-foreground hover:text-foreground"
+          >
+            Do Not Disturb
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
