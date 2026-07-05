@@ -146,10 +146,11 @@ function UsersPage() {
                     title={self ? "Can't change own role" : "Change role"}
                     className="text-xs rounded-md border border-gold/40 bg-gold-soft px-2 py-1.5 text-gold disabled:opacity-40"
                   >
-                    <option value="admin">Admin</option>
-                    <option value="owner">Owner</option>
-                    <option value="reception">Reception</option>
-                    <option value="staff">Staff</option>
+                    {ACTIVE_ROLES.map((r) => (
+                      <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                    ))}
+                    {/* Deprecated legacy roles remain visible only when the row is still on them */}
+                    {!ACTIVE_ROLES.includes(u.role) && <option value={u.role}>{ROLE_LABEL[u.role]}</option>}
                   </select>
                   <button
                     disabled={self || activeMut.isPending}
