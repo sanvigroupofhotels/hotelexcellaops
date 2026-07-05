@@ -35,7 +35,10 @@ export async function onBookingCheckedOut(bookingId: string): Promise<void> {
     if (roomIds.length === 0) return;
 
     for (const roomId of roomIds) {
-      // Any open service task for this room + day is superseded.
+      // Any OPEN service task for this room + day is superseded. `in_progress`
+      // tasks are left alone so a housekeeper mid-way through service does not
+      // silently lose their entries — they finish normally, then the checkout
+      // task takes over.
       await supabase.from("housekeeping_tasks" as any)
         .update({
           state: "skipped",
@@ -45,7 +48,7 @@ export async function onBookingCheckedOut(bookingId: string): Promise<void> {
         .eq("room_id", roomId)
         .eq("business_date", businessDate)
         .eq("type", "continue_service")
-        .in("state", ["open", "in_progress"]);
+        .eq("state", "open");
 
       // Flip housekeeping → dirty.
       await setRoomHousekeepingStatus({
