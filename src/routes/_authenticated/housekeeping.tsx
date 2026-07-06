@@ -319,13 +319,26 @@ function TaskScreen({ task, room, onClose, workingAs, candidates, onSelectPerfor
     staleTime: 60_000,
   });
 
-  const [consumSel, setConsumSel] = useState<Record<string, { on: boolean; qty: number }>>({});
-  const [consumEdit, setConsumEdit] = useState<Record<string, boolean>>({});
-  const [linenSel, setLinenSel]   = useState<Record<string, boolean>>({});
-  const [issueSel, setIssueSel]   = useState<Record<string, { on: boolean; note: string }>>({});
-  const [remarks, setRemarks]     = useState<string>("");
+  // Restore any persisted draft for this (recorder, performer, task) triple.
+  // Stale-draft guard: loadHkDraft ignores anything older than 24h and drafts
+  // are keyed by taskId, so a task completed on another device (whose row
+  // is no longer pending) simply never re-opens this screen.
+  const initialDraft = useMemo(
+    () => loadHkDraft(me.id, workingAs?.id ?? null, task.id),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const [consumSel, setConsumSel] = useState<Record<string, { on: boolean; qty: number }>>(initialDraft?.consumSel ?? {});
+  const [consumEdit, setConsumEdit] = useState<Record<string, boolean>>(initialDraft?.consumEdit ?? {});
+  const [linenSel, setLinenSel]   = useState<Record<string, boolean>>(initialDraft?.linenSel ?? {});
+  const [issueSel, setIssueSel]   = useState<Record<string, { on: boolean; note: string }>>(initialDraft?.issueSel ?? {});
+  const [remarks, setRemarks]     = useState<string>(initialDraft?.remarks ?? "");
   const [saving, setSaving]       = useState(false);
-  const [noIssue, setNoIssue]     = useState(true);
+  const [noIssue, setNoIssue]     = useState(initialDraft?.noIssue ?? true);
+
+  useHkTaskDraftAutoSave(me.id, workingAs?.id ?? null, task.id, {
+    consumSel, consumEdit, linenSel, issueSel, remarks, noIssue,
+  });
 
   const isCheckout = task.type === "checkout_clean";
 
