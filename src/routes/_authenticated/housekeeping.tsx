@@ -20,6 +20,7 @@ import { listTasksForDate, startTask, completeTask, skipTask, type HkTaskRow, ty
 import { useHkWorkingAs } from "@/hooks/use-hk-working-as";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { NumField } from "@/components/num-field";
+import { useHkTaskDraftAutoSave, loadHkDraft, clearHkDraft } from "@/hooks/use-hk-task-draft";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/housekeeping")({
