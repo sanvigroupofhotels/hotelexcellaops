@@ -239,8 +239,8 @@ function CreateUserModal({ onClose, onSubmit }: { onClose: () => void; onSubmit:
         value={v.username}
         autoCapitalize="none"
         autoCorrect="off"
-        hint="3-32 chars: a-z 0-9 . _ - · users sign in with this"
-        onChange={(e: any) => setV({ ...v, username: e.target.value.toLowerCase().trim() })}
+        hint="Users sign in with this. Any characters allowed."
+        onChange={(e: any) => setV({ ...v, username: e.target.value.trim() })}
       />
       <Field
         label="Email (optional)"
