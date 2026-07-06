@@ -132,7 +132,7 @@ export const setUserActiveFn = createServerFn({ method: "POST" })
 export const resetUserPasswordFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({ id: z.string().uuid(), new_password: z.string().min(8).max(128) }).parse(d),
+    z.object({ id: z.string().uuid(), new_password: z.string().min(1).max(1024) }).parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
