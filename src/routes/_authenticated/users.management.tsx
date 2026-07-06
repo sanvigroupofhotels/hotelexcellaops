@@ -249,7 +249,7 @@ function CreateUserModal({ onClose, onSubmit }: { onClose: () => void; onSubmit:
         hint="For password reset only. Leave blank to auto-generate <username>@hotelexcella.in"
         onChange={(e: any) => setV({ ...v, email: e.target.value })}
       />
-      <Field label="Initial Password (min 8)" type="password" autoComplete="new-password" value={v.password} onChange={(e: any) => setV({ ...v, password: e.target.value })} />
+      <Field label="Initial Password" type="password" autoComplete="new-password" value={v.password} onChange={(e: any) => setV({ ...v, password: e.target.value })} />
       <label className="block space-y-1">
         <span className="text-xs uppercase tracking-wider text-muted-foreground">Role</span>
         <select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as AppRole })}
