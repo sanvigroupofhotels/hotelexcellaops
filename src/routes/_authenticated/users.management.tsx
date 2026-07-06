@@ -398,7 +398,7 @@ function ResetPasswordModal({ user, onClose, onSubmit }: any) {
   const [pw, setPw] = useState("");
   return (
     <Modal title={`Reset password — ${user.display_name || user.username || user.email}`} onClose={onClose}>
-      <Field label="New Password (min 8)" type="password" autoComplete="new-password" value={pw} onChange={(e: any) => setPw(e.target.value)} />
+      <Field label="New Password" type="password" autoComplete="new-password" value={pw} onChange={(e: any) => setPw(e.target.value)} />
       <p className="text-[11px] text-muted-foreground">Share this password with the user securely. They can change it after sign-in.</p>
       <div className="flex justify-end gap-2 pt-2">
         <button onClick={onClose} className="text-xs rounded-md border border-border bg-card px-3 py-1.5">Cancel</button>
