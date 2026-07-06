@@ -239,8 +239,8 @@ function CreateUserModal({ onClose, onSubmit }: { onClose: () => void; onSubmit:
         value={v.username}
         autoCapitalize="none"
         autoCorrect="off"
-        hint="3-32 chars: a-z 0-9 . _ - · users sign in with this"
-        onChange={(e: any) => setV({ ...v, username: e.target.value.toLowerCase().trim() })}
+        hint="Users sign in with this. Any characters allowed."
+        onChange={(e: any) => setV({ ...v, username: e.target.value.trim() })}
       />
       <Field
         label="Email (optional)"
@@ -249,7 +249,7 @@ function CreateUserModal({ onClose, onSubmit }: { onClose: () => void; onSubmit:
         hint="For password reset only. Leave blank to auto-generate <username>@hotelexcella.in"
         onChange={(e: any) => setV({ ...v, email: e.target.value })}
       />
-      <Field label="Initial Password (min 8)" type="password" autoComplete="new-password" value={v.password} onChange={(e: any) => setV({ ...v, password: e.target.value })} />
+      <Field label="Initial Password" type="password" autoComplete="new-password" value={v.password} onChange={(e: any) => setV({ ...v, password: e.target.value })} />
       <label className="block space-y-1">
         <span className="text-xs uppercase tracking-wider text-muted-foreground">Role</span>
         <select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as AppRole })}
@@ -398,7 +398,7 @@ function ResetPasswordModal({ user, onClose, onSubmit }: any) {
   const [pw, setPw] = useState("");
   return (
     <Modal title={`Reset password — ${user.display_name || user.username || user.email}`} onClose={onClose}>
-      <Field label="New Password (min 8)" type="password" autoComplete="new-password" value={pw} onChange={(e: any) => setPw(e.target.value)} />
+      <Field label="New Password" type="password" autoComplete="new-password" value={pw} onChange={(e: any) => setPw(e.target.value)} />
       <p className="text-[11px] text-muted-foreground">Share this password with the user securely. They can change it after sign-in.</p>
       <div className="flex justify-end gap-2 pt-2">
         <button onClick={onClose} className="text-xs rounded-md border border-border bg-card px-3 py-1.5">Cancel</button>

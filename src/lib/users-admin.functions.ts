@@ -2,7 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const USERNAME_RE = /^[a-z0-9._-]{3,32}$/;
+// Username: any non-empty trimmed string. No character/length restrictions per admin policy.
+const USERNAME_Z = z.string().trim().min(1).max(255);
 const ACTIVE_ROLES_Z = z.enum(["admin", "owner", "fo_staff", "housekeeping"]);
 /** Wide role enum used only when accepting existing roles (backward compat). */
 const ANY_ROLE_Z = z.enum(["admin", "owner", "fo_staff", "housekeeping", "reception", "staff"]);
@@ -28,9 +29,9 @@ export const createUserFn = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
       .object({
-        username: z.string().regex(USERNAME_RE),
+        username: USERNAME_Z,
         email: z.string().email().max(255).optional().or(z.literal("")),
-        password: z.string().min(8).max(128),
+        password: z.string().min(1).max(1024),
         display_name: z.string().min(1).max(120),
         role: ACTIVE_ROLES_Z,
       })
@@ -80,7 +81,7 @@ export const updateUserFn = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         display_name: z.string().min(1).max(120).optional(),
         email: z.string().email().max(255).optional().or(z.literal("")),
-        username: z.string().regex(USERNAME_RE).optional().or(z.literal("")),
+        username: USERNAME_Z.optional().or(z.literal("")),
       })
       .parse(d),
   )
@@ -131,7 +132,7 @@ export const setUserActiveFn = createServerFn({ method: "POST" })
 export const resetUserPasswordFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({ id: z.string().uuid(), new_password: z.string().min(8).max(128) }).parse(d),
+    z.object({ id: z.string().uuid(), new_password: z.string().min(1).max(1024) }).parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
