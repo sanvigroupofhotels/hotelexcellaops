@@ -33,9 +33,11 @@ function displayNameFor(r: CandidateRow): string {
 }
 
 // Role priority for the picker order (housekeeping first, then FO staff).
+// Legacy `reception` / `staff` values are no longer in use as of the
+// 2026-07-05 role cleanup and are omitted from the query filter.
 const ROLE_ORDER: Record<string, number> = {
-  housekeeping: 1, staff: 1,       // staff = legacy → housekeeping
-  fo_staff: 2,     reception: 2,   // reception = legacy → fo_staff
+  housekeeping: 1,
+  fo_staff: 2,
 };
 
 export function useHkWorkingAs() {
@@ -49,7 +51,7 @@ export function useHkWorkingAs() {
       const { data: roleRows } = await supabase
         .from("user_roles" as any)
         .select("user_id, role")
-        .in("role", ["housekeeping", "fo_staff", "staff", "reception"]);
+        .in("role", ["housekeeping", "fo_staff"]);
       const bestRole = new Map<string, number>();
       for (const r of ((roleRows ?? []) as any[])) {
         const rank = ROLE_ORDER[r.role] ?? 99;
