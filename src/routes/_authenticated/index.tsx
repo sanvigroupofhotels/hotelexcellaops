@@ -163,11 +163,10 @@ function HomePage() {
   const totalRooms = rooms.filter((r: any) => r.active !== false).length;
   const occupancyPct = totalRooms > 0 ? Math.round((occupied / totalRooms) * 100) : 0;
 
-  // Front-office staff must not see management financials (revenue,
-  // collections). We gate the Revenue Today card on role. Admin / owner /
-  // reception continue to see the full metric set.
+  // Front-office / housekeeping must not see management financials (revenue,
+  // collections). Admin and owner continue to see the full metric set.
   const { role } = useUserRole();
-  const isFrontOffice = role === "staff";
+  const isFrontOffice = role === "fo_staff" || role === "housekeeping";
 
   // Cards: counts render plain numbers (no ₹), currency cards opt-in.
   const stats: Array<{ label: string; value: number; icon: any; emoji: string; to: string; currency?: boolean }> = [
