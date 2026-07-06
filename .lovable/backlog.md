@@ -209,18 +209,38 @@ _None open._ Laundry transactional atomicity closed 2026-07-05.
   `computePricing`, per-booking `PaymentSettingsSection`, and Master-Data
   lead sources. Override + Taxes-Included behave identically to Detailed.
   Field-by-field audit: `docs/booking-parity.md`.
-- **Housekeeping form draft persistence** — persist in-progress task
-  screen selections (consumables/linen/issues/remarks) to
-  `sessionStorage` keyed by `task_id`. Task state itself is safe; only
-  the local form is at risk on refresh.
-- **User Management UX consolidation** — hide login email by default,
-  group users by role, surface `@username` as primary identifier, edit +
-  password actions on card, move role/deactivate/delete inside Edit.
-  *Engine:* Access.
-- **Atomicity audit** — survey remaining multi-statement client writes
-  (cancelBatch, HK task complete, cash close, night audit finalize) and
-  either wrap in a Postgres function or document why the current shape
-  is safe. Deliverable: `docs/atomicity-audit.md`.
+- ~~**Housekeeping form draft persistence**~~ — ✅ **DONE 2026-07-05.**
+  `src/hooks/use-hk-task-draft.ts` persists in-progress task selections
+  (consumables/qty, linen, issues+notes, remarks, no-issue flag) to
+  `localStorage`, scoped by `{userId, workingAsId, taskId}` so device
+  sharing is safe. Drafts auto-clear on successful submit and expire
+  after 24h to guard against stale state.
+- ~~**User Management UX consolidation**~~ — ✅ **DONE 2026-07-05.**
+  Login email hidden from the list; `@username` is now the primary
+  identity everywhere. Row actions collapsed to **Edit** + **Password**.
+  Role change, Activate/Deactivate and Delete moved into the Edit
+  modal's Role and Danger Zone sections. Password remains a separate
+  action per requirement.
+- ~~**Final Role Cleanup**~~ — ✅ **DONE 2026-07-05.**
+  DB audit confirmed zero users on legacy `reception` or `staff` roles.
+  `AppRole` collapsed to the four active roles
+  (`admin` / `owner` / `fo_staff` / `housekeeping`). Legacy enum values
+  remain in Postgres for schema compatibility but are:
+    - hidden from every UI surface (pickers, matrices, override screens),
+    - coerced to their modern equivalents at read time
+      (`reception → fo_staff`, `staff → housekeeping`),
+    - dropped from the HK Working-As candidate query filter.
+  Fixed a legacy bug in `/index` where `role === "staff"` gated the
+  Revenue Today card; now correctly hidden for `fo_staff` + `housekeeping`.
+- ~~**Atomicity audit**~~ — ✅ **DONE 2026-07-05.** No 🔴 at-risk paths
+  remain. All critical writes are either single SQL statements or wrapped
+  in Postgres functions. Two 🟡 idempotent paths (HK task fanout, NA
+  finalize) documented with upgrade triggers. Full matrix:
+  `docs/atomicity-audit.md`.
+- ~~**Shared Engines audit**~~ — ✅ **DONE 2026-07-05.**
+  Ownership map published at `docs/shared-engines.md`. No new duplicate
+  business logic identified beyond items already tracked in P2/P3
+  (Booking Conflict Engine, booking-list filtering).
 
 ---
 
