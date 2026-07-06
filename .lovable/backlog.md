@@ -372,6 +372,29 @@ Confirmed 2026-07-05 against the roadmap. All items below remain
 
 ## Change Log
 
+- **2026-07-05 (P1 Stabilization Sprint)** — Foundation fully closed.
+  1. **HK draft persistence** — `use-hk-task-draft.ts` mirrors task-screen
+     form state to `localStorage`, keyed by `{userId, workingAsId, taskId}`,
+     24h TTL, auto-cleared on submit.
+  2. **User Management UX** — `@username` promoted to primary identity,
+     login email hidden from list, row actions collapsed to Edit + Password.
+     Role change / Activate / Deactivate / Delete consolidated inside the
+     Edit modal (Role section + Danger Zone). Password stays a separate
+     action.
+  3. **Final Role Cleanup** — DB audit: 0 users on legacy `reception` /
+     `staff`. `AppRole` collapsed to four active roles. Legacy enum
+     values retained in Postgres, hidden from every UI surface, coerced
+     at read-time. Removed from HK Working-As query filter. Fixed
+     `role === "staff"` legacy check in the home dashboard.
+  4. **Atomicity audit** — `docs/atomicity-audit.md`. No 🔴 remain; two 🟡
+     paths (HK task fanout, NA finalize) documented with clear upgrade
+     triggers.
+  5. **Shared Engines audit** — `docs/shared-engines.md` publishes the
+     engine ownership map used across the codebase.
+  Typecheck green.
+
+
+
 - **2026-07-05 (late night)** — **P1 Housekeeping + Laundry Reporting**
   shipped. New shared reporting engine `src/lib/reporting/`
   (`date-range.ts`, `hk-reporting.ts`, `laundry-reporting.ts`) — pure
