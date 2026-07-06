@@ -169,8 +169,28 @@ export async function updateBooking(id: string, patch: Partial<BookingInput>) {
 }
 
 export async function setBookingStatus(id: string, status: BookingStatus) {
+  // Read prior status so we can fire housekeeping side-effects only on real
+  // transitions into Checked-Out (idempotent no-ops must not re-fire the hook).
+  const { data: prior } = await supabase
+    .from("bookings" as any)
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+  const previousStatus = (prior as any)?.status ?? null;
+
   const { error } = await supabase.from("bookings" as any).update({ status }).eq("id", id);
   if (error) throw error;
+
+  // Housekeeping checkout fanout — centralized here so every path
+  // (booking detail, Night Audit bulk, Critical Tasks) triggers it.
+  if (status === "Checked-Out" && previousStatus !== "Checked-Out") {
+    try {
+      const { onBookingCheckedOut } = await import("@/lib/hk-checkout-hook");
+      await onBookingCheckedOut(id);
+    } catch {
+      /* hook already logs its own failures; never block the status change */
+    }
+  }
 }
 
 export async function setAdvancePaid(id: string, advance_paid: number) {
