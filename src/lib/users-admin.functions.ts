@@ -2,7 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const USERNAME_RE = /^[a-z0-9._-]{3,32}$/;
+// Username: any non-empty trimmed string. No character/length restrictions per admin policy.
+const USERNAME_Z = z.string().trim().min(1).max(255);
 const ACTIVE_ROLES_Z = z.enum(["admin", "owner", "fo_staff", "housekeeping"]);
 /** Wide role enum used only when accepting existing roles (backward compat). */
 const ANY_ROLE_Z = z.enum(["admin", "owner", "fo_staff", "housekeeping", "reception", "staff"]);
