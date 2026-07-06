@@ -18,13 +18,18 @@ export async function generateContinueServiceTasks(businessDate: string): Promis
   created: number;
   skippedForException: number;
 }> {
-  // 1. Rooms currently occupied on `businessDate`.
+  // 1. Rooms genuinely occupied on `businessDate` — the guest was already
+  //    staying overnight when the business date advanced. Same-day arrivals
+  //    (check_in == businessDate) are FUTURE arrivals at generation time and
+  //    must NOT receive continue-service tasks (design §2.3). Only stays that
+  //    have actually been checked-in qualify — Pending / Confirmed arrivals
+  //    that never checked in are not "occupied" rooms.
   const { data: stays } = await supabase
     .from("bookings" as any)
     .select("id, room_id, check_in, check_out, status")
-    .lte("check_in", businessDate)
+    .lt("check_in", businessDate)
     .gt("check_out", businessDate)
-    .not("status", "in", "(Cancelled,No-Show,Draft,Checked-Out,Stay Completed)");
+    .eq("status", "Checked-In");
   const staysList = ((stays ?? []) as any[]).filter((b) => b.room_id);
   if (staysList.length === 0) return { created: 0, skippedForException: 0 };
 
