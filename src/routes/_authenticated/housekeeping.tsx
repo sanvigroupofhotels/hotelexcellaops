@@ -380,6 +380,7 @@ function TaskScreen({ task, room, onClose, workingAs, candidates, onSelectPerfor
         recorder:  me,
       });
       toast.success(isCheckout ? "Cleaning complete" : "Service complete");
+      clearHkDraft(me.id, workingAs?.id ?? null, task.id);
       qc.invalidateQueries({ queryKey: ["hk-tasks"] });
       qc.invalidateQueries({ queryKey: ["rooms"] });
       onClose();
