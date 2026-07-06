@@ -15,8 +15,8 @@ after **P1 Housekeeping + Laundry Reporting** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-05 (post HK + Laundry Reporting)
-- **Currently in flight:** _None._
+- **Last updated:** 2026-07-05 (post P1 Stabilization Sprint)
+- **Currently in flight:** _None. P1 foundation fully closed._
 
 ---
 
@@ -38,7 +38,7 @@ Legend: 🟢 Stable · 🟡 Partial · 🔵 In Progress · ⚪ Planned · ⛔ No
 | Inventory | 🟢 Stable | Movements, categories, charge catalog |
 | Night Audit | 🟢 Stable | Sessions, decisions, EOD report, critical tasks |
 | Activity Log | 🟢 Stable | Universal audit trail; used by every module |
-| Access & Roles | 🟡 Partial | Role migration done; Access UX polish pending (P3) |
+| Access & Roles | 🟢 Stable | Role model collapsed to 4 active roles (2026-07-05); User Management consolidated (Edit hosts role/deactivate/delete); Access UX polish tracked P3 |
 | Notifications | 🟡 Partial | Push + email dispatch live; future-notification rules engine pending (P4) |
 | Analytics / Reporting | 🟢 Stable | Owner/payments/staff/NA + HK + Laundry reports live; shared `src/lib/reporting/*` engine |
 | Maintenance | ⚪ Planned | Table `room_maintenance` exists; UI + workflow pending (P2) |
@@ -209,18 +209,38 @@ _None open._ Laundry transactional atomicity closed 2026-07-05.
   `computePricing`, per-booking `PaymentSettingsSection`, and Master-Data
   lead sources. Override + Taxes-Included behave identically to Detailed.
   Field-by-field audit: `docs/booking-parity.md`.
-- **Housekeeping form draft persistence** — persist in-progress task
-  screen selections (consumables/linen/issues/remarks) to
-  `sessionStorage` keyed by `task_id`. Task state itself is safe; only
-  the local form is at risk on refresh.
-- **User Management UX consolidation** — hide login email by default,
-  group users by role, surface `@username` as primary identifier, edit +
-  password actions on card, move role/deactivate/delete inside Edit.
-  *Engine:* Access.
-- **Atomicity audit** — survey remaining multi-statement client writes
-  (cancelBatch, HK task complete, cash close, night audit finalize) and
-  either wrap in a Postgres function or document why the current shape
-  is safe. Deliverable: `docs/atomicity-audit.md`.
+- ~~**Housekeeping form draft persistence**~~ — ✅ **DONE 2026-07-05.**
+  `src/hooks/use-hk-task-draft.ts` persists in-progress task selections
+  (consumables/qty, linen, issues+notes, remarks, no-issue flag) to
+  `localStorage`, scoped by `{userId, workingAsId, taskId}` so device
+  sharing is safe. Drafts auto-clear on successful submit and expire
+  after 24h to guard against stale state.
+- ~~**User Management UX consolidation**~~ — ✅ **DONE 2026-07-05.**
+  Login email hidden from the list; `@username` is now the primary
+  identity everywhere. Row actions collapsed to **Edit** + **Password**.
+  Role change, Activate/Deactivate and Delete moved into the Edit
+  modal's Role and Danger Zone sections. Password remains a separate
+  action per requirement.
+- ~~**Final Role Cleanup**~~ — ✅ **DONE 2026-07-05.**
+  DB audit confirmed zero users on legacy `reception` or `staff` roles.
+  `AppRole` collapsed to the four active roles
+  (`admin` / `owner` / `fo_staff` / `housekeeping`). Legacy enum values
+  remain in Postgres for schema compatibility but are:
+    - hidden from every UI surface (pickers, matrices, override screens),
+    - coerced to their modern equivalents at read time
+      (`reception → fo_staff`, `staff → housekeeping`),
+    - dropped from the HK Working-As candidate query filter.
+  Fixed a legacy bug in `/index` where `role === "staff"` gated the
+  Revenue Today card; now correctly hidden for `fo_staff` + `housekeeping`.
+- ~~**Atomicity audit**~~ — ✅ **DONE 2026-07-05.** No 🔴 at-risk paths
+  remain. All critical writes are either single SQL statements or wrapped
+  in Postgres functions. Two 🟡 idempotent paths (HK task fanout, NA
+  finalize) documented with upgrade triggers. Full matrix:
+  `docs/atomicity-audit.md`.
+- ~~**Shared Engines audit**~~ — ✅ **DONE 2026-07-05.**
+  Ownership map published at `docs/shared-engines.md`. No new duplicate
+  business logic identified beyond items already tracked in P2/P3
+  (Booking Conflict Engine, booking-list filtering).
 
 ---
 
@@ -351,6 +371,29 @@ Confirmed 2026-07-05 against the roadmap. All items below remain
 ---
 
 ## Change Log
+
+- **2026-07-05 (P1 Stabilization Sprint)** — Foundation fully closed.
+  1. **HK draft persistence** — `use-hk-task-draft.ts` mirrors task-screen
+     form state to `localStorage`, keyed by `{userId, workingAsId, taskId}`,
+     24h TTL, auto-cleared on submit.
+  2. **User Management UX** — `@username` promoted to primary identity,
+     login email hidden from list, row actions collapsed to Edit + Password.
+     Role change / Activate / Deactivate / Delete consolidated inside the
+     Edit modal (Role section + Danger Zone). Password stays a separate
+     action.
+  3. **Final Role Cleanup** — DB audit: 0 users on legacy `reception` /
+     `staff`. `AppRole` collapsed to four active roles. Legacy enum
+     values retained in Postgres, hidden from every UI surface, coerced
+     at read-time. Removed from HK Working-As query filter. Fixed
+     `role === "staff"` legacy check in the home dashboard.
+  4. **Atomicity audit** — `docs/atomicity-audit.md`. No 🔴 remain; two 🟡
+     paths (HK task fanout, NA finalize) documented with clear upgrade
+     triggers.
+  5. **Shared Engines audit** — `docs/shared-engines.md` publishes the
+     engine ownership map used across the codebase.
+  Typecheck green.
+
+
 
 - **2026-07-05 (late night)** — **P1 Housekeeping + Laundry Reporting**
   shipped. New shared reporting engine `src/lib/reporting/`
