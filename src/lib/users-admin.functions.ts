@@ -29,9 +29,9 @@ export const createUserFn = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
       .object({
-        username: z.string().regex(USERNAME_RE),
+        username: USERNAME_Z,
         email: z.string().email().max(255).optional().or(z.literal("")),
-        password: z.string().min(8).max(128),
+        password: z.string().min(1).max(1024),
         display_name: z.string().min(1).max(120),
         role: ACTIVE_ROLES_Z,
       })
