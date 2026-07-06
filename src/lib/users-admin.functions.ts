@@ -81,7 +81,7 @@ export const updateUserFn = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         display_name: z.string().min(1).max(120).optional(),
         email: z.string().email().max(255).optional().or(z.literal("")),
-        username: z.string().regex(USERNAME_RE).optional().or(z.literal("")),
+        username: USERNAME_Z.optional().or(z.literal("")),
       })
       .parse(d),
   )
