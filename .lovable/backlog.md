@@ -372,6 +372,39 @@ Confirmed 2026-07-05 against the roadmap. All items below remain
 
 ## Change Log
 
+- **2026-07-06 (P0 HK Task Engine correctness fix)** — Two independent
+  defects were producing an operational task list that did not match
+  reality:
+  1. **Continue-service generator over-selected occupied rooms.**
+     `generateContinueServiceTasks` used `check_in <= businessDate`, which
+     treated same-day arrivals (booking status still `Pending`, guest not
+     yet checked in) as occupied stays. Room 306 was wrongly flagged as
+     Service. Fix: filter is now `check_in < businessDate` AND
+     `status = 'Checked-In'`. Continue-service is generated only for
+     rooms that were truly occupied when the business date advanced.
+  2. **Checkout hook was only wired into one code path.** The booking
+     detail page called `onBookingCheckedOut()` explicitly, but Night
+     Audit bulk (`bulkSetStatus`) and Critical Tasks
+     (`night-audit.critical-tasks.tsx`) called `setBookingStatus`
+     directly, so no checkout task/dirty-room fanout ever ran through
+     those flows. Fix: hook is now centralized inside `setBookingStatus`,
+     gated on a real Pending→Checked-Out transition (idempotent),
+     firing exactly once per checkout across every path. The detail
+     page's duplicate call was removed; the override-checkout path
+     bypasses `setBookingStatus` and keeps its explicit hook call.
+  Backfilled today's state: 6 orphaned checkouts received checkout_clean
+  tasks, rooms flipped to dirty, yesterday's stranded continue_service
+  tasks skipped as `superseded_by_checkout`, Room 306's incorrect
+  service task skipped and status reverted to ready.
+
+- **2026-07-06 (Password/username restrictions removed)** —
+  `USERNAME_RE` and password length/charset checks removed from
+  `users-admin.functions.ts` and `users.management.tsx`. Auth-service
+  `password_hibp_enabled` disabled via `configure_auth`. Minimum
+  password length at the Auth-service level is not exposed via the
+  configuration tool available to the agent.
+
+
 - **2026-07-05 (P1 Stabilization Sprint)** — Foundation fully closed.
   1. **HK draft persistence** — `use-hk-task-draft.ts` mirrors task-screen
      form state to `localStorage`, keyed by `{userId, workingAsId, taskId}`,
