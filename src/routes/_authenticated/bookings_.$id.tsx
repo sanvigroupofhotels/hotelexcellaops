@@ -101,14 +101,9 @@ function BookingDetail() {
         from_status: from ?? null,
         to_status: s,
       });
-      // Housekeeping side-effect on checkout: mark rooms dirty + create checkout task.
-      // Non-blocking; failures are logged inside the hook.
-      if (s === "Checked-Out") {
-        try {
-          const { onBookingCheckedOut } = await import("@/lib/hk-checkout-hook");
-          await onBookingCheckedOut(id);
-        } catch { /* housekeeping errors never block reception */ }
-      }
+      // Housekeeping checkout fanout is now centralized inside setBookingStatus,
+      // so every code path (this page, Night Audit bulk, Critical Tasks) fires
+      // the hook exactly once per real transition into Checked-Out.
       return s;
     },
     onSuccess: (s) => {
