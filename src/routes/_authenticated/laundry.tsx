@@ -19,7 +19,7 @@ import { listVendors, type VendorRow } from "@/lib/vendors-api";
 import {
   previewPickup, createBatch, listBatches, cancelBatch, getBatch, confirmReturn, signedLaundryPhotoUrl,
   editReturnedBatchLines,
-  type LaundryBatchRow, type LaundryBatchLineRow, type PickupPreviewRow,
+  type LaundryBatchRow, type LaundryBatchLineRow, type LaundryBatchState, type PickupPreviewRow,
 } from "@/lib/laundry-batches-api";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { useUserRole } from "@/hooks/use-role";
