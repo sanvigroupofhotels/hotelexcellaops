@@ -27,6 +27,8 @@ export interface LaundryBatchRow {
   vendor_slip_number: string | null;
   pickup_slip_photo_path: string | null;
   return_photo_path: string | null;
+  pickup_photo_paths: string[];
+  return_photo_paths: string[];
   pickup_remarks: string | null;
   return_remarks: string | null;
   sent_at: string;
