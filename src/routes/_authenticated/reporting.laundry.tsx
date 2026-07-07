@@ -142,16 +142,12 @@ function LaundryReportingPage() {
           </div>
         </section>
 
-        <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
-          <Boxes className="h-3 w-3" />
-          Foundation for the future <span className="text-foreground">Monthly Billing</span> module. Data source: Laundry engine (batches + queue). See{" "}
-          <Link to="/laundry" className="text-gold hover:underline">Laundry</Link>{" "}·{" "}
-          <Link to="/reporting/housekeeping" className="text-gold hover:underline">Housekeeping Reporting</Link>.
-        </p>
       </div>
     </>
   );
 }
+
+// (Developer footer text removed for production per UAT sprint.)
 
 function KpiCard({ label, value, icon: Icon, tone = "gold" }: { label: string; value: number | string; icon: any; tone?: "gold" | "success" | "warning" | "muted" | "destructive" }) {
   const toneClass =

@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
+import { useUserRole } from "@/hooks/use-role";
 
 export interface WorkingAsUser {
   id: string;
@@ -32,26 +33,35 @@ function displayNameFor(r: CandidateRow): string {
     || "user";
 }
 
-// Role priority for the picker order (housekeeping first, then FO staff).
-// Legacy `reception` / `staff` values are no longer in use as of the
-// 2026-07-05 role cleanup and are omitted from the query filter.
+// Role priority for the picker order. Admin/owner surface last since they
+// are rarely the actual worker.
 const ROLE_ORDER: Record<string, number> = {
   housekeeping: 1,
   fo_staff: 2,
+  admin: 3,
+  owner: 3,
 };
 
 export function useHkWorkingAs() {
   const { id: myId, name: myName } = useCurrentStaff();
+  const { role: myRole } = useUserRole();
   const [selectedId, setSelectedIdState] = useState<string | null>(null);
 
-  // Candidates: current user + all housekeeping/fo_staff role users.
+  // Role-based visibility (UAT sprint):
+  //   - admin/owner: fo_staff + housekeeping (not other admins/owners)
+  //   - fo_staff:    fo_staff + housekeeping (no admin/owner)
+  //   - housekeeping: only housekeeping
+  const roleFilter: string[] = myRole === "housekeeping"
+    ? ["housekeeping"]
+    : ["housekeeping", "fo_staff"];
+
   const { data: candidates = [] } = useQuery<WorkingAsUser[]>({
-    queryKey: ["hk-working-as-candidates", myId],
+    queryKey: ["hk-working-as-candidates", myId, myRole],
     queryFn: async () => {
       const { data: roleRows } = await supabase
         .from("user_roles" as any)
         .select("user_id, role")
-        .in("role", ["housekeeping", "fo_staff"]);
+        .in("role", roleFilter);
       const bestRole = new Map<string, number>();
       for (const r of ((roleRows ?? []) as any[])) {
         const rank = ROLE_ORDER[r.role] ?? 99;

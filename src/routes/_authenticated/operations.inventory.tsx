@@ -18,6 +18,7 @@ import {
 import {
   listMovements, stockIn, stockOut, recordBulkMovement, formatReason, type InventoryMovementRow,
 } from "@/lib/inventory-movements";
+import { ImageLightbox } from "@/components/image-lightbox";
 
 export const Route = createFileRoute("/_authenticated/operations/inventory")({ component: InventoryPage });
 
@@ -234,10 +235,20 @@ function ItemThumb({ path }: { path: string | null }) {
   const { data: url } = useQuery({
     queryKey: ["inv-photo", path], queryFn: () => signedPhotoUrl(path), enabled: !!path, staleTime: 4 * 60_000,
   });
+  const [open, setOpen] = useState(false);
   return (
-    <div className="h-12 w-12 rounded-md bg-muted/40 border border-border overflow-hidden shrink-0 flex items-center justify-center">
-      {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : <Package className="h-5 w-5 text-muted-foreground" />}
-    </div>
+    <>
+      <button
+        type="button"
+        onClick={(e) => { if (url) { e.stopPropagation(); setOpen(true); } }}
+        disabled={!url}
+        className="h-12 w-12 rounded-md bg-muted/40 border border-border overflow-hidden shrink-0 flex items-center justify-center disabled:cursor-default"
+        aria-label={url ? "View photo" : "No photo"}
+      >
+        {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : <Package className="h-5 w-5 text-muted-foreground" />}
+      </button>
+      {open && url && <ImageLightbox urls={[url]} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 
@@ -361,15 +372,10 @@ function ItemDialog({ item, onClose, onStockIn, onStockOut }: {
       <div className="grid gap-3">
         <Field label="Photo">
           <div className="flex items-center gap-3">
-            <div className="h-16 w-16 rounded-md bg-muted/40 border border-border overflow-hidden flex items-center justify-center shrink-0">
-              {photoFile ? (
-                <img src={URL.createObjectURL(photoFile)} alt="" className="h-full w-full object-cover" />
-              ) : photoUrl ? (
-                <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <Camera className="h-5 w-5 text-muted-foreground" />
-              )}
-            </div>
+            <PhotoThumbButton
+              srcLocal={photoFile ? URL.createObjectURL(photoFile) : null}
+              srcRemote={photoUrl ?? null}
+            />
             <label className="inline-flex items-center gap-1.5 border border-border rounded-md px-3 py-2 text-xs cursor-pointer hover:bg-muted/40">
               <Camera className="h-3.5 w-3.5" /> {item?.photo_path || photoFile ? "Change" : "Upload"}
               <input type="file" accept="image/*" className="hidden"
@@ -562,6 +568,20 @@ function MovementDialog({ item, kind, vendors, onClose }: {
 }
 
 /* ------------------------------------------------------------ primitives */
+
+function PhotoThumbButton({ srcLocal, srcRemote }: { srcLocal: string | null; srcRemote: string | null }) {
+  const [open, setOpen] = useState(false);
+  const url = srcLocal ?? srcRemote;
+  return (
+    <>
+      <button type="button" onClick={() => url && setOpen(true)} disabled={!url}
+        className="h-16 w-16 rounded-md bg-muted/40 border border-border overflow-hidden flex items-center justify-center shrink-0 disabled:cursor-default">
+        {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : <Camera className="h-5 w-5 text-muted-foreground" />}
+      </button>
+      {open && url && <ImageLightbox urls={[url]} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
 
 function DialogShell({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (

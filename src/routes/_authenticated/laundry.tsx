@@ -12,15 +12,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, Truck, ClipboardList, Camera, AlertTriangle, ChevronRight, XCircle, Image as ImageIcon } from "lucide-react";
+import { Loader2, ArrowLeft, Truck, ClipboardList, AlertTriangle, ChevronRight, XCircle, Pencil, Save } from "lucide-react";
 import { toast } from "sonner";
 import { getBusinessDate } from "@/lib/night-audit-api";
 import { listVendors, type VendorRow } from "@/lib/vendors-api";
 import {
   previewPickup, createBatch, listBatches, cancelBatch, getBatch, confirmReturn, signedLaundryPhotoUrl,
-  type LaundryBatchRow, type LaundryBatchLineRow, type PickupPreviewRow,
+  editReturnedBatchLines,
+  type LaundryBatchRow, type LaundryBatchLineRow, type LaundryBatchState, type PickupPreviewRow,
 } from "@/lib/laundry-batches-api";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
+import { useUserRole } from "@/hooks/use-role";
+import { PhotoPicker } from "@/components/photo-picker";
+import { ImageLightbox } from "@/components/image-lightbox";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/laundry")({
@@ -269,12 +273,14 @@ function PickupScreen({ businessDate, onClose, me }: {
   const [vendorId, setVendorId] = useState<string>("");
   const [slipNumber, setSlipNumber] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [sent, setSent] = useState<Record<string, number>>({});
 
-  // Default vendor to the first laundry vendor once list arrives.
+  // Default vendor: prefer "WeWash Laundry" (per operational spec), else first laundry vendor.
   useEffect(() => {
-    if (!vendorId && laundryVendors.length > 0) setVendorId(laundryVendors[0].id);
+    if (vendorId || laundryVendors.length === 0) return;
+    const weWash = (laundryVendors as VendorRow[]).find((v) => /we\s*wash/i.test(v.name));
+    setVendorId((weWash ?? laundryVendors[0]).id);
   }, [vendorId, laundryVendors]);
 
   // Initialize sent quantities = HEOS queue count when preview arrives.
@@ -322,7 +328,7 @@ function PickupScreen({ businessDate, onClose, me }: {
         pickup_remarks: remarks || null,
         lines,
         performer: me,
-        slipPhotoFile: photoFile,
+        slipPhotoFiles: photoFiles,
       });
     },
     onSuccess: (b) => {
@@ -432,19 +438,11 @@ function PickupScreen({ businessDate, onClose, me }: {
               className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1"
             />
           </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-              <Camera className="h-3 w-3" /> Pickup Slip Photo <span className="text-muted-foreground/60">(optional)</span>
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
-              className="w-full text-xs mt-1"
-            />
-            {photoFile && <div className="text-[10px] text-emerald-500 mt-1">Ready: {photoFile.name}</div>}
-          </div>
+          <PhotoPicker
+            label="Pickup Slip Photos (optional)"
+            files={photoFiles}
+            onFilesChange={setPhotoFiles}
+          />
           <div>
             <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Pickup Remarks</label>
             <textarea
@@ -478,21 +476,32 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
     queryKey: ["laundry-batch", batchId],
     queryFn: () => getBatch(batchId),
   });
-  const [pickupUrl, setPickupUrl] = useState<string | null>(null);
-  const [returnUrl, setReturnUrl] = useState<string | null>(null);
+  const { role } = useUserRole();
+  const canEditReturn = role === "admin" || role === "owner";
+  const [pickupUrls, setPickupUrls] = useState<string[]>([]);
+  const [returnUrls, setReturnUrls] = useState<string[]>([]);
   const [returnMode, setReturnMode] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [lightboxUrls, setLightboxUrls] = useState<string[] | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      if (data?.batch.pickup_slip_photo_path) {
-        const u = await signedLaundryPhotoUrl(data.batch.pickup_slip_photo_path);
-        if (alive) setPickupUrl(u);
-      }
-      if (data?.batch.return_photo_path) {
-        const u = await signedLaundryPhotoUrl(data.batch.return_photo_path);
-        if (alive) setReturnUrl(u);
-      }
+      if (!data) return;
+      const pickupList = (data.batch.pickup_photo_paths && data.batch.pickup_photo_paths.length > 0)
+        ? data.batch.pickup_photo_paths
+        : (data.batch.pickup_slip_photo_path ? [data.batch.pickup_slip_photo_path] : []);
+      const returnList = (data.batch.return_photo_paths && data.batch.return_photo_paths.length > 0)
+        ? data.batch.return_photo_paths
+        : (data.batch.return_photo_path ? [data.batch.return_photo_path] : []);
+      const [p, r] = await Promise.all([
+        Promise.all(pickupList.map((p) => signedLaundryPhotoUrl(p))),
+        Promise.all(returnList.map((p) => signedLaundryPhotoUrl(p))),
+      ]);
+      if (!alive) return;
+      setPickupUrls(p.filter((u): u is string => !!u));
+      setReturnUrls(r.filter((u): u is string => !!u));
     })();
     return () => { alive = false; };
   }, [data]);
@@ -533,6 +542,22 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
     );
   }
 
+  if (editMode && batch.state === "returned") {
+    return (
+      <EditReturnScreen
+        batch={batch}
+        lines={lines}
+        me={{ id: me.id ?? "", name: me.name || me.firstName || "user" }}
+        onClose={() => setEditMode(false)}
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ["laundry-batch", batchId] });
+          qc.invalidateQueries({ queryKey: ["laundry-batches"] });
+          setEditMode(false);
+        }}
+      />
+    );
+  }
+
   const totals = lines.reduce(
     (a, l) => ({
       heos: a.heos + l.qty_heos_queue,
@@ -552,12 +577,12 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
       <div className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border">
         <div className="px-4 py-3 max-w-3xl mx-auto flex items-center gap-3">
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Batch</div>
-            <div className="font-display text-base leading-tight">{batch.batch_number}</div>
+            <div className="font-display text-base leading-tight truncate">{batch.batch_number}</div>
           </div>
           <span className={cn(
-            "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full",
+            "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0",
             batch.state === "sent" ? "bg-amber-500/10 text-amber-500" :
             batch.state === "returned" ? "bg-emerald-500/10 text-emerald-500" :
             "bg-muted/40 text-muted-foreground",
@@ -583,7 +608,38 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
           </button>
         )}
 
-        <div className="luxe-card rounded-lg overflow-hidden">
+        {batch.state === "returned" && canEditReturn && (
+          <button
+            onClick={() => setEditMode(true)}
+            className="w-full py-2.5 rounded-md border border-gold/40 text-gold text-sm flex items-center justify-center gap-2 hover:bg-gold/5"
+          >
+            <Pencil className="h-4 w-4" /> Correct Return Counts
+          </button>
+        )}
+
+        {/* Mobile-first: one card per linen; desktop keeps the compact grid.  */}
+        <div className="space-y-2 md:hidden">
+          {lines.map((l) => (
+            <LinenLineCard key={l.id} l={l} state={batch.state} />
+          ))}
+          <div className="luxe-card rounded-lg p-3 text-xs bg-muted/20">
+            <div className="font-medium mb-2">Totals</div>
+            <div className="grid grid-cols-4 gap-2">
+              <TotalCell label="HEOS" value={totals.heos} />
+              <TotalCell label="Sent" value={totals.sent} />
+              <TotalCell label="In-house" value={totals.inHouse} tone="gold" />
+              <TotalCell label="OK" value={totals.ok} />
+              <TotalCell label="Short" value={totals.short} tone={totals.short > 0 ? "warning" : "muted"} />
+              <TotalCell label="Dmg" value={totals.dmg} tone={totals.dmg > 0 ? "warning" : "muted"} />
+              <TotalCell label="Lost" value={totals.lost} tone={totals.lost > 0 ? "destructive" : "muted"} />
+              {batch.state === "sent" && outstanding > 0 && (
+                <TotalCell label="Outstanding" value={outstanding} tone="warning" />
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="hidden md:block luxe-card rounded-lg overflow-hidden">
           <div className="px-4 py-2 border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">Lines</div>
           <div className="grid grid-cols-12 gap-2 px-4 py-2 border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
             <div className="col-span-4">Linen</div>
@@ -631,10 +687,10 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <PhotoTile label="Pickup Slip" url={pickupUrl} />
-          <PhotoTile label="Return Bag" url={returnUrl} />
-        </div>
+        <PhotoGallery label="Pickup Slip" urls={pickupUrls}
+          onOpen={(i) => { setLightboxUrls(pickupUrls); setLightboxIndex(i); }} />
+        <PhotoGallery label="Return Bag" urls={returnUrls}
+          onOpen={(i) => { setLightboxUrls(returnUrls); setLightboxIndex(i); }} />
 
         {batch.state === "sent" && (
           <button
@@ -648,6 +704,60 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
             <XCircle className="h-4 w-4" /> Cancel Batch
           </button>
         )}
+      </div>
+      {lightboxUrls && (
+        <ImageLightbox urls={lightboxUrls} index={lightboxIndex} onClose={() => setLightboxUrls(null)} />
+      )}
+    </div>
+  );
+}
+
+function LinenLineCard({ l, state }: { l: LaundryBatchLineRow; state: LaundryBatchState }) {
+  const returned = state === "returned";
+  return (
+    <div className="luxe-card rounded-lg p-3 space-y-2">
+      <div className="font-medium text-sm">{l.linen_name_at_time}</div>
+      <div className="grid grid-cols-4 gap-2 text-[11px]">
+        <StatCell label="HEOS" value={l.qty_heos_queue} />
+        <StatCell label="Sent" value={l.qty_sent} />
+        <StatCell label="In-house" value={l.qty_in_house} tone="gold" />
+        {returned ? <StatCell label="OK" value={l.qty_returned_ok} tone="success" /> : <div />}
+        {returned && l.qty_short > 0 && <StatCell label="Short" value={l.qty_short} tone="warning" />}
+        {returned && l.qty_damaged > 0 && <StatCell label="Dmg" value={l.qty_damaged} tone="warning" />}
+        {returned && l.qty_lost > 0 && <StatCell label="Lost" value={l.qty_lost} tone="destructive" />}
+      </div>
+    </div>
+  );
+}
+
+function StatCell({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "gold" | "success" | "warning" | "destructive" | "muted" }) {
+  const toneCls = tone === "gold" ? "text-gold"
+    : tone === "success" ? "text-emerald-500"
+    : tone === "warning" ? "text-amber-500"
+    : tone === "destructive" ? "text-red-500"
+    : tone === "muted" ? "text-muted-foreground" : "";
+  return (
+    <div className="rounded-md bg-muted/20 px-2 py-1.5">
+      <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={cn("tabular-nums font-medium", toneCls)}>{value || 0}</div>
+    </div>
+  );
+}
+function TotalCell({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "gold" | "success" | "warning" | "destructive" | "muted" }) {
+  return <StatCell label={label} value={value} tone={tone} />;
+}
+
+function PhotoGallery({ label, urls, onOpen }: { label: string; urls: string[]; onOpen: (index: number) => void }) {
+  if (urls.length === 0) return null;
+  return (
+    <div className="luxe-card rounded-lg p-3">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{label}</div>
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+        {urls.map((u, i) => (
+          <button key={i} onClick={() => onOpen(i)} className="aspect-square rounded overflow-hidden bg-muted/20 border border-border">
+            <img src={u} alt={`${label} ${i + 1}`} className="w-full h-full object-cover" />
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -675,7 +785,7 @@ function ReturnScreen({ batch, lines, me, onClose, onDone }: {
   });
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [remarks, setRemarks] = useState("");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
 
   const totals = useMemo(() => {
     let sent = 0, ok = 0, short = 0, dmg = 0, lost = 0;
@@ -709,7 +819,7 @@ function ReturnScreen({ batch, lines, me, onClose, onDone }: {
         batch_id: batch.id,
         return_remarks: remarks || null,
         performer: me,
-        returnPhotoFile: photoFile,
+        returnPhotoFiles: photoFiles,
         lines: lines.map((l) => {
           const d = draft[l.id] ?? { ok: l.qty_sent, short: 0, damaged: 0, lost: 0 };
           return {
@@ -813,19 +923,11 @@ function ReturnScreen({ batch, lines, me, onClose, onDone }: {
         )}
 
         <div className="luxe-card rounded-lg p-3 space-y-3">
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-              <Camera className="h-3 w-3" /> Return Photo <span className="text-muted-foreground/60">(optional)</span>
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
-              className="w-full text-xs mt-1"
-            />
-            {photoFile && <div className="text-[10px] text-emerald-500 mt-1">Ready: {photoFile.name}</div>}
-          </div>
+          <PhotoPicker
+            label="Return Photos (optional)"
+            files={photoFiles}
+            onFilesChange={setPhotoFiles}
+          />
           <div>
             <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Return Remarks</label>
             <textarea
@@ -850,19 +952,99 @@ function ReturnScreen({ batch, lines, me, onClose, onDone }: {
   );
 }
 
-function PhotoTile({ label, url }: { label: string; url: string | null }) {
+/* ─────────────────────────  Edit Return (admin/owner)  ──────────────── */
+
+function EditReturnScreen({ batch, lines, me, onClose, onDone }: {
+  batch: LaundryBatchRow;
+  lines: LaundryBatchLineRow[];
+  me: { id: string; name: string };
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, { ok: number; short: number; damaged: number; lost: number }>>(() => {
+    const d: Record<string, { ok: number; short: number; damaged: number; lost: number }> = {};
+    for (const l of lines) d[l.id] = { ok: l.qty_returned_ok, short: l.qty_short, damaged: l.qty_damaged, lost: l.qty_lost };
+    return d;
+  });
+  const [reason, setReason] = useState("");
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!me.id) throw new Error("Not signed in");
+      await editReturnedBatchLines(
+        batch.id,
+        lines.map((l) => ({
+          line_id: l.id,
+          qty_returned_ok: Math.max(0, Math.floor(draft[l.id]?.ok ?? 0)),
+          qty_short: Math.max(0, Math.floor(draft[l.id]?.short ?? 0)),
+          qty_damaged: Math.max(0, Math.floor(draft[l.id]?.damaged ?? 0)),
+          qty_lost: Math.max(0, Math.floor(draft[l.id]?.lost ?? 0)),
+        })),
+        me,
+        reason || null,
+      );
+    },
+    onSuccess: () => { toast.success("Return counts corrected"); onDone(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const setCell = (id: string, k: "ok" | "short" | "damaged" | "lost", v: number) =>
+    setDraft((d) => ({ ...d, [id]: { ...d[id], [k]: Math.max(0, Math.floor(v || 0)) } }));
+
   return (
-    <div className="luxe-card rounded-lg overflow-hidden aspect-square flex items-center justify-center bg-muted/20">
-      {url ? (
-        <a href={url} target="_blank" rel="noreferrer" className="w-full h-full">
-          <img src={url} alt={label} className="w-full h-full object-cover" />
-        </a>
-      ) : (
-        <div className="flex flex-col items-center text-muted-foreground text-[10px] uppercase tracking-wider">
-          <ImageIcon className="h-6 w-6 mb-1 opacity-60" />
-          {label}
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border">
+        <div className="px-4 py-3 max-w-3xl mx-auto flex items-center gap-3">
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Correct Return</div>
+            <div className="font-display text-base leading-tight truncate">{batch.batch_number}</div>
+          </div>
         </div>
-      )}
+      </div>
+      <div className="px-4 py-6 max-w-3xl mx-auto space-y-4">
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-500">
+          Corrections only fix the counting record. OK + Short + Dmg + Lost must equal Sent per linen. The change is logged in Activity Log.
+        </div>
+        <div className="space-y-2">
+          {lines.map((l) => {
+            const d = draft[l.id];
+            const total = d.ok + d.short + d.damaged + d.lost;
+            const ok = total === l.qty_sent;
+            return (
+              <div key={l.id} className="luxe-card rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="font-medium text-sm">{l.linen_name_at_time}</div>
+                  <div className={cn("text-[11px] tabular-nums", ok ? "text-emerald-500" : "text-red-500")}>
+                    {total}/{l.qty_sent}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {(["ok", "short", "damaged", "lost"] as const).map((k) => (
+                    <div key={k}>
+                      <label className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</label>
+                      <input type="number" inputMode="numeric" min={0} value={d[k]}
+                        onChange={(e) => setCell(l.id, k, Number(e.target.value))}
+                        className="w-full bg-input/60 border border-border rounded-md px-2 py-1 text-sm mt-0.5" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Reason for correction</label>
+          <input value={reason} onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Miscounted at pickup — recount by supervisor"
+            className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1" />
+        </div>
+        <button onClick={() => save.mutate()} disabled={save.isPending}
+          className="w-full py-3 rounded-md bg-gold text-charcoal font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+          {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          <Save className="h-4 w-4" /> Save Corrections
+        </button>
+      </div>
     </div>
   );
 }
