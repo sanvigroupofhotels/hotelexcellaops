@@ -44,16 +44,24 @@ const ROLE_ORDER: Record<string, number> = {
 
 export function useHkWorkingAs() {
   const { id: myId, name: myName } = useCurrentStaff();
+  const { role: myRole } = useUserRole();
   const [selectedId, setSelectedIdState] = useState<string | null>(null);
 
-  // Candidates: current user + all housekeeping/fo_staff role users.
+  // Role-based visibility (UAT sprint):
+  //   - admin/owner: fo_staff + housekeeping (not other admins/owners)
+  //   - fo_staff:    fo_staff + housekeeping (no admin/owner)
+  //   - housekeeping: only housekeeping
+  const roleFilter: string[] = myRole === "housekeeping"
+    ? ["housekeeping"]
+    : ["housekeeping", "fo_staff"];
+
   const { data: candidates = [] } = useQuery<WorkingAsUser[]>({
-    queryKey: ["hk-working-as-candidates", myId],
+    queryKey: ["hk-working-as-candidates", myId, myRole],
     queryFn: async () => {
       const { data: roleRows } = await supabase
         .from("user_roles" as any)
         .select("user_id, role")
-        .in("role", ["housekeeping", "fo_staff"]);
+        .in("role", roleFilter);
       const bestRole = new Map<string, number>();
       for (const r of ((roleRows ?? []) as any[])) {
         const rank = ROLE_ORDER[r.role] ?? 99;
