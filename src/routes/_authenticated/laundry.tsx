@@ -707,7 +707,7 @@ function ReturnScreen({ batch, lines, me, onClose, onDone }: {
         batch_id: batch.id,
         return_remarks: remarks || null,
         performer: me,
-        returnPhotoFile: photoFile,
+        returnPhotoFiles: photoFiles,
         lines: lines.map((l) => {
           const d = draft[l.id] ?? { ok: l.qty_sent, short: 0, damaged: 0, lost: 0 };
           return {
