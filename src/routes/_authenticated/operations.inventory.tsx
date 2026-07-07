@@ -569,6 +569,20 @@ function MovementDialog({ item, kind, vendors, onClose }: {
 
 /* ------------------------------------------------------------ primitives */
 
+function PhotoThumbButton({ srcLocal, srcRemote }: { srcLocal: string | null; srcRemote: string | null }) {
+  const [open, setOpen] = useState(false);
+  const url = srcLocal ?? srcRemote;
+  return (
+    <>
+      <button type="button" onClick={() => url && setOpen(true)} disabled={!url}
+        className="h-16 w-16 rounded-md bg-muted/40 border border-border overflow-hidden flex items-center justify-center shrink-0 disabled:cursor-default">
+        {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : <Camera className="h-5 w-5 text-muted-foreground" />}
+      </button>
+      {open && url && <ImageLightbox urls={[url]} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
 function DialogShell({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6">
