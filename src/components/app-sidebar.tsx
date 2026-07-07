@@ -257,27 +257,11 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         );
       })}
-      {/* Housekeeping — accessible from sidebar for admin/owner/fo_staff too. */}
-      {(() => {
-        const active = pathname === "/housekeeping" || pathname.startsWith("/housekeeping/");
-        return (
-          <Link
-            to="/housekeeping"
-            onClick={onNavigate}
-            className={cn(
-              "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-200",
-              active ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60",
-            )}
-          >
-            {active && (
-              <motion.div layoutId="sidebar-active" className="absolute inset-0 rounded-md bg-gold-soft border border-gold/30"
-                transition={{ type: "spring", stiffness: 380, damping: 30 }} />
-            )}
-            <ListChecks className={cn("relative h-4 w-4 shrink-0", active && "text-gold")} />
-            <span className="relative flex-1">Housekeeping</span>
-          </Link>
-        );
-      })()}
+      {/* Housekeeping group — Today's Tasks + Linen Types + Issue Types */}
+      <ExpandableGroup
+        label="Housekeeping" icon={ListChecks} prefix="/housekeeping"
+        children={housekeepingChildren} onNavigate={onNavigate} pathname={pathname}
+      />
       {/* Laundry — sits next to Housekeeping in the sidebar. */}
       {(() => {
         const active = pathname === "/laundry" || pathname.startsWith("/laundry/");
@@ -299,9 +283,11 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         );
       })()}
+      {/* Inventory (promoted from Operations menu). Charge Catalog moved to
+          Master Data → Finance; Linen / HK Issues moved into Housekeeping. */}
       <ExpandableGroup
-        label="Operations" icon={Boxes} prefix="/operations"
-        children={operationsChildren} onNavigate={onNavigate} pathname={pathname}
+        label="Inventory" icon={Boxes} prefix="/operations"
+        children={inventoryChildren} onNavigate={onNavigate} pathname={pathname}
       />
       <ExpandableGroup
         label="Reporting" icon={FileBarChart} prefix="/reporting"
