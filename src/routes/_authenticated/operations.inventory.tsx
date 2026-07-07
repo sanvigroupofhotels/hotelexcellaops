@@ -372,15 +372,10 @@ function ItemDialog({ item, onClose, onStockIn, onStockOut }: {
       <div className="grid gap-3">
         <Field label="Photo">
           <div className="flex items-center gap-3">
-            <div className="h-16 w-16 rounded-md bg-muted/40 border border-border overflow-hidden flex items-center justify-center shrink-0">
-              {photoFile ? (
-                <img src={URL.createObjectURL(photoFile)} alt="" className="h-full w-full object-cover" />
-              ) : photoUrl ? (
-                <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <Camera className="h-5 w-5 text-muted-foreground" />
-              )}
-            </div>
+            <PhotoThumbButton
+              srcLocal={photoFile ? URL.createObjectURL(photoFile) : null}
+              srcRemote={photoUrl ?? null}
+            />
             <label className="inline-flex items-center gap-1.5 border border-border rounded-md px-3 py-2 text-xs cursor-pointer hover:bg-muted/40">
               <Camera className="h-3.5 w-3.5" /> {item?.photo_path || photoFile ? "Change" : "Upload"}
               <input type="file" accept="image/*" className="hidden"
