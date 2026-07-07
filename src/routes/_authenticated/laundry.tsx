@@ -328,7 +328,7 @@ function PickupScreen({ businessDate, onClose, me }: {
         pickup_remarks: remarks || null,
         lines,
         performer: me,
-        slipPhotoFile: photoFile,
+        slipPhotoFiles: photoFiles,
       });
     },
     onSuccess: (b) => {
