@@ -235,10 +235,20 @@ function ItemThumb({ path }: { path: string | null }) {
   const { data: url } = useQuery({
     queryKey: ["inv-photo", path], queryFn: () => signedPhotoUrl(path), enabled: !!path, staleTime: 4 * 60_000,
   });
+  const [open, setOpen] = useState(false);
   return (
-    <div className="h-12 w-12 rounded-md bg-muted/40 border border-border overflow-hidden shrink-0 flex items-center justify-center">
-      {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : <Package className="h-5 w-5 text-muted-foreground" />}
-    </div>
+    <>
+      <button
+        type="button"
+        onClick={(e) => { if (url) { e.stopPropagation(); setOpen(true); } }}
+        disabled={!url}
+        className="h-12 w-12 rounded-md bg-muted/40 border border-border overflow-hidden shrink-0 flex items-center justify-center disabled:cursor-default"
+        aria-label={url ? "View photo" : "No photo"}
+      >
+        {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : <Package className="h-5 w-5 text-muted-foreground" />}
+      </button>
+      {open && url && <ImageLightbox urls={[url]} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 
