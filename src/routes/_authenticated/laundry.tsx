@@ -673,7 +673,7 @@ function ReturnScreen({ batch, lines, me, onClose, onDone }: {
   });
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [remarks, setRemarks] = useState("");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
 
   const totals = useMemo(() => {
     let sent = 0, ok = 0, short = 0, dmg = 0, lost = 0;
