@@ -2068,9 +2068,11 @@ export type Database = {
           created_at: string
           id: string
           invoice_id: string | null
+          pickup_photo_paths: string[]
           pickup_remarks: string | null
           pickup_slip_photo_path: string | null
           return_photo_path: string | null
+          return_photo_paths: string[]
           return_remarks: string | null
           returned_at: string | null
           returned_by_name: string | null
@@ -2094,9 +2096,11 @@ export type Database = {
           created_at?: string
           id?: string
           invoice_id?: string | null
+          pickup_photo_paths?: string[]
           pickup_remarks?: string | null
           pickup_slip_photo_path?: string | null
           return_photo_path?: string | null
+          return_photo_paths?: string[]
           return_remarks?: string | null
           returned_at?: string | null
           returned_by_name?: string | null
@@ -2120,9 +2124,11 @@ export type Database = {
           created_at?: string
           id?: string
           invoice_id?: string | null
+          pickup_photo_paths?: string[]
           pickup_remarks?: string | null
           pickup_slip_photo_path?: string | null
           return_photo_path?: string | null
+          return_photo_paths?: string[]
           return_remarks?: string | null
           returned_at?: string | null
           returned_by_name?: string | null
@@ -3899,9 +3905,11 @@ export type Database = {
           created_at: string
           id: string
           invoice_id: string | null
+          pickup_photo_paths: string[]
           pickup_remarks: string | null
           pickup_slip_photo_path: string | null
           return_photo_path: string | null
+          return_photo_paths: string[]
           return_remarks: string | null
           returned_at: string | null
           returned_by_name: string | null
@@ -3944,9 +3952,11 @@ export type Database = {
           created_at: string
           id: string
           invoice_id: string | null
+          pickup_photo_paths: string[]
           pickup_remarks: string | null
           pickup_slip_photo_path: string | null
           return_photo_path: string | null
+          return_photo_paths: string[]
           return_remarks: string | null
           returned_at: string | null
           returned_by_name: string | null
