@@ -248,7 +248,9 @@ export interface ConfirmReturnInput {
   }>;
   return_remarks?: string | null;
   performer: { id: string; name: string };
+  /** Deprecated single-file entrypoint. Prefer `returnPhotoFiles`. */
   returnPhotoFile?: File | null;
+  returnPhotoFiles?: File[];
 }
 
 /**
@@ -257,14 +259,18 @@ export interface ConfirmReturnInput {
  * The RPC validates per-line sums, updates batch lines, reconciles queue
  * rows (OK → returned, Short → re-queued for rollover, Damaged/Lost →
  * written_off), flips the batch to `returned`, and writes the activity log
- * — all inside a single transaction. The return photo is uploaded first;
- * a failed upload is non-fatal.
+ * — all inside a single transaction. Return photos are uploaded first;
+ * failed uploads are non-fatal. The RPC receives the first path in the
+ * legacy single-path field; the full array is UPDATE'd right after.
  */
 export async function confirmReturn(input: ConfirmReturnInput): Promise<LaundryBatchRow> {
-  let returnPhotoPath: string | null = null;
-  if (input.returnPhotoFile) {
+  const files = (input.returnPhotoFiles && input.returnPhotoFiles.length > 0)
+    ? input.returnPhotoFiles
+    : (input.returnPhotoFile ? [input.returnPhotoFile] : []);
+  const uploaded: string[] = [];
+  for (const f of files) {
     try {
-      returnPhotoPath = await uploadLaundryPhoto(input.batch_id, "return", input.returnPhotoFile);
+      uploaded.push(await uploadLaundryPhoto(input.batch_id, "return", f));
     } catch (e) {
       console.error("Return photo upload failed", e);
     }
@@ -273,7 +279,7 @@ export async function confirmReturn(input: ConfirmReturnInput): Promise<LaundryB
   const { data, error } = await supabase.rpc("confirm_laundry_return" as any, {
     p_batch_id: input.batch_id,
     p_return_remarks: input.return_remarks ?? null,
-    p_return_photo_path: returnPhotoPath,
+    p_return_photo_path: uploaded[0] ?? null,
     p_performer_id: input.performer.id,
     p_performer_name: input.performer.name,
     p_lines: input.lines.map((l) => ({
@@ -288,7 +294,101 @@ export async function confirmReturn(input: ConfirmReturnInput): Promise<LaundryB
     })),
   });
   if (error) throw error;
-  return data as unknown as LaundryBatchRow;
+  const batch = data as unknown as LaundryBatchRow;
+  if (uploaded.length > 0) {
+    await supabase.from("laundry_batches" as any)
+      .update({ return_photo_paths: uploaded })
+      .eq("id", batch.id);
+    batch.return_photo_paths = uploaded;
+  }
+  return batch;
+}
+
+/* ─────────────────────  Admin edit of a returned batch  ──────────────── */
+
+export interface EditReturnedLineInput {
+  line_id: string;
+  qty_returned_ok: number;
+  qty_short: number;
+  qty_damaged: number;
+  qty_lost: number;
+}
+
+/**
+ * Admin/Owner correction of a *returned* batch's per-linen tallies. This
+ * only fixes the counting record on `laundry_batch_lines`; the queue-flip
+ * side effects from the original `confirm_laundry_return` are NOT re-run.
+ * Rationale: counts on returned batches are usually off by 1–2 pieces from
+ * miscounts at pickup — re-running the queue reconciliation would double-
+ * write. If an entire batch was mis-recorded, the correct workflow is to
+ * void and recreate the batch.
+ *
+ * The correction is logged verbosely in `activity_log` for audit trail.
+ */
+export async function editReturnedBatchLines(
+  batchId: string,
+  edits: EditReturnedLineInput[],
+  performer: { id: string; name: string },
+  reason?: string | null,
+): Promise<void> {
+  const { data: batch, error: bErr } = await supabase
+    .from("laundry_batches" as any).select("*").eq("id", batchId).single();
+  if (bErr) throw bErr;
+  const b = batch as unknown as LaundryBatchRow;
+  if (b.state !== "returned") throw new Error("Only returned batches can be corrected");
+
+  const { data: existingLines, error: lErr } = await supabase
+    .from("laundry_batch_lines" as any).select("*").eq("batch_id", batchId);
+  if (lErr) throw lErr;
+  const byId = new Map<string, LaundryBatchLineRow>();
+  for (const l of ((existingLines ?? []) as any[]) as LaundryBatchLineRow[]) byId.set(l.id, l);
+
+  const changes: string[] = [];
+  for (const e of edits) {
+    const cur = byId.get(e.line_id);
+    if (!cur) continue;
+    const total = e.qty_returned_ok + e.qty_short + e.qty_damaged + e.qty_lost;
+    if (total !== cur.qty_sent) {
+      throw new Error(`${cur.linen_name_at_time}: OK+Short+Dmg+Lost (${total}) must equal Sent (${cur.qty_sent})`);
+    }
+    if (
+      e.qty_returned_ok !== cur.qty_returned_ok
+      || e.qty_short !== cur.qty_short
+      || e.qty_damaged !== cur.qty_damaged
+      || e.qty_lost !== cur.qty_lost
+    ) {
+      const { error: uErr } = await supabase
+        .from("laundry_batch_lines" as any)
+        .update({
+          qty_returned_ok: e.qty_returned_ok,
+          qty_short: e.qty_short,
+          qty_damaged: e.qty_damaged,
+          qty_lost: e.qty_lost,
+        })
+        .eq("id", e.line_id);
+      if (uErr) throw uErr;
+      changes.push(
+        `${cur.linen_name_at_time}: OK ${cur.qty_returned_ok}→${e.qty_returned_ok}, `
+        + `Short ${cur.qty_short}→${e.qty_short}, `
+        + `Dmg ${cur.qty_damaged}→${e.qty_damaged}, `
+        + `Lost ${cur.qty_lost}→${e.qty_lost}`,
+      );
+    }
+  }
+
+  if (changes.length === 0) return;
+
+  void logActivity({
+    page: "laundry",
+    action: "laundry_batch_return_corrected",
+    entity_type: "laundry_batch",
+    entity_id: batchId,
+    entity_reference: b.batch_number,
+    summary: `Corrected return counts on batch ${b.batch_number}${reason ? ` — ${reason}` : ""}`,
+    correlation_id: b.correlation_id,
+    source: "manual",
+    metadata: { changes, corrected_by: performer.name, reason: reason ?? null } as any,
+  });
 }
 
 export async function listBatches(opts?: {
