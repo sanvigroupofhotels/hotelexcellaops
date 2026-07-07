@@ -273,12 +273,14 @@ function PickupScreen({ businessDate, onClose, me }: {
   const [vendorId, setVendorId] = useState<string>("");
   const [slipNumber, setSlipNumber] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [sent, setSent] = useState<Record<string, number>>({});
 
-  // Default vendor to the first laundry vendor once list arrives.
+  // Default vendor: prefer "WeWash Laundry" (per operational spec), else first laundry vendor.
   useEffect(() => {
-    if (!vendorId && laundryVendors.length > 0) setVendorId(laundryVendors[0].id);
+    if (vendorId || laundryVendors.length === 0) return;
+    const weWash = (laundryVendors as VendorRow[]).find((v) => /we\s*wash/i.test(v.name));
+    setVendorId((weWash ?? laundryVendors[0]).id);
   }, [vendorId, laundryVendors]);
 
   // Initialize sent quantities = HEOS queue count when preview arrives.
