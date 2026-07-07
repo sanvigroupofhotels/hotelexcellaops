@@ -811,19 +811,11 @@ function ReturnScreen({ batch, lines, me, onClose, onDone }: {
         )}
 
         <div className="luxe-card rounded-lg p-3 space-y-3">
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-              <Camera className="h-3 w-3" /> Return Photo <span className="text-muted-foreground/60">(optional)</span>
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
-              className="w-full text-xs mt-1"
-            />
-            {photoFile && <div className="text-[10px] text-emerald-500 mt-1">Ready: {photoFile.name}</div>}
-          </div>
+          <PhotoPicker
+            label="Return Photos (optional)"
+            files={photoFiles}
+            onFilesChange={setPhotoFiles}
+          />
           <div>
             <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Return Remarks</label>
             <textarea
