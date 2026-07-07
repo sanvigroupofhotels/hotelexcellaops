@@ -12,15 +12,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, Truck, ClipboardList, Camera, AlertTriangle, ChevronRight, XCircle, Image as ImageIcon } from "lucide-react";
+import { Loader2, ArrowLeft, Truck, ClipboardList, AlertTriangle, ChevronRight, XCircle, Pencil, Save } from "lucide-react";
 import { toast } from "sonner";
 import { getBusinessDate } from "@/lib/night-audit-api";
 import { listVendors, type VendorRow } from "@/lib/vendors-api";
 import {
   previewPickup, createBatch, listBatches, cancelBatch, getBatch, confirmReturn, signedLaundryPhotoUrl,
+  editReturnedBatchLines,
   type LaundryBatchRow, type LaundryBatchLineRow, type PickupPreviewRow,
 } from "@/lib/laundry-batches-api";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
+import { useUserRole } from "@/hooks/use-role";
+import { PhotoPicker } from "@/components/photo-picker";
+import { ImageLightbox } from "@/components/image-lightbox";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/laundry")({
