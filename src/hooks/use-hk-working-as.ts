@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
+import { useUserRole } from "@/hooks/use-role";
 
 export interface WorkingAsUser {
   id: string;
@@ -32,12 +33,13 @@ function displayNameFor(r: CandidateRow): string {
     || "user";
 }
 
-// Role priority for the picker order (housekeeping first, then FO staff).
-// Legacy `reception` / `staff` values are no longer in use as of the
-// 2026-07-05 role cleanup and are omitted from the query filter.
+// Role priority for the picker order. Admin/owner surface last since they
+// are rarely the actual worker.
 const ROLE_ORDER: Record<string, number> = {
   housekeeping: 1,
   fo_staff: 2,
+  admin: 3,
+  owner: 3,
 };
 
 export function useHkWorkingAs() {
