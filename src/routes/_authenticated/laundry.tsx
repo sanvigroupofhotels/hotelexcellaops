@@ -952,19 +952,99 @@ function ReturnScreen({ batch, lines, me, onClose, onDone }: {
   );
 }
 
-function PhotoTile({ label, url }: { label: string; url: string | null }) {
+/* ─────────────────────────  Edit Return (admin/owner)  ──────────────── */
+
+function EditReturnScreen({ batch, lines, me, onClose, onDone }: {
+  batch: LaundryBatchRow;
+  lines: LaundryBatchLineRow[];
+  me: { id: string; name: string };
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, { ok: number; short: number; damaged: number; lost: number }>>(() => {
+    const d: Record<string, { ok: number; short: number; damaged: number; lost: number }> = {};
+    for (const l of lines) d[l.id] = { ok: l.qty_returned_ok, short: l.qty_short, damaged: l.qty_damaged, lost: l.qty_lost };
+    return d;
+  });
+  const [reason, setReason] = useState("");
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!me.id) throw new Error("Not signed in");
+      await editReturnedBatchLines(
+        batch.id,
+        lines.map((l) => ({
+          line_id: l.id,
+          qty_returned_ok: Math.max(0, Math.floor(draft[l.id]?.ok ?? 0)),
+          qty_short: Math.max(0, Math.floor(draft[l.id]?.short ?? 0)),
+          qty_damaged: Math.max(0, Math.floor(draft[l.id]?.damaged ?? 0)),
+          qty_lost: Math.max(0, Math.floor(draft[l.id]?.lost ?? 0)),
+        })),
+        me,
+        reason || null,
+      );
+    },
+    onSuccess: () => { toast.success("Return counts corrected"); onDone(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const setCell = (id: string, k: "ok" | "short" | "damaged" | "lost", v: number) =>
+    setDraft((d) => ({ ...d, [id]: { ...d[id], [k]: Math.max(0, Math.floor(v || 0)) } }));
+
   return (
-    <div className="luxe-card rounded-lg overflow-hidden aspect-square flex items-center justify-center bg-muted/20">
-      {url ? (
-        <a href={url} target="_blank" rel="noreferrer" className="w-full h-full">
-          <img src={url} alt={label} className="w-full h-full object-cover" />
-        </a>
-      ) : (
-        <div className="flex flex-col items-center text-muted-foreground text-[10px] uppercase tracking-wider">
-          <ImageIcon className="h-6 w-6 mb-1 opacity-60" />
-          {label}
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border">
+        <div className="px-4 py-3 max-w-3xl mx-auto flex items-center gap-3">
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Correct Return</div>
+            <div className="font-display text-base leading-tight truncate">{batch.batch_number}</div>
+          </div>
         </div>
-      )}
+      </div>
+      <div className="px-4 py-6 max-w-3xl mx-auto space-y-4">
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-500">
+          Corrections only fix the counting record. OK + Short + Dmg + Lost must equal Sent per linen. The change is logged in Activity Log.
+        </div>
+        <div className="space-y-2">
+          {lines.map((l) => {
+            const d = draft[l.id];
+            const total = d.ok + d.short + d.damaged + d.lost;
+            const ok = total === l.qty_sent;
+            return (
+              <div key={l.id} className="luxe-card rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="font-medium text-sm">{l.linen_name_at_time}</div>
+                  <div className={cn("text-[11px] tabular-nums", ok ? "text-emerald-500" : "text-red-500")}>
+                    {total}/{l.qty_sent}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {(["ok", "short", "damaged", "lost"] as const).map((k) => (
+                    <div key={k}>
+                      <label className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</label>
+                      <input type="number" inputMode="numeric" min={0} value={d[k]}
+                        onChange={(e) => setCell(l.id, k, Number(e.target.value))}
+                        className="w-full bg-input/60 border border-border rounded-md px-2 py-1 text-sm mt-0.5" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Reason for correction</label>
+          <input value={reason} onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Miscounted at pickup — recount by supervisor"
+            className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1" />
+        </div>
+        <button onClick={() => save.mutate()} disabled={save.isPending}
+          className="w-full py-3 rounded-md bg-gold text-charcoal font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+          {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          <Save className="h-4 w-4" /> Save Corrections
+        </button>
+      </div>
     </div>
   );
 }
