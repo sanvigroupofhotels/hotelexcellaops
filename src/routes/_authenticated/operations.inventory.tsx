@@ -18,6 +18,7 @@ import {
 import {
   listMovements, stockIn, stockOut, recordBulkMovement, formatReason, type InventoryMovementRow,
 } from "@/lib/inventory-movements";
+import { ImageLightbox } from "@/components/image-lightbox";
 
 export const Route = createFileRoute("/_authenticated/operations/inventory")({ component: InventoryPage });
 
