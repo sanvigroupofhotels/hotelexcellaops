@@ -130,7 +130,9 @@ export interface CreateBatchInput {
     qty_sent: number;
   }>;
   performer: { id: string; name: string };
+  /** Deprecated single-file entrypoint. Prefer `slipPhotoFiles`. */
   slipPhotoFile?: File | null;
+  slipPhotoFiles?: File[];
 }
 
 /**
@@ -139,7 +141,9 @@ export interface CreateBatchInput {
  * The RPC performs all row inserts, queue flips, and activity_log writes
  * inside a single database transaction — if any step fails, the whole
  * operation rolls back. Photos are uploaded to storage *before* the RPC
- * call under a staged path; a failed upload is non-fatal.
+ * call under a staged path; a failed upload is non-fatal. Multiple photos
+ * are supported — the RPC receives the first as the legacy single-path
+ * field, and we UPDATE the array column with the full set right after.
  */
 export async function createBatch(input: CreateBatchInput): Promise<LaundryBatchRow> {
   if (!input.vendor_id) throw new Error("Vendor is required");
@@ -148,12 +152,15 @@ export async function createBatch(input: CreateBatchInput): Promise<LaundryBatch
   );
   if (activeLines.length === 0) throw new Error("Nothing to send — the queue is empty");
 
-  // Upload photo first under a staged UUID (RPC just stores the path).
-  let photoPath: string | null = null;
-  if (input.slipPhotoFile) {
+  const files = (input.slipPhotoFiles && input.slipPhotoFiles.length > 0)
+    ? input.slipPhotoFiles
+    : (input.slipPhotoFile ? [input.slipPhotoFile] : []);
+
+  const stagedId = crypto.randomUUID();
+  const uploaded: string[] = [];
+  for (const f of files) {
     try {
-      const stagedId = crypto.randomUUID();
-      photoPath = await uploadLaundryPhoto(stagedId, "pickup", input.slipPhotoFile);
+      uploaded.push(await uploadLaundryPhoto(stagedId, "pickup", f));
     } catch (e) {
       console.error("Pickup slip photo upload failed", e);
     }
@@ -165,7 +172,7 @@ export async function createBatch(input: CreateBatchInput): Promise<LaundryBatch
     p_business_date: input.business_date,
     p_vendor_slip_number: input.vendor_slip_number ?? null,
     p_pickup_remarks: input.pickup_remarks ?? null,
-    p_pickup_slip_photo_path: photoPath,
+    p_pickup_slip_photo_path: uploaded[0] ?? null,
     p_performer_id: input.performer.id,
     p_performer_name: input.performer.name,
     p_lines: activeLines.map((l) => ({
@@ -176,7 +183,14 @@ export async function createBatch(input: CreateBatchInput): Promise<LaundryBatch
     })),
   });
   if (error) throw error;
-  return data as unknown as LaundryBatchRow;
+  const batch = data as unknown as LaundryBatchRow;
+  if (uploaded.length > 0) {
+    await supabase.from("laundry_batches" as any)
+      .update({ pickup_photo_paths: uploaded })
+      .eq("id", batch.id);
+    batch.pickup_photo_paths = uploaded;
+  }
+  return batch;
 }
 
 /** Cancel a batch that hasn't been returned yet — reverts queue rows to `queued`. */
