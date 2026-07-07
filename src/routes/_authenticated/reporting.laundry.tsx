@@ -148,11 +148,6 @@ function LaundryReportingPage() {
 }
 
 // (Developer footer text removed for production per UAT sprint.)
-function _unused() { return null;
-      </div>
-    </>
-  );
-}
 
 function KpiCard({ label, value, icon: Icon, tone = "gold" }: { label: string; value: number | string; icon: any; tone?: "gold" | "success" | "warning" | "muted" | "destructive" }) {
   const toneClass =
