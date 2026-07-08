@@ -161,6 +161,7 @@ export async function ensureContinueServiceTask(input: {
       business_date: input.business_date,
       type: "continue_service",
       state: "open",
+      origin: "auto_night_audit",
     } as any)
     .select()
     .single();
