@@ -8,11 +8,12 @@ import { ReportDateRangePicker } from "@/components/report-date-range-picker";
 import {
   fetchLaundryBatchesInRange, fetchLaundryQueueBefore, fetchInHouseReturnedInRange,
   computeLaundryDailySummary, computeLaundryVendorSummary, sumPreviousMissing,
+  computeLaundryBatchDetails,
 } from "@/lib/reporting/laundry-reporting";
 import { formatDuration, type DateRange } from "@/lib/reporting/date-range";
 import { toLocalYMD } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
-import { Loader2, Download, Shirt, PackageCheck, Home, AlertTriangle, Truck, ShieldAlert, XCircle, Boxes } from "lucide-react";
+import { Loader2, Download, Shirt, PackageCheck, Home, AlertTriangle, Truck, ShieldAlert, XCircle, Boxes, FileText, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/reporting/laundry")({
