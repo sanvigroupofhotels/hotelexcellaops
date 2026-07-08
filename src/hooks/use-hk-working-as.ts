@@ -63,13 +63,14 @@ export function useHkWorkingAs() {
   const { data: candidates = [] } = useQuery<WorkingAsUser[]>({
     queryKey: ["hk-working-as-candidates", myId, myRole],
     queryFn: async () => {
+      const rolePriority = rolePriorityFor(myRole);
       const { data: roleRows } = await supabase
         .from("user_roles" as any)
         .select("user_id, role")
         .in("role", roleFilter);
       const bestRole = new Map<string, number>();
       for (const r of ((roleRows ?? []) as any[])) {
-        const rank = ROLE_ORDER[r.role] ?? 99;
+        const rank = rolePriority[r.role] ?? 99;
         const prev = bestRole.get(r.user_id);
         if (prev === undefined || rank < prev) bestRole.set(r.user_id, rank);
       }
