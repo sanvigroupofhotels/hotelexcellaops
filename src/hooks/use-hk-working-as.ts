@@ -47,12 +47,13 @@ export function useHkWorkingAs() {
   const { role: myRole } = useUserRole();
   const [selectedId, setSelectedIdState] = useState<string | null>(null);
 
-  // Role-based visibility (UAT sprint):
-  //   - admin/owner: fo_staff + housekeeping (not other admins/owners)
-  //   - fo_staff:    fo_staff + housekeeping (no admin/owner)
-  //   - housekeeping: only housekeeping
-  const roleFilter: string[] = myRole === "housekeeping"
-    ? ["housekeeping"]
+  // Role-based visibility (UAT Sprint 2):
+  //   - owner/admin : owner/admin (logged-in first) + fo_staff + housekeeping
+  //   - fo_staff    : fo_staff (logged-in first) + housekeeping — NO owner/admin
+  //   - housekeeping: only housekeeping (logged-in first)
+  const roleFilter: string[] =
+    myRole === "housekeeping" ? ["housekeeping"]
+    : (myRole === "admin" || myRole === "owner") ? ["housekeeping", "fo_staff", "admin", "owner"]
     : ["housekeeping", "fo_staff"];
 
   const { data: candidates = [] } = useQuery<WorkingAsUser[]>({
