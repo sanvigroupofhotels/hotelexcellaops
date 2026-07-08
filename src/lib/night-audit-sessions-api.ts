@@ -11,8 +11,35 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
-import { getBusinessDate, setBusinessDate } from "@/lib/night-audit-api";
+import { getBusinessDate, setBusinessDate, getPendingForAudit } from "@/lib/night-audit-api";
 import { logActivity } from "@/lib/activity-log";
+
+/**
+ * Thrown by closeSession() when pending operational work would be silently
+ * carried over. Surfaces counts + booking summaries so the UI can deep-link
+ * the operator to the offending records instead of blaming a generic error.
+ */
+export class NightAuditPendingError extends Error {
+  readonly reason = "pending" as const;
+  readonly pendingCheckIns: Array<{ id: string; booking_reference: string; guest_name: string; check_in: string; room_number?: string | null }>;
+  readonly pendingCheckOuts: Array<{ id: string; booking_reference: string; guest_name: string; check_out: string; room_number?: string | null }>;
+  readonly businessDate: string;
+  constructor(input: {
+    businessDate: string;
+    pendingCheckIns: NightAuditPendingError["pendingCheckIns"];
+    pendingCheckOuts: NightAuditPendingError["pendingCheckOuts"];
+  }) {
+    const ci = input.pendingCheckIns.length;
+    const co = input.pendingCheckOuts.length;
+    super(
+      `Business Date cannot advance yet — ${ci} pending check-in${ci === 1 ? "" : "s"} and ${co} pending check-out${co === 1 ? "" : "s"} must be resolved first.`,
+    );
+    this.name = "NightAuditPendingError";
+    this.pendingCheckIns = input.pendingCheckIns;
+    this.pendingCheckOuts = input.pendingCheckOuts;
+    this.businessDate = input.businessDate;
+  }
+}
 
 export type NightAuditSessionStatus = "open" | "closed" | "reopened";
 
