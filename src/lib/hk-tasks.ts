@@ -119,6 +119,7 @@ export async function ensureCheckoutTask(input: {
       business_date: input.business_date,
       type: "checkout_clean",
       state: "open",
+      origin: "auto_checkout",
       correlation_id: input.correlation_id ?? null,
     } as any)
     .select()
