@@ -26,6 +26,7 @@ import { createComplaint } from "@/lib/complaints-api";
 export type HkTaskType = "checkout_clean" | "continue_service";
 export type HkTaskState = "open" | "in_progress" | "done" | "skipped";
 export type HkSkipReason = "not_required" | "dnd" | "superseded_by_checkout";
+export type HkTaskOrigin = "auto_checkout" | "auto_night_audit" | "manual";
 
 export interface HkTaskRow {
   id: string;
@@ -34,6 +35,8 @@ export interface HkTaskRow {
   business_date: string;
   type: HkTaskType;
   state: HkTaskState;
+  origin: HkTaskOrigin;
+  manual_reason: string | null;
   started_at: string | null;
   finished_at: string | null;
   performed_by_user_id: string | null;
