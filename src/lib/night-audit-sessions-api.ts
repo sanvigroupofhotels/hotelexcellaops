@@ -177,6 +177,26 @@ export async function closeSession(opts: {
   }
 
 
+
+  // FINAL-STEP GATE: no matter which UI initiated the close (dashboard
+  // one-click, stepper Review, or public API), Business Date can only
+  // advance after every pending check-in / check-out is resolved. This is
+  // the authoritative enforcement — callers no longer need to pre-validate.
+  const pending = await getPendingForAudit(bd);
+  if (pending.pendingCheckIns.length > 0 || pending.pendingCheckOuts.length > 0) {
+    throw new NightAuditPendingError({
+      businessDate: bd,
+      pendingCheckIns: pending.pendingCheckIns.map((b) => ({
+        id: b.id, booking_reference: b.booking_reference, guest_name: b.guest_name,
+        check_in: b.check_in, room_number: b.room_number ?? null,
+      })),
+      pendingCheckOuts: pending.pendingCheckOuts.map((b) => ({
+        id: b.id, booking_reference: b.booking_reference, guest_name: b.guest_name,
+        check_out: b.check_out, room_number: b.room_number ?? null,
+      })),
+    });
+  }
+
   // Concurrency guard: filter on status='open' so only the writer that
   // actually flipped open→closed proceeds to advance the business date.
   // A simultaneous second close gets an empty rowset and errors out cleanly.
