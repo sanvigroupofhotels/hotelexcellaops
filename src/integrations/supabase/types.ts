@@ -1685,6 +1685,8 @@ export type Database = {
           id: string
           issues_snapshot: Json
           linen_snapshot: Json
+          manual_reason: string | null
+          origin: string
           performed_by_name: string | null
           performed_by_user_id: string | null
           recorded_by_name: string | null
@@ -1707,6 +1709,8 @@ export type Database = {
           id?: string
           issues_snapshot?: Json
           linen_snapshot?: Json
+          manual_reason?: string | null
+          origin?: string
           performed_by_name?: string | null
           performed_by_user_id?: string | null
           recorded_by_name?: string | null
@@ -1729,6 +1733,8 @@ export type Database = {
           id?: string
           issues_snapshot?: Json
           linen_snapshot?: Json
+          manual_reason?: string | null
+          origin?: string
           performed_by_name?: string | null
           performed_by_user_id?: string | null
           recorded_by_name?: string | null
