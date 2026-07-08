@@ -33,14 +33,18 @@ function displayNameFor(r: CandidateRow): string {
     || "user";
 }
 
-// Role priority for the picker order. Admin/owner surface last since they
-// are rarely the actual worker.
-const ROLE_ORDER: Record<string, number> = {
-  housekeeping: 1,
-  fo_staff: 2,
-  admin: 3,
-  owner: 3,
-};
+// Role priority for the picker order — resolved per viewer's role so the
+// most operationally relevant peers surface first for each audience.
+function rolePriorityFor(myRole: string | null | undefined): Record<string, number> {
+  if (myRole === "owner" || myRole === "admin") {
+    return { owner: 1, admin: 1, fo_staff: 2, housekeeping: 3 };
+  }
+  if (myRole === "fo_staff") {
+    return { fo_staff: 1, housekeeping: 2 };
+  }
+  // housekeeping / default
+  return { housekeeping: 1, fo_staff: 2, admin: 3, owner: 3 };
+}
 
 export function useHkWorkingAs() {
   const { id: myId, name: myName } = useCurrentStaff();
