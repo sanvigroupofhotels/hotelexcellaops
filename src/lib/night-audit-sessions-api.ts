@@ -11,8 +11,35 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
-import { getBusinessDate, setBusinessDate } from "@/lib/night-audit-api";
+import { getBusinessDate, setBusinessDate, getPendingForAudit } from "@/lib/night-audit-api";
 import { logActivity } from "@/lib/activity-log";
+
+/**
+ * Thrown by closeSession() when pending operational work would be silently
+ * carried over. Surfaces counts + booking summaries so the UI can deep-link
+ * the operator to the offending records instead of blaming a generic error.
+ */
+export class NightAuditPendingError extends Error {
+  readonly reason = "pending" as const;
+  readonly pendingCheckIns: Array<{ id: string; booking_reference: string; guest_name: string; check_in: string; room_number?: string | null }>;
+  readonly pendingCheckOuts: Array<{ id: string; booking_reference: string; guest_name: string; check_out: string; room_number?: string | null }>;
+  readonly businessDate: string;
+  constructor(input: {
+    businessDate: string;
+    pendingCheckIns: NightAuditPendingError["pendingCheckIns"];
+    pendingCheckOuts: NightAuditPendingError["pendingCheckOuts"];
+  }) {
+    const ci = input.pendingCheckIns.length;
+    const co = input.pendingCheckOuts.length;
+    super(
+      `Business Date cannot advance yet — ${ci} pending check-in${ci === 1 ? "" : "s"} and ${co} pending check-out${co === 1 ? "" : "s"} must be resolved first.`,
+    );
+    this.name = "NightAuditPendingError";
+    this.pendingCheckIns = input.pendingCheckIns;
+    this.pendingCheckOuts = input.pendingCheckOuts;
+    this.businessDate = input.businessDate;
+  }
+}
 
 export type NightAuditSessionStatus = "open" | "closed" | "reopened";
 
@@ -149,6 +176,26 @@ export async function closeSession(opts: {
     );
   }
 
+
+
+  // FINAL-STEP GATE: no matter which UI initiated the close (dashboard
+  // one-click, stepper Review, or public API), Business Date can only
+  // advance after every pending check-in / check-out is resolved. This is
+  // the authoritative enforcement — callers no longer need to pre-validate.
+  const pending = await getPendingForAudit(bd);
+  if (pending.pendingCheckIns.length > 0 || pending.pendingCheckOuts.length > 0) {
+    throw new NightAuditPendingError({
+      businessDate: bd,
+      pendingCheckIns: pending.pendingCheckIns.map((b) => ({
+        id: b.id, booking_reference: b.booking_reference, guest_name: b.guest_name,
+        check_in: b.check_in, room_number: b.room_number ?? null,
+      })),
+      pendingCheckOuts: pending.pendingCheckOuts.map((b) => ({
+        id: b.id, booking_reference: b.booking_reference, guest_name: b.guest_name,
+        check_out: b.check_out, room_number: b.room_number ?? null,
+      })),
+    });
+  }
 
   // Concurrency guard: filter on status='open' so only the writer that
   // actually flipped open→closed proceeds to advance the business date.

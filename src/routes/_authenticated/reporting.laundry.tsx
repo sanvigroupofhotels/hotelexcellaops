@@ -8,11 +8,12 @@ import { ReportDateRangePicker } from "@/components/report-date-range-picker";
 import {
   fetchLaundryBatchesInRange, fetchLaundryQueueBefore, fetchInHouseReturnedInRange,
   computeLaundryDailySummary, computeLaundryVendorSummary, sumPreviousMissing,
+  computeLaundryBatchDetails,
 } from "@/lib/reporting/laundry-reporting";
 import { formatDuration, type DateRange } from "@/lib/reporting/date-range";
 import { toLocalYMD } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
-import { Loader2, Download, Shirt, PackageCheck, Home, AlertTriangle, Truck, ShieldAlert, XCircle, Boxes } from "lucide-react";
+import { Loader2, Download, Shirt, PackageCheck, Home, AlertTriangle, Truck, ShieldAlert, XCircle, Boxes, FileText, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/reporting/laundry")({
@@ -49,6 +50,52 @@ function LaundryReportingPage() {
   }), [batches, prevMissingQueue, inHouseWashed, range]);
 
   const vendors = useMemo(() => computeLaundryVendorSummary(batches, range.from, range.to), [batches, range]);
+  const batchRows = useMemo(() => computeLaundryBatchDetails(batches.filter((b) => {
+    const inSent = b.sent_at && b.business_date >= range.from && b.business_date <= range.to;
+    const inReturn = b.returned_at && b.returned_at.slice(0, 10) >= range.from && b.returned_at.slice(0, 10) <= range.to;
+    // Include batches sent OR returned in range, plus still-outstanding sent batches
+    return inSent || inReturn || b.state === "sent";
+  })), [batches, range]);
+
+  const exportSummary = () => {
+    try {
+      const rows = [{
+        Range: `${range.from} to ${range.to}`,
+        "Total Batches": summary.totalBatches,
+        "Linen Sent": summary.linenSent,
+        "Returned OK": summary.linenReturned,
+        "In-house Washed": summary.inHouseWashed,
+        "Previous Missing": summary.previousMissing,
+        "Outstanding With Vendor": summary.outstandingWithVendor,
+        Damaged: summary.damaged,
+        Lost: summary.lost,
+      }];
+      downloadCSV(`laundry-summary-${range.from}_to_${range.to}.csv`, rows);
+      toast.success("Exported summary report");
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
+
+  const exportBatchDetails = () => {
+    try {
+      downloadCSV(`laundry-batch-details-${range.from}_to_${range.to}.csv`,
+        batchRows.map((b) => ({
+          "Batch Number": b.batch_number,
+          Vendor: b.vendor_name,
+          "Pickup Date": b.pickup_date ?? "",
+          "Return Date": b.return_date ?? "",
+          "Vendor Slip #": b.vendor_slip_number ?? "",
+          Sent: b.sent,
+          "Returned OK": b.returned_ok,
+          "In-house Washed": b.in_house_washed,
+          "Previous Missing": b.previous_missing,
+          Damaged: b.damaged,
+          Lost: b.lost,
+          Outstanding: b.outstanding,
+          Status: b.status,
+        })));
+      toast.success("Exported batch details");
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
 
   const exportVendors = () => {
     try {
@@ -67,6 +114,51 @@ function LaundryReportingPage() {
     } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
   };
 
+  /**
+   * Monthly Vendor Statement — foundation for the future Monthly Billing
+   * module. Groups completed (returned) batches per vendor with the
+   * shortage/damage/loss breakdown that a vendor invoice will reconcile
+   * against. Emitted as one row per (vendor × batch) so an accountant can
+   * total by vendor in Excel. When Monthly Billing lands, it can consume
+   * the same reducer and add pricing on top — no duplicate reporting logic.
+   */
+  const exportMonthlyVendorStatement = () => {
+    try {
+      const rows: Record<string, any>[] = [];
+      for (const v of vendors) {
+        const vBatches = batchRows.filter((b) => b.vendor_id === v.vendorId);
+        for (const b of vBatches) {
+          rows.push({
+            Vendor: v.vendorName,
+            "Batch Number": b.batch_number,
+            "Pickup Date": b.pickup_date ?? "",
+            "Return Date": b.return_date ?? "",
+            "Vendor Slip #": b.vendor_slip_number ?? "",
+            Status: b.status,
+            "Pieces Sent": b.sent,
+            "Pieces Returned OK": b.returned_ok,
+            Damaged: b.damaged,
+            Lost: b.lost,
+            Outstanding: b.outstanding,
+            "Billable Pieces (OK+Dmg)": b.returned_ok + b.damaged,
+          });
+        }
+        rows.push({
+          Vendor: v.vendorName,
+          "Batch Number": "— SUBTOTAL —",
+          "Pieces Sent": v.linenSent,
+          "Pieces Returned OK": v.linenReturned,
+          Damaged: v.damaged,
+          Lost: v.lost,
+          Outstanding: v.outstanding,
+          "Billable Pieces (OK+Dmg)": v.linenReturned + v.damaged,
+        });
+      }
+      downloadCSV(`laundry-vendor-statement-${range.from}_to_${range.to}.csv`, rows);
+      toast.success("Exported vendor statement");
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
+
   return (
     <>
       <Topbar title="Laundry Reporting" subtitle="Linen movement, vendor turnaround, and losses" />
@@ -75,9 +167,16 @@ function LaundryReportingPage() {
 
         {/* Daily Summary */}
         <section className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Daily Summary</h2>
-            <span className="text-[11px] text-muted-foreground">{summary.totalBatches} batch{summary.totalBatches === 1 ? "" : "es"} sent in range</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground">{summary.totalBatches} batch{summary.totalBatches === 1 ? "" : "es"} sent in range</span>
+              {canExport && (
+                <button onClick={exportSummary} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[11px] hover:bg-muted/40">
+                  <Download className="h-3 w-3" /> Summary
+                </button>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
             <KpiCard label="Linen Sent" value={summary.linenSent} icon={Shirt} tone="gold" />
@@ -89,6 +188,83 @@ function LaundryReportingPage() {
             <KpiCard label="Lost" value={summary.lost} icon={XCircle} tone={summary.lost > 0 ? "destructive" : "muted"} />
           </div>
         </section>
+
+        {/* Batch Details */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Batch Details</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground">{batchRows.length} batch{batchRows.length === 1 ? "" : "es"}</span>
+              {canExport && batchRows.length > 0 && (
+                <>
+                  <button onClick={exportBatchDetails} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[11px] hover:bg-muted/40">
+                    <Download className="h-3 w-3" /> Batch Details
+                  </button>
+                  <button onClick={exportMonthlyVendorStatement} className="inline-flex items-center gap-1.5 rounded-md gold-gradient px-2.5 py-1 text-[11px] font-medium text-charcoal">
+                    <FileText className="h-3 w-3" /> Vendor Statement
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="luxe-card rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary/30 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-3 py-2.5">Batch #</th>
+                    <th className="text-left px-3 py-2.5">Vendor</th>
+                    <th className="text-left px-3 py-2.5">Pickup</th>
+                    <th className="text-left px-3 py-2.5">Return</th>
+                    <th className="text-left px-3 py-2.5">Slip #</th>
+                    <th className="text-right px-3 py-2.5">Sent</th>
+                    <th className="text-right px-3 py-2.5">Returned</th>
+                    <th className="text-right px-3 py-2.5">Damaged</th>
+                    <th className="text-right px-3 py-2.5">Lost</th>
+                    <th className="text-right px-3 py-2.5">Outstanding</th>
+                    <th className="text-left px-3 py-2.5">Status</th>
+                    <th className="px-2 py-2.5"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lb && (
+                    <tr><td colSpan={12} className="p-12 text-center"><Loader2 className="h-5 w-5 animate-spin text-gold mx-auto" /></td></tr>
+                  )}
+                  {!lb && batchRows.length === 0 && (
+                    <tr><td colSpan={12} className="p-12 text-center text-muted-foreground">No batches in this range.</td></tr>
+                  )}
+                  {batchRows.map((b) => (
+                    <tr key={b.batch_id} className="border-t border-border/60 hover:bg-secondary/30">
+                      <td className="px-3 py-2 font-mono text-xs">{b.batch_number}</td>
+                      <td className="px-3 py-2">{b.vendor_name}</td>
+                      <td className="px-3 py-2 tabular-nums text-xs">{b.pickup_date ?? "—"}</td>
+                      <td className="px-3 py-2 tabular-nums text-xs">{b.return_date ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs">{b.vendor_slip_number ?? "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{b.sent}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{b.returned_ok}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{b.damaged > 0 ? <span className="text-warning">{b.damaged}</span> : 0}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{b.lost > 0 ? <span className="text-destructive">{b.lost}</span> : 0}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{b.outstanding > 0 ? <span className="text-warning">{b.outstanding}</span> : 0}</td>
+                      <td className="px-3 py-2">
+                        <span className={
+                          "inline-block px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider " +
+                          (b.status === "returned" ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400")
+                        }>{b.status}</span>
+                      </td>
+                      <td className="px-2 py-2">
+                        <Link
+                          to="/laundry"
+                          className="inline-flex items-center gap-1 text-gold text-xs hover:underline"
+                        >Open <ExternalLink className="h-3 w-3" /></Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
 
         {/* Vendor Summary */}
         <section className="space-y-2">

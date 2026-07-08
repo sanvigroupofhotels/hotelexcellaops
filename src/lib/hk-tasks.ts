@@ -26,6 +26,7 @@ import { createComplaint } from "@/lib/complaints-api";
 export type HkTaskType = "checkout_clean" | "continue_service";
 export type HkTaskState = "open" | "in_progress" | "done" | "skipped";
 export type HkSkipReason = "not_required" | "dnd" | "superseded_by_checkout";
+export type HkTaskOrigin = "auto_checkout" | "auto_night_audit" | "manual";
 
 export interface HkTaskRow {
   id: string;
@@ -34,6 +35,8 @@ export interface HkTaskRow {
   business_date: string;
   type: HkTaskType;
   state: HkTaskState;
+  origin: HkTaskOrigin;
+  manual_reason: string | null;
   started_at: string | null;
   finished_at: string | null;
   performed_by_user_id: string | null;
@@ -116,6 +119,7 @@ export async function ensureCheckoutTask(input: {
       business_date: input.business_date,
       type: "checkout_clean",
       state: "open",
+      origin: "auto_checkout",
       correlation_id: input.correlation_id ?? null,
     } as any)
     .select()
@@ -157,6 +161,7 @@ export async function ensureContinueServiceTask(input: {
       business_date: input.business_date,
       type: "continue_service",
       state: "open",
+      origin: "auto_night_audit",
     } as any)
     .select()
     .single();
@@ -166,6 +171,77 @@ export async function ensureContinueServiceTask(input: {
   }
   return data as unknown as HkTaskRow;
 }
+
+/**
+ * Manual task — created by Reception / Owner / Admin when the automatic
+ * engine missed an operational need (VIP re-clean, manager request,
+ * post-checkout correction, etc.). Reuses the same idempotency guard
+ * (partial unique index on room+day+type WHERE state IN open/in_progress)
+ * so we never surface two open tasks for the same room-day-type.
+ *
+ * The row is stamped with origin='manual' and a free-text reason so the
+ * Work History and Exception Audit surfaces can distinguish manual
+ * additions from generator output. No parallel engine is introduced —
+ * downstream start/complete/skip flows are identical.
+ */
+export async function createManualTask(input: {
+  room_id: string;
+  booking_id?: string | null;
+  business_date: string;
+  type: HkTaskType;
+  reason?: string | null;
+  actor: { id: string; name: string };
+}): Promise<HkTaskRow> {
+  // Reject if a live task already exists for this room/day/type — reuse it
+  // instead of creating a duplicate, matching the ensure* helpers.
+  const { data: existing } = await supabase
+    .from("housekeeping_tasks" as any)
+    .select("*")
+    .eq("room_id", input.room_id)
+    .eq("business_date", input.business_date)
+    .eq("type", input.type)
+    .in("state", ["open", "in_progress"])
+    .maybeSingle();
+  if (existing) {
+    throw new Error(
+      `Room already has an open ${input.type === "checkout_clean" ? "checkout" : "service"} task for today.`,
+    );
+  }
+
+  const correlation_id = newCorrelationId();
+  const { data, error } = await supabase
+    .from("housekeeping_tasks" as any)
+    .insert({
+      room_id: input.room_id,
+      booking_id: input.booking_id ?? null,
+      business_date: input.business_date,
+      type: input.type,
+      state: "open",
+      origin: "manual",
+      manual_reason: (input.reason ?? "").trim() || null,
+      recorded_by_user_id: input.actor.id,
+      recorded_by_name: input.actor.name,
+      correlation_id,
+    } as any)
+    .select()
+    .single();
+  if (error) throw error;
+
+  void logActivity({
+    page: "Housekeeping",
+    action: "hk_task_manual_created" as any,
+    entity_type: "hk_task",
+    entity_id: (data as any).id,
+    summary: `Manual ${input.type === "checkout_clean" ? "checkout" : "service"} task created`,
+    metadata: { room_id: input.room_id, type: input.type, reason: input.reason ?? null, actor: input.actor.name },
+    correlation_id,
+    source: "manual",
+  });
+
+  return data as unknown as HkTaskRow;
+}
+
+
 
 /* ------------------------------------------------------------ */
 /* Transitions                                                  */

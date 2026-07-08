@@ -33,38 +33,44 @@ function displayNameFor(r: CandidateRow): string {
     || "user";
 }
 
-// Role priority for the picker order. Admin/owner surface last since they
-// are rarely the actual worker.
-const ROLE_ORDER: Record<string, number> = {
-  housekeeping: 1,
-  fo_staff: 2,
-  admin: 3,
-  owner: 3,
-};
+// Role priority for the picker order — resolved per viewer's role so the
+// most operationally relevant peers surface first for each audience.
+function rolePriorityFor(myRole: string | null | undefined): Record<string, number> {
+  if (myRole === "owner" || myRole === "admin") {
+    return { owner: 1, admin: 1, fo_staff: 2, housekeeping: 3 };
+  }
+  if (myRole === "fo_staff") {
+    return { fo_staff: 1, housekeeping: 2 };
+  }
+  // housekeeping / default
+  return { housekeeping: 1, fo_staff: 2, admin: 3, owner: 3 };
+}
 
 export function useHkWorkingAs() {
   const { id: myId, name: myName } = useCurrentStaff();
   const { role: myRole } = useUserRole();
   const [selectedId, setSelectedIdState] = useState<string | null>(null);
 
-  // Role-based visibility (UAT sprint):
-  //   - admin/owner: fo_staff + housekeeping (not other admins/owners)
-  //   - fo_staff:    fo_staff + housekeeping (no admin/owner)
-  //   - housekeeping: only housekeeping
-  const roleFilter: string[] = myRole === "housekeeping"
-    ? ["housekeeping"]
+  // Role-based visibility (UAT Sprint 2):
+  //   - owner/admin : owner/admin (logged-in first) + fo_staff + housekeeping
+  //   - fo_staff    : fo_staff (logged-in first) + housekeeping — NO owner/admin
+  //   - housekeeping: only housekeeping (logged-in first)
+  const roleFilter: string[] =
+    myRole === "housekeeping" ? ["housekeeping"]
+    : (myRole === "admin" || myRole === "owner") ? ["housekeeping", "fo_staff", "admin", "owner"]
     : ["housekeeping", "fo_staff"];
 
   const { data: candidates = [] } = useQuery<WorkingAsUser[]>({
     queryKey: ["hk-working-as-candidates", myId, myRole],
     queryFn: async () => {
+      const rolePriority = rolePriorityFor(myRole);
       const { data: roleRows } = await supabase
         .from("user_roles" as any)
         .select("user_id, role")
         .in("role", roleFilter);
       const bestRole = new Map<string, number>();
       for (const r of ((roleRows ?? []) as any[])) {
-        const rank = ROLE_ORDER[r.role] ?? 99;
+        const rank = rolePriority[r.role] ?? 99;
         const prev = bestRole.get(r.user_id);
         if (prev === undefined || rank < prev) bestRole.set(r.user_id, rank);
       }
