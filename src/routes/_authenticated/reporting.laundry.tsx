@@ -50,6 +50,52 @@ function LaundryReportingPage() {
   }), [batches, prevMissingQueue, inHouseWashed, range]);
 
   const vendors = useMemo(() => computeLaundryVendorSummary(batches, range.from, range.to), [batches, range]);
+  const batchRows = useMemo(() => computeLaundryBatchDetails(batches.filter((b) => {
+    const inSent = b.sent_at && b.business_date >= range.from && b.business_date <= range.to;
+    const inReturn = b.returned_at && b.returned_at.slice(0, 10) >= range.from && b.returned_at.slice(0, 10) <= range.to;
+    // Include batches sent OR returned in range, plus still-outstanding sent batches
+    return inSent || inReturn || b.state === "sent";
+  })), [batches, range]);
+
+  const exportSummary = () => {
+    try {
+      const rows = [{
+        Range: `${range.from} to ${range.to}`,
+        "Total Batches": summary.totalBatches,
+        "Linen Sent": summary.linenSent,
+        "Returned OK": summary.linenReturned,
+        "In-house Washed": summary.inHouseWashed,
+        "Previous Missing": summary.previousMissing,
+        "Outstanding With Vendor": summary.outstandingWithVendor,
+        Damaged: summary.damaged,
+        Lost: summary.lost,
+      }];
+      downloadCSV(`laundry-summary-${range.from}_to_${range.to}.csv`, rows);
+      toast.success("Exported summary report");
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
+
+  const exportBatchDetails = () => {
+    try {
+      downloadCSV(`laundry-batch-details-${range.from}_to_${range.to}.csv`,
+        batchRows.map((b) => ({
+          "Batch Number": b.batch_number,
+          Vendor: b.vendor_name,
+          "Pickup Date": b.pickup_date ?? "",
+          "Return Date": b.return_date ?? "",
+          "Vendor Slip #": b.vendor_slip_number ?? "",
+          Sent: b.sent,
+          "Returned OK": b.returned_ok,
+          "In-house Washed": b.in_house_washed,
+          "Previous Missing": b.previous_missing,
+          Damaged: b.damaged,
+          Lost: b.lost,
+          Outstanding: b.outstanding,
+          Status: b.status,
+        })));
+      toast.success("Exported batch details");
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
 
   const exportVendors = () => {
     try {
@@ -65,6 +111,51 @@ function LaundryReportingPage() {
           "Avg Turnaround": formatDuration(v.avgTurnaroundSecs),
         })));
       toast.success("Exported vendor summary");
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
+
+  /**
+   * Monthly Vendor Statement — foundation for the future Monthly Billing
+   * module. Groups completed (returned) batches per vendor with the
+   * shortage/damage/loss breakdown that a vendor invoice will reconcile
+   * against. Emitted as one row per (vendor × batch) so an accountant can
+   * total by vendor in Excel. When Monthly Billing lands, it can consume
+   * the same reducer and add pricing on top — no duplicate reporting logic.
+   */
+  const exportMonthlyVendorStatement = () => {
+    try {
+      const rows: Record<string, any>[] = [];
+      for (const v of vendors) {
+        const vBatches = batchRows.filter((b) => b.vendor_id === v.vendorId);
+        for (const b of vBatches) {
+          rows.push({
+            Vendor: v.vendorName,
+            "Batch Number": b.batch_number,
+            "Pickup Date": b.pickup_date ?? "",
+            "Return Date": b.return_date ?? "",
+            "Vendor Slip #": b.vendor_slip_number ?? "",
+            Status: b.status,
+            "Pieces Sent": b.sent,
+            "Pieces Returned OK": b.returned_ok,
+            Damaged: b.damaged,
+            Lost: b.lost,
+            Outstanding: b.outstanding,
+            "Billable Pieces (OK+Dmg)": b.returned_ok + b.damaged,
+          });
+        }
+        rows.push({
+          Vendor: v.vendorName,
+          "Batch Number": "— SUBTOTAL —",
+          "Pieces Sent": v.linenSent,
+          "Pieces Returned OK": v.linenReturned,
+          Damaged: v.damaged,
+          Lost: v.lost,
+          Outstanding: v.outstanding,
+          "Billable Pieces (OK+Dmg)": v.linenReturned + v.damaged,
+        });
+      }
+      downloadCSV(`laundry-vendor-statement-${range.from}_to_${range.to}.csv`, rows);
+      toast.success("Exported vendor statement");
     } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
   };
 
