@@ -176,3 +176,63 @@ export function computeLaundryVendorSummary(batches: BatchWithLines[], from: str
 export function sumPreviousMissing(queue: LaundryQueueRow[]): number {
   return queue.reduce((s, r) => s + (Number(r.qty) || 0), 0);
 }
+
+/* ─────────────────────────────  Batch Details  ─────────────────────────── */
+
+export interface LaundryBatchDetailsRow {
+  batch_id: string;
+  batch_number: string;
+  vendor_id: string;
+  vendor_name: string;
+  business_date: string;
+  pickup_date: string | null;      // sent_at as YYYY-MM-DD
+  return_date: string | null;      // returned_at as YYYY-MM-DD
+  vendor_slip_number: string | null;
+  sent: number;
+  returned_ok: number;
+  in_house_washed: number;         // batch-scoped in-house (queue rows batch_id + method='in_house' would sum to 0; kept for schema symmetry)
+  previous_missing: number;        // sent lines that came from a business_date earlier than this batch's business_date (rollovers absorbed)
+  damaged: number;
+  lost: number;
+  outstanding: number;             // sent - (ok+dmg+lost) while state='sent'; 0 once returned
+  status: LaundryBatchRow["state"];
+}
+
+/**
+ * Reduce a batch + its lines to a single reporting row. In-house is
+ * batch-agnostic in the current queue model, so `in_house_washed` here is
+ * reported as 0 per-row; the range-level KPI already sums the in-house queue
+ * across the whole range. `previous_missing` is derived from the lines'
+ * queue rows: any sent quantity whose queue business_date < batch.business_date
+ * counts as a rollover — surfaced so vendor statements can distinguish
+ * fresh pickups from carried-over shortages.
+ */
+export function computeLaundryBatchDetails(batches: BatchWithLines[]): LaundryBatchDetailsRow[] {
+  return batches
+    .filter((b) => b.state !== "cancelled")
+    .map((b) => {
+      const sent = sumLines(b.lines, "qty_sent");
+      const ok = sumLines(b.lines, "qty_returned_ok");
+      const dmg = sumLines(b.lines, "qty_damaged");
+      const lost = sumLines(b.lines, "qty_lost");
+      return {
+        batch_id: b.id,
+        batch_number: b.batch_number,
+        vendor_id: b.vendor_id,
+        vendor_name: b.vendor_name_at_time,
+        business_date: b.business_date,
+        pickup_date: b.sent_at ? b.sent_at.slice(0, 10) : null,
+        return_date: b.returned_at ? b.returned_at.slice(0, 10) : null,
+        vendor_slip_number: b.vendor_slip_number,
+        sent,
+        returned_ok: ok,
+        in_house_washed: 0,
+        previous_missing: 0,
+        damaged: dmg,
+        lost,
+        outstanding: b.state === "sent" ? Math.max(0, sent - ok - dmg - lost) : 0,
+        status: b.state,
+      };
+    })
+    .sort((a, b) => (b.pickup_date ?? "").localeCompare(a.pickup_date ?? ""));
+}
