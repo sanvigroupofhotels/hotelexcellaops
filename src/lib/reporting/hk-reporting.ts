@@ -1,14 +1,19 @@
 /**
- * Housekeeping reporting — pure aggregation over `housekeeping_tasks`.
+ * Housekeeping reporting — pure aggregation over `housekeeping_tasks` +
+ * `bookings` + `housekeeping_room_exceptions`.
  *
- * No new business logic: this module ONLY reads the immutable snapshots
- * (`consumables_snapshot`, `linen_snapshot`, `issues_snapshot`) written by
- * the shared HK engine (`src/lib/hk-tasks.ts`) and rolls them up for
- * operational dashboards. All calculations are derived; nothing is duplicated
- * from the write path.
+ * No new business logic on the write path: this module ONLY reads the
+ * immutable snapshots (`consumables_snapshot`, `linen_snapshot`,
+ * `issues_snapshot`) written by the shared HK engine (`src/lib/hk-tasks.ts`)
+ * and rolls them up. The Exception Audit derives the "expected rooms" set
+ * from the exact same predicates the night-audit generator uses
+ * (`hk-generator.ts`) plus the checkout hook path — so anything missing or
+ * unexpected in a day's task list will surface without re-implementing the
+ * generator.
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { HkTaskRow } from "@/lib/hk-tasks";
+
 
 export interface HkDailySummary {
   checkoutRoomsCleaned: number;
