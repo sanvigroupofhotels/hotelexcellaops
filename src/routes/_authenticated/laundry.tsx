@@ -671,6 +671,23 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
     );
   }
 
+  if (metaEditMode && canEditReturn) {
+    return (
+      <EditBatchScreen
+        batch={batch}
+        lines={lines}
+        me={{ id: me.id ?? "", name: me.name || me.firstName || "user" }}
+        onClose={() => setMetaEditMode(false)}
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ["laundry-batch", batchId] });
+          qc.invalidateQueries({ queryKey: ["laundry-batches"] });
+          setMetaEditMode(false);
+        }}
+      />
+    );
+  }
+
+
   const totals = lines.reduce(
     (a, l) => ({
       heos: a.heos + l.qty_heos_queue,
