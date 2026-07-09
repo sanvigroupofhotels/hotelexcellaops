@@ -257,12 +257,54 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       roomNumber = (asgn as any)?.rooms?.room_number ?? "";
     } catch { /* ignore */ }
 
-    // Booking line items (separate room charges from extras)
+    // Booking line items — pull the full extras schema so we can itemise
+    // Early Check-in / Late Check-out / Extra Adults / Drivers / Pet on the
+    // Guest Portal. Mirrors what the shared Pricing Engine computes for the
+    // Booking / Quote surfaces (src/lib/pricing.ts) so the portal reads the
+    // same numbers the guest was invoiced.
     const { data: itemRows } = await supabaseAdmin
       .from("booking_items")
-      .select("subtotal")
+      .select("subtotal, rate, rooms, check_in, check_out, early_check_in, early_check_in_slot, late_check_out, late_check_out_slot, pet_size, extra_adults, drivers")
       .eq("booking_id", (b as any).id);
-    const roomCharges = (itemRows ?? []).reduce((s: number, r: any) => s + Number(r.subtotal || 0), 0);
+    const rows = (itemRows ?? []) as any[];
+
+    const nightsOf = (ci: string, co: string) =>
+      Math.max(1, Math.round((new Date(co).getTime() - new Date(ci).getTime()) / 86400000));
+    const EARLY: Record<string, number | null> = { "10-13": 500, "8-10": 750, "6-8": 1000, "before-6": null };
+    const LATE:  Record<string, number | null> = { "upto-2pm": 500, "2-4pm": 1000, "after-4pm": null };
+    const PET:   Record<string, number> = { none: 0, small: 750, medium: 750, large: 1000 };
+    const EARLY_LBL: Record<string, string> = { "10-13": "10 AM – 1 PM", "8-10": "8 AM – 10 AM", "6-8": "6 AM – 8 AM", "before-6": "Before 6 AM (full day)" };
+    const LATE_LBL:  Record<string, string> = { "upto-2pm": "Up to 2 PM", "2-4pm": "2 PM – 4 PM", "after-4pm": "After 4 PM (full day)" };
+    const EXTRA_ADULT = 500, DRIVER = 500;
+
+    const roomChargesFromRows = rows.reduce((s: number, r: any) => {
+      const n = nightsOf(r.check_in, r.check_out);
+      const rms = Math.max(1, Number(r.rooms) || 1);
+      return s + (Number(r.rate) || 0) * n * rms;
+    }, 0);
+    const extrasAgg: Record<string, number> = {};
+    const push = (label: string, val: number) => { if (val > 0) extrasAgg[label] = (extrasAgg[label] || 0) + val; };
+    for (const r of rows) {
+      const n = nightsOf(r.check_in, r.check_out);
+      const rms = Math.max(1, Number(r.rooms) || 1);
+      const rate = Number(r.rate) || 0;
+      if (r.early_check_in && r.early_check_in_slot) {
+        const fee = EARLY[r.early_check_in_slot];
+        push(`Early Check-in (${EARLY_LBL[r.early_check_in_slot] ?? r.early_check_in_slot})`, (fee != null ? fee : rate) * rms);
+      }
+      if (r.late_check_out && r.late_check_out_slot) {
+        const fee = LATE[r.late_check_out_slot];
+        push(`Late Check-out (${LATE_LBL[r.late_check_out_slot] ?? r.late_check_out_slot})`, (fee != null ? fee : rate) * rms);
+      }
+      const petFee = PET[r.pet_size ?? "none"] ?? 0;
+      if (petFee > 0) push(`Pet Stay (${r.pet_size}) · ${n}N`, petFee * n);
+      if ((r.extra_adults || 0) > 0) push(`Extra Guest × ${r.extra_adults} · ${n}N`, r.extra_adults * EXTRA_ADULT * n);
+      if ((r.drivers || 0) > 0) push(`Drivers × ${r.drivers} · ${n}N`, r.drivers * DRIVER * n);
+    }
+    const additionalLineItems = Object.entries(extrasAgg).map(([label, value]) => ({ label, value }));
+    const roomCharges = roomChargesFromRows > 0
+      ? roomChargesFromRows
+      : rows.reduce((s: number, r: any) => s + Number(r.subtotal || 0), 0);
 
     const total = Number((b as any).amount) || 0;
     const subtotal = Number((b as any).subtotal) || 0;
@@ -272,11 +314,8 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     const advance = Number((b as any).advance_paid) || 0;
     const payable = total + chargesTotal;
     const balance = ((b as any).status === "Cancelled" || (b as any).status === "No-Show") ? 0 : Math.max(0, payable - advance);
-    // Stay extras = stay subtotal beyond the pure room charges line(s)
-    const additionalStay = Math.max(0, subtotal - roomCharges);
-    // Discount = items total (pre-discount) - taxable subtotal (post-discount).
-    // Only meaningful when booking_items captured the gross stay charges.
-    const itemsTotal = (itemRows ?? []).reduce((s: number, r: any) => s + Number(r.subtotal || 0), 0);
+    const additionalStay = additionalLineItems.reduce((s, x) => s + x.value, 0);
+    const itemsTotal = rows.reduce((s: number, r: any) => s + Number(r.subtotal || 0), 0);
     const discount = Math.max(0, itemsTotal - subtotal);
 
     let minPartPayment = 0;
