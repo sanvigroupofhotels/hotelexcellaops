@@ -747,6 +747,15 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
           </button>
         )}
 
+        {canEditReturn && batch.state !== "cancelled" && (
+          <button
+            onClick={() => setMetaEditMode(true)}
+            className="w-full py-2.5 rounded-md border border-border text-sm flex items-center justify-center gap-2 hover:bg-muted/40 text-muted-foreground hover:text-foreground"
+          >
+            <FileEdit className="h-4 w-4" /> Edit Batch (vendor, slip, photos, counts)
+          </button>
+        )}
+
         {/* Mobile-first: one card per linen; desktop keeps the compact grid.  */}
         <div className="space-y-2 md:hidden">
           {lines.map((l) => (
