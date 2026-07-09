@@ -219,6 +219,7 @@ function LaundryReportingPage() {
                     <th className="text-left px-3 py-2.5">Slip #</th>
                     <th className="text-right px-3 py-2.5">Sent</th>
                     <th className="text-right px-3 py-2.5">Returned</th>
+                    <th className="text-right px-3 py-2.5">In-house</th>
                     <th className="text-right px-3 py-2.5">Damaged</th>
                     <th className="text-right px-3 py-2.5">Lost</th>
                     <th className="text-right px-3 py-2.5">Outstanding</th>
@@ -228,10 +229,10 @@ function LaundryReportingPage() {
                 </thead>
                 <tbody>
                   {lb && (
-                    <tr><td colSpan={12} className="p-12 text-center"><Loader2 className="h-5 w-5 animate-spin text-gold mx-auto" /></td></tr>
+                    <tr><td colSpan={13} className="p-12 text-center"><Loader2 className="h-5 w-5 animate-spin text-gold mx-auto" /></td></tr>
                   )}
                   {!lb && batchRows.length === 0 && (
-                    <tr><td colSpan={12} className="p-12 text-center text-muted-foreground">No batches in this range.</td></tr>
+                    <tr><td colSpan={13} className="p-12 text-center text-muted-foreground">No batches in this range.</td></tr>
                   )}
                   {batchRows.map((b) => (
                     <tr key={b.batch_id} className="border-t border-border/60 hover:bg-secondary/30">
@@ -242,6 +243,10 @@ function LaundryReportingPage() {
                       <td className="px-3 py-2 text-xs">{b.vendor_slip_number ?? "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{b.sent}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{b.returned_ok}</td>
+                      <td
+                        className="px-3 py-2 text-right tabular-nums text-muted-foreground"
+                        title="In-house wash is not batch-scoped; see Daily Summary → In-house Washed for the range total."
+                      >—</td>
                       <td className="px-3 py-2 text-right tabular-nums">{b.damaged > 0 ? <span className="text-warning">{b.damaged}</span> : 0}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{b.lost > 0 ? <span className="text-destructive">{b.lost}</span> : 0}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{b.outstanding > 0 ? <span className="text-warning">{b.outstanding}</span> : 0}</td>
