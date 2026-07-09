@@ -344,6 +344,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       taxesIncluded,
       roomCharges,
       additionalStay,
+      additionalLineItems,
       discount,
       chargesTotal,
       charges,
