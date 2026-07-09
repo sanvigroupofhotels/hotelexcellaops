@@ -1187,3 +1187,147 @@ function EditReturnScreen({ batch, lines, me, onClose, onDone }: {
     </div>
   );
 }
+
+/* ─────────────────  Edit Batch (admin/owner)  ─────────────────
+ *
+ * One screen handles all header edits: vendor, slip #, remarks, additional
+ * photos, and — for still-sent batches — per-linen sent counts. All edits
+ * are logged verbosely to activity_log via editBatchMetadata /
+ * editSentBatchLines. Queue reconciliation is intentionally NOT re-run:
+ * for large mis-counts the correct workflow is cancel + recreate.
+ */
+function EditBatchScreen({ batch, lines, me, onClose, onDone }: {
+  batch: LaundryBatchRow;
+  lines: LaundryBatchLineRow[];
+  me: { id: string; name: string };
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { data: vendors = [] } = useQuery({
+    queryKey: ["vendors-laundry-edit"],
+    queryFn: () => listVendors({ activeOnly: true }),
+    staleTime: 60_000,
+  });
+
+  const [vendorId, setVendorId] = useState(batch.vendor_id);
+  const [slip, setSlip] = useState(batch.vendor_slip_number ?? "");
+  const [pickupRemarks, setPickupRemarks] = useState(batch.pickup_remarks ?? "");
+  const [returnRemarks, setReturnRemarks] = useState(batch.return_remarks ?? "");
+  const [addPickup, setAddPickup] = useState<File[]>([]);
+  const [addReturn, setAddReturn] = useState<File[]>([]);
+  const [reason, setReason] = useState("");
+  const [sentDraft, setSentDraft] = useState<Record<string, number>>(() => {
+    const d: Record<string, number> = {};
+    for (const l of lines) d[l.id] = l.qty_sent;
+    return d;
+  });
+  const canEditSent = batch.state === "sent";
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!me.id) throw new Error("Not signed in");
+      const vendor = (vendors as VendorRow[]).find((v) => v.id === vendorId);
+      await editBatchMetadata(batch.id, {
+        vendor_id: vendor ? vendor.id : batch.vendor_id,
+        vendor_name_at_time: vendor ? vendor.name : batch.vendor_name_at_time,
+        vendor_slip_number: slip.trim() || null,
+        pickup_remarks: pickupRemarks.trim() || null,
+        return_remarks: returnRemarks.trim() || null,
+        addPickupPhotos: addPickup,
+        addReturnPhotos: addReturn,
+      }, me, reason || null);
+      if (canEditSent) {
+        const edits = lines
+          .filter((l) => (sentDraft[l.id] ?? l.qty_sent) !== l.qty_sent)
+          .map((l) => ({ line_id: l.id, qty_sent: Math.max(0, Math.floor(sentDraft[l.id] ?? l.qty_sent)) }));
+        if (edits.length > 0) await editSentBatchLines(batch.id, edits, me, reason || null);
+      }
+    },
+    onSuccess: () => { toast.success("Batch updated"); onDone(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border">
+        <div className="px-4 py-3 max-w-3xl mx-auto flex items-center gap-3">
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Edit Batch</div>
+            <div className="font-display text-base leading-tight truncate">{batch.batch_number}</div>
+          </div>
+        </div>
+      </div>
+      <div className="px-4 py-6 max-w-3xl mx-auto space-y-4">
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-500">
+          All changes are logged in Activity Log with your name and the reason below.
+          {!canEditSent && <> Sent counts can only be edited before a batch is returned.</>}
+        </div>
+
+        <div className="luxe-card rounded-lg p-3 space-y-3">
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Vendor</label>
+            <select value={vendorId} onChange={(e) => setVendorId(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1">
+              {(vendors as VendorRow[]).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Vendor Slip #</label>
+            <input value={slip} onChange={(e) => setSlip(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1" />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Pickup Remarks</label>
+            <textarea value={pickupRemarks} onChange={(e) => setPickupRemarks(e.target.value)} rows={2}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1" />
+          </div>
+          {batch.state === "returned" && (
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Return Remarks</label>
+              <textarea value={returnRemarks} onChange={(e) => setReturnRemarks(e.target.value)} rows={2}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1" />
+            </div>
+          )}
+        </div>
+
+        <div className="luxe-card rounded-lg p-3 space-y-3">
+          <PhotoPicker label="Add Pickup Photos" files={addPickup} onFilesChange={setAddPickup} />
+          {batch.state === "returned" && (
+            <PhotoPicker label="Add Return Photos" files={addReturn} onFilesChange={setAddReturn} />
+          )}
+          <div className="text-[10px] text-muted-foreground">Existing photos are preserved. To remove a photo, contact an administrator.</div>
+        </div>
+
+        {canEditSent && (
+          <div className="luxe-card rounded-lg p-3 space-y-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Sent Counts (per linen)</div>
+            {lines.map((l) => (
+              <div key={l.id} className="flex items-center justify-between gap-2 text-sm">
+                <span className="flex-1">{l.linen_name_at_time}</span>
+                <span className="text-[10px] text-muted-foreground">was {l.qty_sent}</span>
+                <input type="number" inputMode="numeric" min={0}
+                  value={sentDraft[l.id] ?? 0}
+                  onChange={(e) => setSentDraft((d) => ({ ...d, [l.id]: Number(e.target.value) }))}
+                  className="w-20 bg-input/60 border border-border rounded-md px-2 py-1 text-right text-sm" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div>
+          <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Reason for edit</label>
+          <input value={reason} onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Vendor slip # was mis-recorded at pickup"
+            className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1" />
+        </div>
+
+        <button onClick={() => save.mutate()} disabled={save.isPending}
+          className="w-full py-3 rounded-md bg-gold text-charcoal font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+          {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          <Save className="h-4 w-4" /> Save Changes
+        </button>
+      </div>
+    </div>
+  );
+}
