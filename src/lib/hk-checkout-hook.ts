@@ -13,7 +13,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { setRoomHousekeepingStatus } from "@/lib/hk-status";
-import { ensureCheckoutTask } from "@/lib/hk-tasks";
+import { ensureCheckoutTask, ensureContinueServiceTask } from "@/lib/hk-tasks";
 import { logActivity, newCorrelationId } from "@/lib/activity-log";
 import { getBusinessDate } from "@/lib/night-audit-api";
 
