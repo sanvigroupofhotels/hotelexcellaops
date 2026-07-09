@@ -150,12 +150,22 @@ function HousekeepingPage() {
                 {businessDate ? formatFriendlyDate(businessDate) : "—"}
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Progress</div>
-              <div className="text-sm">
-                <span className="text-gold font-semibold">{done.length}</span>
-                {" / "}
-                <span>{total || open.length + done.length}</span> Completed
+            <div className="flex items-center gap-2">
+              {canCreateManual && (
+                <button
+                  onClick={() => setManualOpen(true)}
+                  className="px-2.5 py-1.5 rounded-md border border-gold/40 text-gold text-[11px] flex items-center gap-1 hover:bg-gold/5"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Manual Task
+                </button>
+              )}
+              <div className="text-right">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Progress</div>
+                <div className="text-sm">
+                  <span className="text-gold font-semibold">{done.length}</span>
+                  {" / "}
+                  <span>{total || open.length + done.length}</span> Completed
+                </div>
               </div>
             </div>
           </div>
