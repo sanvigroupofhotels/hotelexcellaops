@@ -167,9 +167,18 @@ export const listUsersFn = createServerFn({ method: "GET" })
       ]);
     if (pErr) throw new Error(pErr.message);
     if (rErr) throw new Error(rErr.message);
-    type R = z.infer<typeof ANY_ROLE_Z>;
+    type R = z.infer<typeof ACTIVE_ROLES_Z>;
     const byRole = new Map<string, R>();
-    for (const r of roles ?? []) byRole.set((r as any).user_id, (r as any).role);
+    for (const r of roles ?? []) {
+      const raw = (r as any).role as string;
+      // Legacy audit-row values are defensively remapped; the DB trigger
+      // blocks any new inserts of these values.
+      const active: R =
+        raw === "reception" ? "fo_staff" :
+        raw === "staff" ? "housekeeping" :
+        (raw as R);
+      byRole.set((r as any).user_id, active);
+    }
     const byActive = new Map<string, boolean>();
     for (const u of adminUsers.data?.users ?? []) {
       const banned = (u as any).banned_until && new Date((u as any).banned_until) > new Date();
