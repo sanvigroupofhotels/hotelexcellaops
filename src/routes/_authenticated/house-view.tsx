@@ -1290,7 +1290,8 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
     try {
       const { token } = await issueToken({ data: { booking_id: b.id } });
       const url = `${publicOrigin()}/portal/${token}`;
-      const text = [`Hello ${b.guest_name || "Guest"},`, "", "Thank you for choosing Hotel Excella.", "", "To complete your booking, please proceed with the payment here -", "", url, "", `Booking Ref: ${b.booking_reference}`, "", "Regards", "Hotel Excella"].join("\n");
+      const { paymentLinkMessage } = await import("@/lib/booking-messages");
+      const text = paymentLinkMessage(b, url);
       try { await navigator.clipboard.writeText(url); toast.success("Payment link copied"); } catch { /* noop */ }
       if (b.phone) window.open(bookingWhatsAppLink(b, text), "_blank");
     } catch (e: any) {
