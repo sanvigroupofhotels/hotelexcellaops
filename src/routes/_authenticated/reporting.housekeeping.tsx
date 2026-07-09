@@ -69,8 +69,9 @@ function HousekeepingReportingPage() {
   const exportHistory = () => {
     try {
       downloadCSV(`hk-work-history-${range.from}_to_${range.to}.csv`,
-        history.map((h) => ({
-          Date: h.business_date, Room: h.room_number ?? "", Type: h.type, State: h.state, Origin: h.origin,
+        filteredHistory.map((h: any) => ({
+          Date: h.business_date, Room: h.room_number ?? "", Type: h.type, State: h.state,
+          "Skipped Reason": h.skipped_reason ?? "", Origin: h.origin,
           "Manual Reason": h.manual_reason ?? "", Started: h.started_at ?? "", Finished: h.finished_at ?? "",
           Duration: formatDuration(h.duration_secs), "Performed By": h.performed_by ?? "",
           "Recorded By": h.recorded_by ?? "", Consumables: h.consumables_qty, "Linen Sent": h.linen_qty,
