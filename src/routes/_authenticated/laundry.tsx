@@ -474,7 +474,64 @@ function PickupScreen({ businessDate, onClose, me }: {
               <div className="col-span-3 text-right font-medium text-gold">{totals.sentTotal}</div>
             </div>
           )}
+          {/* Manual entries — linen not in today's queue but physically handed over. */}
+          {manualRows.length > 0 && (
+            <>
+              <div className="px-4 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-t border-border/60 bg-muted/10">
+                Manual entries (not in queue)
+              </div>
+              {manualRows.map((l) => (
+                <div key={l.id} className="grid grid-cols-12 items-center gap-2 px-4 py-2.5 border-b border-border/60 text-sm">
+                  <div className="col-span-5">{l.name}</div>
+                  <div className="col-span-2 text-right text-muted-foreground">—</div>
+                  <div className="col-span-2 text-right text-muted-foreground">—</div>
+                  <div className="col-span-3 text-right flex items-center justify-end gap-1">
+                    <input
+                      type="number" inputMode="numeric" min={0}
+                      value={manualSent[l.id] ?? 0}
+                      onChange={(e) => setManualSent((s) => ({ ...s, [l.id]: Number(e.target.value) }))}
+                      className="w-16 bg-input/60 border border-border rounded-md px-2 py-1 text-right text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setManualSent((s) => { const n = { ...s }; delete n[l.id]; return n; })}
+                      className="p-1 rounded-md text-muted-foreground hover:text-red-500"
+                      aria-label="Remove manual entry"
+                    ><XCircle className="h-3.5 w-3.5" /></button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+          {availableForManual.length > 0 && (
+            <div className="border-t border-border/60">
+              {!manualPickerOpen ? (
+                <button
+                  onClick={() => setManualPickerOpen(true)}
+                  className="w-full px-4 py-2 text-[11px] uppercase tracking-wider text-gold hover:bg-muted/10 flex items-center justify-center gap-1.5"
+                ><Plus className="h-3.5 w-3.5" /> Add linen not in queue</button>
+              ) : (
+                <div className="p-3 space-y-2">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Pick a linen type</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {availableForManual.map((l: any) => (
+                      <button
+                        key={l.id}
+                        onClick={() => { setManualSent((s) => ({ ...s, [l.id]: 1 })); setManualPickerOpen(false); }}
+                        className="px-2.5 py-1 rounded-full border border-border text-xs bg-input/40 hover:bg-muted/40"
+                      >{l.name}</button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setManualPickerOpen(false)}
+                    className="text-[10px] uppercase tracking-wider text-muted-foreground"
+                  >Cancel</button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
 
         {totals.inHouse > 0 && (
           <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs">
