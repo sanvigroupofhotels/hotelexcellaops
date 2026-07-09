@@ -46,3 +46,36 @@ Shipment 3B._
 - None architectural. The remaining items (WhatsApp/SMS templates,
   outbox for n8n, multi-property `property_id`) are additive, not
   refactors.
+
+---
+
+## v1.0 integration roadmap (future)
+
+Each row lists status, HEOS surface it plugs into, and the engine that
+already exists to absorb it (no redesign required).
+
+| Integration              | Status  | Surface / Engine                                     |
+|--------------------------|---------|------------------------------------------------------|
+| WhatsApp Business API    | Planned | Notification channel adapter                         |
+| Email (SES/SendGrid)     | Live†   | `crm_outbound_emails` + `notification-email-dispatch`|
+| SMS                      | Planned | Notification channel adapter                         |
+| Web Push                 | Live    | `push-dispatch` + `push_subscriptions`               |
+| Google Calendar          | Planned | Booking read stream                                  |
+| Google Ads               | Planned | Lead ingest + attribution                            |
+| Meta Ads                 | Planned | Lead ingest + attribution                            |
+| Google Business Profile  | Planned | Review AI + guest_reviews                            |
+| Instagram / Facebook     | Planned | Lead ingest                                          |
+| Payment Gateways         | Live    | Razorpay engine                                      |
+| Accounting               | Planned | Cash Book export adapter                             |
+| Power BI                 | Planned | Reporting export                                     |
+| Metabase                 | Planned | Direct DB read via read-only role                    |
+| OpenAI / LLM Gateway     | Planned | AI agent runtime (`ai-roadmap.md`)                   |
+| Vector Database          | Planned | Guest history retrieval for AI                       |
+| n8n                      | Planned | Workflow automation (subscribes to events)           |
+| Multi-property           | Planned | Property-scoped RLS + tenant column additions        |
+
+† Transactional email scaffolded; broad campaign use pending config.
+
+All integrations plug through existing seams: the notification engine
+for outbound comms, `activity_log` / `booking_activities` for event
+streams, and `/api/public/*` webhooks (signature-verified) for inbound.

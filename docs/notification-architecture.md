@@ -80,3 +80,57 @@ so ops can edit copy without a deploy. Each template stores:
 - Template store in `master_data`.
 - Marketing opt-in surfaces on portal + customer form.
 - Idempotency keys per event so retries never double-deliver.
+
+---
+
+## v1.0 audience × event × channel matrix (future roadmap)
+
+Legend: A=in-app, P=push, E=email, W=WhatsApp, S=SMS. Cell shows planned
+channels; blank = not planned. Implementation follows the adapter
+contract already documented above — no engine redesign required.
+
+### Owner / Admin
+| Event                       | A | P | E | W | S |
+|-----------------------------|---|---|---|---|---|
+| New Booking                 | ✓ | ✓ |   | ✓ |   |
+| Booking Cancellation        | ✓ | ✓ | ✓ | ✓ |   |
+| Daily Cash Book Report      | ✓ |   | ✓ | ✓ |   |
+| Daily Revenue Summary       | ✓ |   | ✓ | ✓ |   |
+| Occupancy Summary           | ✓ |   | ✓ |   |   |
+| Low Inventory               | ✓ | ✓ | ✓ |   |   |
+| Laundry Delay               | ✓ | ✓ |   |   |   |
+| Critical Complaint          | ✓ | ✓ | ✓ | ✓ |   |
+| Night Audit Completed       | ✓ |   | ✓ |   |   |
+
+### Front Office
+| Event               | A | P | E | W | S |
+|---------------------|---|---|---|---|---|
+| Arrivals            | ✓ | ✓ |   |   |   |
+| Check-ins           | ✓ | ✓ |   |   |   |
+| Check-outs          | ✓ | ✓ |   |   |   |
+| Extension Requests  | ✓ | ✓ |   |   |   |
+| Payment Pending     | ✓ | ✓ |   |   |   |
+
+### Housekeeping
+| Event                 | A | P | E | W | S |
+|-----------------------|---|---|---|---|---|
+| Checkout Task         | ✓ | ✓ |   |   |   |
+| Service Task          | ✓ | ✓ |   |   |   |
+| Manual Task           | ✓ | ✓ |   |   |   |
+| Laundry Returned      | ✓ | ✓ |   |   |   |
+| Inspection Required   | ✓ | ✓ |   |   |   |
+
+### Guests
+| Event                | A | P | E | W | S |
+|----------------------|---|---|---|---|---|
+| Booking Confirmation |   |   | ✓ | ✓ | ✓ |
+| Guest Portal Link    |   |   | ✓ | ✓ | ✓ |
+| Welcome Message      |   |   | ✓ | ✓ |   |
+| Hotel Information    |   |   | ✓ | ✓ |   |
+| Food Order Update    |   |   |   | ✓ |   |
+| Payment Receipt      |   |   | ✓ | ✓ |   |
+| Checkout Thank-you   |   |   | ✓ | ✓ |   |
+| Review Request       |   |   | ✓ | ✓ |   |
+| Promotional Campaign |   |   | ✓ | ✓ |   |
+| Birthday Wishes      |   |   | ✓ | ✓ |   |
+| Lead Follow-up       |   |   | ✓ | ✓ | ✓ |
