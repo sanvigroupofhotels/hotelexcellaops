@@ -653,11 +653,7 @@ function BookingDetail() {
             <GuestDocumentsSummary bookingId={id} onOpen={() => { setGuestDocsOpen(true); }} />
 
 
-            {b.source_quote_id && (
-              <div className="luxe-card rounded-xl p-4 text-xs">
-                <Link to="/quote/$id" params={{ id: b.source_quote_id }} className="text-gold hover:underline">View source quote →</Link>
-              </div>
-            )}
+            {/* Source-quote link removed in Shipment 3B (Quotes UI retired). */}
           </div>
         </div>
 

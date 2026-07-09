@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { listQuotes } from "@/lib/quotes-api";
@@ -8,19 +8,20 @@ import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { Loader2, TrendingUp, Users, IndianRupee, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { AdminOnly } from "@/components/admin-only";
-
-// Legacy /analytics URL — redirect to CRM Analytics so deep links keep working.
-import { Navigate } from "@tanstack/react-router";
+/** Legacy /analytics URL — redirect to CRM Analytics. */
 export const Route = createFileRoute("/_authenticated/analytics")({
   component: () => <Navigate to="/reporting/crm-analytics" replace />,
 });
-
 
 const OPEN = ["Draft", "Pending", "Sent", "Negotiation", "Negotiating"];
 const LOST_SET = ["Lost", "Failed", "No Response", "Cancelled", "Expired"];
 const isBooked = (s: string) => (BOOKED_STATUSES as string[]).includes(s);
 
+/**
+ * CRM Analytics view — historical quote funnel + customer LTV. Quotes are
+ * dormant at DB level after Shipment 3B; this screen reads historical rows
+ * only, which is the intended value of keeping quote tables read-only.
+ */
 export function Analytics() {
   useRealtimeInvalidate(["quotes", "customers"], ["quotes", "customers"], "analytics");
   const { data: quotes = [], isLoading } = useQuery({ queryKey: ["quotes"], queryFn: listQuotes });
@@ -28,100 +29,44 @@ export function Analytics() {
 
   if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
-  const converted = quotes.filter((q) => isBooked(q.status)).length;
-  const conversion = quotes.length ? Math.round((converted / quotes.length) * 100) : 0;
+  const total = quotes.length;
+  const open = quotes.filter((q) => OPEN.includes(q.status)).length;
+  const won = quotes.filter((q) => isBooked(q.status)).length;
+  const lost = quotes.filter((q) => LOST_SET.includes(q.status)).length;
   const revenue = quotes.filter((q) => isBooked(q.status)).reduce((s, q) => s + Number(q.total), 0);
-  const aov = converted ? Math.round(revenue / converted) : 0;
-  const repeat = customers.filter((c) => c.total_bookings > 1).length;
-  const repeatPct = customers.length ? Math.round((repeat / customers.length) * 100) : 0;
+  const winRate = total ? Math.round((won / total) * 100) : 0;
+  const returning = customers.filter((c: any) => (c.total_bookings ?? 0) > 1).length;
 
-  // Pipeline = sum of total * probability for open quotes
-  const pipeline = quotes
-    .filter((q) => OPEN.includes(q.status))
-    .reduce((s, q) => s + (Number(q.total) * (Number((q as any).booking_probability ?? 50) / 100)), 0);
-
-  const sourceBreakdown: Record<string, { quotes: number; converted: number; revenue: number }> = {};
-  for (const q of quotes) {
-    const k = q.lead_source ?? "Direct";
-    sourceBreakdown[k] ??= { quotes: 0, converted: 0, revenue: 0 };
-    sourceBreakdown[k].quotes++;
-    if (isBooked(q.status)) {
-      sourceBreakdown[k].converted++;
-      sourceBreakdown[k].revenue += Number(q.total);
-    }
-  }
-  const roomBreakdown: Record<string, number> = {};
-  for (const q of quotes.filter((x) => isBooked(x.status))) {
-    roomBreakdown[q.room_type] = (roomBreakdown[q.room_type] ?? 0) + Number(q.total);
-  }
-  const funnel = [
-    { label: "Pending", count: quotes.filter((q) => ["Draft", "Pending"].includes(q.status)).length },
-    { label: "Sent", count: quotes.filter((q) => q.status === "Sent").length },
-    { label: "Negotiation", count: quotes.filter((q) => ["Negotiation", "Negotiating"].includes(q.status)).length },
-    { label: "Confirmed", count: converted },
-    { label: "Lost", count: quotes.filter((q) => LOST_SET.includes(q.status)).length },
+  const stats = [
+    { label: "Total Quotes", value: total, icon: TrendingUp },
+    { label: "Open Funnel", value: open, icon: Repeat },
+    { label: "Converted Revenue", value: `₹${revenue.toLocaleString("en-IN")}`, icon: IndianRupee },
+    { label: "Win Rate", value: `${winRate}%`, icon: Users },
   ];
-  const maxFunnel = Math.max(1, ...funnel.map((f) => f.count));
 
   return (
     <>
-      <Topbar title="CRM Analytics" subtitle="Sales pipeline, revenue forecast & lead intelligence" />
-      <div className="px-4 md:px-8 py-6 md:py-8 space-y-6 max-w-[1400px]">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KPI icon={TrendingUp} label="Conversion" value={`${conversion}%`} />
-          <KPI icon={IndianRupee} label="Revenue (Booked)" value={`₹${revenue.toLocaleString("en-IN")}`} accent />
-          <KPI icon={IndianRupee} label="Pipeline (Forecast)" value={`₹${Math.round(pipeline).toLocaleString("en-IN")}`} />
-          <KPI icon={Users} label="Avg Booking Value" value={aov ? `₹${aov.toLocaleString("en-IN")}` : "—"} />
-          <KPI icon={Repeat} label="Repeat Guests" value={`${repeat} (${repeatPct}%)`} />
-          <KPI icon={Users} label="Total Customers" value={customers.length} />
-          <KPI icon={TrendingUp} label="Total Quotes" value={quotes.length} />
-          <KPI icon={TrendingUp} label="Confirmed" value={converted} />
-        </div>
-
-        <div className="luxe-card rounded-xl p-5">
-          <h3 className="font-display text-lg mb-4">Booking Funnel</h3>
-          <div className="space-y-2">
-            {funnel.map((f) => (
-              <div key={f.label} className="flex items-center gap-3">
-                <div className="w-28 text-sm text-muted-foreground">{f.label}</div>
-                <div className="flex-1 h-6 bg-secondary/40 rounded-md overflow-hidden">
-                  <div className="h-full gold-gradient" style={{ width: `${(f.count / maxFunnel) * 100}%` }} />
-                </div>
-                <div className="w-12 text-right text-sm tabular-nums">{f.count}</div>
+      <Topbar title="CRM Analytics" subtitle="Historical quote funnel and customer lifetime value" />
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px]">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {stats.map((s) => (
+            <div key={s.label} className="luxe-card rounded-xl p-4">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                <s.icon className="h-3.5 w-3.5 text-gold" /> {s.label}
               </div>
-            ))}
-          </div>
+              <div className="text-2xl font-display">{s.value}</div>
+            </div>
+          ))}
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="luxe-card rounded-xl p-5">
-            <h3 className="font-display text-lg mb-4">Lead Sources</h3>
-            <div className="space-y-2">
-              {Object.entries(sourceBreakdown).sort((a, b) => b[1].quotes - a[1].quotes).map(([src, s]) => (
-                <div key={src} className="grid grid-cols-12 gap-2 items-center text-sm">
-                  <div className="col-span-3 text-muted-foreground">{src}</div>
-                  <div className="col-span-5 h-2.5 bg-secondary/40 rounded">
-                    <div className="h-full gold-gradient rounded" style={{ width: `${(s.quotes / quotes.length) * 100}%` }} />
-                  </div>
-                  <div className="col-span-2 text-right text-xs">{s.quotes} q</div>
-                  <div className="col-span-2 text-right text-xs text-gold">{s.converted} ✓</div>
-                </div>
-              ))}
-              {Object.keys(sourceBreakdown).length === 0 && <p className="text-sm text-muted-foreground">No data yet.</p>}
-            </div>
+        <div className="luxe-card rounded-xl p-5">
+          <h4 className="font-display text-lg mb-3">Funnel Breakdown</h4>
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <Stat label="Open" value={open} />
+            <Stat label="Won" value={won} />
+            <Stat label="Lost" value={lost} />
           </div>
-
-          <div className="luxe-card rounded-xl p-5">
-            <h3 className="font-display text-lg mb-4">Best Performing Rooms</h3>
-            <div className="space-y-2">
-              {Object.entries(roomBreakdown).sort((a, b) => b[1] - a[1]).map(([room, rev]) => (
-                <div key={room} className="flex items-center justify-between text-sm">
-                  <div>{room}</div>
-                  <div className="text-gold tabular-nums">₹{rev.toLocaleString("en-IN")}</div>
-                </div>
-              ))}
-              {Object.keys(roomBreakdown).length === 0 && <p className="text-sm text-muted-foreground">No bookings yet.</p>}
-            </div>
+          <div className="mt-6 text-xs text-muted-foreground">
+            Returning customers: <span className="text-foreground font-medium">{returning}</span> · Total customers: {customers.length}
           </div>
         </div>
       </div>
@@ -129,16 +74,11 @@ export function Analytics() {
   );
 }
 
-function KPI({ icon: Icon, label, value, accent }: any) {
+function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className={cn("luxe-card rounded-xl p-4", accent && "ring-1 ring-gold/30")}>
-      <div className="flex items-center justify-between">
-        <div className={cn("h-8 w-8 rounded-md flex items-center justify-center", accent ? "gold-gradient text-charcoal" : "bg-secondary text-gold")}>
-          <Icon className="h-4 w-4" />
-        </div>
-      </div>
-      <div className="font-display text-2xl mt-3">{value}</div>
-      <div className="text-[11px] text-muted-foreground mt-0.5">{label}</div>
+    <div className={cn("rounded-lg border border-border p-3")}>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-xl font-display mt-1">{value}</div>
     </div>
   );
 }

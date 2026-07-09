@@ -193,14 +193,12 @@ export function NotificationBell({
             </ul>
           )}
         </div>
-        <Link
-          to="/follow-ups"
-          search={{ view: "notifications" } as any}
+        <button
           onClick={() => setOpen(false)}
-          className="border-t border-border px-4 py-2.5 text-xs font-medium text-gold inline-flex items-center justify-center gap-1.5 hover:bg-gold-soft/30"
+          className="border-t border-border px-4 py-2.5 text-xs font-medium text-gold inline-flex items-center justify-center gap-1.5 hover:bg-gold-soft/30 w-full"
         >
-          View All Notifications <ArrowRight className="h-3 w-3" />
-        </Link>
+          Close <ArrowRight className="h-3 w-3" />
+        </button>
       </PopoverContent>
     </Popover>
   );
