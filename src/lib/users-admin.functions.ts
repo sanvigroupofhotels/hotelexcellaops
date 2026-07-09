@@ -3,10 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // Username: any non-empty trimmed string. No character/length restrictions per admin policy.
-const USERNAME_Z = z.string().trim().min(1).max(255);
 const ACTIVE_ROLES_Z = z.enum(["admin", "owner", "fo_staff", "housekeeping"]);
-/** Wide role enum used only when accepting existing roles (backward compat). */
-const ANY_ROLE_Z = z.enum(["admin", "owner", "fo_staff", "housekeeping", "reception", "staff"]);
 
 /** Synthesized login-email domain for username-only users (per approved design §10). */
 const SYNTH_EMAIL_DOMAIN = "hotelexcella.in";
