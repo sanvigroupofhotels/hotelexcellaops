@@ -5,11 +5,14 @@ import { Topbar } from "@/components/topbar";
 import { PermissionGate } from "@/components/permission-gate";
 import { usePermissions } from "@/hooks/use-permissions";
 import { ReportDateRangePicker } from "@/components/report-date-range-picker";
-import { fetchHkTasksInRange, computeHkDailySummary, computeHkStaffPerformance } from "@/lib/reporting/hk-reporting";
+import {
+  fetchHkTasksInRange, computeHkDailySummary, computeHkStaffPerformance,
+  fetchWorkHistoryInRange, fetchHkExceptionAudit,
+} from "@/lib/reporting/hk-reporting";
 import { formatDuration, type DateRange } from "@/lib/reporting/date-range";
 import { toLocalYMD } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
-import { Loader2, Download, Brush, Sparkles, MoonStar, BedDouble, ClipboardList, Clock, Package, Shirt, MessageSquareWarning } from "lucide-react";
+import { Loader2, Download, Brush, Sparkles, MoonStar, BedDouble, ClipboardList, Clock, Package, Shirt, MessageSquareWarning, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/reporting/housekeeping")({
@@ -33,6 +36,43 @@ function HousekeepingReportingPage() {
 
   const summary = useMemo(() => computeHkDailySummary(tasks), [tasks]);
   const staff = useMemo(() => computeHkStaffPerformance(tasks), [tasks]);
+
+  const { data: history = [] } = useQuery({
+    queryKey: ["reporting-hk-history", range.from, range.to],
+    queryFn: () => fetchWorkHistoryInRange(range.from, range.to),
+  });
+  const { data: exceptions = [] } = useQuery({
+    queryKey: ["reporting-hk-exceptions", range.from, range.to],
+    queryFn: () => fetchHkExceptionAudit(range.from, range.to),
+  });
+
+  const exportHistory = () => {
+    try {
+      downloadCSV(`hk-work-history-${range.from}_to_${range.to}.csv`,
+        history.map((h) => ({
+          Date: h.business_date, Room: h.room_number ?? "", Type: h.type, State: h.state, Origin: h.origin,
+          "Manual Reason": h.manual_reason ?? "", Started: h.started_at ?? "", Finished: h.finished_at ?? "",
+          Duration: formatDuration(h.duration_secs), "Performed By": h.performed_by ?? "",
+          "Recorded By": h.recorded_by ?? "", Consumables: h.consumables_qty, "Linen Sent": h.linen_qty,
+          Issues: h.issues_count, Remarks: h.remarks ?? "",
+        })));
+      toast.success("Exported work history");
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
+
+  const exportExceptions = () => {
+    try {
+      downloadCSV(`hk-exceptions-${range.from}_to_${range.to}.csv`,
+        exceptions.map((e) => ({
+          Date: e.business_date,
+          "Expected Rooms": e.expected_rooms.join(" "),
+          "Actual Rooms": e.actual_rooms.join(" "),
+          "Missing (expected, not cleaned)": e.missing_rooms.join(" "),
+          "Unexpected (cleaned, not expected)": e.unexpected_rooms.join(" "),
+        })));
+      toast.success("Exported exception audit");
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
 
   const exportStaff = () => {
     try {
@@ -123,6 +163,102 @@ function HousekeepingReportingPage() {
             </div>
           </div>
         </section>
+
+        {/* Work History */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Work History</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground">{history.length} row{history.length === 1 ? "" : "s"}</span>
+              {canExport && history.length > 0 && (
+                <button onClick={exportHistory} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[11px] hover:bg-muted/40">
+                  <Download className="h-3 w-3" /> Export
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="luxe-card rounded-xl overflow-hidden">
+            <div className="overflow-x-auto max-h-[420px]">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary/30 text-[11px] uppercase tracking-wider text-muted-foreground sticky top-0">
+                  <tr>
+                    <th className="text-left px-3 py-2">Date</th>
+                    <th className="text-left px-3 py-2">Room</th>
+                    <th className="text-left px-3 py-2">Type</th>
+                    <th className="text-left px-3 py-2">State</th>
+                    <th className="text-left px-3 py-2">Origin</th>
+                    <th className="text-left px-3 py-2">Performed By</th>
+                    <th className="text-right px-3 py-2">Duration</th>
+                    <th className="text-right px-3 py-2">Cons.</th>
+                    <th className="text-right px-3 py-2">Linen</th>
+                    <th className="text-right px-3 py-2">Issues</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.length === 0 && (
+                    <tr><td colSpan={10} className="p-12 text-center text-muted-foreground">No tasks in this range.</td></tr>
+                  )}
+                  {history.map((h) => (
+                    <tr key={h.task_id} className="border-t border-border/60">
+                      <td className="px-3 py-2 tabular-nums text-xs">{h.business_date}</td>
+                      <td className="px-3 py-2">{h.room_number ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs">{h.type === "checkout_clean" ? "Checkout" : "Service"}</td>
+                      <td className="px-3 py-2 text-xs">{h.state}</td>
+                      <td className="px-3 py-2 text-xs">{h.origin === "manual" ? <span className="text-gold" title={h.manual_reason ?? ""}>manual</span> : h.origin.replace("auto_", "")}</td>
+                      <td className="px-3 py-2 text-xs">{h.performed_by ?? "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-xs">{formatDuration(h.duration_secs)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{h.consumables_qty}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{h.linen_qty}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{h.issues_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {/* Exception Audit */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-warning" /> Exception Audit
+            </h2>
+            {canExport && exceptions.length > 0 && (
+              <button onClick={exportExceptions} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[11px] hover:bg-muted/40">
+                <Download className="h-3 w-3" /> Export
+              </button>
+            )}
+          </div>
+          <div className="luxe-card rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/30 text-[11px] uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="text-left px-3 py-2">Date</th>
+                  <th className="text-left px-3 py-2">Expected</th>
+                  <th className="text-left px-3 py-2">Actual</th>
+                  <th className="text-left px-3 py-2 text-warning">Missing</th>
+                  <th className="text-left px-3 py-2 text-gold">Unexpected</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exceptions.map((e) => (
+                  <tr key={e.business_date} className="border-t border-border/60">
+                    <td className="px-3 py-2 tabular-nums text-xs">{e.business_date}</td>
+                    <td className="px-3 py-2 text-xs">{e.expected_rooms.join(", ") || "—"}</td>
+                    <td className="px-3 py-2 text-xs">{e.actual_rooms.join(", ") || "—"}</td>
+                    <td className="px-3 py-2 text-xs text-warning">{e.missing_rooms.join(", ") || "—"}</td>
+                    <td className="px-3 py-2 text-xs text-gold">{e.unexpected_rooms.join(", ") || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Expected rooms are derived using the same logic as the night-audit generator: checkouts on the date + occupied stays overnight, minus HK exception rows (DND / Service Not Required). "Unexpected" rows usually indicate a manual task or an operational correction.
+          </p>
+        </section>
+
 
         <p className="text-[11px] text-muted-foreground">
           Data source: Housekeeping engine snapshots (<code className="text-foreground/70">housekeeping_tasks</code>). Durations use started/finished timestamps recorded by the shared HK write path. See related reports:{" "}

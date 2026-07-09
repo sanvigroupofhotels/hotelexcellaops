@@ -254,6 +254,7 @@ function LaundryReportingPage() {
                       <td className="px-2 py-2">
                         <Link
                           to="/laundry"
+                          search={{ batch: b.batch_id } as any}
                           className="inline-flex items-center gap-1 text-gold text-xs hover:underline"
                         >Open <ExternalLink className="h-3 w-3" /></Link>
                       </td>

@@ -391,6 +391,162 @@ export async function editReturnedBatchLines(
   });
 }
 
+/* ────────────  Admin edit of batch metadata & sent counts  ──────────── */
+
+export interface EditBatchMetadataInput {
+  vendor_id?: string | null;
+  vendor_name_at_time?: string | null;
+  vendor_slip_number?: string | null;
+  pickup_remarks?: string | null;
+  return_remarks?: string | null;
+  addPickupPhotos?: File[];
+  addReturnPhotos?: File[];
+}
+
+/**
+ * Admin/Owner edit of batch header fields (vendor, slip #, remarks) and
+ * photos. Works for both `sent` and `returned` batches. Photos are
+ * additive — existing photos are preserved; use the array columns.
+ * All changes are logged verbosely to `activity_log` for audit trail.
+ */
+export async function editBatchMetadata(
+  batchId: string,
+  edits: EditBatchMetadataInput,
+  performer: { id: string; name: string },
+  reason?: string | null,
+): Promise<LaundryBatchRow> {
+  const { data: batch, error: bErr } = await supabase
+    .from("laundry_batches" as any).select("*").eq("id", batchId).single();
+  if (bErr) throw bErr;
+  const b = batch as unknown as LaundryBatchRow;
+  if (b.state === "cancelled") throw new Error("Cannot edit a cancelled batch");
+
+  const patch: Record<string, any> = {};
+  const changes: string[] = [];
+
+  if (edits.vendor_id != null && edits.vendor_id !== b.vendor_id) {
+    patch.vendor_id = edits.vendor_id;
+    patch.vendor_name_at_time = edits.vendor_name_at_time ?? b.vendor_name_at_time;
+    changes.push(`Vendor: ${b.vendor_name_at_time} → ${patch.vendor_name_at_time}`);
+  }
+  if (edits.vendor_slip_number !== undefined && (edits.vendor_slip_number ?? null) !== (b.vendor_slip_number ?? null)) {
+    patch.vendor_slip_number = edits.vendor_slip_number ?? null;
+    changes.push(`Slip #: ${b.vendor_slip_number ?? "—"} → ${patch.vendor_slip_number ?? "—"}`);
+  }
+  if (edits.pickup_remarks !== undefined && (edits.pickup_remarks ?? null) !== (b.pickup_remarks ?? null)) {
+    patch.pickup_remarks = edits.pickup_remarks ?? null;
+    changes.push(`Pickup remarks changed`);
+  }
+  if (edits.return_remarks !== undefined && (edits.return_remarks ?? null) !== (b.return_remarks ?? null)) {
+    patch.return_remarks = edits.return_remarks ?? null;
+    changes.push(`Return remarks changed`);
+  }
+
+  // Photo additions
+  const addedPickup: string[] = [];
+  for (const f of (edits.addPickupPhotos ?? [])) {
+    try { addedPickup.push(await uploadLaundryPhoto(batchId, "pickup", f)); }
+    catch (e) { console.error("pickup photo add failed", e); }
+  }
+  const addedReturn: string[] = [];
+  for (const f of (edits.addReturnPhotos ?? [])) {
+    try { addedReturn.push(await uploadLaundryPhoto(batchId, "return", f)); }
+    catch (e) { console.error("return photo add failed", e); }
+  }
+  if (addedPickup.length > 0) {
+    patch.pickup_photo_paths = [...(b.pickup_photo_paths ?? []), ...addedPickup];
+    changes.push(`+${addedPickup.length} pickup photo(s)`);
+  }
+  if (addedReturn.length > 0) {
+    patch.return_photo_paths = [...(b.return_photo_paths ?? []), ...addedReturn];
+    changes.push(`+${addedReturn.length} return photo(s)`);
+  }
+
+  if (Object.keys(patch).length === 0) return b;
+
+  const { data: updated, error: uErr } = await supabase
+    .from("laundry_batches" as any).update(patch).eq("id", batchId).select().single();
+  if (uErr) throw uErr;
+
+  void logActivity({
+    page: "laundry",
+    action: "laundry_batch_edited",
+    entity_type: "laundry_batch",
+    entity_id: batchId,
+    entity_reference: b.batch_number,
+    summary: `Edited batch ${b.batch_number}${reason ? ` — ${reason}` : ""}`,
+    correlation_id: b.correlation_id,
+    source: "manual",
+    metadata: { changes, edited_by: performer.name, reason: reason ?? null } as any,
+  });
+
+  return updated as unknown as LaundryBatchRow;
+}
+
+export interface EditSentLineInput {
+  line_id: string;
+  qty_sent: number;
+}
+
+/**
+ * Admin/Owner correction of a *sent* batch's per-linen sent counts. Only
+ * allowed while the batch is `sent` (not yet returned) — once returned,
+ * use `editReturnedBatchLines` to adjust the OK/short/damaged/lost split.
+ *
+ * This does NOT re-flip laundry_queue rows: if a mis-count is significant
+ * enough to affect the queue reconciliation, the correct workflow is to
+ * cancel the batch and recreate it. Small counting adjustments (±1–2 pieces
+ * from re-count with the vendor before the truck leaves) are the intended
+ * use case. All changes are logged verbosely.
+ */
+export async function editSentBatchLines(
+  batchId: string,
+  edits: EditSentLineInput[],
+  performer: { id: string; name: string },
+  reason?: string | null,
+): Promise<void> {
+  const { data: batch, error: bErr } = await supabase
+    .from("laundry_batches" as any).select("*").eq("id", batchId).single();
+  if (bErr) throw bErr;
+  const b = batch as unknown as LaundryBatchRow;
+  if (b.state !== "sent") throw new Error("Only in-flight (sent) batches allow sent-count edits");
+
+  const { data: existing, error: lErr } = await supabase
+    .from("laundry_batch_lines" as any).select("*").eq("batch_id", batchId);
+  if (lErr) throw lErr;
+  const byId = new Map<string, LaundryBatchLineRow>();
+  for (const l of ((existing ?? []) as any[]) as LaundryBatchLineRow[]) byId.set(l.id, l);
+
+  const changes: string[] = [];
+  for (const e of edits) {
+    const cur = byId.get(e.line_id);
+    if (!cur) continue;
+    const nextSent = Math.max(0, Math.floor(e.qty_sent));
+    if (nextSent === cur.qty_sent) continue;
+    const nextInHouse = Math.max(0, cur.qty_heos_queue - nextSent);
+    const { error: uErr } = await supabase
+      .from("laundry_batch_lines" as any)
+      .update({ qty_sent: nextSent, qty_in_house: nextInHouse })
+      .eq("id", e.line_id);
+    if (uErr) throw uErr;
+    changes.push(`${cur.linen_name_at_time}: Sent ${cur.qty_sent}→${nextSent}`);
+  }
+
+  if (changes.length === 0) return;
+
+  void logActivity({
+    page: "laundry",
+    action: "laundry_batch_sent_counts_corrected",
+    entity_type: "laundry_batch",
+    entity_id: batchId,
+    entity_reference: b.batch_number,
+    summary: `Corrected sent counts on batch ${b.batch_number}${reason ? ` — ${reason}` : ""}`,
+    correlation_id: b.correlation_id,
+    source: "manual",
+    metadata: { changes, corrected_by: performer.name, reason: reason ?? null } as any,
+  });
+}
+
 export async function listBatches(opts?: {
   vendorId?: string;
   state?: LaundryBatchState;

@@ -9,16 +9,17 @@
  * The Ship 2 return path (per-linen OK/short/damaged/lost) is stubbed
  * as a read-only detail dialog for now.
  */
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, Truck, ClipboardList, AlertTriangle, ChevronRight, XCircle, Pencil, Save } from "lucide-react";
+import { Loader2, ArrowLeft, Truck, ClipboardList, AlertTriangle, ChevronRight, XCircle, Pencil, Save, Plus, FileEdit } from "lucide-react";
 import { toast } from "sonner";
 import { getBusinessDate } from "@/lib/night-audit-api";
 import { listVendors, type VendorRow } from "@/lib/vendors-api";
+import { listLinenTypes } from "@/lib/linen-master-api";
 import {
   previewPickup, createBatch, listBatches, cancelBatch, getBatch, confirmReturn, signedLaundryPhotoUrl,
-  editReturnedBatchLines,
+  editReturnedBatchLines, editBatchMetadata, editSentBatchLines,
   type LaundryBatchRow, type LaundryBatchLineRow, type LaundryBatchState, type PickupPreviewRow,
 } from "@/lib/laundry-batches-api";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
@@ -29,6 +30,11 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/laundry")({
   component: LaundryPage,
+  // Allow deep-linking from reporting: /laundry?batch=<id> opens the
+  // Batch Detail screen directly rather than the landing page.
+  validateSearch: (s: Record<string, unknown>) => ({
+    batch: typeof s.batch === "string" ? s.batch : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Laundry · Hotel Excella" },
@@ -41,9 +47,21 @@ type Tab = "queue" | "batches";
 
 function LaundryPage() {
   const me = useCurrentStaff();
+  const navigate = useNavigate();
+  const search = Route.useSearch();
   const [tab, setTab] = useState<Tab>("queue");
   const [pickupOpen, setPickupOpen] = useState(false);
-  const [detailBatchId, setDetailBatchId] = useState<string | null>(null);
+  const [detailBatchId, setDetailBatchId] = useState<string | null>(search.batch ?? null);
+
+  // Sync detail state ↔ URL so refresh / back-nav preserves the deep link.
+  useEffect(() => {
+    if (search.batch && search.batch !== detailBatchId) setDetailBatchId(search.batch);
+  }, [search.batch]);
+
+  const closeDetail = () => {
+    setDetailBatchId(null);
+    if (search.batch) navigate({ to: "/laundry", search: {} as any, replace: true });
+  };
 
   const { data: businessDate } = useQuery({ queryKey: ["business-date"], queryFn: getBusinessDate, staleTime: 30_000 });
 
@@ -57,7 +75,7 @@ function LaundryPage() {
     );
   }
   if (detailBatchId) {
-    return <BatchDetailScreen batchId={detailBatchId} onClose={() => setDetailBatchId(null)} />;
+    return <BatchDetailScreen batchId={detailBatchId} onClose={closeDetail} />;
   }
 
   return (
@@ -275,6 +293,18 @@ function PickupScreen({ businessDate, onClose, me }: {
   const [remarks, setRemarks] = useState("");
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [sent, setSent] = useState<Record<string, number>>({});
+  // Manual pickup entries: linen types not in today's queue that the vendor
+  // physically collected anyway (e.g. towels a housekeeper handed over without
+  // recording a task). Each row is { linen_type_id → qty_sent }; qty_heos_queue
+  // stays 0 so the RPC creates a batch line without flipping queue rows.
+  const [manualSent, setManualSent] = useState<Record<string, number>>({});
+  const [manualPickerOpen, setManualPickerOpen] = useState(false);
+
+  const { data: allLinenTypes = [] } = useQuery({
+    queryKey: ["linen-types-all"],
+    queryFn: () => listLinenTypes(true),
+    staleTime: 60_000,
+  });
 
   // Default vendor: prefer "WeWash Laundry" (per operational spec), else first laundry vendor.
   useEffect(() => {
@@ -298,15 +328,29 @@ function PickupScreen({ businessDate, onClose, me }: {
   const rows: PickupPreviewRow[] = preview?.rows ?? [];
   const days = preview?.oldestDays ?? 0;
   const activeRows = rows.filter((r) => r.heos_queue > 0);
+  const queuedIds = new Set(rows.map((r) => r.linen_type_id));
+  const linenById = useMemo(() => {
+    const m = new Map<string, { id: string; name: string }>();
+    for (const l of (allLinenTypes as any[])) m.set(l.id, { id: l.id, name: l.name });
+    return m;
+  }, [allLinenTypes]);
+  // Manual entries the user has added — always shown even at qty 0 so they
+  // can adjust before confirming.
+  const manualRows = Object.keys(manualSent)
+    .map((id) => linenById.get(id))
+    .filter((x): x is { id: string; name: string } => !!x);
+  const availableForManual = (allLinenTypes as any[])
+    .filter((l) => !queuedIds.has(l.id) && manualSent[l.id] == null);
 
   const totals = useMemo(() => {
-    let heos = 0, sentTotal = 0;
+    let heos = 0, sentTotal = 0, manualTotal = 0;
     for (const r of activeRows) {
       heos += r.heos_queue;
       sentTotal += Math.max(0, Math.min(sent[r.linen_type_id] ?? 0, r.heos_queue));
     }
-    return { heos, sentTotal, inHouse: heos - sentTotal };
-  }, [activeRows, sent]);
+    for (const id of Object.keys(manualSent)) manualTotal += Math.max(0, Math.floor(manualSent[id] || 0));
+    return { heos, sentTotal, manualTotal, inHouse: heos - sentTotal };
+  }, [activeRows, sent, manualSent]);
 
   const confirmMut = useMutation({
     mutationFn: async () => {
@@ -320,13 +364,22 @@ function PickupScreen({ businessDate, onClose, me }: {
         qty_heos_queue: r.heos_queue,
         qty_sent: Math.max(0, Math.min(Math.floor(Number(sent[r.linen_type_id] ?? 0)), r.heos_queue)),
       }));
+      // Manual lines: queue count is 0; sent count is whatever the user typed.
+      const manualLines = manualRows
+        .map((l) => ({
+          linen_type_id: l.id,
+          linen_name_at_time: l.name,
+          qty_heos_queue: 0,
+          qty_sent: Math.max(0, Math.floor(Number(manualSent[l.id] ?? 0))),
+        }))
+        .filter((l) => l.qty_sent > 0);
       return createBatch({
         vendor_id: vendor.id,
         vendor_name_at_time: vendor.name,
         business_date: businessDate,
         vendor_slip_number: slipNumber || null,
         pickup_remarks: remarks || null,
-        lines,
+        lines: [...lines, ...manualLines],
         performer: me,
         slipPhotoFiles: photoFiles,
       });
@@ -339,6 +392,8 @@ function PickupScreen({ businessDate, onClose, me }: {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
@@ -419,7 +474,64 @@ function PickupScreen({ businessDate, onClose, me }: {
               <div className="col-span-3 text-right font-medium text-gold">{totals.sentTotal}</div>
             </div>
           )}
+          {/* Manual entries — linen not in today's queue but physically handed over. */}
+          {manualRows.length > 0 && (
+            <>
+              <div className="px-4 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-t border-border/60 bg-muted/10">
+                Manual entries (not in queue)
+              </div>
+              {manualRows.map((l) => (
+                <div key={l.id} className="grid grid-cols-12 items-center gap-2 px-4 py-2.5 border-b border-border/60 text-sm">
+                  <div className="col-span-5">{l.name}</div>
+                  <div className="col-span-2 text-right text-muted-foreground">—</div>
+                  <div className="col-span-2 text-right text-muted-foreground">—</div>
+                  <div className="col-span-3 text-right flex items-center justify-end gap-1">
+                    <input
+                      type="number" inputMode="numeric" min={0}
+                      value={manualSent[l.id] ?? 0}
+                      onChange={(e) => setManualSent((s) => ({ ...s, [l.id]: Number(e.target.value) }))}
+                      className="w-16 bg-input/60 border border-border rounded-md px-2 py-1 text-right text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setManualSent((s) => { const n = { ...s }; delete n[l.id]; return n; })}
+                      className="p-1 rounded-md text-muted-foreground hover:text-red-500"
+                      aria-label="Remove manual entry"
+                    ><XCircle className="h-3.5 w-3.5" /></button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+          {availableForManual.length > 0 && (
+            <div className="border-t border-border/60">
+              {!manualPickerOpen ? (
+                <button
+                  onClick={() => setManualPickerOpen(true)}
+                  className="w-full px-4 py-2 text-[11px] uppercase tracking-wider text-gold hover:bg-muted/10 flex items-center justify-center gap-1.5"
+                ><Plus className="h-3.5 w-3.5" /> Add linen not in queue</button>
+              ) : (
+                <div className="p-3 space-y-2">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Pick a linen type</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {availableForManual.map((l: any) => (
+                      <button
+                        key={l.id}
+                        onClick={() => { setManualSent((s) => ({ ...s, [l.id]: 1 })); setManualPickerOpen(false); }}
+                        className="px-2.5 py-1 rounded-full border border-border text-xs bg-input/40 hover:bg-muted/40"
+                      >{l.name}</button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setManualPickerOpen(false)}
+                    className="text-[10px] uppercase tracking-wider text-muted-foreground"
+                  >Cancel</button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
 
         {totals.inHouse > 0 && (
           <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs">
@@ -456,7 +568,7 @@ function PickupScreen({ businessDate, onClose, me }: {
 
         <button
           onClick={() => confirmMut.mutate()}
-          disabled={confirmMut.isPending || !vendorId || activeRows.length === 0}
+          disabled={confirmMut.isPending || !vendorId || (activeRows.length === 0 && totals.manualTotal === 0)}
           className="w-full py-3 rounded-md bg-gold text-charcoal font-medium disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {confirmMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -482,6 +594,7 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
   const [returnUrls, setReturnUrls] = useState<string[]>([]);
   const [returnMode, setReturnMode] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [metaEditMode, setMetaEditMode] = useState(false);
   const [lightboxUrls, setLightboxUrls] = useState<string[] | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
@@ -558,6 +671,23 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
     );
   }
 
+  if (metaEditMode && canEditReturn) {
+    return (
+      <EditBatchScreen
+        batch={batch}
+        lines={lines}
+        me={{ id: me.id ?? "", name: me.name || me.firstName || "user" }}
+        onClose={() => setMetaEditMode(false)}
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ["laundry-batch", batchId] });
+          qc.invalidateQueries({ queryKey: ["laundry-batches"] });
+          setMetaEditMode(false);
+        }}
+      />
+    );
+  }
+
+
   const totals = lines.reduce(
     (a, l) => ({
       heos: a.heos + l.qty_heos_queue,
@@ -614,6 +744,15 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
             className="w-full py-2.5 rounded-md border border-gold/40 text-gold text-sm flex items-center justify-center gap-2 hover:bg-gold/5"
           >
             <Pencil className="h-4 w-4" /> Correct Return Counts
+          </button>
+        )}
+
+        {canEditReturn && batch.state !== "cancelled" && (
+          <button
+            onClick={() => setMetaEditMode(true)}
+            className="w-full py-2.5 rounded-md border border-border text-sm flex items-center justify-center gap-2 hover:bg-muted/40 text-muted-foreground hover:text-foreground"
+          >
+            <FileEdit className="h-4 w-4" /> Edit Batch (vendor, slip, photos, counts)
           </button>
         )}
 
@@ -1043,6 +1182,150 @@ function EditReturnScreen({ batch, lines, me, onClose, onDone }: {
           className="w-full py-3 rounded-md bg-gold text-charcoal font-medium disabled:opacity-50 flex items-center justify-center gap-2">
           {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           <Save className="h-4 w-4" /> Save Corrections
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────  Edit Batch (admin/owner)  ─────────────────
+ *
+ * One screen handles all header edits: vendor, slip #, remarks, additional
+ * photos, and — for still-sent batches — per-linen sent counts. All edits
+ * are logged verbosely to activity_log via editBatchMetadata /
+ * editSentBatchLines. Queue reconciliation is intentionally NOT re-run:
+ * for large mis-counts the correct workflow is cancel + recreate.
+ */
+function EditBatchScreen({ batch, lines, me, onClose, onDone }: {
+  batch: LaundryBatchRow;
+  lines: LaundryBatchLineRow[];
+  me: { id: string; name: string };
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { data: vendors = [] } = useQuery({
+    queryKey: ["vendors-laundry-edit"],
+    queryFn: () => listVendors({ activeOnly: true }),
+    staleTime: 60_000,
+  });
+
+  const [vendorId, setVendorId] = useState(batch.vendor_id);
+  const [slip, setSlip] = useState(batch.vendor_slip_number ?? "");
+  const [pickupRemarks, setPickupRemarks] = useState(batch.pickup_remarks ?? "");
+  const [returnRemarks, setReturnRemarks] = useState(batch.return_remarks ?? "");
+  const [addPickup, setAddPickup] = useState<File[]>([]);
+  const [addReturn, setAddReturn] = useState<File[]>([]);
+  const [reason, setReason] = useState("");
+  const [sentDraft, setSentDraft] = useState<Record<string, number>>(() => {
+    const d: Record<string, number> = {};
+    for (const l of lines) d[l.id] = l.qty_sent;
+    return d;
+  });
+  const canEditSent = batch.state === "sent";
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!me.id) throw new Error("Not signed in");
+      const vendor = (vendors as VendorRow[]).find((v) => v.id === vendorId);
+      await editBatchMetadata(batch.id, {
+        vendor_id: vendor ? vendor.id : batch.vendor_id,
+        vendor_name_at_time: vendor ? vendor.name : batch.vendor_name_at_time,
+        vendor_slip_number: slip.trim() || null,
+        pickup_remarks: pickupRemarks.trim() || null,
+        return_remarks: returnRemarks.trim() || null,
+        addPickupPhotos: addPickup,
+        addReturnPhotos: addReturn,
+      }, me, reason || null);
+      if (canEditSent) {
+        const edits = lines
+          .filter((l) => (sentDraft[l.id] ?? l.qty_sent) !== l.qty_sent)
+          .map((l) => ({ line_id: l.id, qty_sent: Math.max(0, Math.floor(sentDraft[l.id] ?? l.qty_sent)) }));
+        if (edits.length > 0) await editSentBatchLines(batch.id, edits, me, reason || null);
+      }
+    },
+    onSuccess: () => { toast.success("Batch updated"); onDone(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border">
+        <div className="px-4 py-3 max-w-3xl mx-auto flex items-center gap-3">
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted"><ArrowLeft className="h-4 w-4" /></button>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Edit Batch</div>
+            <div className="font-display text-base leading-tight truncate">{batch.batch_number}</div>
+          </div>
+        </div>
+      </div>
+      <div className="px-4 py-6 max-w-3xl mx-auto space-y-4">
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-500">
+          All changes are logged in Activity Log with your name and the reason below.
+          {!canEditSent && <> Sent counts can only be edited before a batch is returned.</>}
+        </div>
+
+        <div className="luxe-card rounded-lg p-3 space-y-3">
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Vendor</label>
+            <select value={vendorId} onChange={(e) => setVendorId(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1">
+              {(vendors as VendorRow[]).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Vendor Slip #</label>
+            <input value={slip} onChange={(e) => setSlip(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1" />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Pickup Remarks</label>
+            <textarea value={pickupRemarks} onChange={(e) => setPickupRemarks(e.target.value)} rows={2}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1" />
+          </div>
+          {batch.state === "returned" && (
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Return Remarks</label>
+              <textarea value={returnRemarks} onChange={(e) => setReturnRemarks(e.target.value)} rows={2}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1" />
+            </div>
+          )}
+        </div>
+
+        <div className="luxe-card rounded-lg p-3 space-y-3">
+          <PhotoPicker label="Add Pickup Photos" files={addPickup} onFilesChange={setAddPickup} />
+          {batch.state === "returned" && (
+            <PhotoPicker label="Add Return Photos" files={addReturn} onFilesChange={setAddReturn} />
+          )}
+          <div className="text-[10px] text-muted-foreground">Existing photos are preserved. To remove a photo, contact an administrator.</div>
+        </div>
+
+        {canEditSent && (
+          <div className="luxe-card rounded-lg p-3 space-y-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Sent Counts (per linen)</div>
+            {lines.map((l) => (
+              <div key={l.id} className="flex items-center justify-between gap-2 text-sm">
+                <span className="flex-1">{l.linen_name_at_time}</span>
+                <span className="text-[10px] text-muted-foreground">was {l.qty_sent}</span>
+                <input type="number" inputMode="numeric" min={0}
+                  value={sentDraft[l.id] ?? 0}
+                  onChange={(e) => setSentDraft((d) => ({ ...d, [l.id]: Number(e.target.value) }))}
+                  className="w-20 bg-input/60 border border-border rounded-md px-2 py-1 text-right text-sm" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div>
+          <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Reason for edit</label>
+          <input value={reason} onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Vendor slip # was mis-recorded at pickup"
+            className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1" />
+        </div>
+
+        <button onClick={() => save.mutate()} disabled={save.isPending}
+          className="w-full py-3 rounded-md bg-gold text-charcoal font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+          {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          <Save className="h-4 w-4" /> Save Changes
         </button>
       </div>
     </div>
