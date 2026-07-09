@@ -164,6 +164,102 @@ function HousekeepingReportingPage() {
           </div>
         </section>
 
+        {/* Work History */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Work History</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground">{history.length} row{history.length === 1 ? "" : "s"}</span>
+              {canExport && history.length > 0 && (
+                <button onClick={exportHistory} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[11px] hover:bg-muted/40">
+                  <Download className="h-3 w-3" /> Export
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="luxe-card rounded-xl overflow-hidden">
+            <div className="overflow-x-auto max-h-[420px]">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary/30 text-[11px] uppercase tracking-wider text-muted-foreground sticky top-0">
+                  <tr>
+                    <th className="text-left px-3 py-2">Date</th>
+                    <th className="text-left px-3 py-2">Room</th>
+                    <th className="text-left px-3 py-2">Type</th>
+                    <th className="text-left px-3 py-2">State</th>
+                    <th className="text-left px-3 py-2">Origin</th>
+                    <th className="text-left px-3 py-2">Performed By</th>
+                    <th className="text-right px-3 py-2">Duration</th>
+                    <th className="text-right px-3 py-2">Cons.</th>
+                    <th className="text-right px-3 py-2">Linen</th>
+                    <th className="text-right px-3 py-2">Issues</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.length === 0 && (
+                    <tr><td colSpan={10} className="p-12 text-center text-muted-foreground">No tasks in this range.</td></tr>
+                  )}
+                  {history.map((h) => (
+                    <tr key={h.task_id} className="border-t border-border/60">
+                      <td className="px-3 py-2 tabular-nums text-xs">{h.business_date}</td>
+                      <td className="px-3 py-2">{h.room_number ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs">{h.type === "checkout_clean" ? "Checkout" : "Service"}</td>
+                      <td className="px-3 py-2 text-xs">{h.state}</td>
+                      <td className="px-3 py-2 text-xs">{h.origin === "manual" ? <span className="text-gold" title={h.manual_reason ?? ""}>manual</span> : h.origin.replace("auto_", "")}</td>
+                      <td className="px-3 py-2 text-xs">{h.performed_by ?? "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-xs">{formatDuration(h.duration_secs)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{h.consumables_qty}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{h.linen_qty}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{h.issues_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {/* Exception Audit */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-warning" /> Exception Audit
+            </h2>
+            {canExport && exceptions.length > 0 && (
+              <button onClick={exportExceptions} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[11px] hover:bg-muted/40">
+                <Download className="h-3 w-3" /> Export
+              </button>
+            )}
+          </div>
+          <div className="luxe-card rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/30 text-[11px] uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="text-left px-3 py-2">Date</th>
+                  <th className="text-left px-3 py-2">Expected</th>
+                  <th className="text-left px-3 py-2">Actual</th>
+                  <th className="text-left px-3 py-2 text-warning">Missing</th>
+                  <th className="text-left px-3 py-2 text-gold">Unexpected</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exceptions.map((e) => (
+                  <tr key={e.business_date} className="border-t border-border/60">
+                    <td className="px-3 py-2 tabular-nums text-xs">{e.business_date}</td>
+                    <td className="px-3 py-2 text-xs">{e.expected_rooms.join(", ") || "—"}</td>
+                    <td className="px-3 py-2 text-xs">{e.actual_rooms.join(", ") || "—"}</td>
+                    <td className="px-3 py-2 text-xs text-warning">{e.missing_rooms.join(", ") || "—"}</td>
+                    <td className="px-3 py-2 text-xs text-gold">{e.unexpected_rooms.join(", ") || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Expected rooms are derived using the same logic as the night-audit generator: checkouts on the date + occupied stays overnight, minus HK exception rows (DND / Service Not Required). "Unexpected" rows usually indicate a manual task or an operational correction.
+          </p>
+        </section>
+
+
         <p className="text-[11px] text-muted-foreground">
           Data source: Housekeeping engine snapshots (<code className="text-foreground/70">housekeeping_tasks</code>). Durations use started/finished timestamps recorded by the shared HK write path. See related reports:{" "}
           <Link to="/reporting/laundry" className="text-gold hover:underline">Laundry</Link>,{" "}
