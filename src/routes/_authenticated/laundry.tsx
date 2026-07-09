@@ -1215,6 +1215,8 @@ function EditBatchScreen({ batch, lines, me, onClose, onDone }: {
   const [returnRemarks, setReturnRemarks] = useState(batch.return_remarks ?? "");
   const [addPickup, setAddPickup] = useState<File[]>([]);
   const [addReturn, setAddReturn] = useState<File[]>([]);
+  const [removePickupPaths, setRemovePickupPaths] = useState<Set<string>>(new Set());
+  const [removeReturnPaths, setRemoveReturnPaths] = useState<Set<string>>(new Set());
   const [reason, setReason] = useState("");
   const [sentDraft, setSentDraft] = useState<Record<string, number>>(() => {
     const d: Record<string, number> = {};
@@ -1222,6 +1224,33 @@ function EditBatchScreen({ batch, lines, me, onClose, onDone }: {
     return d;
   });
   const canEditSent = batch.state === "sent";
+
+  // Resolve signed URLs for existing photos so we can render thumbnails with a
+  // delete toggle. Uses the same helper as the read-only detail view.
+  const existingPickup = batch.pickup_photo_paths ?? [];
+  const existingReturn = batch.return_photo_paths ?? [];
+  const [pickupThumbs, setPickupThumbs] = useState<Record<string, string>>({});
+  const [returnThumbs, setReturnThumbs] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const [p, r] = await Promise.all([
+        Promise.all(existingPickup.map(async (path) => [path, await signedLaundryPhotoUrl(path)] as const)),
+        Promise.all(existingReturn.map(async (path) => [path, await signedLaundryPhotoUrl(path)] as const)),
+      ]);
+      if (!alive) return;
+      const pm: Record<string, string> = {}; for (const [k, v] of p) if (v) pm[k] = v;
+      const rm: Record<string, string> = {}; for (const [k, v] of r) if (v) rm[k] = v;
+      setPickupThumbs(pm); setReturnThumbs(rm);
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batch.id]);
+
+  const togglePickupRemove = (path: string) =>
+    setRemovePickupPaths((s) => { const n = new Set(s); n.has(path) ? n.delete(path) : n.add(path); return n; });
+  const toggleReturnRemove = (path: string) =>
+    setRemoveReturnPaths((s) => { const n = new Set(s); n.has(path) ? n.delete(path) : n.add(path); return n; });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -1235,6 +1264,8 @@ function EditBatchScreen({ batch, lines, me, onClose, onDone }: {
         return_remarks: returnRemarks.trim() || null,
         addPickupPhotos: addPickup,
         addReturnPhotos: addReturn,
+        removePickupPaths: Array.from(removePickupPaths),
+        removeReturnPaths: Array.from(removeReturnPaths),
       }, me, reason || null);
       if (canEditSent) {
         const edits = lines
@@ -1292,11 +1323,49 @@ function EditBatchScreen({ batch, lines, me, onClose, onDone }: {
         </div>
 
         <div className="luxe-card rounded-lg p-3 space-y-3">
+          {existingPickup.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Existing Pickup Photos · tap × to remove</div>
+              <div className="flex flex-wrap gap-2">
+                {existingPickup.map((path) => {
+                  const url = pickupThumbs[path];
+                  const marked = removePickupPaths.has(path);
+                  return (
+                    <div key={path} className={cn("relative rounded-md overflow-hidden border", marked ? "border-red-500 opacity-40" : "border-border")}>
+                      {url ? <img src={url} alt="pickup" className="h-16 w-16 object-cover" /> : <div className="h-16 w-16 bg-muted" />}
+                      <button type="button" onClick={() => togglePickupRemove(path)}
+                        className="absolute top-0 right-0 bg-red-600 text-white rounded-bl-md text-xs w-5 h-5 flex items-center justify-center">×</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <PhotoPicker label="Add Pickup Photos" files={addPickup} onFilesChange={setAddPickup} />
           {batch.state === "returned" && (
-            <PhotoPicker label="Add Return Photos" files={addReturn} onFilesChange={setAddReturn} />
+            <>
+              {existingReturn.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Existing Return Photos · tap × to remove</div>
+                  <div className="flex flex-wrap gap-2">
+                    {existingReturn.map((path) => {
+                      const url = returnThumbs[path];
+                      const marked = removeReturnPaths.has(path);
+                      return (
+                        <div key={path} className={cn("relative rounded-md overflow-hidden border", marked ? "border-red-500 opacity-40" : "border-border")}>
+                          {url ? <img src={url} alt="return" className="h-16 w-16 object-cover" /> : <div className="h-16 w-16 bg-muted" />}
+                          <button type="button" onClick={() => toggleReturnRemove(path)}
+                            className="absolute top-0 right-0 bg-red-600 text-white rounded-bl-md text-xs w-5 h-5 flex items-center justify-center">×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <PhotoPicker label="Add Return Photos" files={addReturn} onFilesChange={setAddReturn} />
+            </>
           )}
-          <div className="text-[10px] text-muted-foreground">Existing photos are preserved. To remove a photo, contact an administrator.</div>
+          <div className="text-[10px] text-muted-foreground">To replace a photo, mark it × and add a new one — both happen atomically on save.</div>
         </div>
 
         {canEditSent && (
