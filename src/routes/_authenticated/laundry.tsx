@@ -568,7 +568,7 @@ function PickupScreen({ businessDate, onClose, me }: {
 
         <button
           onClick={() => confirmMut.mutate()}
-          disabled={confirmMut.isPending || !vendorId || activeRows.length === 0}
+          disabled={confirmMut.isPending || !vendorId || (activeRows.length === 0 && totals.manualTotal === 0)}
           className="w-full py-3 rounded-md bg-gold text-charcoal font-medium disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {confirmMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
