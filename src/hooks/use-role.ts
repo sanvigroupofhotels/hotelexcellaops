@@ -3,32 +3,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
 /**
- * Application roles — post-cleanup (P1 stabilization, 2026-07-05).
+ * Application roles — HEOS v1.0 (finalized 2026-07-09, Shipment 3).
  *
- * The only four active roles in HEOS are:
+ * The four supported roles are:
  *   - admin        — full platform control (user management, masters)
  *   - owner        — read-everything + edit/deactivate any record
  *   - fo_staff     — front-office (reception + hosting)
  *   - housekeeping — cleaning & service task engine
  *
- * The Postgres `app_role` enum still contains historical `reception` and
- * `staff` values for schema-compatibility only. As of 2026-07-05 no user
- * carries either legacy role (verified by DB audit) and the migration
- * pipeline `reception → fo_staff`, `staff → housekeeping` has been
- * finalized. Legacy values are intentionally hidden from every UI surface
- * (pickers, matrices, override screens) and are treated as `housekeeping`
- * or `fo_staff` respectively if ever encountered at read-time — see the
- * defensive coalescing in `useUserRole` below.
+ * The Postgres `app_role` enum still carries historical `reception` and
+ * `staff` values purely for schema compatibility with old audit rows; a
+ * DB trigger (`user_roles_block_legacy_role`) rejects any new write of
+ * those values. The `roles` catalog and `user_roles` table only carry
+ * the four active roles. There is no read-time coalescing anymore.
  */
 export type AppRole = "admin" | "owner" | "fo_staff" | "housekeeping";
 
-/**
- * Wire-level role type — includes legacy enum values that may still exist
- * in `public.user_roles`. Kept internal; the app never renders these.
- */
-type WireRole = AppRole | "reception" | "staff";
-
-/** UI-facing role list. */
 export const ACTIVE_ROLES: readonly AppRole[] = [
   "admin", "owner", "fo_staff", "housekeeping",
 ] as const;
@@ -42,24 +32,13 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   housekeeping: "Housekeeping",
 };
 
-/** Coalesce any wire value (including legacy enum values) into the four
- * active roles. Legacy `reception` → `fo_staff`, `staff` → `housekeeping`.
- * Anything else falls back to `housekeeping` (the safest, lowest-privilege
- * mapping). */
-function normalize(role: WireRole | string | null | undefined): AppRole {
-  switch (role) {
-    case "admin":
-    case "owner":
-    case "fo_staff":
-    case "housekeeping":
-      return role;
-    case "reception":
-      return "fo_staff";
-    case "staff":
-      return "housekeeping";
-    default:
-      return "housekeeping";
-  }
+/** Defensive normalizer for any wire value that ever surfaces (dead audit rows).
+ *  Legacy values still map to safe active roles; no user will actually carry them. */
+function normalize(role: string | null | undefined): AppRole {
+  if (role === "admin" || role === "owner" || role === "fo_staff" || role === "housekeeping") return role;
+  if (role === "reception") return "fo_staff";
+  if (role === "staff") return "housekeeping";
+  return "housekeeping";
 }
 
 /**

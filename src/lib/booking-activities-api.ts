@@ -33,7 +33,7 @@ async function currentActor() {
   ]);
   const role =
     (roles ?? []).map((r: any) => r.role).find((r: string) => r === "admin") ??
-    (roles ?? [])[0]?.role ?? "staff";
+    (roles ?? [])[0]?.role ?? "housekeeping";
   return {
     id: user.id,
     name: (prof as any)?.display_name || (prof as any)?.email || "user",

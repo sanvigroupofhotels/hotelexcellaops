@@ -15,8 +15,72 @@ after **P1 Housekeeping + Laundry Reporting** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-09 (post Final Stabilization Shipment 2 — Operations UX, Reporting & Operational Validation)
-- **Currently in flight:** _Shipment 3 (Platform Cleanup, Audits & Production Readiness) — pending._
+- **Last updated:** 2026-07-09 (post Final Stabilization Shipment 3 — Platform Cleanup, Governance & Production Sign-off, partial)
+- **Currently in flight:** _Shipment 3 completed the DB governance + role-model + permission-audit pass. UI-side Quotes surgery deferred to a bounded follow-up (Shipment 3B) — details below._
+
+## 2026-07-09 — Final Stabilization Shipment 3 (Platform Cleanup, Governance & Production Sign-off)
+
+### Shipped
+
+**Database governance & permission audit (single migration)**
+- Roles catalog reconciled: `staff` → `housekeeping`, `reception` → `fo_staff`; permission grants remapped 1:1, legacy rows removed. Admin/Owner labels refreshed.
+- Legacy role trigger: `user_roles_block_legacy_role` now hard-blocks any INSERT/UPDATE writing `reception` or `staff` into `user_roles`. Enum values remain for historical audit compatibility (documented via `COMMENT ON TYPE app_role`).
+- Quotes tables marked deprecated (`quotes`, `quote_items`, `quote_activities`, `followups`) via `COMMENT ON TABLE`; write grants (INSERT/UPDATE/DELETE) revoked from `authenticated`. SELECT preserved so historical `bookings.source_quote_id` links continue to resolve. Physical drop deferred per user directive.
+- Obsolete permission keys removed: all `quotes.*`, `cash.manage` (superseded by granular cash keys), `master.rates`, `master.rooms`, `master.others`.
+- New granular permissions added and role-defaulted: `operations.charge_catalog`, `operations.hk_issue_types`, `operations.linen_types`, `operations.inventory`, `operations.vendors`, `housekeeping.view`, `housekeeping.work`, `laundry.view`, `laundry.manage`, `night_audit.run`, `guest_portal.ops_view`.
+
+**Legacy role code purge**
+- `src/hooks/use-role.ts` — removed WireRole indirection; kept a small defensive `normalize()` for old audit reads. Doc block rewritten as final HEOS v1.0 role model.
+- `src/lib/users-admin.functions.ts` — dropped `ANY_ROLE_Z`; `listUsersFn` now types against `ACTIVE_ROLES_Z` and defensively remaps any lingering legacy audit values.
+- `src/lib/booking-activities-api.ts` — role fallback `"staff"` → `"housekeeping"`.
+
+**AI Readiness documentation**
+- `docs/ai-readiness.md` — catalogues 40+ business events, 10 shared engines, per-department AI integration points, safe read/guarded write matrix, and the outbox / idempotency / audit-actor gaps that must close before Excella AI OS.
+
+### Architectural decisions
+
+- **Quotes DB tables kept, not dropped.** User directive — retain for historical `bookings.source_quote_id` references. Read-only enforcement is at the grant layer, not RLS, so admin/service-role backfill paths still work.
+- **Legacy enum values not recreated.** Recreating `app_role` would require rewriting every dependent policy, function, and column atomically — much higher risk than the trigger-based block. The trigger is the enforcement boundary; the enum is a schema fossil.
+- **Follow-ups decided to be removed with Quotes.** `followups.quote_id` is NOT NULL; the module has no residual business value once Quotes are gone. Notifications module already covers the operator workspace need.
+- **UI-side Quotes surgery deferred to Shipment 3B.** Quotes are referenced by 10+ interconnected surfaces (`history.tsx`, `generate.tsx`, `quote.$id[.edit].tsx`, `follow-ups.tsx`, `analytics.tsx`, `reports.tsx`, `calendar.tsx`, `audit.tsx`, `customers[_.$id].tsx`, `bookings_.$id.tsx`, `bookings_.new.tsx`, plus `admin-only.tsx` fallback, `notification-bell.tsx` link). Doing this surgery correctly in a single turn while also running the other audits was judged unsafe. The DB is already inert; the UI still renders read-only against dormant tables (writes fail cleanly at the grant layer, but no user-facing write path is exercised because the write actions have no data flow triggers under normal use). **Shipment 3B scope**: delete the 5 standalone Quote routes, strip Quote sections from the 8 shared surfaces, remove `quote-messages.ts` + `share-quote.ts` (fold `nodeToBlob` into `invoice-dialog`), rewrite `admin-only.tsx` redirect target and `notification-bell.tsx` links.
+
+### Deferred to Shipment 3B (bounded UI-only follow-up)
+
+- **Quotes UI extraction** (see above).
+- **Master Data mobile UX pass** — category chip navigation on small screens.
+- **Staff Management form audit** — required-fields + mobile layout tightening.
+- **Full E2E Playwright walk-through** — realistically a session of its own; DB governance takes precedence.
+- **Dead-code scan** — run after Quotes surgery so the delete set is unambiguous.
+
+### Platform health (post Shipment 3)
+
+| Module              | Status | Notes                                                                                          |
+|---------------------|--------|------------------------------------------------------------------------------------------------|
+| Booking             | 🟢     | Shared engines confirmed single-source-of-truth. Payment link unified.                         |
+| House View          | 🟢     | Long-press flows + extension hook wired through `updateBookingStay`.                           |
+| Guest Portal        | 🟢     | Pricing consolidated with operator invoicing.                                                  |
+| Housekeeping        | 🟢     | Work History filters + skipped-reason column shipped in S2.                                    |
+| Laundry             | 🟢     | Batch editing with photo replacement; reporting table complete.                                |
+| Inventory           | 🟡     | Functional; audit not performed this shipment.                                                 |
+| Vendors             | 🟡     | Functional; audit not performed this shipment.                                                 |
+| Cash Book           | 🟢     | UX polish + granular permissions.                                                              |
+| Reporting           | 🟢     | HK + Laundry reporting stable; filter chips + tooltips shipped in S2.                          |
+| Night Audit         | 🟢     | `closeSession` remains sole BD advance path; fo_staff RLS unblocked in S1.                     |
+| User Management     | 🟢     | Legacy roles purged; four-role model finalized.                                                |
+| Role Management     | 🟢     | Roles catalog reconciled with the enum; grants remapped.                                       |
+| Access Management   | 🟢     | Permissions audited; obsolete keys removed; missing keys added; role defaults set.             |
+| Master Data         | 🟡     | Category set unchanged; mobile UX + navigation improvements deferred to 3B.                    |
+| Staff Management    | 🟡     | Functional; UX audit + form tightening deferred to 3B.                                         |
+| Quotes              | 🔴→⬛   | Removed at DB level (dormant). UI surgery pending in 3B.                                       |
+| Follow-ups          | 🔴→⬛   | Same as Quotes — removed at DB grant level; route file still present until 3B.                 |
+
+### Production readiness assessment
+
+**Ready to begin Maintenance Module?** Yes — with one caveat.
+
+**Why yes:** every module that drives daily hotel operations (Booking, House View, HK, Laundry, Cash Book, Night Audit, Reporting, Guest Portal, User/Role/Access Management) is 🟢. The role model, permissions, and shared engines are now stable single sources of truth. New modules can be built on top without inheriting technical debt from the Quotes system.
+
+**Caveat:** Shipment 3B should be scheduled before or in parallel with the first Maintenance sprint to fully remove the Quotes UI surfaces. Leaving them live for another sprint is harmless (they render historical data read-only) but creates cognitive noise for operators.
 
 ## 2026-07-09 — Final Stabilization Shipment 2
 

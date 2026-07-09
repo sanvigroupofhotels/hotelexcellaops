@@ -5,8 +5,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 // Username: any non-empty trimmed string. No character/length restrictions per admin policy.
 const USERNAME_Z = z.string().trim().min(1).max(255);
 const ACTIVE_ROLES_Z = z.enum(["admin", "owner", "fo_staff", "housekeeping"]);
-/** Wide role enum used only when accepting existing roles (backward compat). */
-const ANY_ROLE_Z = z.enum(["admin", "owner", "fo_staff", "housekeeping", "reception", "staff"]);
 
 /** Synthesized login-email domain for username-only users (per approved design §10). */
 const SYNTH_EMAIL_DOMAIN = "hotelexcella.in";
@@ -169,9 +167,18 @@ export const listUsersFn = createServerFn({ method: "GET" })
       ]);
     if (pErr) throw new Error(pErr.message);
     if (rErr) throw new Error(rErr.message);
-    type R = z.infer<typeof ANY_ROLE_Z>;
+    type R = z.infer<typeof ACTIVE_ROLES_Z>;
     const byRole = new Map<string, R>();
-    for (const r of roles ?? []) byRole.set((r as any).user_id, (r as any).role);
+    for (const r of roles ?? []) {
+      const raw = (r as any).role as string;
+      // Legacy audit-row values are defensively remapped; the DB trigger
+      // blocks any new inserts of these values.
+      const active: R =
+        raw === "reception" ? "fo_staff" :
+        raw === "staff" ? "housekeeping" :
+        (raw as R);
+      byRole.set((r as any).user_id, active);
+    }
     const byActive = new Map<string, boolean>();
     for (const u of adminUsers.data?.users ?? []) {
       const banned = (u as any).banned_until && new Date((u as any).banned_until) > new Date();
