@@ -37,6 +37,43 @@ function HousekeepingReportingPage() {
   const summary = useMemo(() => computeHkDailySummary(tasks), [tasks]);
   const staff = useMemo(() => computeHkStaffPerformance(tasks), [tasks]);
 
+  const { data: history = [] } = useQuery({
+    queryKey: ["reporting-hk-history", range.from, range.to],
+    queryFn: () => fetchWorkHistoryInRange(range.from, range.to),
+  });
+  const { data: exceptions = [] } = useQuery({
+    queryKey: ["reporting-hk-exceptions", range.from, range.to],
+    queryFn: () => fetchHkExceptionAudit(range.from, range.to),
+  });
+
+  const exportHistory = () => {
+    try {
+      downloadCSV(`hk-work-history-${range.from}_to_${range.to}.csv`,
+        history.map((h) => ({
+          Date: h.business_date, Room: h.room_number ?? "", Type: h.type, State: h.state, Origin: h.origin,
+          "Manual Reason": h.manual_reason ?? "", Started: h.started_at ?? "", Finished: h.finished_at ?? "",
+          Duration: formatDuration(h.duration_secs), "Performed By": h.performed_by ?? "",
+          "Recorded By": h.recorded_by ?? "", Consumables: h.consumables_qty, "Linen Sent": h.linen_qty,
+          Issues: h.issues_count, Remarks: h.remarks ?? "",
+        })));
+      toast.success("Exported work history");
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
+
+  const exportExceptions = () => {
+    try {
+      downloadCSV(`hk-exceptions-${range.from}_to_${range.to}.csv`,
+        exceptions.map((e) => ({
+          Date: e.business_date,
+          "Expected Rooms": e.expected_rooms.join(" "),
+          "Actual Rooms": e.actual_rooms.join(" "),
+          "Missing (expected, not cleaned)": e.missing_rooms.join(" "),
+          "Unexpected (cleaned, not expected)": e.unexpected_rooms.join(" "),
+        })));
+      toast.success("Exported exception audit");
+    } catch (e: any) { toast.error(e?.message ?? "Export failed"); }
+  };
+
   const exportStaff = () => {
     try {
       downloadCSV(`hk-staff-${range.from}_to_${range.to}.csv`,
