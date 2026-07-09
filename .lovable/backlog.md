@@ -372,7 +372,39 @@ Confirmed 2026-07-05 against the roadmap. All items below remain
 
 ## Change Log
 
-- **2026-07-06 (P0 HK Task Engine correctness fix)** — Two independent
+- **2026-07-09 (UAT Stabilization Sprint B)** — Ship B complete.
+  1. **Reporting → Laundry Batch Details "Open" deep-links** to
+     `/laundry?batch=<id>` and opens Batch Detail directly. `laundry` route
+     now declares `validateSearch` for `batch`.
+  2. **Manual Housekeeping Task UI** — "Manual Task" button on
+     `/housekeeping` (admin/owner/fo_staff) opens a room + type + reason
+     dialog that calls the existing `createManualTask` API. Idempotent
+     guard reused.
+  3. **HK Work History + Exception Audit** — new sections on
+     `/reporting/housekeeping` reading `fetchWorkHistoryInRange` and
+     `fetchHkExceptionAudit`. Both CSV-exportable. Origin (manual /
+     auto_checkout / auto_night_audit) surfaced in the history table.
+  4. **Manual Linen Entries during Pickup** — the pickup screen now
+     lets FO/HK add linen types that aren't in the queue (e.g. towels
+     handed over informally). Manual lines flow through `createBatch`
+     with `qty_heos_queue=0` so no queue reconciliation runs.
+  5. **Complete Batch Editing** — new `editBatchMetadata` and
+     `editSentBatchLines` APIs power an "Edit Batch" screen accessible
+     from any non-cancelled batch (admin/owner). Editable: vendor, slip
+     #, pickup remarks, return remarks, additional pickup/return photos.
+     Sent counts are editable while state = `sent`. Every change writes a
+     verbose `activity_log` entry with the reason.
+
+  Architectural notes:
+  - Batch editing intentionally does NOT re-run laundry-queue
+    reconciliation. Small ±1–2 mis-counts are the intended use case; for
+    larger mistakes the correct workflow is cancel + recreate.
+  - Reporting sections were added inline on the existing HK reporting
+    route rather than as a separate route — keeps the "one page per
+    module" reporting pattern intact. A dedicated Work History sidebar
+    entry can be added if usage warrants it.
+
+
   defects were producing an operational task list that did not match
   reality:
   1. **Continue-service generator over-selected occupied rooms.**
