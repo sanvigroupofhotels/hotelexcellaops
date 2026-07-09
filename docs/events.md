@@ -120,3 +120,34 @@ automation, notification, and AI agents will subscribe to._
 
 None of the above blocks HEOS v1.0 sign-off; they are prerequisites for
 Excella AI OS agents running out-of-process.
+
+---
+
+## Consumer expansion (v1.0 baseline)
+
+Every event above will over time gain **notification**, **automation**,
+and **AI** consumers. See sibling docs:
+
+- `docs/notification-architecture.md` — audience × channel matrix.
+- `docs/ai-roadmap.md` — per-agent read and proposed-write scopes.
+- `docs/integration-readiness.md` — external channel adapters.
+
+### Future notification consumers (indicative)
+Owner (New Booking, Cancellation, Daily Cash, Daily Revenue, Occupancy,
+Low Inventory, Laundry Delay, Critical Complaint, Audit Complete) ·
+Front Office (Arrivals, Check-ins, Check-outs, Extension Requests,
+Payment Pending) · Housekeeping (Checkout Task, Service Task, Manual
+Task, Laundry Returned, Inspection Required) · Guests (Confirmation,
+Portal Link, Welcome, Info, Food Order, Receipt, Thank-you, Review,
+Campaign, Birthday, Lead Follow-up).
+
+### Future automation consumers
+- Auto-generate service tasks from arrival preferences.
+- Auto-populate laundry queue from HK completions (already live).
+- Auto-advance business date on Night Audit close (already live).
+- Auto-refund cancellations within policy window.
+
+### Future AI consumers
+Per `docs/ai-roadmap.md`, every agent subscribes to a subset of these
+events as its input stream and proposes writes through the future
+`agent_actions` approval workflow.
