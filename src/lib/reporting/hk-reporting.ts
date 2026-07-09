@@ -153,6 +153,7 @@ export interface HkWorkHistoryRow {
   room_type: string | null;
   type: HkTaskRow["type"];
   state: HkTaskRow["state"];
+  skipped_reason: HkTaskRow["skipped_reason"];
   origin: HkTaskRow["origin"];
   manual_reason: string | null;
   started_at: string | null;
