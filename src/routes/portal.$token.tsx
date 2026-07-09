@@ -228,7 +228,6 @@ function GuestPortal() {
           </div>
 
           <PricingBreakdown b={b} />
-          {b.charges && b.charges.length > 0 && <ChargesBreakdown charges={b.charges} total={b.chargesTotal} />}
         </div>
 
         {isCancelled && (
