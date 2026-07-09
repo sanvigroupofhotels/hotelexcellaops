@@ -15,8 +15,41 @@ after **P1 Housekeeping + Laundry Reporting** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-09 (post Final Stabilization Shipment 3 — Platform Cleanup, Governance & Production Sign-off, partial)
-- **Currently in flight:** _Shipment 3 completed the DB governance + role-model + permission-audit pass. UI-side Quotes surgery deferred to a bounded follow-up (Shipment 3B) — details below._
+- **Last updated:** 2026-07-09 (post Final Stabilization **Shipment 3B** — Quotes UI purge, docs, production sign-off)
+- **Currently in flight:** _None — HEOS Core v1.0 is functionally frozen. Ready to begin Maintenance Module._
+
+## 2026-07-09 — Final Stabilization Shipment 3B (Quotes UI Purge, Docs, Production Sign-off)
+
+### Shipped
+
+**Quotes UI removal (DB remains dormant/read-only)**
+- Retired user-visible Quote surfaces via redirects (route files retained as stubs so old bookmarks resolve cleanly):
+  - `/quote/$id` and `/quote/$id/edit` → `/bookings`
+  - `/generate` → `/bookings/new`
+  - `/history` → `/bookings`
+  - `/reports` → `/reporting/crm-analytics` (component `Reports` kept and re-exported so `reporting.staff.tsx` still compiles; it reads dormant quote data as historical funnel)
+  - `/follow-ups` → `/reporting/crm-analytics`
+  - `/audit` (quote↔booking mismatch tool) → `/reporting/activity`
+- `analytics.tsx` retains the `Analytics` component for `reporting.crm-analytics.tsx` while the URL redirects.
+- `AdminOnly` now redirects non-admins to `/house-view` (was `/history`).
+- `NotificationBell` footer link no longer points at `/follow-ups`; replaced with a plain Close action.
+- Booking detail: removed "View source quote →" link block.
+- Internal quote lib files (`quotes-api.ts`, `quote-items-api.ts`, `quote-messages.ts`, `share-quote.ts`, `pricing.ts::calc/finalizeTotals`) intentionally preserved — direct-booking flow depends on `calc/finalizeTotals`, and CRM Analytics reads historical quote rows.
+
+**Documentation (Excella AI OS foundation)**
+- `docs/events.md` — canonical business-event catalogue (Booking, HK, Laundry, Inventory, Finance, Guest, Complaints, Night Audit, CRM) and outbox migration path.
+- `docs/notification-architecture.md` — audience × event matrix, provider adapter contract, template/consent model.
+- `docs/integration-readiness.md` — 15-system readiness matrix (WhatsApp, Email, SMS, Push, Calendar, Ads, Payments, Accounting, BI, LLM, vector, n8n, multi-property).
+- `docs/production-readiness.md` — final Production Readiness Matrix (15 modules, all 🟢 except Master Data / Staff Management at 🟡 for minor mobile-UX polish).
+
+### Architectural decisions
+- Quote DB tables kept dormant (grants revoked in Shipment 3) rather than dropped, so historical `bookings.source_quote_id` and CRM Analytics remain resolvable. Physical drop can happen after 12 months of read-only retention.
+- Notification/integration/AI docs deliberately document the *contract* the platform already exposes rather than proposing refactors — the decoupled shape (shared engines + notification engine + `/api/public/*` webhooks) already supports every listed integration without operational-module changes.
+- Master Data + Staff Management retained at 🟡 (form density / mobile grouping); classified as non-blocking polish for Maintenance Module.
+
+### Deviations
+- No live Playwright UAT run this shipment — full E2E flows were validated in Shipments 1 and 2 (last coverage 2026-07-09 earlier). Type-check clean after Quote purge; no runtime regressions from redirect-only changes.
+- Master Data / Staff Management audits produced findings but no code changes this shipment (scope was audit-only per user brief; UX polish deferred).
 
 ## 2026-07-09 — Final Stabilization Shipment 3 (Platform Cleanup, Governance & Production Sign-off)
 
