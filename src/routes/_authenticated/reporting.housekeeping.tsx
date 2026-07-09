@@ -5,11 +5,14 @@ import { Topbar } from "@/components/topbar";
 import { PermissionGate } from "@/components/permission-gate";
 import { usePermissions } from "@/hooks/use-permissions";
 import { ReportDateRangePicker } from "@/components/report-date-range-picker";
-import { fetchHkTasksInRange, computeHkDailySummary, computeHkStaffPerformance } from "@/lib/reporting/hk-reporting";
+import {
+  fetchHkTasksInRange, computeHkDailySummary, computeHkStaffPerformance,
+  fetchWorkHistoryInRange, fetchHkExceptionAudit,
+} from "@/lib/reporting/hk-reporting";
 import { formatDuration, type DateRange } from "@/lib/reporting/date-range";
 import { toLocalYMD } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv";
-import { Loader2, Download, Brush, Sparkles, MoonStar, BedDouble, ClipboardList, Clock, Package, Shirt, MessageSquareWarning } from "lucide-react";
+import { Loader2, Download, Brush, Sparkles, MoonStar, BedDouble, ClipboardList, Clock, Package, Shirt, MessageSquareWarning, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/reporting/housekeeping")({
