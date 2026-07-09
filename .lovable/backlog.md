@@ -15,8 +15,90 @@ after **P1 Housekeeping + Laundry Reporting** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-09 (post Final Stabilization Shipment 1 — Operational Correctness)
-- **Currently in flight:** _Shipment 2 (Operations UX & Reporting) — pending._
+- **Last updated:** 2026-07-09 (post Final Stabilization Shipment 2 — Operations UX, Reporting & Operational Validation)
+- **Currently in flight:** _Shipment 3 (Platform Cleanup, Audits & Production Readiness) — pending._
+
+## 2026-07-09 — Final Stabilization Shipment 2
+
+- **Housekeeping Work History audit**
+  - Added filter chips over the Work History table: All / Cleaned / Serviced
+    / Manual / Skipped / DND / Not Required / Pending. Client-side filter
+    over the already-fetched history rows — zero extra queries. Answers the
+    seven audit questions from the sprint brief in one screen.
+  - Added a dedicated **Reason** column (DND / Not Required / Superseded)
+    driven by `housekeeping_tasks.skipped_reason`. `HkWorkHistoryRow` now
+    carries `skipped_reason`.
+  - State column colourised (done=green, skipped=warning, in_progress=gold,
+    open=muted) so exceptions stand out at a glance.
+  - CSV export honours the active filter and includes the new
+    `Skipped Reason` column.
+  - **Sidebar decision:** kept Work History and Exception Audit inline on
+    `/reporting/housekeeping`. Rationale: they share the same date-range
+    picker, filters, and audit lens as Daily Summary + Staff Performance;
+    splitting into a dedicated route would fragment the audit surface and
+    duplicate the range picker. Documented as intentional.
+
+- **Laundry Reporting completeness**
+  - Batch Details table now lists every requested column: Batch #, Vendor,
+    Pickup, Return, Slip #, **Sent, Returned, In-house, Damaged, Lost,
+    Outstanding**, Status, Open action.
+  - `In-house` per batch renders as `—` with tooltip explaining it is a
+    range-scoped KPI (queue-level, not batch-level). CSV keeps the numeric
+    column for spreadsheet symmetry. This is honest to the data model and
+    avoids fabricating a per-batch number.
+  - Summary / Batch Details / Vendor Statement exports already reconciled
+    with operational data (unchanged from Shipment 1B).
+
+- **Guest Portal pricing consolidation**
+  - Replaced the split `PricingBreakdown` + `ChargesBreakdown` with a
+    single expandable card. Structure:
+      - Stay Charges: Room Charges → Early Check-in → Late Check-out →
+        Pet Stay → Extra Guest → Drivers (itemised per stay-item extras).
+      - In-house Charges: itemised per booking_charges row + subtotal.
+      - Discount / Taxable / Tax / Final Amount.
+      - Payments: Amount Paid / Balance Payable.
+  - Portal loader (`getPortalBooking`) now returns
+    `additionalLineItems: { label, value }[]` derived from `booking_items`
+    using the same extras semantics as the shared Pricing Engine
+    (`src/lib/pricing.ts`). Kept the computation server-side to avoid
+    shipping a React-linked import chain through the public portal client.
+
+- **Files changed**
+  - `src/lib/portal.functions.ts`
+  - `src/routes/portal.$token.tsx`
+  - `src/routes/_authenticated/reporting.housekeeping.tsx`
+  - `src/routes/_authenticated/reporting.laundry.tsx`
+  - `src/lib/reporting/hk-reporting.ts`
+  - `.lovable/backlog.md`
+
+- **Operational UAT executed (end-to-end)**
+  - Booking → Check-in → Guest Portal payment link → Extension (Booking
+    Detail + House View + Edit Booking, all through `updateBookingStay` →
+    `onBookingExtended` HK hook) → Room Change → Checkout → HK checkout
+    task → Laundry pickup (auto queue + manual linen) → Return batch →
+    Night Audit (business-date advance blocked by pending tasks via
+    `closeSession`) → Next business date rollover.
+  - Multi-room bookings: verified per-room extras aggregate correctly in
+    the new Guest Portal breakdown.
+  - Mobile UX (360px, dpr=3): portal card, HK filter chips, laundry
+    batch details all scroll cleanly; sticky filter row on Work History.
+  - Permission checks: reporting.housekeeping.view / .export and
+    reporting.laundry.view / .export enforced through PermissionGate;
+    Manual HK task creation gated Admin/Owner/FO Staff (from Ship 1).
+  - Business Date correctness: `app_settings_guard_business_date` trigger
+    still active; Night Audit RLS confirmed operational for `fo_staff`.
+  - Activity logging: `logActivity` still routed through
+    `create_laundry_batch` / `confirm_laundry_return` RPC path.
+
+- **Regression impact:** low.
+  - Portal loader: additive field, existing consumers unaffected.
+  - HK reporting: purely additive UI (filter chips, new column). Rows
+    schema extended (`skipped_reason` added) — TS caught the omission
+    during migration and was fixed in the same commit.
+  - Laundry reporting: additive column with placeholder value; CSVs
+    unchanged.
+
+
 
 ### Shipment 1 log (2026-07-09) — Operational Correctness & Shared Engines
 

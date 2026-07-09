@@ -153,6 +153,7 @@ export interface HkWorkHistoryRow {
   room_type: string | null;
   type: HkTaskRow["type"];
   state: HkTaskRow["state"];
+  skipped_reason: HkTaskRow["skipped_reason"];
   origin: HkTaskRow["origin"];
   manual_reason: string | null;
   started_at: string | null;
@@ -196,6 +197,7 @@ export async function fetchWorkHistoryInRange(from: string, to: string): Promise
       room_type: rm?.room_type ?? null,
       type: t.type,
       state: t.state,
+      skipped_reason: t.skipped_reason ?? null,
       origin: t.origin ?? "auto_night_audit",
       manual_reason: t.manual_reason ?? null,
       started_at: t.started_at,

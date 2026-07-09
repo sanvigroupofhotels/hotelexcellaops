@@ -228,7 +228,6 @@ function GuestPortal() {
           </div>
 
           <PricingBreakdown b={b} />
-          {b.charges && b.charges.length > 0 && <ChargesBreakdown charges={b.charges} total={b.chargesTotal} />}
         </div>
 
         {isCancelled && (
@@ -963,54 +962,71 @@ function CancelBookingCard({ token, bookingReference, checkIn, advancePaid, onCa
 
 // ============================ Pricing helpers =============================
 
+/**
+ * Consolidated Pricing Breakdown — single expandable card showing the full
+ * guest bill in one place. Replaces the earlier split of PricingBreakdown +
+ * ChargesBreakdown. Reads the same numbers the shared Pricing Engine
+ * (src/lib/pricing.ts) computes on the Booking / Quote surfaces so the guest
+ * portal always agrees with the operator view.
+ */
 function PricingBreakdown({ b }: { b: any }) {
   const [open, setOpen] = useState(false);
   const taxRate = Number(b.taxRate || 0);
   const taxPct = taxRate > 0 ? Math.round(taxRate * 100) : null;
-  const taxableAmount = Number(b.subtotal || 0);
   const taxes = Number(b.taxes || 0);
   const balance = Number(b.balanceDue || 0);
+  const extras: { label: string; value: number }[] = Array.isArray(b.additionalLineItems) ? b.additionalLineItems : [];
+  const charges: any[] = Array.isArray(b.charges) ? b.charges : [];
+  const chargesTotal = Number(b.chargesTotal || 0);
+  const stayTaxable = Number(b.subtotal || 0);
+  const grandTaxable = stayTaxable + chargesTotal;
   return (
     <div className="mt-4 border-t border-border/40 pt-3">
       <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between text-xs font-medium text-gold hover:text-gold/80">
-        <span className="inline-flex items-center gap-1.5"><ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} /> View Detailed Breakdown</span>
+        <span className="inline-flex items-center gap-1.5">
+          <ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} /> View Detailed Breakdown
+        </span>
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{open ? "Hide" : "Show"}</span>
       </button>
       {open && (
-        <div className="mt-3 space-y-1.5 text-xs">
-          <Row label="Room Charges" value={inr(b.roomCharges || 0)} />
-          {b.additionalStay > 0 && <Row label="Additional Stay Charges" value={inr(b.additionalStay)} />}
-          {b.chargesTotal > 0 && <Row label="In-House Charges" value={inr(b.chargesTotal)} />}
-          {Number(b.discount || 0) > 0 && <Row label="Discount" value={`-${inr(b.discount)}`} tone="success" />}
-          <Row label="Taxable Amount" value={inr(taxableAmount + (b.chargesTotal || 0))} />
-          <Row label={`Tax${taxPct ? ` (${taxPct}%)` : ""}${b.taxesIncluded ? " · included" : ""}`} value={inr(taxes)} />
-          <Row label="Final Amount" value={inr(b.payable)} strong />
-          <Row label="Amount Paid" value={inr(b.advancePaid)} />
-          <Row label="Balance Due" value={inr(balance)} strong tone={balance > 0 ? "warning" : "success"} />
-        </div>
-      )}
-    </div>
-  );
-}
+        <div className="mt-3 space-y-3 text-xs">
+          <div className="space-y-1">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Stay Charges</div>
+            <Row label="Room Charges" value={inr(b.roomCharges || 0)} />
+            {extras.map((x) => (
+              <Row key={x.label} label={x.label} value={inr(x.value)} />
+            ))}
+            {extras.length === 0 && Number(b.additionalStay || 0) > 0 && (
+              <Row label="Additional Stay Charges" value={inr(b.additionalStay)} />
+            )}
+          </div>
 
-function ChargesBreakdown({ charges, total }: { charges: any[]; total: number }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="mt-3 border-t border-border/40 pt-3">
-      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between text-xs font-medium hover:text-gold">
-        <span className="inline-flex items-center gap-1.5"><ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} /> In-House Charges {inr(total)}</span>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">View Charges</span>
-      </button>
-      {open && (
-        <div className="mt-2 space-y-1.5 text-xs">
-          {charges.map((c) => (
-            <div key={c.id} className="flex items-center justify-between border-b border-border/40 pb-1.5 last:border-0">
-              <div className="min-w-0">
-                <div className="font-medium truncate">{c.category}{c.description ? ` — ${c.description}` : ""}</div>
-                <div className="text-[10px] text-muted-foreground">Qty {c.quantity} × {inr(c.unitPrice)}</div>
-              </div>
-              <div className="tabular-nums">{inr(c.amount)}</div>
+          {charges.length > 0 && (
+            <div className="space-y-1 border-t border-border/40 pt-2">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">In-house Charges</div>
+              {charges.map((c) => (
+                <Row
+                  key={c.id}
+                  label={`${c.category}${c.description ? ` — ${c.description}` : ""}${c.quantity > 1 ? ` × ${c.quantity}` : ""}`}
+                  value={inr(c.amount)}
+                />
+              ))}
+              <Row label="In-house Charges Subtotal" value={inr(chargesTotal)} />
             </div>
-          ))}
+          )}
+
+          <div className="space-y-1 border-t border-border/40 pt-2">
+            {Number(b.discount || 0) > 0 && <Row label="Discount" value={`-${inr(b.discount)}`} tone="success" />}
+            <Row label="Taxable Amount" value={inr(grandTaxable)} />
+            <Row label={`Tax${taxPct ? ` (${taxPct}%)` : ""}${b.taxesIncluded ? " · included" : ""}`} value={inr(taxes)} />
+            <Row label="Final Amount" value={inr(b.payable)} strong />
+          </div>
+
+          <div className="space-y-1 border-t border-border/40 pt-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Payments</div>
+            <Row label="Amount Paid" value={inr(b.advancePaid)} />
+            <Row label="Balance Payable" value={inr(balance)} strong tone={balance > 0 ? "warning" : "success"} />
+          </div>
         </div>
       )}
     </div>
