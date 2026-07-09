@@ -49,10 +49,13 @@ function HousekeepingPage() {
   });
 
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
   const openTask = tasks.find((t) => t.id === openTaskId) ?? null;
 
   const { selected: workingAs, candidates: waCandidates, setSelectedId } = useHkWorkingAs();
   const me = useCurrentStaff();
+  const { role } = useUserRole();
+  const canCreateManual = role === "admin" || role === "owner" || role === "fo_staff";
 
   const roomById = useMemo(() => {
     const m = new Map<string, any>();
