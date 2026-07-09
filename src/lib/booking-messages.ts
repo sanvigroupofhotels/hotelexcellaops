@@ -158,6 +158,37 @@ export function checkOutThankYouMessage(b: BookingRow) {
   ].join("\n");
 }
 
+/**
+ * Shared payment / booking portal link message. Used by both Booking Detail
+ * ("Share Payment Link") and House View ("Payment Link"). Any change to the
+ * copy must happen here — do not duplicate this template at call sites.
+ */
+export function paymentLinkMessage(b: BookingRow, portalUrl: string) {
+  const guestName = (b.guest_name || "").trim() || "Guest";
+  return [
+    `Dear ${guestName},`,
+    ``,
+    `Thank you for choosing Hotel Excella.`,
+    ``,
+    `Below is your booking information:`,
+    ``,
+    portalUrl,
+    ``,
+    `Booking Ref: ${b.booking_reference}`,
+    ``,
+    `Using this portal you can:`,
+    `• Make Payments`,
+    `• Upload Documents`,
+    `• Access In-House Services after Check-In:`,
+    `   – Order Food`,
+    `   – Raise Complaints`,
+    `   – Submit a Review`,
+    ``,
+    `Warm Regards,`,
+    `Hotel Excella`,
+  ].join("\n");
+}
+
 import { phoneToWaDigits } from "@/lib/phone";
 
 export function bookingWhatsAppLink(b: BookingRow, text: string) {

@@ -401,13 +401,20 @@ export interface EditBatchMetadataInput {
   return_remarks?: string | null;
   addPickupPhotos?: File[];
   addReturnPhotos?: File[];
+  /** Storage paths to remove from pickup_photo_paths. Files are hard-deleted from bucket. */
+  removePickupPaths?: string[];
+  /** Storage paths to remove from return_photo_paths. Files are hard-deleted from bucket. */
+  removeReturnPaths?: string[];
 }
 
 /**
  * Admin/Owner edit of batch header fields (vendor, slip #, remarks) and
- * photos. Works for both `sent` and `returned` batches. Photos are
- * additive — existing photos are preserved; use the array columns.
- * All changes are logged verbosely to `activity_log` for audit trail.
+ * photos. Works for both `sent` and `returned` batches.
+ *
+ * Photos: additions and deletions are both supported. To "replace" a photo,
+ * pass the old path in remove*Paths AND the new file in add*Photos in the
+ * same call — the array is updated atomically. All changes (including which
+ * paths were removed / added) are logged verbosely to `activity_log`.
  */
 export async function editBatchMetadata(
   batchId: string,
@@ -442,6 +449,21 @@ export async function editBatchMetadata(
     changes.push(`Return remarks changed`);
   }
 
+  // Photo removals — compute new arrays; storage deletion happens after the
+  // row update succeeds so a failed DB update never orphans the file record.
+  const removePickup = new Set(edits.removePickupPaths ?? []);
+  const removeReturn = new Set(edits.removeReturnPaths ?? []);
+  let nextPickup: string[] | undefined;
+  let nextReturn: string[] | undefined;
+  if (removePickup.size > 0) {
+    nextPickup = (b.pickup_photo_paths ?? []).filter((p) => !removePickup.has(p));
+    changes.push(`-${removePickup.size} pickup photo(s)`);
+  }
+  if (removeReturn.size > 0) {
+    nextReturn = (b.return_photo_paths ?? []).filter((p) => !removeReturn.has(p));
+    changes.push(`-${removeReturn.size} return photo(s)`);
+  }
+
   // Photo additions
   const addedPickup: string[] = [];
   for (const f of (edits.addPickupPhotos ?? [])) {
@@ -454,19 +476,32 @@ export async function editBatchMetadata(
     catch (e) { console.error("return photo add failed", e); }
   }
   if (addedPickup.length > 0) {
-    patch.pickup_photo_paths = [...(b.pickup_photo_paths ?? []), ...addedPickup];
+    nextPickup = [...(nextPickup ?? b.pickup_photo_paths ?? []), ...addedPickup];
     changes.push(`+${addedPickup.length} pickup photo(s)`);
   }
   if (addedReturn.length > 0) {
-    patch.return_photo_paths = [...(b.return_photo_paths ?? []), ...addedReturn];
+    nextReturn = [...(nextReturn ?? b.return_photo_paths ?? []), ...addedReturn];
     changes.push(`+${addedReturn.length} return photo(s)`);
   }
+  if (nextPickup !== undefined) patch.pickup_photo_paths = nextPickup;
+  if (nextReturn !== undefined) patch.return_photo_paths = nextReturn;
 
   if (Object.keys(patch).length === 0) return b;
 
   const { data: updated, error: uErr } = await supabase
     .from("laundry_batches" as any).update(patch).eq("id", batchId).select().single();
   if (uErr) throw uErr;
+
+  // Storage hard-delete AFTER row update succeeds. Best-effort — a failure
+  // here leaves an orphan file but keeps the DB consistent.
+  const toDelete = [...removePickup, ...removeReturn].filter(Boolean);
+  if (toDelete.length > 0) {
+    try {
+      await supabase.storage.from("laundry-photos").remove(toDelete);
+    } catch (e) {
+      console.error("laundry photo storage delete failed", e);
+    }
+  }
 
   void logActivity({
     page: "laundry",
@@ -477,7 +512,15 @@ export async function editBatchMetadata(
     summary: `Edited batch ${b.batch_number}${reason ? ` — ${reason}` : ""}`,
     correlation_id: b.correlation_id,
     source: "manual",
-    metadata: { changes, edited_by: performer.name, reason: reason ?? null } as any,
+    metadata: {
+      changes,
+      edited_by: performer.name,
+      reason: reason ?? null,
+      removed_pickup: Array.from(removePickup),
+      removed_return: Array.from(removeReturn),
+      added_pickup: addedPickup,
+      added_return: addedReturn,
+    } as any,
   });
 
   return updated as unknown as LaundryBatchRow;

@@ -15,8 +15,18 @@ after **P1 Housekeeping + Laundry Reporting** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-09 (post UAT Stabilization Sprint B)
-- **Currently in flight:** _None._
+- **Last updated:** 2026-07-09 (post Final Stabilization Shipment 1 — Operational Correctness)
+- **Currently in flight:** _Shipment 2 (Operations UX & Reporting) — pending._
+
+### Shipment 1 log (2026-07-09) — Operational Correctness & Shared Engines
+
+- **P0 Night Audit RLS** — replaced legacy `staff`/`reception` role checks on `night_audit_sessions`, `night_audit_decisions`, and `app_settings.business_date` policies with active `fo_staff`. FO Staff now runs Night Audit end-to-end. Housekeeping remains excluded.
+- **Payment Link engine unified** — `paymentLinkMessage(b, url)` in `booking-messages.ts` is now the single source used by Booking Detail (Share Payment Link) and House View (Payment Link). Divergent inline templates removed.
+- **HK extension hook** — new `onBookingExtended()` in `hk-checkout-hook.ts` ensures `continue_service` tasks for every assigned room whenever a stay is extended past today. Wired into `updateBookingStay` (single source of truth for stay mutations), so Edit Booking, House View DnD, mobile Move dialog, and any future extension path all trigger it. Idempotent + respects exception rows + only nudges `ready` rooms to `needs_service`.
+- **Multi-room checkout verified** — `onBookingCheckedOut` already iterates `booking_room_assignments`; every room in a multi-room booking flips to dirty and gets a `checkout_clean` task. No change required.
+- **Laundry batch editing** — added `removePickupPaths` / `removeReturnPaths` to `editBatchMetadata`, with storage hard-delete after DB commit. `EditBatchScreen` now renders existing pickup/return photos with × mark-for-delete so Admin/Owner can add, delete, or replace photos atomically. Every edit still logged verbosely to `activity_log`.
+- **Night Audit gate verified** — `closeSession()` in `night-audit-sessions-api.ts` is the single BD-advance gate; it throws `NightAuditPendingError` before flipping status if any pending CI/CO exists, covering dashboard one-click, stepper Review, and `/api/public/night-audit` alike.
+- **Cash Book UX** — "Add Income/Expense" renamed to "(+) Cash In / (−) Cash Out" with `PlusCircle`/`MinusCircle` icons; View Reports center-aligned below.
 
 ---
 

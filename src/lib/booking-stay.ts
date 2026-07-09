@@ -255,6 +255,17 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
     /* swallow */
   }
 
+  // Housekeeping extension side-effect — fire when check_out moves later
+  // (a genuine stay extension). Covers every entry point: Edit Booking,
+  // House View drag/drop, mobile Move dialog, Booking Detail, guest portal
+  // extension. Non-blocking; hook logs its own failures.
+  if (newOut > oldOut) {
+    try {
+      const { onBookingExtended } = await import("@/lib/hk-checkout-hook");
+      await onBookingExtended(booking_id);
+    } catch { /* non-blocking */ }
+  }
+
   return {
     booking_id,
     check_in: newIn,
