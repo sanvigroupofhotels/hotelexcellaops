@@ -210,22 +210,26 @@ function CashPage() {
             </div>
 
             {/* Primary actions */}
-            <div className={cn("grid gap-3", isAdmin ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2")}>
-              <button onClick={()=>setOpenForm({ kind: "collection" })}
-                className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
-                style={{ background: "linear-gradient(135deg, oklch(0.65 0.18 150), oklch(0.55 0.18 150))" }}>
-                <ArrowDownCircle className="h-4 w-4"/> Add Income
-              </button>
-              <button onClick={()=>setOpenForm({ kind: "expense" })}
-                className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
-                style={{ background: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.52 0.22 25))" }}>
-                <ArrowUpCircle className="h-4 w-4"/> Add Expense
-              </button>
-              {isAdmin && (
-                <button onClick={() => setReportsOpen(true)}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-4 py-3 text-sm hover:bg-gold-soft/50">
-                  📊 View Reports
+            <div className="space-y-3">
+              <div className="grid gap-3 grid-cols-2">
+                <button onClick={()=>setOpenForm({ kind: "collection" })}
+                  className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
+                  style={{ background: "linear-gradient(135deg, oklch(0.65 0.18 150), oklch(0.55 0.18 150))" }}>
+                  <PlusCircle className="h-4 w-4"/> (+) Cash In
                 </button>
+                <button onClick={()=>setOpenForm({ kind: "expense" })}
+                  className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
+                  style={{ background: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.52 0.22 25))" }}>
+                  <MinusCircle className="h-4 w-4"/> (-) Cash Out
+                </button>
+              </div>
+              {isAdmin && (
+                <div className="flex justify-center">
+                  <button onClick={() => setReportsOpen(true)}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold-soft/30 px-6 py-2.5 text-sm hover:bg-gold-soft/50">
+                    📊 View Reports
+                  </button>
+                </div>
               )}
             </div>
 
