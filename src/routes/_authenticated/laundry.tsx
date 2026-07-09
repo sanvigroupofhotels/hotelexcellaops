@@ -594,6 +594,7 @@ function BatchDetailScreen({ batchId, onClose }: { batchId: string; onClose: () 
   const [returnUrls, setReturnUrls] = useState<string[]>([]);
   const [returnMode, setReturnMode] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [metaEditMode, setMetaEditMode] = useState(false);
   const [lightboxUrls, setLightboxUrls] = useState<string[] | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
