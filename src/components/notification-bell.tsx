@@ -194,10 +194,10 @@ export function NotificationBell({
           )}
         </div>
         <button
-          onClick={() => { readAll.mutate(); setOpen(false); }}
+          onClick={() => setOpen(false)}
           className="border-t border-border px-4 py-2.5 text-xs font-medium text-gold inline-flex items-center justify-center gap-1.5 hover:bg-gold-soft/30 w-full"
         >
-          Mark all read <ArrowRight className="h-3 w-3" />
+          Close <ArrowRight className="h-3 w-3" />
         </button>
       </PopoverContent>
     </Popover>
