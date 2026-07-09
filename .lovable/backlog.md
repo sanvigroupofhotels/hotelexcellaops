@@ -15,8 +15,8 @@ after **P1 Housekeeping + Laundry Reporting** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-05 (post P1 Stabilization Sprint)
-- **Currently in flight:** _None. P1 foundation fully closed._
+- **Last updated:** 2026-07-09 (post UAT Stabilization Sprint B)
+- **Currently in flight:** _None._
 
 ---
 
