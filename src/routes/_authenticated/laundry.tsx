@@ -293,6 +293,18 @@ function PickupScreen({ businessDate, onClose, me }: {
   const [remarks, setRemarks] = useState("");
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [sent, setSent] = useState<Record<string, number>>({});
+  // Manual pickup entries: linen types not in today's queue that the vendor
+  // physically collected anyway (e.g. towels a housekeeper handed over without
+  // recording a task). Each row is { linen_type_id → qty_sent }; qty_heos_queue
+  // stays 0 so the RPC creates a batch line without flipping queue rows.
+  const [manualSent, setManualSent] = useState<Record<string, number>>({});
+  const [manualPickerOpen, setManualPickerOpen] = useState(false);
+
+  const { data: allLinenTypes = [] } = useQuery({
+    queryKey: ["linen-types-all"],
+    queryFn: () => listLinenTypes(true),
+    staleTime: 60_000,
+  });
 
   // Default vendor: prefer "WeWash Laundry" (per operational spec), else first laundry vendor.
   useEffect(() => {
@@ -316,15 +328,29 @@ function PickupScreen({ businessDate, onClose, me }: {
   const rows: PickupPreviewRow[] = preview?.rows ?? [];
   const days = preview?.oldestDays ?? 0;
   const activeRows = rows.filter((r) => r.heos_queue > 0);
+  const queuedIds = new Set(rows.map((r) => r.linen_type_id));
+  const linenById = useMemo(() => {
+    const m = new Map<string, { id: string; name: string }>();
+    for (const l of (allLinenTypes as any[])) m.set(l.id, { id: l.id, name: l.name });
+    return m;
+  }, [allLinenTypes]);
+  // Manual entries the user has added — always shown even at qty 0 so they
+  // can adjust before confirming.
+  const manualRows = Object.keys(manualSent)
+    .map((id) => linenById.get(id))
+    .filter((x): x is { id: string; name: string } => !!x);
+  const availableForManual = (allLinenTypes as any[])
+    .filter((l) => !queuedIds.has(l.id) && manualSent[l.id] == null);
 
   const totals = useMemo(() => {
-    let heos = 0, sentTotal = 0;
+    let heos = 0, sentTotal = 0, manualTotal = 0;
     for (const r of activeRows) {
       heos += r.heos_queue;
       sentTotal += Math.max(0, Math.min(sent[r.linen_type_id] ?? 0, r.heos_queue));
     }
-    return { heos, sentTotal, inHouse: heos - sentTotal };
-  }, [activeRows, sent]);
+    for (const id of Object.keys(manualSent)) manualTotal += Math.max(0, Math.floor(manualSent[id] || 0));
+    return { heos, sentTotal, manualTotal, inHouse: heos - sentTotal };
+  }, [activeRows, sent, manualSent]);
 
   const confirmMut = useMutation({
     mutationFn: async () => {
@@ -338,13 +364,22 @@ function PickupScreen({ businessDate, onClose, me }: {
         qty_heos_queue: r.heos_queue,
         qty_sent: Math.max(0, Math.min(Math.floor(Number(sent[r.linen_type_id] ?? 0)), r.heos_queue)),
       }));
+      // Manual lines: queue count is 0; sent count is whatever the user typed.
+      const manualLines = manualRows
+        .map((l) => ({
+          linen_type_id: l.id,
+          linen_name_at_time: l.name,
+          qty_heos_queue: 0,
+          qty_sent: Math.max(0, Math.floor(Number(manualSent[l.id] ?? 0))),
+        }))
+        .filter((l) => l.qty_sent > 0);
       return createBatch({
         vendor_id: vendor.id,
         vendor_name_at_time: vendor.name,
         business_date: businessDate,
         vendor_slip_number: slipNumber || null,
         pickup_remarks: remarks || null,
-        lines,
+        lines: [...lines, ...manualLines],
         performer: me,
         slipPhotoFiles: photoFiles,
       });
@@ -357,6 +392,8 @@ function PickupScreen({ businessDate, onClose, me }: {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
