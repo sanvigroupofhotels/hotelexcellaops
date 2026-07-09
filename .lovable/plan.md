@@ -1,395 +1,266 @@
-# Phase 3B — Laundry Module Design (v2, operationally refined)
-
-Supersedes v1. All ten refinements incorporated. The workflow now mirrors  
-the real Excella process: HEOS proposes, the physical count with the vendor  
-decides, and the vendor slip stays authoritative for billing.
-
----
-
-## 0. Guiding Shift From v1
-
-v1 treated "queue counts" as truth and reconciled shortages on return. In  
-reality:
-
-- The **HEOS queue is a suggestion.** The **vendor slip** (physical count  
-at pickup) is the authoritative record.
-- In-house washing is not a workflow — it is the natural residual of  
-"queue minus what left the building". Never a user input.
-- Slip numbers, slip photos, and monthly totals per vendor are billing  
-artefacts and must be first-class.
-
-Consequence: the send-time screen becomes the most important screen in the  
-module. The return screen just closes the loop against the slip.
-
----
-
-## 1. Revised End-to-End Workflow
-
-```text
-Housekeeping tasks completed
-        │
-        ▼
-laundry_queue rows (queued)  ── HEOS suggestion, roll-forward
-        │
-        │  Staff opens Laundry → "New Pickup"
-        │  Screen shows, per linen type:
-        │    • HEOS Queue Count   (calculated, read-only)
-        │    • Previous Missing   (short from prior batches, read-only)
-        │    • Sent to Vendor     (editable → default = HEOS Queue)
-        │  Optional: vendor slip #, pickup slip photo, pickup remarks
-        │  Tap "Confirm Pickup"
-        ▼
-laundry_batches (state = sent)
-  + laundry_batch_lines (per linen type: qty_heos_queue, qty_sent)
-  + linked laundry_queue rows: state = sent, batch_id set
-  + in-house residual computed on read (qty_heos_queue − qty_sent)
-        │
-        │  Vendor returns bag (next day / two days later)
-        │  Staff opens the batch → Return screen
-        │  For each linen type: OK / Short / Damaged / Lost (defaults OK = qty_sent)
-        │  Optional: return photo, return remarks
-        │  Tap "Confirm Return"
-        ▼
-laundry_batches (state = returned)
-  + queue rows: state = returned  (OK + damaged + lost)
-  + short rows: DETACHED — batch_id = NULL, state = queued
-                → appear as "Previous Missing" in the next pickup
-```
-
-The **entire lifecycle is two taps**: Confirm Pickup, Confirm Return.
-
----
-
-## 2. Send-Time Screen (the critical UX)
-
-```text
-┌───────────────────────────────────────────────────────────────┐
-│  New Pickup — LB-20260705-001                                 │
-│  Vendor: [ We Wash Laundry ▾ ]        Oldest queued: 3 days ⚠│
-├───────────────────────────────────────────────────────────────┤
-│ Linen Type      HEOS Queue   Prev Missing   Sent to Vendor    │
-│                                                                │
-│ Bedsheet             24            2            [  23  ]      │
-│ Pillow Cover         46            1            [  47  ]      │
-│ Towel                18            0            [  18  ]      │
-│ Bath Mat              6            0            [   6  ]      │
-├───────────────────────────────────────────────────────────────┤
-│ Vendor Slip #:  [           ]                                 │
-│ Pickup Slip Photo:  [ 📷 Upload ]                             │
-│ Pickup Remarks:  [                            ]               │
-│                                                                │
-│                              [ Confirm Pickup ]               │
-└───────────────────────────────────────────────────────────────┘
-```
-
-Rules:
-
-- **HEOS Queue** = SUM of currently queued rows for that linen type.  
-Non-editable. Live counter.
-- **Prev Missing** = SUM of short-returned queue rows from earlier batches  
-(§4). Non-editable. Included in HEOS Queue by construction (they were  
-already `queued` again) — but broken out visually so staff know why the  
-number is above today's HK output.
-- **Sent to Vendor** = editable numeric, defaults to HEOS Queue value.  
-This becomes the official quantity. Zero is allowed (rare but legal —  
-in-house full wash day).
-- **Oldest queued warning** — if any queued row is > 2 business_days old,  
-banner shows "Oldest Pending Pickup: N days" (§10).
-- **In-house Washed** is NEVER shown as an input. It is computed  
-post-save as `qty_heos_queue − qty_sent` (per line and per batch).
-- Multi-vendor is naturally supported: switching vendor doesn't change  
-numbers; it just labels the batch.
-
----
-
-## 3. Return Screen (unchanged from v1 except photo + remark split)
-
-```text
-┌───────────────────────────────────────────────────────────────┐
-│  Return — LB-20260705-001 · We Wash Laundry                   │
-│  Sent 05 Jul · 94 pieces · slip #WW-4471                      │
-├───────────────────────────────────────────────────────────────┤
-│ Linen Type       Sent    OK      Short   Damaged   Lost       │
-│ Bedsheet           23   [23]     [ 0 ]    [ 0 ]    [ 0 ]      │
-│ Pillow Cover       47   [45]     [ 2 ]    [ 0 ]    [ 0 ]      │
-│ Towel              18   [17]     [ 0 ]    [ 1 ]    [ 0 ]      │
-│ Bath Mat            6   [ 6]     [ 0 ]    [ 0 ]    [ 0 ]      │
-├───────────────────────────────────────────────────────────────┤
-│ Return Photo: [ 📷 Upload ]                                   │
-│ Return Remarks: [                              ]              │
-│                                                                │
-│                              [ Confirm Return ]               │
-└───────────────────────────────────────────────────────────────┘
-```
-
-`OK` defaults to `qty_sent` so the "everything came back" case is a single  
-tap. Invariant enforced: `qty_sent = OK + Short + Damaged + Lost`.
-
----
-
-## 4. Data Model (revised)
-
-```text
-laundry_batches
-├── id                       uuid PK
-├── batch_number             text UNIQUE   e.g. "LB-20260705-001"
-├── vendor_id                uuid → vendors(id)
-├── vendor_name_at_time      text
-├── state                    enum(sent, returned, cancelled)
-├── business_date            date
-├── vendor_slip_number       text                           -- optional §6
-├── pickup_slip_photo_path   text                           -- storage key §6
-├── return_photo_path        text                           -- storage key §7
-├── pickup_remarks           text                           -- §8
-├── return_remarks           text                           -- §8
-├── sent_at                  timestamptz
-├── sent_by_user_id / name   (useCurrentStaff snapshot)
-├── returned_at              timestamptz
-├── returned_by_user_id / name
-├── correlation_id           uuid
-├── created_at / updated_at
-└── (future) invoice_id      uuid → laundry_invoices(id)   -- §9
-
-laundry_batch_lines           -- per linen type on a batch
-├── id                       uuid PK
-├── batch_id                 uuid → laundry_batches
-├── linen_type_id            uuid → linen_types
-├── linen_name_at_time       text
-├── qty_heos_queue           int   NOT NULL   -- system count at send time
-├── qty_sent                 int   NOT NULL   -- physical count (editable at send)
-├── qty_returned_ok          int   DEFAULT 0
-├── qty_short                int   DEFAULT 0
-├── qty_damaged              int   DEFAULT 0
-├── qty_lost                 int   DEFAULT 0
-├── qty_in_house              generated: qty_heos_queue − qty_sent    -- §3
-├── CHECK: qty_sent >= 0
-├── CHECK: qty_sent <= qty_heos_queue  (in-house residual can't be negative)
-├── CHECK on return: qty_sent = ok + short + damaged + lost
-└── UNIQUE (batch_id, linen_type_id)
-
-laundry_queue                 -- existing table, additive changes
-├── + batch_id                uuid → laundry_batches (nullable)
-└── state enum extended:      queued | sent | returned | written_off
-                              (short → detach: batch_id=NULL, state=queued)
-
-vendors                       -- one column added
-└── + vendor_kind             text[]   default '{}'    e.g. {laundry,groceries}
-
-(future, §9)
-laundry_invoices
-├── id, vendor_id, period_month (date, first-of-month)
-├── invoice_number, invoice_amount, currency
-├── status (draft, sent, paid), paid_at, paid_by
-├── remarks, attachment_path
-└── batches JOIN via laundry_batches.invoice_id
-```
-
-**Why per-linen-type lines instead of per-queue-row reconciliation:**  
-staff count by linen type, vendors write slips by linen type, invoices  
-are checked by linen type. Per-queue-row would be friction with zero  
-operational benefit for a 23-room property. Queue rows still flip state  
-in bulk so per-piece traceability survives.
-
----
-
-## 5. Batch Number Generation
-
-Format: `LB-YYYYMMDD-NNN` — human, sortable, WhatsApp-friendly.
-
-Implementation: a small Postgres function `next_laundry_batch_number()`  
-that reads `MAX(NNN)` for the batch's `business_date` inside a  
-`SELECT … FOR UPDATE` on a dedicated sequence row, then formats. Called  
-from a `BEFORE INSERT` trigger on `laundry_batches`. This avoids race  
-conditions if two staff create a batch at the same moment (rare, but  
-free to prevent).
-
-`business_date` uses the same India-TZ business date the rest of HEOS uses,  
-so the number matches the operational day even after midnight.
-
----
-
-## 6. In-House Wash Calculation
-
-Never entered. Always derived:
-
-- **Per line:** `qty_in_house = qty_heos_queue − qty_sent` (generated  
-column).
-- **Per batch:** `SUM(qty_in_house)` — computed on read.
-- **Per queue row bookkeeping:** rows counted "in-house" stay on the  
-queue as `queued` if we treat them as "still to wash" OR are flipped  
-to a new state `washed_in_house` at pickup time so they don't roll into  
-the next batch. Recommendation: **flip to** `washed_in_house` — otherwise  
-a batch where staff sent less than HEOS suggested would keep showing  
-those rows as "Previous Missing", which is wrong.  
-→ extend queue state enum to  
-`queued | sent | returned | written_off | washed_in_house`.  
-The pickup handler picks the N oldest queued rows per linen type where  
-N = `qty_heos_queue`, marks `qty_sent` of them as `sent`, and the  
-remainder as `washed_in_house` in the same correlation_id.
-
----
-
-## 7. Previous Missing (short-return roll-forward)
-
-Short-returned rows are detached from the closed batch:  
-`batch_id = NULL`, `state = queued`. They naturally reappear in the next  
-pickup's HEOS Queue Count. The pickup screen additionally surfaces the  
-**Prev Missing** column by counting rows where  
-`state='queued' AND source_task_id IS NOT NULL AND created_at < today's first HK task` — i.e. anything queued but not from today's housekeeping.  
-Simple, no extra flag.
-
-They disappear automatically once returned OK or written off.
-
----
-
-## 8. Photo Storage
-
-New Supabase storage bucket `laundry-slips`, private, RLS-scoped to  
-authenticated staff. Two paths per batch:
-
-- `pickup_slip_photo_path` — `laundry-slips/{batch_id}/pickup.jpg`
-- `return_photo_path`      — `laundry-slips/{batch_id}/return.jpg`
-
-Both optional. Reuse the compression + upload utility already used by  
-guest documents / inventory photos. No new engine.
-
----
-
-## 9. Activity Log
-
-Additions to `ActivityAction` vocabulary:
-
-- `laundry_batch_sent` — summary "23 bedsheet, 47 pillow cover sent to  
-We Wash Laundry (slip WW-4471)"
-- `laundry_batch_returned` — summary "45 returned, 2 short, 1 damaged"
-- `laundry_batch_cancelled`
-- `laundry_in_house_recorded` — emitted only when  
-`SUM(qty_in_house) > 0` on a batch
-
-Attribution via `useCurrentStaff` (same rule as HK). Single  
-`correlation_id` shared across the batch write + queue-row flips + log.
-
----
-
-## 10. Monthly Billing — Schema-Ready
-
-Query surfaces already supported by the model:
-
-```sql
--- We Wash Laundry → July 2026
-SELECT
-  count(*) AS total_batches,
-  SUM(l.qty_heos_queue)                       AS total_heos_queue,
-  SUM(l.qty_sent)                             AS total_sent,
-  SUM(l.qty_returned_ok)                      AS total_returned_ok,
-  SUM(l.qty_heos_queue - l.qty_sent)          AS total_in_house,
-  SUM(l.qty_short)                            AS outstanding,
-  SUM(l.qty_damaged)                          AS damaged,
-  SUM(l.qty_lost)                             AS lost
-FROM laundry_batches b
-JOIN laundry_batch_lines l ON l.batch_id = b.id
-WHERE b.vendor_id = :vendor
-  AND b.business_date >= '2026-07-01'
-  AND b.business_date <  '2026-08-01';
-```
-
-Adding the future `laundry_invoices` table + `invoice_id` FK on batches  
-is purely additive. No redesign.
-
----
-
-## 11. Pending-Pickup Warning
-
-Computed on the Laundry page header and the pickup screen:
-
-```sql
-SELECT (current_date - MIN(business_date)) AS days
-FROM laundry_queue WHERE state = 'queued';
-```
-
-If `days >= 2`, show amber banner. If `>= 4`, red. Threshold configurable  
-via `app_settings` key `laundry_pickup_warn_days` (default 2/4). No code  
-churn to tune.
-
----
-
-## 12. Implementation Sequencing (revised)
-
-**Two ships, same as v1** — refinements land inside the same envelopes.
-
-### Ship 1 — Send Path
-
-1. Migration: `laundry_batches`, `laundry_batch_lines`, extend
-  `laundry_queue.state` (+ `washed_in_house`), add `vendor_kind` to  
-   vendors, storage bucket `laundry-slips`, `next_laundry_batch_number()`  
-   function + trigger. GRANTs + RLS.
-2. APIs: `laundry-batches-api.ts` (`listQueueGrouped`, `previewPickup`,
-  `createBatch`, `cancelBatch`), extend `laundry-queue-api.ts` with the  
-   flip helpers.
-3. Route `/laundry` — tabs: **Queue** (aggregated view + New Pickup CTA)
-  and **Batches** (list, filter by vendor / state / month).
-4. Send-time screen (§2) with slip #, photo upload, remarks.
-5. Sidebar entry, role gate.
-
-### Ship 2 — Return Path + polish
-
-1. Return screen (§3) with photo upload, return remarks.
-2. `confirmReturn`: writes ok/short/damaged/lost, detaches shorts,
-  flips queue rows, logs activity.
-3. Vendor screen: `is_laundry` chip filter (via `vendor_kind`).
-4. Batch detail view: header (batch #, vendor, dates, in-house total),
-  line table, both photos, both remarks, activity feed.
-5. Pending-pickup warning + `app_settings` thresholds.
-6. Backlog update.
-
-Ship 1 is standalone-useful; Ship 2 closes the loop and adds the  
-billing-ready surface.
-
----
-
-## 13. Trade-offs Called Out
-
-- **Auto-flipping unused queue rows to** `washed_in_house` **at pickup**  
-is a small opinion: a "clever" alternative is to leave them queued and  
-compute in-house at read time. We reject that because it makes  
-Prev Missing wrong (§6). Cost: one extra enum value + one bulk update.
-- **Batch line uniqueness (**`batch_id, linen_type_id`**)** forces one row  
-per linen type per batch. If a future workflow ever needs partial  
-sub-batches within a batch (unlikely for a 23-room hotel), this would  
-need relaxing. We accept that because today it enforces the vendor  
-slip's actual structure.
-- `qty_sent <= qty_heos_queue` — hard-guards against staff typos  
-where they send more than HEOS suggested. If the vendor legitimately  
-takes extra linen (e.g. curtains not on HK's radar), that goes through  
-a follow-up batch after HK enters it. This matches operational reality  
-where linen must exist in the queue before it goes to laundry.
-- **Slip photos in a private bucket, not print-ready.** We do not build  
-a PDF slip generator. The vendor's handwritten slip is the source of  
-truth; HEOS just archives a photo of it.
-
----
-
-## 14. Open Questions (small — implementation-blocking only)
-
-1. **Multi-vendor tag** — confirm `vendors.vendor_kind text[]` (multi-tag).
-  Preferred; keeps a vendor reusable across domains.
-2. **Access** — Housekeeping + FO Staff + Admin can create/return batches?
-  (Owner read-only.) Recommended.
-3. `laundry_pickup_warn_days` **defaults** — 2 amber / 4 red? Adjustable
-  later via `app_settings`.
-
-If the above are OK, implementation of Ship 1 can begin.
+# HEOS v1.0 — Shipment 3: Platform Cleanup, Governance & Production Sign-off
+
+This shipment is destructive by design (removes legacy roles, quotes, obsolete permissions, dead code). Before I execute, I want you to confirm scope — especially around **Quotes removal** and the **DB cleanup boundary** — since those are hardest to reverse.
+
+## Execution phases (internal, single completion report)
+
+### Phase A — Legacy Role Removal (`reception`, `staff`)
+
+- **Codebase**: purge all UI/label/select references. `useUserRole` already coalesces, but I'll remove the coalescing branches now that the DB audit confirmed zero users. `ANY_ROLE_Z` in `users-admin.functions.ts` collapses to `ACTIVE_ROLES_Z`.
+- **RLS**: audit every policy referencing `has_role(_, 'reception'|'staff')` and rewrite to `fo_staff`/`housekeeping` in a single migration.
+- **DB enum**: I will NOT drop the enum values (Postgres cannot drop enum values without a full recreate, and any historical audit_log row still referencing them would break). Instead: add a comment on the enum documenting them as deprecated + a CHECK/trigger blocking new inserts of legacy values on `user_roles`. Documented as intentional deviation.
+- **Docs**: update comments in `use-role.ts`, `.lovable/backlog.md`.
+
+### Phase B — Quotes Removal
+
+Before I delete: quotes touch `quotes`, `quote_items`, `quote_activities`, `share-quote.ts`, `quote-messages.ts`, `quote-items-api.ts`, `quotes-api.ts`, `routes/_authenticated/quote.$id.tsx`, `quote.$id_.edit.tsx`, `generate.tsx`, `follow-ups.tsx`, and permissions `quotes.*`.
+
+- **Plan**: remove all routes, components, APIs, sidebar entries, permissions rows. Keep DB tables intact (data preservation) but revoke `authenticated` grants so they become dormant. `follow-ups` — verify whether follow-ups depend on quotes; if yes, migrate to booking-only follow-ups.
+- **Confirm**: OK to fully remove `/quote/*` routes and the "Generate Quote" screen, and to keep the historical `quotes` tables read-only in DB?
+
+### Phase C — Access & Role Management Audit
+
+- Reconcile `permissions` table against actual guards in routes/components. Produce a diff:
+  - **Add** any missing keys for: House View actions, Guest Portal ops view, HK Reporting filters, Laundry batch edit, Cash Book reports, Night Audit history, Master Data CRUD, Inventory movements, Vendors CRUD, User Management actions.
+  - **Remove** obsolete: `quotes.*`, any `reception.*`/`staff.*`, duplicates.
+- Regroup by module in `permissions.sort_order` so the Role Matrix reads top-to-bottom per module.
+- Verify sidebar (`app-sidebar.tsx`) visibility gates match the permission keys.
+
+### Phase D — Master Data audit
+
+- Enumerate categories (`lead_source`, `tag`, and any others in DB). Confirm usage; remove unused categories.
+- Improve mobile UX on `/master-data` (compact list, category chips instead of tabs on small screens). Non-architectural.
+
+### Phase E — Staff Management audit
+
+- Verify no duplicate data between `staff`, `profiles`, `user_roles`. Confirm Working As reads `staff` (not a duplicate map).
+- Tighten forms — required fields, mobile layout.
+
+### Phase F — Shared Engine / Dead Code audit
+
+- Grep for unimported files, unused hooks, unreferenced routes. Delete only clearly-dead files (no external references).
+- Consolidate any remaining duplicated helpers I find.
+
+### Phase G — Production Readiness matrix + E2E self-UAT
+
+- Walk the full lifecycle in `browser-use` Playwright (headless) with the injected Supabase session. Booking → Check-in → Portal → Extension → Room Change → Checkout → HK → Laundry → Reporting → Cash → Night Audit → BD advance.
+- Produce 🟢/🟡/🔴 table per module in the completion report.
+
+### Phase H — AI Readiness doc (docs only)
+
+- New file `docs/ai-readiness.md`: event catalog (BookingCreated, GuestCheckedIn, HKTaskGenerated, LaundryReturned, InventoryLow, NightAuditCompleted, BusinessDateAdvanced, PaymentReceived, ComplaintFiled, …), shared engines directory, recommended AI integration points.
+
+## Deliverables
+
+- Single migration file for RLS/permissions/grants cleanup.
+- Bulk file deletions for Quotes + legacy dead code.
+- Updated `app-sidebar.tsx`, `use-role.ts`, `users-admin.functions.ts`, role matrix UI.
+- `docs/ai-readiness.md`.
+- Updated `.lovable/backlog.md` with Platform Health + honest v1.0 sign-off assessment.
+
+## Decisions I need from you
+
+1. **Quotes**: fully remove UI/routes/APIs, keep DB tables dormant (revoke grants) — OK? Or hard-drop tables?
+2. **Legacy enum values (`reception`, `staff`)**: keep in `app_role` enum with deprecation comment + insert-block trigger (safe) — OK? Or attempt full enum recreate (risky, requires rewriting all dependent policies/columns in one migration)?
+3. **Follow-ups**: if `followups` depends on quotes, do you want follow-ups to remain (booking-only) or be removed too?
+
+Once you confirm 1–3, I'll execute Phases A–H in a single internal pass and return one consolidated completion report.
 
 &nbsp;
 
-Approved. The Laundry design now closely matches our real operational process.
+My comments for the plan you proposed - 
 
-I have only one point that I'd like you to review before starting implementation.
+---
 
-Regarding the proposed washed_in_house queue state:
+I approve the overall execution plan and the sequencing. Please execute Phases A–H as a single internally sequenced shipment and return one consolidated completion report.
 
-Please review whether this should remain a long-term queue state or whether the queue item should simply be considered completed with a processing method recorded (vendor vs in_house).
+Below are my decisions and a few additional expectations.
 
-My concern is that the queue should ideally represent only pending work. Once linen has been washed internally, it is no longer pending. However, if after reviewing the implementation you still believe washed_in_house is the cleaner architecture, I'm happy for you to proceed with it—just explain the reasoning in the implementation report.
+### 1. Quotes
 
-Apart from that, the Laundry design is approved. Please proceed with Ship 1.
+**Decision:**
+
+- ✅ Remove all Quote functionality from the application.
+- ✅ Remove all Quote routes.
+- ✅ Remove all Quote UI.
+- ✅ Remove all Quote APIs.
+- ✅ Remove Quote permissions.
+- ✅ Remove Quote navigation.
+- ✅ Remove Quote business logic.
+- ✅ Remove any dead components/hooks/utilities created exclusively for Quotes.
+
+For the database:
+
+- **Do NOT drop Quote tables yet.**
+- Keep them dormant/read-only for now.
+- Revoke application access where appropriate.
+- Document them as deprecated.
+- We can physically remove them in a future database cleanup after sufficient production confidence.
+
+If Follow-ups currently depend on Quotes, migrate them to a booking-centric implementation. If Follow-ups have no remaining business value after Quotes removal, remove them as well. Please make the architectural decision and document it.
+
+---
+
+### 2. Legacy Roles
+
+**Decision:**
+
+Do **NOT** recreate the PostgreSQL enum.
+
+I agree with your recommendation.
+
+- Keep the legacy enum values only for database compatibility.
+- Block all future inserts/updates using those values.
+- Remove every reference from the application.
+- Remove every reference from permissions.
+- Remove every reference from UI.
+- Remove every reference from documentation.
+- Treat them as permanently deprecated.
+
+The application should operate entirely on the four supported roles only:
+
+- Owner
+- Admin
+- FO Staff
+- Housekeeping
+
+---
+
+### 3. Access & Role Management
+
+Please don't just reconcile permissions.
+
+Please perform a genuine audit.
+
+For every permission ask:
+
+- Is it still needed?
+- Is it duplicated?
+- Is it actually enforced?
+- Is anything missing?
+- Can anything be simplified?
+
+The goal is a clean, maintainable permission model.
+
+---
+
+### 4. Master Data
+
+Please don't only review existing masters.
+
+Also challenge the current design.
+
+For every master determine:
+
+- Is it still required?
+- Is it duplicated?
+- Can it be merged?
+- Can navigation improve?
+- Can mobile UX improve?
+
+Don't hesitate to simplify where appropriate.
+
+---
+
+### 5. Staff Management
+
+Same expectation.
+
+Treat this as a complete UX and architecture audit rather than only fixing forms.
+
+---
+
+### 6. Shared Engine Audit
+
+Please also verify:
+
+- No duplicate pricing logic.
+- No duplicate room status logic.
+- No duplicate booking status logic.
+- No duplicate housekeeping logic.
+- No duplicate laundry logic.
+- No duplicate payment link generation.
+- No duplicate notification/message generation.
+- No duplicate reporting calculations.
+
+If duplicates are discovered, consolidate them wherever safe.
+
+---
+
+### 7. End-to-End UAT
+
+Please perform this as if HEOS were operating Hotel Excella today.
+
+Don't only verify reported issues.
+
+Think through realistic hotel operations.
+
+Test:
+
+- Happy paths
+- Negative paths
+- Interrupted workflows
+- Concurrent users
+- Mobile
+- Desktop
+- Multi-room bookings
+- Business Date transitions
+- Permission boundaries
+- Reporting reconciliation
+- Cross-module consistency
+
+If you discover issues aligned with the existing architecture, please fix them proactively and document everything.
+
+---
+
+### 8. Production Readiness
+
+For every major module, classify:
+
+🟢 Production Ready
+
+🟡 Minor Improvements Remaining
+
+🔴 Blocking Issues
+
+Please be completely honest.
+
+If anything is not production ready, explain:
+
+- Why
+- Remaining effort
+- Whether it blocks the Maintenance Module
+
+---
+
+### 9. AI Readiness
+
+I like the proposed `docs/ai-readiness.md`.
+
+Please think beyond events.
+
+Also document:
+
+- Shared engines suitable for AI consumption.
+- Future Automation Engine trigger points.
+- Approval workflow candidates.
+- Executive dashboard data sources.
+- Department AI opportunities (Operations, Finance, Inventory, Marketing, CRM, Revenue, etc.).
+
+This is documentation only.
+
+---
+
+### 10. Additional Request
+
+As part of this shipment, please perform one final "architect's review" of HEOS.
+
+Imagine you were inheriting this codebase for the first time.
+
+If you find anything that feels inconsistent, unnecessarily complex, duplicated, technically risky, or no longer aligned with the current architecture, please improve it where safe and document those decisions in the completion report.
+
+The goal of this shipment is not only to complete the backlog, but to confidently declare **HEOS Core v1.0** as the production foundation before we begin the Maintenance Module and, eventually, the Excella AI OS journey.
+
+---
+
+&nbsp;
