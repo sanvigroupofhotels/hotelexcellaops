@@ -46,6 +46,26 @@ function HousekeepingReportingPage() {
     queryFn: () => fetchHkExceptionAudit(range.from, range.to),
   });
 
+  // Work History filter (state × type × origin) — narrows the audit lens
+  // without re-querying: everything is client-side over the fetched rows.
+  const [hxFilter, setHxFilter] = useState<
+    | "all" | "cleaned" | "serviced" | "manual" | "skipped" | "dnd" | "not_required" | "pending"
+  >("all");
+  const filteredHistory = useMemo(() => {
+    return history.filter((h: any) => {
+      switch (hxFilter) {
+        case "all": return true;
+        case "cleaned": return h.state === "done" && h.type === "checkout_clean";
+        case "serviced": return h.state === "done" && h.type === "continue_service";
+        case "manual": return h.origin === "manual";
+        case "skipped": return h.state === "skipped";
+        case "dnd": return h.state === "skipped" && (h as any).skipped_reason === "dnd";
+        case "not_required": return h.state === "skipped" && (h as any).skipped_reason === "not_required";
+        case "pending": return h.state === "open" || h.state === "in_progress";
+      }
+    });
+  }, [history, hxFilter]);
+
   const exportHistory = () => {
     try {
       downloadCSV(`hk-work-history-${range.from}_to_${range.to}.csv`,
