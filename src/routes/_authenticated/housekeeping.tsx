@@ -234,9 +234,91 @@ function HousekeepingPage() {
           {services.length === 0 && <EmptyMini>No service rooms in the queue.</EmptyMini>}
         </Section>
       </div>
+      {manualOpen && (
+        <ManualTaskDialog
+          businessDate={businessDate as string}
+          rooms={rooms as any[]}
+          existing={tasks}
+          me={{ id: me.id ?? "", name: me.name || me.firstName || "user" }}
+          onClose={() => setManualOpen(false)}
+          onCreated={() => { qc.invalidateQueries({ queryKey: ["hk-tasks"] }); setManualOpen(false); }}
+        />
+      )}
     </div>
   );
 }
+
+function ManualTaskDialog({ businessDate, rooms, existing, me, onClose, onCreated }: {
+  businessDate: string;
+  rooms: any[];
+  existing: HkTaskRow[];
+  me: { id: string; name: string };
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [roomId, setRoomId] = useState("");
+  const [type, setType] = useState<HkTaskType>("continue_service");
+  const [reason, setReason] = useState("");
+  const busyRoomIds = new Set(
+    existing.filter((t) => (t.state === "open" || t.state === "in_progress") && t.type === type).map((t) => t.room_id),
+  );
+  const create = useMutation({
+    mutationFn: async () => {
+      if (!roomId) throw new Error("Choose a room");
+      if (!me.id) throw new Error("Not signed in");
+      await createManualTask({ room_id: roomId, business_date: businessDate, type, reason: reason.trim() || null, actor: me });
+    },
+    onSuccess: () => { toast.success("Manual task created"); onCreated(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/60 flex items-end md:items-center justify-center p-4">
+      <div className="w-full max-w-md bg-background border border-border rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="font-display text-base">Add Manual Task</div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-muted"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="space-y-2">
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Task Type</label>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              {(["continue_service", "checkout_clean"] as const).map((t) => (
+                <button key={t} onClick={() => setType(t)}
+                  className={cn(
+                    "px-3 py-2 rounded-md border text-sm",
+                    type === t ? "border-gold text-gold bg-gold/5" : "border-border text-muted-foreground",
+                  )}>{t === "checkout_clean" ? "Checkout Cleaning" : "Room Service"}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Room</label>
+            <select value={roomId} onChange={(e) => setRoomId(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1">
+              <option value="">Select room…</option>
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id} disabled={busyRoomIds.has(r.id)}>
+                  {r.room_number} · {r.room_type}{busyRoomIds.has(r.id) ? " (already has open task)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Reason (optional)</label>
+            <input value={reason} onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. VIP re-clean requested by manager"
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm mt-1" />
+          </div>
+        </div>
+        <button onClick={() => create.mutate()} disabled={create.isPending || !roomId}
+          className="w-full py-2.5 rounded-md bg-gold text-charcoal font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+          {create.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Create Task
+        </button>
+      </div>
+    </div>
+  );
+}
+
 
 function Section({ title, count, icon, children }: { title: string; count: number; icon: React.ReactNode; children: React.ReactNode }) {
   return (
