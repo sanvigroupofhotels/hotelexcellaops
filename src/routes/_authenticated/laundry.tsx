@@ -9,16 +9,17 @@
  * The Ship 2 return path (per-linen OK/short/damaged/lost) is stubbed
  * as a read-only detail dialog for now.
  */
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, Truck, ClipboardList, AlertTriangle, ChevronRight, XCircle, Pencil, Save } from "lucide-react";
+import { Loader2, ArrowLeft, Truck, ClipboardList, AlertTriangle, ChevronRight, XCircle, Pencil, Save, Plus, FileEdit } from "lucide-react";
 import { toast } from "sonner";
 import { getBusinessDate } from "@/lib/night-audit-api";
 import { listVendors, type VendorRow } from "@/lib/vendors-api";
+import { listLinenTypes } from "@/lib/linen-master-api";
 import {
   previewPickup, createBatch, listBatches, cancelBatch, getBatch, confirmReturn, signedLaundryPhotoUrl,
-  editReturnedBatchLines,
+  editReturnedBatchLines, editBatchMetadata, editSentBatchLines,
   type LaundryBatchRow, type LaundryBatchLineRow, type LaundryBatchState, type PickupPreviewRow,
 } from "@/lib/laundry-batches-api";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
@@ -29,6 +30,11 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/laundry")({
   component: LaundryPage,
+  // Allow deep-linking from reporting: /laundry?batch=<id> opens the
+  // Batch Detail screen directly rather than the landing page.
+  validateSearch: (s: Record<string, unknown>) => ({
+    batch: typeof s.batch === "string" ? s.batch : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Laundry · Hotel Excella" },
@@ -41,9 +47,21 @@ type Tab = "queue" | "batches";
 
 function LaundryPage() {
   const me = useCurrentStaff();
+  const navigate = useNavigate();
+  const search = Route.useSearch();
   const [tab, setTab] = useState<Tab>("queue");
   const [pickupOpen, setPickupOpen] = useState(false);
-  const [detailBatchId, setDetailBatchId] = useState<string | null>(null);
+  const [detailBatchId, setDetailBatchId] = useState<string | null>(search.batch ?? null);
+
+  // Sync detail state ↔ URL so refresh / back-nav preserves the deep link.
+  useEffect(() => {
+    if (search.batch && search.batch !== detailBatchId) setDetailBatchId(search.batch);
+  }, [search.batch]);
+
+  const closeDetail = () => {
+    setDetailBatchId(null);
+    if (search.batch) navigate({ to: "/laundry", search: {} as any, replace: true });
+  };
 
   const { data: businessDate } = useQuery({ queryKey: ["business-date"], queryFn: getBusinessDate, staleTime: 30_000 });
 
@@ -57,7 +75,7 @@ function LaundryPage() {
     );
   }
   if (detailBatchId) {
-    return <BatchDetailScreen batchId={detailBatchId} onClose={() => setDetailBatchId(null)} />;
+    return <BatchDetailScreen batchId={detailBatchId} onClose={closeDetail} />;
   }
 
   return (
