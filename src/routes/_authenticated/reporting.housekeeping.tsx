@@ -187,19 +187,46 @@ function HousekeepingReportingPage() {
 
         {/* Work History */}
         <section className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Work History</h2>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-muted-foreground">{history.length} row{history.length === 1 ? "" : "s"}</span>
-              {canExport && history.length > 0 && (
+              <span className="text-[11px] text-muted-foreground">
+                {filteredHistory.length} of {history.length} row{history.length === 1 ? "" : "s"}
+              </span>
+              {canExport && filteredHistory.length > 0 && (
                 <button onClick={exportHistory} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[11px] hover:bg-muted/40">
                   <Download className="h-3 w-3" /> Export
                 </button>
               )}
             </div>
           </div>
+          <div className="flex flex-wrap gap-1.5">
+            {([
+              ["all", "All"],
+              ["cleaned", "Cleaned"],
+              ["serviced", "Serviced"],
+              ["manual", "Manual"],
+              ["skipped", "Skipped"],
+              ["dnd", "DND"],
+              ["not_required", "Not Required"],
+              ["pending", "Pending"],
+            ] as const).map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setHxFilter(v)}
+                className={
+                  "px-2.5 py-1 rounded-full text-[11px] border transition " +
+                  (hxFilter === v
+                    ? "bg-gold text-charcoal border-gold"
+                    : "border-border text-muted-foreground hover:bg-muted/40")
+                }
+              >
+                {l}
+              </button>
+            ))}
+          </div>
           <div className="luxe-card rounded-xl overflow-hidden">
-            <div className="overflow-x-auto max-h-[420px]">
+            <div className="overflow-x-auto max-h-[480px]">
               <table className="w-full text-sm">
                 <thead className="bg-secondary/30 text-[11px] uppercase tracking-wider text-muted-foreground sticky top-0">
                   <tr>
@@ -207,6 +234,7 @@ function HousekeepingReportingPage() {
                     <th className="text-left px-3 py-2">Room</th>
                     <th className="text-left px-3 py-2">Type</th>
                     <th className="text-left px-3 py-2">State</th>
+                    <th className="text-left px-3 py-2">Reason</th>
                     <th className="text-left px-3 py-2">Origin</th>
                     <th className="text-left px-3 py-2">Performed By</th>
                     <th className="text-right px-3 py-2">Duration</th>
@@ -216,15 +244,30 @@ function HousekeepingReportingPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {history.length === 0 && (
-                    <tr><td colSpan={10} className="p-12 text-center text-muted-foreground">No tasks in this range.</td></tr>
+                  {filteredHistory.length === 0 && (
+                    <tr><td colSpan={11} className="p-12 text-center text-muted-foreground">No tasks match this filter.</td></tr>
                   )}
-                  {history.map((h) => (
+                  {filteredHistory.map((h: any) => (
                     <tr key={h.task_id} className="border-t border-border/60">
                       <td className="px-3 py-2 tabular-nums text-xs">{h.business_date}</td>
                       <td className="px-3 py-2">{h.room_number ?? "—"}</td>
                       <td className="px-3 py-2 text-xs">{h.type === "checkout_clean" ? "Checkout" : "Service"}</td>
-                      <td className="px-3 py-2 text-xs">{h.state}</td>
+                      <td className="px-3 py-2 text-xs">
+                        <span className={
+                          h.state === "done" ? "text-emerald-400"
+                          : h.state === "skipped" ? "text-warning"
+                          : h.state === "in_progress" ? "text-gold"
+                          : "text-muted-foreground"
+                        }>{h.state}</span>
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        {h.state === "skipped"
+                          ? (h.skipped_reason === "dnd" ? "DND"
+                             : h.skipped_reason === "not_required" ? "Not Required"
+                             : h.skipped_reason === "superseded_by_checkout" ? "Superseded"
+                             : (h.skipped_reason ?? "—"))
+                          : "—"}
+                      </td>
                       <td className="px-3 py-2 text-xs">{h.origin === "manual" ? <span className="text-gold" title={h.manual_reason ?? ""}>manual</span> : h.origin.replace("auto_", "")}</td>
                       <td className="px-3 py-2 text-xs">{h.performed_by ?? "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-xs">{formatDuration(h.duration_secs)}</td>
@@ -238,6 +281,7 @@ function HousekeepingReportingPage() {
             </div>
           </div>
         </section>
+
 
         {/* Exception Audit */}
         <section className="space-y-2">
