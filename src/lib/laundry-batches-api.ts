@@ -147,10 +147,14 @@ export interface CreateBatchInput {
  */
 export async function createBatch(input: CreateBatchInput): Promise<LaundryBatchRow> {
   if (!input.vendor_id) throw new Error("Vendor is required");
+  // Accept BOTH HEOS-suggested lines (qty_heos_queue > 0) and manually-added
+  // lines (qty_heos_queue = 0, qty_sent > 0 — vendor slip is the source of
+  // truth). Once inserted, downstream flows (return, correction, reports,
+  // billing, exports) do not distinguish between the two.
   const activeLines = input.lines.filter(
     (l) => l.qty_heos_queue > 0 || l.qty_sent > 0,
   );
-  if (activeLines.length === 0) throw new Error("Nothing to send — the queue is empty");
+  if (activeLines.length === 0) throw new Error("Nothing to send — add at least one linen line");
 
   const files = (input.slipPhotoFiles && input.slipPhotoFiles.length > 0)
     ? input.slipPhotoFiles

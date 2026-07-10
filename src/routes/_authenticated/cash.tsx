@@ -215,12 +215,12 @@ function CashPage() {
                 <button onClick={()=>setOpenForm({ kind: "collection" })}
                   className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                   style={{ background: "linear-gradient(135deg, oklch(0.65 0.18 150), oklch(0.55 0.18 150))" }}>
-                  <PlusCircle className="h-4 w-4"/> (+) Cash In
+                  (+) Cash In
                 </button>
                 <button onClick={()=>setOpenForm({ kind: "expense" })}
                   className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                   style={{ background: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.52 0.22 25))" }}>
-                  <MinusCircle className="h-4 w-4"/> (-) Cash Out
+                  (-) Cash Out
                 </button>
               </div>
               {isAdmin && (
