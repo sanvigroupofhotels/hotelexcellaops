@@ -180,3 +180,176 @@ export async function onBookingExtended(bookingId: string): Promise<void> {
     });
   }
 }
+
+/**
+ * Housekeeping — checkout SHORTENED side-effect hook.
+ *
+ * Called by `updateBookingStay()` when a checked-in booking's check_out
+ * date is pulled EARLIER. If the guest now checks out today (check_out
+ * ≤ business_date), any open `continue_service` task on that room is
+ * superseded — the operational workflow should transition to Checkout.
+ * If the stay still extends past today, existing service tasks remain
+ * untouched.
+ *
+ * Non-blocking. Idempotent.
+ */
+export async function onBookingCheckoutShortened(bookingId: string): Promise<void> {
+  try {
+    const businessDate = await getBusinessDate();
+    const correlation_id = newCorrelationId();
+
+    const { data: b } = await supabase
+      .from("bookings" as any)
+      .select("status, check_out, room_id")
+      .eq("id", bookingId)
+      .maybeSingle();
+    const status = (b as any)?.status;
+    const checkOut = (b as any)?.check_out as string | undefined;
+    if (status !== "Checked-In") return;
+    // Stay still extends past today — nothing to supersede.
+    if (checkOut && checkOut > businessDate) return;
+
+    const { data: assigns } = await supabase.from("booking_room_assignments" as any)
+      .select("room_id").eq("booking_id", bookingId);
+    let roomIds = ((assigns ?? []) as any[]).map((a) => a.room_id).filter(Boolean) as string[];
+    if (roomIds.length === 0 && (b as any)?.room_id) roomIds = [(b as any).room_id];
+    if (roomIds.length === 0) return;
+
+    let superseded = 0;
+    for (const roomId of roomIds) {
+      const { data: updated } = await supabase.from("housekeeping_tasks" as any)
+        .update({
+          state: "skipped",
+          skipped_reason: "superseded_by_checkout",
+          finished_at: new Date().toISOString(),
+        } as any)
+        .eq("room_id", roomId)
+        .eq("business_date", businessDate)
+        .eq("type", "continue_service")
+        .eq("state", "open")
+        .select("id");
+      superseded += ((updated ?? []) as any[]).length;
+    }
+
+    if (superseded > 0) {
+      void logActivity({
+        page: "Housekeeping",
+        action: "hk_shortening_hook_ran" as any,
+        entity_type: "booking",
+        entity_id: bookingId,
+        entity_reference: businessDate,
+        summary: `Stay shortened · superseded ${superseded} service task(s)`,
+        metadata: { businessDate, superseded, room_ids: roomIds },
+        source: "manual",
+        correlation_id,
+      });
+    }
+  } catch (e: any) {
+    void logActivity({
+      page: "Housekeeping",
+      action: "hk_shortening_hook_failed" as any,
+      entity_type: "booking",
+      entity_id: bookingId,
+      summary: `Housekeeping shortening hook failed: ${e?.message ?? e}`,
+      source: "manual",
+    });
+  }
+}
+
+/**
+ * Housekeeping — check-in side-effect hook.
+ *
+ * Called by `setBookingStatus()` when a booking transitions to Checked-In.
+ * Handles the operational reality where a room is re-occupied on the same
+ * business date the previous guest checked out. Two cases:
+ *
+ *   • If the room already has a COMPLETED `checkout_clean` task for today,
+ *     the room is clean and the new stay needs a `continue_service` task
+ *     for tomorrow's expected turndown. We ensure that service task exists
+ *     and log the transition. Room status is left in whatever state HK put
+ *     it (ready/needs_service) — the completed checkout signals the room
+ *     is available; the new service task represents the next work item.
+ *
+ *   • If a `checkout_clean` task is still OPEN, that means the previous
+ *     guest hasn't been cleaned up yet — do nothing here. The existing
+ *     checkout task remains authoritative until HK completes it.
+ *
+ * Multi-room bookings iterate every assignment. Idempotent, non-blocking.
+ */
+export async function onBookingCheckedIn(bookingId: string): Promise<void> {
+  try {
+    const businessDate = await getBusinessDate();
+    const correlation_id = newCorrelationId();
+
+    const { data: b } = await supabase
+      .from("bookings" as any)
+      .select("status, check_in, check_out, room_id")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if ((b as any)?.status !== "Checked-In") return;
+    const checkOut = (b as any)?.check_out as string | undefined;
+    // Only stays that extend past today need a service task.
+    if (!checkOut || checkOut <= businessDate) return;
+
+    const { data: assigns } = await supabase.from("booking_room_assignments" as any)
+      .select("room_id").eq("booking_id", bookingId);
+    let roomIds = ((assigns ?? []) as any[]).map((a) => a.room_id).filter(Boolean) as string[];
+    if (roomIds.length === 0 && (b as any)?.room_id) roomIds = [(b as any).room_id];
+    if (roomIds.length === 0) return;
+
+    // Check for completed checkout_clean tasks today on any of these rooms.
+    const { data: closed } = await supabase
+      .from("housekeeping_tasks" as any)
+      .select("room_id, type, state")
+      .in("room_id", roomIds)
+      .eq("business_date", businessDate)
+      .eq("type", "checkout_clean")
+      .eq("state", "done");
+    const roomsWithCompletedCheckout = new Set<string>(
+      ((closed ?? []) as any[]).map((r) => r.room_id),
+    );
+
+    // Skip rooms with an exception row for today.
+    const { data: exceptions } = await supabase
+      .from("housekeeping_room_exceptions" as any)
+      .select("room_id")
+      .eq("business_date", businessDate)
+      .in("room_id", roomIds);
+    const exceptionRooms = new Set<string>(((exceptions ?? []) as any[]).map((e) => e.room_id));
+
+    let created = 0;
+    for (const roomId of roomIds) {
+      if (exceptionRooms.has(roomId)) continue;
+      if (!roomsWithCompletedCheckout.has(roomId)) continue;
+      const task = await ensureContinueServiceTask({
+        room_id: roomId,
+        booking_id: bookingId,
+        business_date: businessDate,
+      });
+      if (task) created += 1;
+    }
+
+    if (created > 0) {
+      void logActivity({
+        page: "Housekeeping",
+        action: "hk_checkin_hook_ran" as any,
+        entity_type: "booking",
+        entity_id: bookingId,
+        entity_reference: businessDate,
+        summary: `Re-occupied · ensured ${created} continue-service task(s)`,
+        metadata: { businessDate, created, room_ids: roomIds },
+        source: "manual",
+        correlation_id,
+      });
+    }
+  } catch (e: any) {
+    void logActivity({
+      page: "Housekeeping",
+      action: "hk_checkin_hook_failed" as any,
+      entity_type: "booking",
+      entity_id: bookingId,
+      summary: `Housekeeping check-in hook failed: ${e?.message ?? e}`,
+      source: "manual",
+    });
+  }
+}
