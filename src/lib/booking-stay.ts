@@ -255,14 +255,32 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
     /* swallow */
   }
 
-  // Housekeeping extension side-effect — fire when check_out moves later
-  // (a genuine stay extension). Covers every entry point: Edit Booking,
-  // House View drag/drop, mobile Move dialog, Booking Detail, guest portal
-  // extension. Non-blocking; hook logs its own failures.
+  // Housekeeping extension / shortening side-effect. Fires whenever the
+  // checkout date moves in either direction. `onBookingExtended` ensures a
+  // continue-service task exists for today; `onBookingCheckoutShortened`
+  // supersedes any now-obsolete service task if the guest no longer stays
+  // past today. Covers every entry point: Edit Booking, House View
+  // drag/drop, mobile Move dialog, Booking Detail popup, guest portal.
+  // Non-blocking — the hooks own their own error logging.
   if (newOut > oldOut) {
     try {
       const { onBookingExtended } = await import("@/lib/hk-checkout-hook");
       await onBookingExtended(booking_id);
+    } catch { /* non-blocking */ }
+  } else if (newOut < oldOut) {
+    try {
+      const { onBookingCheckoutShortened } = await import("@/lib/hk-checkout-hook");
+      await onBookingCheckoutShortened(booking_id);
+    } catch { /* non-blocking */ }
+  }
+
+  // Pricing sync — recompute stored amount/subtotal/taxes from the freshly
+  // resized booking_items. Keeps House View / Move Dialog / Popup / Edit
+  // Booking in perfect agreement without any parallel pricing logic.
+  if (newIn !== oldIn || newOut !== oldOut) {
+    try {
+      const { recomputeBookingAmount } = await import("@/lib/booking-pricing-sync");
+      await recomputeBookingAmount(booking_id);
     } catch { /* non-blocking */ }
   }
 
