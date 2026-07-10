@@ -1,266 +1,312 @@
-# HEOS v1.0 — Shipment 3: Platform Cleanup, Governance & Production Sign-off
+# HEOS Core v1.1 — Stabilization Sprint 1
 
-This shipment is destructive by design (removes legacy roles, quotes, obsolete permissions, dead code). Before I execute, I want you to confirm scope — especially around **Quotes removal** and the **DB cleanup boundary** — since those are hardest to reverse.
+Nine UAT findings, all rooted in real operational gaps. Approach: extend existing shared engines, never fork logic.
 
-## Execution phases (internal, single completion report)
+## P0 — UAT-001 Manual Laundry Pickup
 
-### Phase A — Legacy Role Removal (`reception`, `staff`)
+Current state: partial manual entry already exists in `laundry.tsx` (`manualSent`, `manualPickerOpen`, `qty_heos_queue: 0` on manual lines). Gaps: pickup blocked when queue is empty in some paths; manual-picker UX; verify manual lines flow identically through Batch Detail, Return, Correct-Return, Short/Damaged/Lost, Reporting, Monthly Billing, Vendor Statements, CSV Export.
 
-- **Codebase**: purge all UI/label/select references. `useUserRole` already coalesces, but I'll remove the coalescing branches now that the DB audit confirmed zero users. `ANY_ROLE_Z` in `users-admin.functions.ts` collapses to `ACTIVE_ROLES_Z`.
-- **RLS**: audit every policy referencing `has_role(_, 'reception'|'staff')` and rewrite to `fo_staff`/`housekeeping` in a single migration.
-- **DB enum**: I will NOT drop the enum values (Postgres cannot drop enum values without a full recreate, and any historical audit_log row still referencing them would break). Instead: add a comment on the enum documenting them as deprecated + a CHECK/trigger blocking new inserts of legacy values on `user_roles`. Documented as intentional deviation.
-- **Docs**: update comments in `use-role.ts`, `.lovable/backlog.md`.
+Changes
 
-### Phase B — Quotes Removal
+- `src/routes/_authenticated/laundry.tsx` — allow creating batch with zero queue rows (already `activeRows.length === 0 && manualTotal === 0` gate is fine but needs review); polish manual add UX; ensure Linen Types Master is single source (already `listLinenTypes`, no free text).
+- `src/lib/laundry-batches-api.ts` — audit that all reads/aggregations key on the batch line itself (not on `laundry_queue`), so manual lines with `qty_heos_queue = 0` behave identically. Fix any spot that filters `qty_heos_queue > 0`.
+- `src/lib/reporting/laundry-reporting.ts` — verify aggregations count manual lines.
+- CSV export helpers under laundry — include manual rows unchanged.
 
-Before I delete: quotes touch `quotes`, `quote_items`, `quote_activities`, `share-quote.ts`, `quote-messages.ts`, `quote-items-api.ts`, `quotes-api.ts`, `routes/_authenticated/quote.$id.tsx`, `quote.$id_.edit.tsx`, `generate.tsx`, `follow-ups.tsx`, and permissions `quotes.*`.
+## P0 — UAT-007 Booking Extension Intelligence
 
-- **Plan**: remove all routes, components, APIs, sidebar entries, permissions rows. Keep DB tables intact (data preservation) but revoke `authenticated` grants so they become dormant. `follow-ups` — verify whether follow-ups depend on quotes; if yes, migrate to booking-only follow-ups.
-- **Confirm**: OK to fully remove `/quote/*` routes and the "Generate Quote" screen, and to keep the historical `quotes` tables read-only in DB?
+Single choke-point: `src/lib/hk-checkout-hook.ts` (`onBookingExtended`, `onBookingCheckoutShortened`, `onBookingReCheckedIn`). Ensure every entry point calls it; add missing branches.
 
-### Phase C — Access & Role Management Audit
+Changes
 
-- Reconcile `permissions` table against actual guards in routes/components. Produce a diff:
-  - **Add** any missing keys for: House View actions, Guest Portal ops view, HK Reporting filters, Laundry batch edit, Cash Book reports, Night Audit history, Master Data CRUD, Inventory movements, Vendors CRUD, User Management actions.
-  - **Remove** obsolete: `quotes.*`, any `reception.*`/`staff.*`, duplicates.
-- Regroup by module in `permissions.sort_order` so the Role Matrix reads top-to-bottom per module.
-- Verify sidebar (`app-sidebar.tsx`) visibility gates match the permission keys.
+- `src/lib/booking-stay.ts` — already calls `onBookingExtended` when `newOut > oldOut`. Add symmetric call `onBookingCheckoutShortened` when `newOut < oldOut` so previously-generated service tasks are re-evaluated / removed if the new checkout no longer overlaps HK's business date.
+- `src/lib/hk-checkout-hook.ts` — extend `onBookingExtended` and add `onBookingCheckoutShortened` to handle Scenario 2 (date changed again): close/reopen tasks based on new `check_out` vs business date. Add `onBookingReCheckedIn` for Scenario 3 (fresh booking, same guest+room after checkout task completed): if a completed Checkout task exists for that room on today's business date and a new Checked-In booking begins today, generate a Service task instead of a redundant Checkout task.
+- Multi-room (Scenario 4): iterate `booking_room_assignments` in `onBookingExtended` / shortened / re-check-in. Verify current hook already loops per-room; add if missing.
+- Entry points to audit: `booking-stay.ts`, `check-in-flow.tsx`, `booking-create.ts`, `bookings_.$id_.edit.tsx`, portal extension, night-audit rollover.
 
-### Phase D — Master Data audit
+## P0 — UAT-008 House View pricing refresh
 
-- Enumerate categories (`lead_source`, `tag`, and any others in DB). Confirm usage; remove unused categories.
-- Improve mobile UX on `/master-data` (compact list, category chips instead of tabs on small screens). Non-architectural.
+`useResolvedRate` already exists but House View mutations don't recompute stored booking totals. Edit-Booking `save` presumably calls a pricing recompute — extract to a shared helper.
 
-### Phase E — Staff Management audit
+Changes
 
-- Verify no duplicate data between `staff`, `profiles`, `user_roles`. Confirm Working As reads `staff` (not a duplicate map).
-- Tighten forms — required fields, mobile layout.
+- New `src/lib/booking-pricing-sync.ts` (or inline into `booking-stay.ts`) — after any stay mutation, recompute derived totals using the same engine Edit Booking uses (rate × nights × items + charges − discounts − payments), persist to `bookings` and `booking_items`. Reuse existing `pricing.ts` helpers.
+- `src/lib/booking-stay.ts` — call the recompute after successful update, before returning.
+- House View long-press popup, move dialog, and DnD — invalidate the relevant React Query keys (`bookings`, `booking-items`, `house-view`) so the popup/summary refresh instantly. Confirm they already `invalidateQueries` on success; add missing keys.
 
-### Phase F — Shared Engine / Dead Code audit
+## P0 — UAT-009 Availability everywhere
 
-- Grep for unimported files, unused hooks, unreferenced routes. Delete only clearly-dead files (no external references).
-- Consolidate any remaining duplicated helpers I find.
+`src/lib/room-availability.ts` (`listAvailableRoomsForStay`) is the source of truth. Audit every entry point:
 
-### Phase G — Production Readiness matrix + E2E self-UAT
+- Create Booking (`bookings_.new.tsx`, `booking-create.ts`)
+- Edit Booking (`bookings_.$id_.edit.tsx`)
+- Room Assignment dialog
+- Room Move dialog + `booking-stay.ts`
+- House View long-press, DnD
+- Additional room assignment
+- Stay extension
 
-- Walk the full lifecycle in `browser-use` Playwright (headless) with the injected Supabase session. Booking → Check-in → Portal → Extension → Room Change → Checkout → HK → Laundry → Reporting → Cash → Night Audit → BD advance.
-- Produce 🟢/🟡/🔴 table per module in the completion report.
+Server-side: DB triggers already reject conflicts. Client-side: ensure UI room pickers call `listAvailableRoomsForStay` and never fall back to a plain `rooms` list. Add missing calls; humanize errors via `humanizeStayError`.
 
-### Phase H — AI Readiness doc (docs only)
+## P0 — UAT-019 Night Audit blockers
 
-- New file `docs/ai-readiness.md`: event catalog (BookingCreated, GuestCheckedIn, HKTaskGenerated, LaundryReturned, InventoryLow, NightAuditCompleted, BusinessDateAdvanced, PaymentReceived, ComplaintFiled, …), shared engines directory, recommended AI integration points.
+`src/lib/perform-night-audit.ts` — extend pre-flight validation to reject rollover when any booking has status Confirmed/Pending with `check_in <= businessDate` (i.e. pending arrival on the current business date). Surface actionable blocker list in the Night Audit stepper.
+
+## P1 — UAT-010 Guest Portal always accessible
+
+Locate the button gate (probably in `bookings_.$id.tsx` or `portal.functions.ts` share flow). Remove the balance-zero condition; portal token stays valid regardless of balance. Payment section inside portal hides itself when balance is 0 (already the case).
+
+## P2 — UAT-006 Housekeeping Work History nav
+
+Add a "Work History" secondary link inside the Housekeeping route header/toolbar that navigates to `/reporting/housekeeping` with the "Work History" tab preselected via a URL param. No duplicate page.
+
+## P3 — UAT-021 Cash Book action labels
+
+`src/routes/_authenticated/cash.tsx` — rename action buttons to exactly `(+) Cash In` and `(-) Cash Out`, remove the leading icon.
+
+## Regression scope
+
+- Laundry: full pickup → return → correction cycle; monthly billing.
+- Bookings: create, edit, extend, shorten, move, DnD, portal extend, multi-room.
+- Housekeeping: task lifecycle across extension edge cases.
+- Night Audit: blocker enforcement (should now surface pending check-ins).
 
 ## Deliverables
 
-- Single migration file for RLS/permissions/grants cleanup.
-- Bulk file deletions for Quotes + legacy dead code.
-- Updated `app-sidebar.tsx`, `use-role.ts`, `users-admin.functions.ts`, role matrix UI.
-- `docs/ai-readiness.md`.
-- Updated `.lovable/backlog.md` with Platform Health + honest v1.0 sign-off assessment.
+- Root-cause note per UAT (in-code comments where non-obvious + one-line summary in reply).
+- Updated `docs/workflows.md` where behaviour changes (extension intelligence, availability engine reuse, night-audit blockers).
+- `.lovable/backlog.md` reconciled.
 
-## Decisions I need from you
-
-1. **Quotes**: fully remove UI/routes/APIs, keep DB tables dormant (revoke grants) — OK? Or hard-drop tables?
-2. **Legacy enum values (`reception`, `staff`)**: keep in `app_role` enum with deprecation comment + insert-block trigger (safe) — OK? Or attempt full enum recreate (risky, requires rewriting all dependent policies/columns in one migration)?
-3. **Follow-ups**: if `followups` depends on quotes, do you want follow-ups to remain (booking-only) or be removed too?
-
-Once you confirm 1–3, I'll execute Phases A–H in a single internal pass and return one consolidated completion report.
+Estimated diff: ~10–14 files, mostly under `src/lib/` and 3 route files. No schema migrations expected.
 
 &nbsp;
 
-My comments for the plan you proposed - 
+&nbsp;
 
----
+My comments: 
 
-I approve the overall execution plan and the sequencing. Please execute Phases A–H as a single internally sequenced shipment and return one consolidated completion report.
+The plan looks good overall and I agree with the implementation approach. I appreciate that you're extending the existing shared engines instead of introducing parallel logic.
 
-Below are my decisions and a few additional expectations.
+&nbsp;
 
-### 1. Quotes
+A few additional points to consider while implementing:
 
-**Decision:**
+&nbsp;
 
-- ✅ Remove all Quote functionality from the application.
-- ✅ Remove all Quote routes.
-- ✅ Remove all Quote UI.
-- ✅ Remove all Quote APIs.
-- ✅ Remove Quote permissions.
-- ✅ Remove Quote navigation.
-- ✅ Remove Quote business logic.
-- ✅ Remove any dead components/hooks/utilities created exclusively for Quotes.
+1. Laundry Manual Pickup
 
-For the database:
+&nbsp;
 
-- **Do NOT drop Quote tables yet.**
-- Keep them dormant/read-only for now.
-- Revoke application access where appropriate.
-- Document them as deprecated.
-- We can physically remove them in a future database cleanup after sufficient production confidence.
+Please ensure the Pickup screen is architecturally treated as merging two input sources:
 
-If Follow-ups currently depend on Quotes, migrate them to a booking-centric implementation. If Follow-ups have no remaining business value after Quotes removal, remove them as well. Please make the architectural decision and document it.
+&nbsp;
 
----
+HEOS Suggested Linen (Housekeeping Queue)
 
-### 2. Legacy Roles
+&nbsp;
 
-**Decision:**
+Manual Linen Entries (selected from Linen Types Master)
 
-Do **NOT** recreate the PostgreSQL enum.
+&nbsp;
 
-I agree with your recommendation.
+&nbsp;
 
-- Keep the legacy enum values only for database compatibility.
-- Block all future inserts/updates using those values.
-- Remove every reference from the application.
-- Remove every reference from permissions.
-- Remove every reference from UI.
-- Remove every reference from documentation.
-- Treat them as permanently deprecated.
+Once Confirm Pickup is clicked, both should become ordinary laundry_batch_lines.
 
-The application should operate entirely on the four supported roles only:
+&nbsp;
 
-- Owner
-- Admin
-- FO Staff
-- Housekeeping
+From that point onwards, no downstream workflow should distinguish between queue-generated and manually added lines, except for audit purposes (qty_heos_queue = 0).
 
----
+&nbsp;
 
-### 3. Access & Role Management
+This includes:
 
-Please don't just reconcile permissions.
+&nbsp;
 
-Please perform a genuine audit.
+Batch Detail
 
-For every permission ask:
+&nbsp;
 
-- Is it still needed?
-- Is it duplicated?
-- Is it actually enforced?
-- Is anything missing?
-- Can anything be simplified?
+Return
 
-The goal is a clean, maintainable permission model.
+&nbsp;
 
----
+Correct Return
 
-### 4. Master Data
+&nbsp;
 
-Please don't only review existing masters.
+Short / Damaged / Lost
 
-Also challenge the current design.
+&nbsp;
 
-For every master determine:
+Reporting
 
-- Is it still required?
-- Is it duplicated?
-- Can it be merged?
-- Can navigation improve?
-- Can mobile UX improve?
+&nbsp;
 
-Don't hesitate to simplify where appropriate.
+Monthly Billing
 
----
+&nbsp;
 
-### 5. Staff Management
+Vendor Statements
 
-Same expectation.
+&nbsp;
 
-Treat this as a complete UX and architecture audit rather than only fixing forms.
+CSV Exports
 
----
+&nbsp;
 
-### 6. Shared Engine Audit
+Activity Log
 
-Please also verify:
+&nbsp;
 
-- No duplicate pricing logic.
-- No duplicate room status logic.
-- No duplicate booking status logic.
-- No duplicate housekeeping logic.
-- No duplicate laundry logic.
-- No duplicate payment link generation.
-- No duplicate notification/message generation.
-- No duplicate reporting calculations.
+&nbsp;
 
-If duplicates are discovered, consolidate them wherever safe.
+The vendor slip remains the operational source of truth.
 
----
+&nbsp;
 
-### 7. End-to-End UAT
-
-Please perform this as if HEOS were operating Hotel Excella today.
-
-Don't only verify reported issues.
-
-Think through realistic hotel operations.
-
-Test:
-
-- Happy paths
-- Negative paths
-- Interrupted workflows
-- Concurrent users
-- Mobile
-- Desktop
-- Multi-room bookings
-- Business Date transitions
-- Permission boundaries
-- Reporting reconciliation
-- Cross-module consistency
-
-If you discover issues aligned with the existing architecture, please fix them proactively and document everything.
-
----
-
-### 8. Production Readiness
-
-For every major module, classify:
-
-🟢 Production Ready
-
-🟡 Minor Improvements Remaining
-
-🔴 Blocking Issues
-
-Please be completely honest.
-
-If anything is not production ready, explain:
-
-- Why
-- Remaining effort
-- Whether it blocks the Maintenance Module
-
----
-
-### 9. AI Readiness
-
-I like the proposed `docs/ai-readiness.md`.
-
-Please think beyond events.
-
-Also document:
-
-- Shared engines suitable for AI consumption.
-- Future Automation Engine trigger points.
-- Approval workflow candidates.
-- Executive dashboard data sources.
-- Department AI opportunities (Operations, Finance, Inventory, Marketing, CRM, Revenue, etc.).
-
-This is documentation only.
-
----
-
-### 10. Additional Request
-
-As part of this shipment, please perform one final "architect's review" of HEOS.
-
-Imagine you were inheriting this codebase for the first time.
-
-If you find anything that feels inconsistent, unnecessarily complex, duplicated, technically risky, or no longer aligned with the current architecture, please improve it where safe and document those decisions in the completion report.
-
-The goal of this shipment is not only to complete the backlog, but to confidently declare **HEOS Core v1.0** as the production foundation before we begin the Maintenance Module and, eventually, the Excella AI OS journey.
+&nbsp;
 
 ---
 
 &nbsp;
+
+2. Booking ↔ Housekeeping Intelligence
+
+&nbsp;
+
+While implementing the extension intelligence, please think operationally rather than matching only on guest identity.
+
+&nbsp;
+
+If a room becomes occupied again on the same business date (even if Reception creates a completely new booking for the same room), the Housekeeping workflow should intelligently transition from Checkout to Service wherever appropriate.
+
+&nbsp;
+
+The operational state of the room should drive the task lifecycle.
+
+&nbsp;
+
+&nbsp;
+
+---
+
+&nbsp;
+
+3. Pricing & Availability
+
+&nbsp;
+
+Please ensure there is truly one shared Pricing Engine and one shared Availability Engine reused by every mutation path.
+
+&nbsp;
+
+This should include:
+
+&nbsp;
+
+Create Booking
+
+&nbsp;
+
+Edit Booking
+
+&nbsp;
+
+Stay Extension
+
+&nbsp;
+
+Room Move
+
+&nbsp;
+
+Drag & Drop
+
+&nbsp;
+
+Long Press actions
+
+&nbsp;
+
+Additional Room Assignment
+
+&nbsp;
+
+Portal flows (where applicable)
+
+&nbsp;
+
+&nbsp;
+
+Both client-side validation and server-side validation should consistently use the same engines.
+
+&nbsp;
+
+&nbsp;
+
+---
+
+&nbsp;
+
+4. Night Audit
+
+&nbsp;
+
+Please review the complete blocker matrix, not just pending Check-ins.
+
+&nbsp;
+
+Business Date should never advance while any operational blocker exists, including (where applicable):
+
+&nbsp;
+
+Pending Check-ins
+
+&nbsp;
+
+Pending Check-outs
+
+&nbsp;
+
+Business Date inconsistencies
+
+&nbsp;
+
+Any other operational blockers that should prevent day closure
+
+&nbsp;
+
+&nbsp;
+
+The Night Audit should remain the single authoritative gate for Business Date advancement.
+
+&nbsp;
+
+&nbsp;
+
+---
+
+&nbsp;
+
+5. Final Regression
+
+&nbsp;
+
+Since this sprint touches Booking, Housekeeping, Laundry and Night Audit together, please perform one final end-to-end regression after implementation.
+
+&nbsp;
+
+Please validate the complete operational flow:
+
+&nbsp;
+
+Booking → Check-in → Extension → Room Move → Checkout → Housekeeping → Laundry → Night Audit → Business Date Advance
+
+&nbsp;
+
+If you discover any regressions while implementing these changes, please proactively fix them before handing the build back for UAT.
+
+&nbsp;
+
+Apart from these additions, I agree with the proposed implementation plan. Please proceed.
