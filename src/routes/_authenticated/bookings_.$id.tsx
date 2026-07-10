@@ -433,11 +433,9 @@ function BookingDetail() {
                 <DropdownMenuItem onClick={() => setInvoiceOpen(true)} className="cursor-pointer">
                   <FileText className="h-3.5 w-3.5 mr-2" /> {isCheckedOut ? "Generate Invoice" : "Generate Proforma Invoice"}
                 </DropdownMenuItem>
-                {balance > 0 && !isCheckedOut && (
-                  <DropdownMenuItem onClick={sharePaymentLink} className="cursor-pointer">
-                    <Link2 className="h-3.5 w-3.5 mr-2" /> Share Payment Link
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem onClick={sharePaymentLink} className="cursor-pointer">
+                  <Link2 className="h-3.5 w-3.5 mr-2" /> Share Guest Portal
+                </DropdownMenuItem>
                 {b.status === "Checked-In" && (
                   <>
                     <DropdownMenuSeparator />

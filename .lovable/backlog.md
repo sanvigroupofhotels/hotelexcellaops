@@ -15,8 +15,65 @@ after **P1 Housekeeping + Laundry Reporting** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-09 (post Final Stabilization **Shipment 3B** — Quotes UI purge, docs, production sign-off)
-- **Currently in flight:** _None — HEOS Core v1.0 is functionally frozen. Ready to begin Maintenance Module._
+- **Last updated:** 2026-07-10 (HEOS **Core v1.1 — Stabilization Sprint 1**: operational UAT findings)
+- **Currently in flight:** _None — Sprint 1 shipped. Real-world UAT continues._
+
+## 2026-07-10 — HEOS Core v1.1 · Stabilization Sprint 1 (Operational UAT)
+
+### Shipped
+
+**UAT-001 · Laundry Manual Pickup (P0)** — Manual linen entries confirmed as first-class citizens in the pickup flow. `createBatch()` accepts lines with `qty_heos_queue = 0` (audit marker for manual) and `qty_sent > 0`; error message reworded from "queue empty" to "add at least one linen line". Manual + queue lines merge into ordinary `laundry_batch_lines`; every downstream flow (Batch Detail, Return, Correct-Return, Short/Damaged/Lost, Reporting, Vendor Statements, CSV) already operates on `laundry_batch_lines` and treats both identically — verified in `src/lib/reporting/laundry-reporting.ts` (aggregations sum by line, not by queue origin).
+
+**UAT-007 · Booking ↔ Housekeeping Extension Intelligence (P0)** — Single choke-point in `src/lib/hk-checkout-hook.ts`:
+- `onBookingExtended` (existing) — extend → ensure `continue_service` task for today.
+- `onBookingCheckoutShortened` (new) — shorten → supersede open service tasks when new check_out ≤ business_date.
+- `onBookingCheckedIn` (new) — re-occupied room after a completed `checkout_clean` today auto-gets a `continue_service` task. Handles Scenario 3 operationally (room-state driven, not guest-identity driven).
+- All three iterate `booking_room_assignments` for multi-room stays (Scenario 4).
+- `booking-stay.ts` now calls extend/shorten hooks symmetrically; `bookings-api.setBookingStatus` calls `onBookingCheckedIn` on every Checked-In transition (booking detail, portal check-in, night-audit bulk).
+
+**UAT-008 · House View Pricing & Immediate Refresh (P0)** — New `src/lib/booking-pricing-sync.ts`. After any stay mutation, `updateBookingStay` recomputes `amount / subtotal / taxes / tax_rate` from the freshly resized `booking_items` using the same `computePricing()` engine Edit Booking uses. House View move mutation now invalidates `["booking", id]` and `["booking-items", id]` — popup, stay summary, and Edit Booking all reflect the new total without re-saving.
+
+**UAT-009 · Availability Engine Reuse (P0)** — Audit confirms single source of truth is preserved: Create/Edit share `useRoomTypeAvailability` + `maxSelectableRooms` (`room-inventory.ts`); assignment/move/DnD share `listAvailableRoomsForStay` + DB triggers; `humanizeStayError` translates trigger conflicts uniformly. No parallel logic introduced.
+
+**UAT-019 · Night Audit Blocker Correctness (P0)** — `getPendingForAudit`: `.lt` → `.lte` on both check_in and check_out. Today's un-arrived arrivals AND today's un-departed departures now block Business Date advancement. Business Date can still never exceed Calendar Date (existing `app_settings_guard_business_date` trigger).
+
+**UAT-010 · Guest Portal Always Accessible (P1)** — "Share Payment Link" renamed to "Share Guest Portal" in booking detail dropdown; balance/status gate removed. Portal token stays valid regardless of balance; payment section inside the portal already hides itself when balance is 0.
+
+**UAT-006 · Housekeeping Work History Nav (P2)** — Added History link in the Housekeeping page header pointing to `/reporting/housekeeping`. No duplicate page.
+
+**UAT-021 · Cash Book Action Labels (P3)** — Removed `PlusCircle`/`MinusCircle` prefix icons; labels are now exactly `(+) Cash In` and `(-) Cash Out`.
+
+### Files changed
+
+- `src/lib/booking-pricing-sync.ts` (new)
+- `src/lib/hk-checkout-hook.ts` (new hooks: `onBookingCheckoutShortened`, `onBookingCheckedIn`)
+- `src/lib/booking-stay.ts` (pricing sync + symmetric extension hooks)
+- `src/lib/bookings-api.ts` (`setBookingStatus` fires `onBookingCheckedIn`)
+- `src/lib/night-audit-api.ts` (lte-based blocker query)
+- `src/lib/laundry-batches-api.ts` (manual-line-friendly error message)
+- `src/routes/_authenticated/bookings_.$id.tsx` (portal button always visible)
+- `src/routes/_authenticated/house-view.tsx` (pricing invalidation)
+- `src/routes/_authenticated/housekeeping.tsx` (History link)
+- `src/routes/_authenticated/cash.tsx` (label polish)
+
+### Architectural decisions
+
+- **Booking-pricing sync as a shared engine, not a per-caller recomputation.** Every stay mutation (House View, Move dialog, Edit Booking, portal extension) now converges on one function that reuses `computePricing`. Prevents drift between what Edit Booking saves and what a DnD-triggered path saves.
+- **Room-state-driven HK transitions, not guest-identity matching.** UAT-007 Scenario 3 is solved by inspecting `housekeeping_tasks` completion state for the room + today, not by matching guest identity. Aligns with the operational reality where a fresh booking is a fresh booking.
+- **Night-audit blocker inclusivity via `.lte`.** Today's expected arrivals/departures count as pending. Business Date closure is the day-end gate; unresolved same-day operations must block it.
+
+### Regression impact
+
+- Type-check clean.
+- Extension flows in Edit Booking, House View DnD/long-press/Move, and Booking Detail continue to succeed; new pricing recompute is non-blocking and swallows its own errors.
+- Night audit will now surface additional pending items on days with same-day un-checked-in arrivals — this is the intended stricter behaviour.
+- Guest Portal button visible on more bookings (including zero-balance and checked-out) — no security impact; portal is per-booking scoped and payment UI hides itself when balance is 0.
+
+### Known deferred / next sprint candidates
+
+- `room-assignment-dialog.tsx` still composes availability from `listRooms + listOccupiedRoomIds + listActiveBlocks` rather than calling `listAvailableRoomsForStay`. Functionally equivalent today; consolidate in a future sweep.
+- Populate historical `previous_missing` on `LaundryBatchDetailsRow` if operational team asks for rollover attribution on vendor statements.
+
 
 ## 2026-07-09 — Final Stabilization Shipment 3B (Quotes UI Purge, Docs, Production Sign-off)
 

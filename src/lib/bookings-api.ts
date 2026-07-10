@@ -181,14 +181,22 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
   const { error } = await supabase.from("bookings" as any).update({ status }).eq("id", id);
   if (error) throw error;
 
-  // Housekeeping checkout fanout — centralized here so every path
-  // (booking detail, Night Audit bulk, Critical Tasks) triggers it.
+  // Housekeeping fanout — centralized here so every path (booking detail,
+  // Night Audit bulk, Critical Tasks, guest portal) triggers the correct
+  // side-effect. Non-blocking — hooks own their error logging.
   if (status === "Checked-Out" && previousStatus !== "Checked-Out") {
     try {
       const { onBookingCheckedOut } = await import("@/lib/hk-checkout-hook");
       await onBookingCheckedOut(id);
     } catch {
       /* hook already logs its own failures; never block the status change */
+    }
+  } else if (status === "Checked-In" && previousStatus !== "Checked-In") {
+    try {
+      const { onBookingCheckedIn } = await import("@/lib/hk-checkout-hook");
+      await onBookingCheckedIn(id);
+    } catch {
+      /* non-blocking */
     }
   }
 }

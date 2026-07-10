@@ -15,7 +15,7 @@ import { listBookings } from "@/lib/bookings-api";
 import { toast } from "sonner";
 import { useMasterData } from "@/hooks/use-master-data";
 import {
-  Plus, Wallet, ArrowDownCircle, ArrowUpCircle, PlusCircle, MinusCircle, Loader2, Search, X,
+  Plus, Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Search, X,
   Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download,
   Pencil, PowerOff, Power, Clock, User as UserIcon, ClipboardCopy,
   Lock, Unlock, ShieldCheck,
@@ -215,12 +215,12 @@ function CashPage() {
                 <button onClick={()=>setOpenForm({ kind: "collection" })}
                   className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                   style={{ background: "linear-gradient(135deg, oklch(0.65 0.18 150), oklch(0.55 0.18 150))" }}>
-                  <PlusCircle className="h-4 w-4"/> (+) Cash In
+                  (+) Cash In
                 </button>
                 <button onClick={()=>setOpenForm({ kind: "expense" })}
                   className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
                   style={{ background: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.52 0.22 25))" }}>
-                  <MinusCircle className="h-4 w-4"/> (-) Cash Out
+                  (-) Cash Out
                 </button>
               </div>
               {isAdmin && (

@@ -56,12 +56,18 @@ export async function getPendingForAudit(businessDate?: string): Promise<{
   const bd = businessDate ?? (await getBusinessDate());
 
   const [{ data: ci }, { data: co }, { data: rooms }] = await Promise.all([
+    // Pending Check-In = arrival scheduled ON or BEFORE the business date that
+    // hasn't been checked-in yet. Today's arrivals count as pending: Business
+    // Date must never advance while any expected guest is still un-arrived.
     supabase.from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
-      .lt("check_in", bd)
+      .lte("check_in", bd)
       .not("status", "in", "(Checked-In,Checked-Out,Cancelled,Stay Completed,No-Show)")
       .order("check_in", { ascending: true }),
+    // Pending Check-Out = still Checked-In with a departure ON or BEFORE the
+    // business date. Same rule: closing the day requires departures to be
+    // resolved (checked out, extended, or otherwise handled).
     supabase.from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
-      .lt("check_out", bd)
+      .lte("check_out", bd)
       .eq("status", "Checked-In" as any)
       .order("check_out", { ascending: true }),
     supabase.from("rooms" as any).select("id,room_number"),
