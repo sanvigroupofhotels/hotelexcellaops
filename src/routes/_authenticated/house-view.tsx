@@ -488,10 +488,18 @@ function HouseView() {
         page: "House View",
       });
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       toast.success("Booking moved");
       qcMove.invalidateQueries({ queryKey: ["bookings"] });
       qcMove.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
+      // Pricing refresh — updateBookingStay recomputed stored amount via
+      // booking-pricing-sync. Invalidate the specific booking + its items
+      // so House View popup / stay summary / edit page show the new total
+      // immediately, without needing a manual save through Edit Booking.
+      if (res?.booking_id) {
+        qcMove.invalidateQueries({ queryKey: ["booking", res.booking_id] });
+        qcMove.invalidateQueries({ queryKey: ["booking-items", res.booking_id] });
+      }
     },
     onError: (e: any) => {
       // Messages from `updateBookingStay` are already business-friendly.
