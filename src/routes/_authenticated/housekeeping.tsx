@@ -5,10 +5,10 @@
  * also reach it (from House View, or via the sidebar entry) but do not land
  * here after login. Design refs: §5.1, §5.2, §5.3.
  */
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ChevronRight, Brush, Sparkles, ArrowLeft, Plus, X } from "lucide-react";
+import { Loader2, ChevronRight, Brush, Sparkles, ArrowLeft, Plus, X, History as HistoryIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getBusinessDate } from "@/lib/night-audit-api";
@@ -151,6 +151,14 @@ function HousekeepingPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Link
+                to="/reporting/housekeeping"
+                className="px-2.5 py-1.5 rounded-md border border-border text-muted-foreground text-[11px] flex items-center gap-1 hover:text-foreground hover:border-gold/40"
+                aria-label="Work History"
+                title="Work History"
+              >
+                <HistoryIcon className="h-3.5 w-3.5" /> History
+              </Link>
               {canCreateManual && (
                 <button
                   onClick={() => setManualOpen(true)}

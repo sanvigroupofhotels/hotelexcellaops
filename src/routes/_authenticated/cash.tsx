@@ -15,7 +15,7 @@ import { listBookings } from "@/lib/bookings-api";
 import { toast } from "sonner";
 import { useMasterData } from "@/hooks/use-master-data";
 import {
-  Plus, Wallet, ArrowDownCircle, ArrowUpCircle, PlusCircle, MinusCircle, Loader2, Search, X,
+  Plus, Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Search, X,
   Users as UsersIcon, ListChecks, History as HistoryIcon, Trash2, Download,
   Pencil, PowerOff, Power, Clock, User as UserIcon, ClipboardCopy,
   Lock, Unlock, ShieldCheck,
