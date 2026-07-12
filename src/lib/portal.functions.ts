@@ -373,22 +373,10 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
     }).parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: tok } = await supabaseAdmin
-      .from("booking_tokens")
-      .select("booking_id, revoked_at, expires_at")
-      .eq("token", data.token)
-      .maybeSingle();
-    if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
-      throw new Error("Link is invalid or expired");
-    }
-    // Resolve linked customer for emergency-contact write-through
-    const { data: bRow } = await supabaseAdmin
-      .from("bookings")
-      .select("customer_id")
-      .eq("id", tok.booking_id)
-      .maybeSingle();
-    const customerId = (bRow as any)?.customer_id ?? null;
+    // UAT-030 — resolves token OR booking_reference.
+    const { supabaseAdmin, booking: tokBooking } = await resolvePortalRef(data.token);
+    const customerId = (tokBooking as any)?.customer_id ?? null;
+    const bookingId = (tokBooking as any).id as string;
 
     const patch: Record<string, any> = {};
     const customerPatch: Record<string, any> = {};
