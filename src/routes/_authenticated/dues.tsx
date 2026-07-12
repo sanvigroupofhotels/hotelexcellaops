@@ -346,17 +346,25 @@ function Pair({ label, value }: { label: string; value: string }) {
 
 /**
  * UAT-026 — copies the currently filtered view as a WhatsApp-ready summary.
- * Format is dictated by ops requirements so pasted content lands directly
- * in the internal collection group without further editing.
+ * Header text is derived from the active filter so pasted content is
+ * self-describing when it lands in the internal collection group.
  */
 function CopyDueSummaryButton({
-  filterLabel, rows,
-}: { filterLabel: string; rows: { guest: string; room: string; due: number }[] }) {
+  filterKey, rows,
+}: { filterKey: FilterKey; rows: { guest: string; room: string; due: number }[] }) {
   const totalDue = rows.reduce((s, r) => s + Number(r.due || 0), 0);
+  const HEADERS: Record<FilterKey, string> = {
+    all:      "Pending Dues (All Guests)",
+    inhouse:  "Pending Dues from In-House Guests",
+    today:    "Pending Dues from Today's Guests",
+    future:   "Pending Dues from Future Guests",
+    overdue:  "Pending Dues (Overdue)",
+  };
+  const heading = HEADERS[filterKey] ?? "Pending Dues";
   const onCopy = async () => {
     if (rows.length === 0) { toast.error("No dues in this view to copy"); return; }
     const lines = [
-      `*${filterLabel}* — ${rows.length} guest${rows.length === 1 ? "" : "s"} · Total ₹${Math.round(totalDue).toLocaleString("en-IN")}`,
+      `*${heading}* — ${rows.length} guest${rows.length === 1 ? "" : "s"} · Total ₹${Math.round(totalDue).toLocaleString("en-IN")}`,
       "",
       ...rows.map((r, i) =>
         `${i + 1}. ${r.guest} · Room ${r.room} · ₹${Math.round(Number(r.due)).toLocaleString("en-IN")}`,
@@ -367,7 +375,6 @@ function CopyDueSummaryButton({
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
       } else {
-        // Fallback for mobile Safari / non-secure contexts.
         const ta = document.createElement("textarea");
         ta.value = text;
         ta.style.position = "fixed"; ta.style.left = "-9999px";
@@ -384,7 +391,7 @@ function CopyDueSummaryButton({
   return (
     <button
       onClick={onCopy}
-      className="rounded-full px-3 py-1.5 text-xs font-medium border border-gold/40 bg-gold-soft/30 hover:bg-gold-soft/50 inline-flex items-center gap-1.5"
+      className="rounded-full px-3 py-1.5 text-xs font-medium border border-gold/40 bg-gold-soft/30 hover:bg-gold-soft/50 inline-flex items-center gap-1.5 whitespace-nowrap"
       title="Copy summary for WhatsApp"
     >
       <Copy className="h-3.5 w-3.5" /> Copy Due Summary
