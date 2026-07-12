@@ -183,32 +183,24 @@ export const lookupPortalToken = createServerFn({ method: "POST" })
 // getPortalBooking (public) — admin-elevated, but ONLY returns guest-safe fields
 // ---------------------------------------------------------------------------
 export const getPortalBooking = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({ token: z.string().min(8).max(128) }).parse(input))
+  .inputValidator((input) => z.object({ token: z.string().min(6).max(128) }).parse(input))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // UAT-030 — accepts token OR booking_reference. See resolvePortalRef.
+    const { supabaseAdmin, booking: bookingLite, token: resolvedToken } =
+      await resolvePortalRef(data.token);
 
-    const { data: tok, error: tokErr } = await supabaseAdmin
-      .from("booking_tokens")
-      .select("booking_id, expires_at, revoked_at")
-      .eq("token", data.token)
-      .maybeSingle();
-    if (tokErr) throw tokErr;
-    if (!tok) throw new Error("Invalid link");
-    if (tok.revoked_at) throw new Error("Link has been revoked");
-    if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now()) throw new Error("Link has expired");
-
-    // Best-effort last-accessed touch
+    // Best-effort last-accessed touch (only when a token row exists).
     await supabaseAdmin
       .from("booking_tokens")
       .update({ last_accessed_at: new Date().toISOString() } as any)
-      .eq("token", data.token);
+      .eq("token", resolvedToken);
 
     const { data: b, error: bErr } = await supabaseAdmin
       .from("bookings")
       .select(
         "id, customer_id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, subtotal, taxes, tax_rate, taxes_included, total_override, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel, expected_arrival_at, emergency_contact_name, emergency_contact_phone, special_requests",
       )
-      .eq("id", tok.booking_id)
+      .eq("id", (bookingLite as any).id)
       .maybeSingle();
     if (bErr) throw bErr;
     if (!b) throw new Error("Booking not found");
