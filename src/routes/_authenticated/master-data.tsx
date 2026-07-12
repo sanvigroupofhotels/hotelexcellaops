@@ -29,8 +29,10 @@ type NameMasterKey = "expense_types" | "complaint_categories";
 type NameDef = { kind: "name"; key: NameMasterKey; label: string; placeholder?: string };
 type SettingsKey = "payment_settings";
 type SettingsDef = { kind: "settings"; key: SettingsKey; label: string };
-type CategoryDef = LookupDef | NameDef | SettingsDef;
+type ChargeCatalogDef = { kind: "charge_catalog"; key: "charge_catalog"; label: string };
+type CategoryDef = LookupDef | NameDef | SettingsDef | ChargeCatalogDef;
 type GroupDef = { label: string; categories: CategoryDef[]; deepLinks?: { label: string; to: string }[] };
+
 
 const GROUPS: GroupDef[] = [
   {
