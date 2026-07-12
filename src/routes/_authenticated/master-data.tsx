@@ -395,3 +395,52 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
     </label>
   );
 }
+
+/**
+ * ChargeCatalogPanel — Finance tab entry that surfaces Charge Catalog
+ * inline as a proper master (UAT-028). The full CRUD editor already lives
+ * at /operations/charge-catalog; we render a compact preview + deep-link
+ * primary action so admins land in a single Master Data hub instead of
+ * chasing a separate route.
+ */
+function ChargeCatalogPanel() {
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["charge-catalog", "active"],
+    queryFn: async () => {
+      const { listChargeCatalog } = await import("@/lib/charge-catalog-api");
+      return listChargeCatalog({ activeOnly: false });
+    },
+  });
+  return (
+    <div className="luxe-card rounded-xl p-4 md:p-5 space-y-4">
+      <div className="flex items-baseline justify-between gap-2 flex-wrap">
+        <div>
+          <h3 className="font-display text-lg md:text-xl">Charge Catalog</h3>
+          <p className="text-xs text-muted-foreground">
+            Master list of chargeable items surfaced in the In-house Charges dialog.
+          </p>
+        </div>
+        <Link to="/operations/charge-catalog" className="text-xs text-gold hover:underline inline-flex items-center gap-1">
+          Open Full Editor <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+      {isLoading ? (
+        <div className="p-8 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
+      ) : rows.length === 0 ? (
+        <div className="p-6 text-center text-xs text-muted-foreground">No catalog entries yet.</div>
+      ) : (
+        <div className="rounded-md border border-border divide-y divide-border max-h-80 overflow-y-auto">
+          {rows.map((r: any) => (
+            <div key={r.id} className="px-3 py-2 flex items-center justify-between text-sm">
+              <span className={cn(!r.active && "text-muted-foreground line-through")}>{r.label}</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {r.active ? "Active" : "Inactive"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
