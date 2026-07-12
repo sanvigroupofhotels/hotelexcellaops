@@ -488,19 +488,22 @@ function HouseView() {
         page: "House View",
       });
     },
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       toast.success("Booking moved");
-      qcMove.invalidateQueries({ queryKey: ["bookings"] });
-      qcMove.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
-      // Pricing refresh — updateBookingStay recomputed stored amount via
-      // booking-pricing-sync. Invalidate the specific booking + its items
-      // so House View popup / stay summary / edit page show the new total
-      // immediately, without needing a manual save through Edit Booking.
+      // v1.1 UAT-008 — one shared helper drives every post-mutation refresh.
+      // Pricing was already recomputed by `updateBookingStay` itself; we
+      // just fan out the standard invalidation set so House View pills,
+      // popup, stay summary, dues, and edit page all show the new totals
+      // immediately without any manual Edit Booking save.
       if (res?.booking_id) {
-        qcMove.invalidateQueries({ queryKey: ["booking", res.booking_id] });
-        qcMove.invalidateQueries({ queryKey: ["booking-items", res.booking_id] });
+        const { refreshAfterBookingMutation } = await import("@/lib/booking-pricing-sync");
+        await refreshAfterBookingMutation(qcMove, res.booking_id, { skipPricing: true });
+      } else {
+        qcMove.invalidateQueries({ queryKey: ["bookings"] });
+        qcMove.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
       }
     },
+
     onError: (e: any) => {
       // Messages from `updateBookingStay` are already business-friendly.
       toast.error(String(e?.message ?? "Could not move booking"));
