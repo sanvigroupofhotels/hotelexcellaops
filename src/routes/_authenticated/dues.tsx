@@ -13,8 +13,9 @@ import { useOpsTimeLabels } from "@/lib/check-times";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { MetricCard } from "@/components/money";
 import {
-  IndianRupee, Phone, MessageCircle, ExternalLink, Plus, Search, Loader2, AlertCircle,
+  IndianRupee, Phone, MessageCircle, ExternalLink, Plus, Search, Loader2, AlertCircle, Copy,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { phoneToWaDigits } from "@/lib/phone";
 
