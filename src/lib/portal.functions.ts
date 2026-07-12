@@ -754,24 +754,70 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
 
 const GUEST_DOC_BUCKET = "guest-documents";
 
-async function tokenToBooking(token: string) {
+/**
+ * v1.1 UAT-030 — Portal accepts EITHER a booking-scoped token (32-char hex,
+ * legacy shareable link) OR a booking reference (e.g. HEXB-FA5AE5, the
+ * clean human-friendly URL).
+ *
+ * Resolution order:
+ *   1. Try booking_tokens.token exact match (legacy behaviour).
+ *   2. If not found, treat the input as a booking_reference (uppercased),
+ *      look up the booking, and auto-mint/reuse a portal token internally
+ *      so downstream operations (order creation, activity logs) still have
+ *      a token to key off. The guest never sees the token — the URL stays
+ *      as the booking reference throughout.
+ *
+ * Both paths return the same {supabaseAdmin, booking, token} shape so
+ * callers are agnostic. Token in return value is always the resolved
+ * internal token (needed by createRazorpayOrder which stores it on
+ * razorpay_orders rows).
+ */
+async function resolvePortalRef(input: string): Promise<{
+  supabaseAdmin: any; booking: any; token: string;
+}> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const raw = String(input || "").trim();
+  if (!raw) throw new Error("Missing portal reference");
+
+  // Path 1: token lookup.
   const { data: tok } = await supabaseAdmin
     .from("booking_tokens")
-    .select("booking_id, revoked_at, expires_at")
-    .eq("token", token)
+    .select("booking_id, revoked_at, expires_at, token")
+    .eq("token", raw)
     .maybeSingle();
-  if (!tok || (tok as any).revoked_at || ((tok as any).expires_at && new Date((tok as any).expires_at).getTime() < Date.now())) {
-    throw new Error("Link is invalid or expired");
+  if (tok) {
+    if ((tok as any).revoked_at) throw new Error("Link has been revoked");
+    if ((tok as any).expires_at && new Date((tok as any).expires_at).getTime() < Date.now()) {
+      throw new Error("Link has expired");
+    }
+    const { data: b } = await supabaseAdmin
+      .from("bookings")
+      .select("id, user_id, customer_id, check_in, advance_paid, status, booking_reference, guest_name")
+      .eq("id", (tok as any).booking_id)
+      .maybeSingle();
+    if (!b) throw new Error("Booking not found");
+    return { supabaseAdmin, booking: b as any, token: (tok as any).token };
   }
+
+  // Path 2: booking_reference lookup. References are stored uppercase.
+  const ref = raw.toUpperCase();
   const { data: b } = await supabaseAdmin
     .from("bookings")
     .select("id, user_id, customer_id, check_in, advance_paid, status, booking_reference, guest_name")
-    .eq("id", (tok as any).booking_id)
+    .eq("booking_reference", ref)
     .maybeSingle();
-  if (!b) throw new Error("Booking not found");
-  return { supabaseAdmin, booking: b as any };
+  if (!b) throw new Error("This booking link is invalid or expired.");
+  const mintedToken = await ensurePortalToken(supabaseAdmin, (b as any).id);
+  return { supabaseAdmin, booking: b as any, token: mintedToken };
 }
+
+// Legacy alias — kept so downstream call-sites don't churn.
+async function tokenToBooking(token: string) {
+  const { supabaseAdmin, booking } = await resolvePortalRef(token);
+  return { supabaseAdmin, booking };
+}
+
+
 
 // --- listPortalDocuments -----------------------------------------------------
 export const listPortalDocuments = createServerFn({ method: "POST" })
