@@ -470,21 +470,15 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
     if (!keyId || !keySecret) throw new Error("Razorpay is not configured");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    // Validate token + booking
-    const { data: tok } = await supabaseAdmin
-      .from("booking_tokens")
-      .select("booking_id, expires_at, revoked_at")
-      .eq("token", data.token)
-      .maybeSingle();
-    if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
-      throw new Error("Link is invalid or expired");
-    }
+    // UAT-030 — resolves token OR booking_reference to the underlying
+    // booking. `resolvedToken` is the internal token we key razorpay_orders
+    // rows on so webhook reconciliation still works.
+    const { supabaseAdmin, booking: bLite, token: resolvedToken } =
+      await resolvePortalRef(data.token);
     const { data: b } = await supabaseAdmin
       .from("bookings")
       .select("id, amount, advance_paid, booking_reference, guest_name, phone, status")
-      .eq("id", tok.booking_id)
+      .eq("id", (bLite as any).id)
       .maybeSingle();
     if (!b) throw new Error("Booking not found");
     if ((b as any).status === "Cancelled" || (b as any).status === "No-Show") {
