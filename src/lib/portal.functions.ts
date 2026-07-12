@@ -235,7 +235,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       unitPrice: Number(r.unit_price ?? 0),
       amount: Number(r.amount ?? 0),
     }));
-    const chargesTotal = charges.reduce((s, r) => s + r.amount, 0);
+    const chargesTotal = charges.reduce((s: number, r: any) => s + r.amount, 0);
 
     // Assigned room number (first active assignment)
     let roomNumber = "";
