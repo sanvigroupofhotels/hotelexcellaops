@@ -409,7 +409,7 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
       const { error: upErr } = await supabaseAdmin
         .from("bookings")
         .update(patch as any)
-        .eq("id", tok.booking_id);
+        .eq("id", bookingId);
       if (upErr) throw upErr;
     }
 
@@ -422,7 +422,7 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
     }
 
     await supabaseAdmin.from("booking_activities" as any).insert({
-      booking_id: tok.booking_id,
+      booking_id: bookingId,
       actor_name: "Guest (Portal)",
       actor_role: "guest",
       action: "note",
