@@ -159,6 +159,10 @@ function Content() {
       {cat && cat.kind === "settings" && cat.key === "payment_settings" && (
         <PaymentSettingsEditor />
       )}
+      {cat && cat.kind === "charge_catalog" && (
+        <ChargeCatalogPanel />
+      )}
+
 
       {/* Deep-links to dedicated CRUD pages */}
       {group.deepLinks && group.deepLinks.length > 0 && (
