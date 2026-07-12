@@ -213,11 +213,12 @@ function NotificationCenter() {
 function NotificationRow({
   n, selected, onToggle, onRead,
 }: {
-  n: NotificationRow;
+  n: NotificationRowType;
   selected: boolean;
   onToggle: () => void;
   onRead: () => void;
 }) {
+
   const href = notificationHref(n);
   const isUnread = n.status === "unread";
   const priorityDot =
