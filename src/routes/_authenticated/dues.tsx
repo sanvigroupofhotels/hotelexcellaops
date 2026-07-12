@@ -146,7 +146,7 @@ function DuesPage() {
         </div>
 
 
-        {/* Filter chips + search */}
+        {/* Filter chips + search + copy summary */}
         <div className="flex flex-wrap items-center gap-2">
           {FILTERS.map((f) => (
             <button
@@ -162,6 +162,14 @@ function DuesPage() {
               {f.label}
             </button>
           ))}
+          <CopyDueSummaryButton
+            filterLabel={FILTERS.find((f) => f.key === filter)?.label ?? "Dues"}
+            rows={filtered.map(({ b, due }) => ({
+              guest: b.guest_name,
+              room: roomById.get(b.room_id ?? "") ?? "—",
+              due,
+            }))}
+          />
           <div className="ml-auto relative w-full md:w-72">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
@@ -172,6 +180,7 @@ function DuesPage() {
             />
           </div>
         </div>
+
 
         {/* List */}
         {lb ? (
