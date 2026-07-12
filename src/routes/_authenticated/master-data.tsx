@@ -55,15 +55,19 @@ const GROUPS: GroupDef[] = [
   {
     label: "Finance",
     categories: [
-      { kind: "lookup", key: "payment_mode", label: "Payment Modes", placeholder: "e.g. UPI" },
-      // Charge Categories removed 2026-07-07 — Charge Catalog is the single
-      // source of truth for chargeable items; the standalone `charge_category`
-      // master was unreferenced in code (verified via full ripgrep audit).
-      { kind: "lookup", key: "expense_category", label: "Expense Categories", placeholder: "e.g. Utilities" },
-      { kind: "lookup", key: "tax", label: "GST / Taxes", placeholder: "e.g. GST 18%" },
-    ],
-    deepLinks: [
-      { label: "Manage Charge Catalog", to: "/operations/charge-catalog" },
+      // Wired to Add Payment modal (`useMasterData("payment_method")`) —
+      // the DB `value` column is the stable identifier the Cash Book trigger
+      // matches on, so admins may safely rename `label` without breaking
+      // Cash routing.
+      { kind: "lookup", key: "payment_method", label: "Payment Modes", placeholder: "e.g. UPI" },
+      { kind: "charge_catalog", key: "charge_catalog", label: "Charge Catalog" },
+      // Removed 2026-07-12 (UAT-028):
+      //   `expense_category` master had entries but zero code references
+      //     (ripgrep audit — cash-book uses the dedicated `expense_types` table).
+      //   `tax` master had entries but pricing/tax lives in
+      //     `app_settings.key='tax'` — not in master_data.
+      // Any legacy rows in the DB are left in place for audit; the UI simply
+      // no longer surfaces them.
     ],
   },
   {
@@ -80,10 +84,11 @@ const GROUPS: GroupDef[] = [
   {
     label: "CashBook Masters",
     categories: [
-      { kind: "name", key: "expense_types", label: "Expense Types (Legacy)", placeholder: "e.g. Laundry" },
+      { kind: "name", key: "expense_types", label: "Expense Types", placeholder: "e.g. Laundry" },
       { kind: "lookup", key: "income_category", label: "Income Categories", placeholder: "e.g. Donation" },
     ],
   },
+
   {
     label: "Complaints",
     categories: [
