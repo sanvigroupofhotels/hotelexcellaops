@@ -510,7 +510,7 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
         booking_id: (b as any).id,
         booking_reference: (b as any).booking_reference,
         intent: data.intent,
-        token: data.token,
+        token: resolvedToken,
       };
       const res = await fetch("https://api.razorpay.com/v1/orders", {
         method: "POST",
@@ -537,7 +537,7 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
 
       const { error: insErr } = await supabaseAdmin.from("razorpay_orders").insert({
         booking_id: (b as any).id,
-        token: data.token,
+        token: resolvedToken,
         intent: data.intent,
         order_id: orderId,
         amount_paise: amountPaise,
@@ -567,17 +567,9 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
 export const recordPayAtHotelIntent = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ token: z.string().min(8).max(128) }).parse(input))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: tok } = await supabaseAdmin
-      .from("booking_tokens")
-      .select("booking_id, revoked_at, expires_at")
-      .eq("token", data.token)
-      .maybeSingle();
-    if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
-      throw new Error("Link is invalid or expired");
-    }
+    const { supabaseAdmin, booking } = await resolvePortalRef(data.token);
     await supabaseAdmin.from("booking_activities" as any).insert({
-      booking_id: tok.booking_id,
+      booking_id: (booking as any).id,
       actor_name: "Guest (Portal)",
       actor_role: "guest",
       action: "note",
