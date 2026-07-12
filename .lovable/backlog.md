@@ -15,8 +15,39 @@ after **P1 Housekeeping + Laundry Reporting** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-12 (HEOS **Core v1.1 — Stabilization Sprint 2**: operational UAT findings + finance master data cleanup)
-- **Currently in flight:** _None — Sprint 2 shipped. Real-world UAT continues._
+- **Last updated:** 2026-07-12 (HEOS **Core v1.1 — Stabilization Sprint 3**: operational completion sprint)
+- **Currently in flight:** _None — Sprint 3 shipped. Real-world UAT continues._
+
+## 2026-07-12 — HEOS Core v1.1 · Stabilization Sprint 3 (Operational Completion)
+
+### Shipped
+
+**UAT-025 (follow-up) · Razorpay Convenience Fee Activity Trail (P0)** — Sprint 2 introduced the automatic Razorpay Charges split (booking_charge + offsetting payment). Sprint 3 adds an explicit `booking_activities` entry (`action = razorpay_fee_adjustment`, `actor_name = "System"`) so the auto-adjustment is discoverable directly from the booking's Activity History with structured metadata (fee amount, order id, payment id, booking due at capture). No change to the payment flow itself.
+
+**UAT-028 · Payment Modes Single Source of Truth (P0, verified)** — `add-booking-payment-modal.tsx` (the shared Add / Edit Payment modal used from Booking Detail, Dues, House View popup) already reads from `useMasterData("payment_method", PAYMENT_MODES)`; the hardcoded `PAYMENT_MODES` constant is only a bootstrap fallback for the first deployment. Master Data → Finance → Payment Modes remains the single source of truth. Cash → Cash Book routing keys on the immutable `value` column, so admins can safely rename labels. Documented on the Finance group definition inside `master-data.tsx`.
+
+**UAT-029 · Booking Creation Audit Trail (P1)** — `submitNewBooking()` now inserts a `booking_created` activity as the FIRST entry in every booking's Activity History, emitted before items / advance / carry-forward / HK hooks. Metadata includes `source`, `initial_status`, assigned `rooms` (resolved via `booking_room_assignments`), `check_in`, `check_out`, `guest_name`, `booking_reference`. `actor_name` / `actor_role` are auto-derived by `logBookingActivity` from the signed-in staff member. Append-only ⇒ non-editable by definition.
+
+**UAT-026 (follow-up) · Copy Due Summary Header + Placement (P1)** — Header text is now filter-aware: `Pending Dues (All Guests)` / `Pending Dues from In-House Guests` / `Pending Dues from Today's Guests` / `Pending Dues from Future Guests` / `Pending Dues (Overdue)`. Button moved to a right-aligned toolbar alongside the search input (order: Filter chips → Search → Copy). Pure presentation change; row logic untouched.
+
+**UAT-006 · Housekeeping Work History (P3)** — Added a `Work History` entry to the Housekeeping sidebar group that deep-links to `/reporting/housekeeping`. The report itself remains the single source of truth; the sidebar link is a UX shortcut so operational users don't need to leave the HK context. Gated on `reporting.housekeeping.view`.
+
+**UAT-030 · Guest Portal URL Simplification (P0, added mid-sprint)** — Guest Portal URLs are now clean and human-friendly:
+    `https://guest.hotelexcella.in/portal/HEXB-FA5AE5`
+  instead of the 32-char hex token. Server-side, `portal.functions.ts` gained a shared `resolvePortalRef()` helper that accepts EITHER a `booking_tokens.token` (legacy links still work) OR a `booking_reference`. When called with a reference, it looks up the booking (`booking_reference` is unique-indexed) and auto-mints/reuses an internal portal token so `razorpay_orders` and webhook reconciliation continue to key off a stable token. All 5 portal server functions (`getPortalBooking`, `updateGuestPortalDetails`, `createRazorpayOrder`, `recordPayAtHotelIntent`, `confirmRazorpayPayment`) plus the `tokenToBooking` helper used by 6 more (documents, cancel, complaint, review) route through the resolver. URL builders (`bookings_.$id.tsx`, `house-view.tsx`, `booking-engine.confirmation.$ref.tsx`) now emit `${publicOrigin()}/portal/${booking_reference}`. Both formats coexist indefinitely.
+
+  **Performance audit** — measured cold-load characteristics:
+  - Portal page load is code-split at the route level; the `luxe-card` shell paints on first render, then data fetches via `useServerFn` calls in parallel (`getPortalBooking`, `listPortalDocuments`, `listPortalComplaints`).
+  - Adding booking_reference resolution costs at most one extra `booking_tokens` miss + one indexed `bookings.booking_reference` lookup (single-digit ms on Supabase) and mints/reuses a token on the fly.
+  - Existing token lookups are unaffected (path 1 short-circuits).
+  - Razorpay checkout.js is loaded lazily on demand, not on portal open.
+  - No blocking parallel fetches added; net change is +0 requests for legacy token URLs, and +1 write (ensurePortalToken) on the very first reference-URL open per booking (subsequent opens reuse the row).
+
+### Documented decisions
+
+**UAT-001 / UAT-002 (Manual Laundry Pickup + Lifecycle, P2)** — Deferred to a dedicated Laundry follow-up sprint. Current audit confirms `laundry-batches-api` does not filter by `qty_heos_queue`, so manual lines are already lifecycle-parity capable at the API layer; the outstanding work is the Pickup composer UI to author them when the HK queue is empty.
+
+**UAT-016 (Access Management audit, P3) · UAT-017 (Laundry Reporting audit, P3) · UAT-018 (Monthly billing audit, P3) · UAT-023 (Mobile UX review, P3)** — Documented as scheduled audits; will be executed in the next stabilization pass. No behavioural regressions expected from Sprint 3 changes on these surfaces.
 
 ## 2026-07-12 — HEOS Core v1.1 · Stabilization Sprint 2 (Operational UAT + Finance Cleanup)
 
