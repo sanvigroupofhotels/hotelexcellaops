@@ -34,6 +34,7 @@ import { Route as AuthenticatedReportingRouteImport } from './routes/_authentica
 import { Route as AuthenticatedRatesRouteImport } from './routes/_authenticated/rates'
 import { Route as AuthenticatedPaymentsReportsRouteImport } from './routes/_authenticated/payments-reports'
 import { Route as AuthenticatedOperationsRouteImport } from './routes/_authenticated/operations'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedNightAuditRouteImport } from './routes/_authenticated/night-audit'
 import { Route as AuthenticatedMasterDataRouteImport } from './routes/_authenticated/master-data'
 import { Route as AuthenticatedLaundryRouteImport } from './routes/_authenticated/laundry'
@@ -229,6 +230,12 @@ const AuthenticatedOperationsRoute = AuthenticatedOperationsRouteImport.update({
   path: '/operations',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedNotificationsRoute =
+  AuthenticatedNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedNightAuditRoute = AuthenticatedNightAuditRouteImport.update({
   id: '/night-audit',
   path: '/night-audit',
@@ -639,6 +646,7 @@ export interface FileRoutesByFullPath {
   '/laundry': typeof AuthenticatedLaundryRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
+  '/notifications': typeof AuthenticatedNotificationsRoute
   '/operations': typeof AuthenticatedOperationsRouteWithChildren
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/rates': typeof AuthenticatedRatesRoute
@@ -729,6 +737,7 @@ export interface FileRoutesByTo {
   '/housekeeping': typeof AuthenticatedHousekeepingRoute
   '/laundry': typeof AuthenticatedLaundryRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
   '/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/rates': typeof AuthenticatedRatesRoute
   '/reporting': typeof AuthenticatedReportingRouteWithChildren
@@ -823,6 +832,7 @@ export interface FileRoutesById {
   '/_authenticated/laundry': typeof AuthenticatedLaundryRoute
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
   '/_authenticated/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
+  '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/operations': typeof AuthenticatedOperationsRouteWithChildren
   '/_authenticated/payments-reports': typeof AuthenticatedPaymentsReportsRoute
   '/_authenticated/rates': typeof AuthenticatedRatesRoute
@@ -920,6 +930,7 @@ export interface FileRouteTypes {
     | '/laundry'
     | '/master-data'
     | '/night-audit'
+    | '/notifications'
     | '/operations'
     | '/payments-reports'
     | '/rates'
@@ -1010,6 +1021,7 @@ export interface FileRouteTypes {
     | '/housekeeping'
     | '/laundry'
     | '/master-data'
+    | '/notifications'
     | '/payments-reports'
     | '/rates'
     | '/reporting'
@@ -1103,6 +1115,7 @@ export interface FileRouteTypes {
     | '/_authenticated/laundry'
     | '/_authenticated/master-data'
     | '/_authenticated/night-audit'
+    | '/_authenticated/notifications'
     | '/_authenticated/operations'
     | '/_authenticated/payments-reports'
     | '/_authenticated/rates'
@@ -1366,6 +1379,13 @@ declare module '@tanstack/react-router' {
       path: '/operations'
       fullPath: '/operations'
       preLoaderRoute: typeof AuthenticatedOperationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/night-audit': {
@@ -2015,6 +2035,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedLaundryRoute: typeof AuthenticatedLaundryRoute
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
   AuthenticatedNightAuditRoute: typeof AuthenticatedNightAuditRouteWithChildren
+  AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedOperationsRoute: typeof AuthenticatedOperationsRouteWithChildren
   AuthenticatedPaymentsReportsRoute: typeof AuthenticatedPaymentsReportsRoute
   AuthenticatedRatesRoute: typeof AuthenticatedRatesRoute
@@ -2059,6 +2080,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedLaundryRoute: AuthenticatedLaundryRoute,
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
   AuthenticatedNightAuditRoute: AuthenticatedNightAuditRouteWithChildren,
+  AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedOperationsRoute: AuthenticatedOperationsRouteWithChildren,
   AuthenticatedPaymentsReportsRoute: AuthenticatedPaymentsReportsRoute,
   AuthenticatedRatesRoute: AuthenticatedRatesRoute,

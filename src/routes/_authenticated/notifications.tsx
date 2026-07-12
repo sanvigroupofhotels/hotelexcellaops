@@ -9,11 +9,12 @@ import {
   markNotificationsRead,
   dismissNotifications,
   notificationHref,
-  type NotificationRow,
+  type NotificationRow as NotificationRowType,
 } from "@/lib/notifications-api";
 import { Bell, Search, Check, CheckCheck, Trash2, Loader2, X, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_authenticated/notifications")({
   component: NotificationCenter,
