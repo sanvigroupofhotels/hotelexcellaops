@@ -86,6 +86,41 @@ export async function submitNewBooking(input: SubmitNewBookingInput): Promise<Su
 
   const booking = await createBooking(payload);
 
+  // v1.1 UAT-029 — Booking Creation audit trail. Emit BEFORE items /
+  // advance / carry-forward / HK hooks so this is always the first entry
+  // in the booking's Activity History. Append-only ⇒ non-editable.
+  try {
+    const { logBookingActivity } = await import("@/lib/booking-activities-api");
+    let roomLabels: string[] = [];
+    try {
+      const { data: asgn } = await supabase
+        .from("booking_room_assignments" as any)
+        .select("rooms ( room_number )")
+        .eq("booking_id", booking.id);
+      roomLabels = ((asgn ?? []) as any[])
+        .map((r) => r?.rooms?.room_number)
+        .filter(Boolean);
+    } catch { /* non-fatal */ }
+    await logBookingActivity({
+      booking_id: booking.id,
+      action: "booking_created" as any,
+      from_status: null,
+      to_status: booking.status ?? "Pending",
+      notes: `Booking Created · ${booking.booking_reference}`,
+      metadata: {
+        source: (booking as any).source ?? null,
+        initial_status: booking.status ?? "Pending",
+        rooms: roomLabels,
+        check_in: (booking as any).check_in ?? null,
+        check_out: (booking as any).check_out ?? null,
+        guest_name: (booking as any).guest_name ?? null,
+        booking_reference: booking.booking_reference,
+      },
+    });
+  } catch (e) {
+    console.warn("booking_created activity log failed", e);
+  }
+
   if (input.items.length > 0) {
     await addBookingItems(booking.id, input.items);
   }

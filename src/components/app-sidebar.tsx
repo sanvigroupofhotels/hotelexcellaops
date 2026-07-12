@@ -50,6 +50,10 @@ const inventoryChildren = [
 
 const housekeepingChildren = [
   { to: "/housekeeping",                 label: "Today's Tasks",         icon: ListChecks },
+  // v1.1 UAT-006 — direct entry to HK work history from the operational menu.
+  // The report still lives under /reporting/housekeeping (SoT); this is a
+  // convenience link so ops staff don't need to leave the HK context.
+  { to: "/reporting/housekeeping",       label: "Work History",          icon: ListChecks, permission: "reporting.housekeeping.view" },
   { to: "/operations/linen-types",       label: "Linen Types",           icon: ListChecks, adminOnly: true },
   { to: "/operations/hk-issue-types",    label: "Housekeeping Issues",   icon: ListChecks, adminOnly: true },
 ] as const;

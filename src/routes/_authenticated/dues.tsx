@@ -146,7 +146,7 @@ function DuesPage() {
         </div>
 
 
-        {/* Filter chips + search + copy summary */}
+        {/* Filter chips → Search → Copy Due Summary (right-aligned) */}
         <div className="flex flex-wrap items-center gap-2">
           {FILTERS.map((f) => (
             <button
@@ -162,21 +162,23 @@ function DuesPage() {
               {f.label}
             </button>
           ))}
-          <CopyDueSummaryButton
-            filterLabel={FILTERS.find((f) => f.key === filter)?.label ?? "Dues"}
-            rows={filtered.map(({ b, due }) => ({
-              guest: b.guest_name,
-              room: roomById.get(b.room_id ?? "") ?? "—",
-              due,
-            }))}
-          />
-          <div className="ml-auto relative w-full md:w-72">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search guest, phone, room…"
-              className="w-full bg-input/60 border border-border rounded-md pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40"
+          <div className="ml-auto flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <div className="relative w-full md:w-72">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search guest, phone, room…"
+                className="w-full bg-input/60 border border-border rounded-md pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40"
+              />
+            </div>
+            <CopyDueSummaryButton
+              filterKey={filter}
+              rows={filtered.map(({ b, due }) => ({
+                guest: b.guest_name,
+                room: roomById.get(b.room_id ?? "") ?? "—",
+                due,
+              }))}
             />
           </div>
         </div>
@@ -344,17 +346,25 @@ function Pair({ label, value }: { label: string; value: string }) {
 
 /**
  * UAT-026 — copies the currently filtered view as a WhatsApp-ready summary.
- * Format is dictated by ops requirements so pasted content lands directly
- * in the internal collection group without further editing.
+ * Header text is derived from the active filter so pasted content is
+ * self-describing when it lands in the internal collection group.
  */
 function CopyDueSummaryButton({
-  filterLabel, rows,
-}: { filterLabel: string; rows: { guest: string; room: string; due: number }[] }) {
+  filterKey, rows,
+}: { filterKey: FilterKey; rows: { guest: string; room: string; due: number }[] }) {
   const totalDue = rows.reduce((s, r) => s + Number(r.due || 0), 0);
+  const HEADERS: Record<FilterKey, string> = {
+    all:      "Pending Dues (All Guests)",
+    inhouse:  "Pending Dues from In-House Guests",
+    today:    "Pending Dues from Today's Guests",
+    future:   "Pending Dues from Future Guests",
+    overdue:  "Pending Dues (Overdue)",
+  };
+  const heading = HEADERS[filterKey] ?? "Pending Dues";
   const onCopy = async () => {
     if (rows.length === 0) { toast.error("No dues in this view to copy"); return; }
     const lines = [
-      `*${filterLabel}* — ${rows.length} guest${rows.length === 1 ? "" : "s"} · Total ₹${Math.round(totalDue).toLocaleString("en-IN")}`,
+      `*${heading}* — ${rows.length} guest${rows.length === 1 ? "" : "s"} · Total ₹${Math.round(totalDue).toLocaleString("en-IN")}`,
       "",
       ...rows.map((r, i) =>
         `${i + 1}. ${r.guest} · Room ${r.room} · ₹${Math.round(Number(r.due)).toLocaleString("en-IN")}`,
@@ -365,7 +375,6 @@ function CopyDueSummaryButton({
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
       } else {
-        // Fallback for mobile Safari / non-secure contexts.
         const ta = document.createElement("textarea");
         ta.value = text;
         ta.style.position = "fixed"; ta.style.left = "-9999px";
@@ -382,7 +391,7 @@ function CopyDueSummaryButton({
   return (
     <button
       onClick={onCopy}
-      className="rounded-full px-3 py-1.5 text-xs font-medium border border-gold/40 bg-gold-soft/30 hover:bg-gold-soft/50 inline-flex items-center gap-1.5"
+      className="rounded-full px-3 py-1.5 text-xs font-medium border border-gold/40 bg-gold-soft/30 hover:bg-gold-soft/50 inline-flex items-center gap-1.5 whitespace-nowrap"
       title="Copy summary for WhatsApp"
     >
       <Copy className="h-3.5 w-3.5" /> Copy Due Summary

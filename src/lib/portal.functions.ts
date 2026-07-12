@@ -183,32 +183,24 @@ export const lookupPortalToken = createServerFn({ method: "POST" })
 // getPortalBooking (public) — admin-elevated, but ONLY returns guest-safe fields
 // ---------------------------------------------------------------------------
 export const getPortalBooking = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({ token: z.string().min(8).max(128) }).parse(input))
+  .inputValidator((input) => z.object({ token: z.string().min(6).max(128) }).parse(input))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // UAT-030 — accepts token OR booking_reference. See resolvePortalRef.
+    const { supabaseAdmin, booking: bookingLite, token: resolvedToken } =
+      await resolvePortalRef(data.token);
 
-    const { data: tok, error: tokErr } = await supabaseAdmin
-      .from("booking_tokens")
-      .select("booking_id, expires_at, revoked_at")
-      .eq("token", data.token)
-      .maybeSingle();
-    if (tokErr) throw tokErr;
-    if (!tok) throw new Error("Invalid link");
-    if (tok.revoked_at) throw new Error("Link has been revoked");
-    if (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now()) throw new Error("Link has expired");
-
-    // Best-effort last-accessed touch
+    // Best-effort last-accessed touch (only when a token row exists).
     await supabaseAdmin
       .from("booking_tokens")
       .update({ last_accessed_at: new Date().toISOString() } as any)
-      .eq("token", data.token);
+      .eq("token", resolvedToken);
 
     const { data: b, error: bErr } = await supabaseAdmin
       .from("bookings")
       .select(
         "id, customer_id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, subtotal, taxes, tax_rate, taxes_included, total_override, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel, expected_arrival_at, emergency_contact_name, emergency_contact_phone, special_requests",
       )
-      .eq("id", tok.booking_id)
+      .eq("id", (bookingLite as any).id)
       .maybeSingle();
     if (bErr) throw bErr;
     if (!b) throw new Error("Booking not found");
@@ -243,7 +235,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       unitPrice: Number(r.unit_price ?? 0),
       amount: Number(r.amount ?? 0),
     }));
-    const chargesTotal = charges.reduce((s, r) => s + r.amount, 0);
+    const chargesTotal = charges.reduce((s: number, r: any) => s + r.amount, 0);
 
     // Assigned room number (first active assignment)
     let roomNumber = "";
@@ -381,22 +373,10 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
     }).parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: tok } = await supabaseAdmin
-      .from("booking_tokens")
-      .select("booking_id, revoked_at, expires_at")
-      .eq("token", data.token)
-      .maybeSingle();
-    if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
-      throw new Error("Link is invalid or expired");
-    }
-    // Resolve linked customer for emergency-contact write-through
-    const { data: bRow } = await supabaseAdmin
-      .from("bookings")
-      .select("customer_id")
-      .eq("id", tok.booking_id)
-      .maybeSingle();
-    const customerId = (bRow as any)?.customer_id ?? null;
+    // UAT-030 — resolves token OR booking_reference.
+    const { supabaseAdmin, booking: tokBooking } = await resolvePortalRef(data.token);
+    const customerId = (tokBooking as any)?.customer_id ?? null;
+    const bookingId = (tokBooking as any).id as string;
 
     const patch: Record<string, any> = {};
     const customerPatch: Record<string, any> = {};
@@ -429,7 +409,7 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
       const { error: upErr } = await supabaseAdmin
         .from("bookings")
         .update(patch as any)
-        .eq("id", tok.booking_id);
+        .eq("id", bookingId);
       if (upErr) throw upErr;
     }
 
@@ -442,7 +422,7 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
     }
 
     await supabaseAdmin.from("booking_activities" as any).insert({
-      booking_id: tok.booking_id,
+      booking_id: bookingId,
       actor_name: "Guest (Portal)",
       actor_role: "guest",
       action: "note",
@@ -478,21 +458,15 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
     if (!keyId || !keySecret) throw new Error("Razorpay is not configured");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    // Validate token + booking
-    const { data: tok } = await supabaseAdmin
-      .from("booking_tokens")
-      .select("booking_id, expires_at, revoked_at")
-      .eq("token", data.token)
-      .maybeSingle();
-    if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
-      throw new Error("Link is invalid or expired");
-    }
+    // UAT-030 — resolves token OR booking_reference to the underlying
+    // booking. `resolvedToken` is the internal token we key razorpay_orders
+    // rows on so webhook reconciliation still works.
+    const { supabaseAdmin, booking: bLite, token: resolvedToken } =
+      await resolvePortalRef(data.token);
     const { data: b } = await supabaseAdmin
       .from("bookings")
       .select("id, amount, advance_paid, booking_reference, guest_name, phone, status")
-      .eq("id", tok.booking_id)
+      .eq("id", (bLite as any).id)
       .maybeSingle();
     if (!b) throw new Error("Booking not found");
     if ((b as any).status === "Cancelled" || (b as any).status === "No-Show") {
@@ -536,7 +510,7 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
         booking_id: (b as any).id,
         booking_reference: (b as any).booking_reference,
         intent: data.intent,
-        token: data.token,
+        token: resolvedToken,
       };
       const res = await fetch("https://api.razorpay.com/v1/orders", {
         method: "POST",
@@ -563,7 +537,7 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
 
       const { error: insErr } = await supabaseAdmin.from("razorpay_orders").insert({
         booking_id: (b as any).id,
-        token: data.token,
+        token: resolvedToken,
         intent: data.intent,
         order_id: orderId,
         amount_paise: amountPaise,
@@ -593,17 +567,9 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
 export const recordPayAtHotelIntent = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ token: z.string().min(8).max(128) }).parse(input))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: tok } = await supabaseAdmin
-      .from("booking_tokens")
-      .select("booking_id, revoked_at, expires_at")
-      .eq("token", data.token)
-      .maybeSingle();
-    if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
-      throw new Error("Link is invalid or expired");
-    }
+    const { supabaseAdmin, booking } = await resolvePortalRef(data.token);
     await supabaseAdmin.from("booking_activities" as any).insert({
-      booking_id: tok.booking_id,
+      booking_id: (booking as any).id,
       actor_name: "Guest (Portal)",
       actor_role: "guest",
       action: "note",
@@ -655,17 +621,9 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
       throw new Error("Payment signature verification failed");
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    // Validate token + booking
-    const { data: tok } = await supabaseAdmin
-      .from("booking_tokens")
-      .select("booking_id, revoked_at, expires_at")
-      .eq("token", data.token)
-      .maybeSingle();
-    if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
-      throw new Error("Link is invalid or expired");
-    }
+    // UAT-030 — resolves token OR booking_reference.
+    const { supabaseAdmin, booking: tokBk } = await resolvePortalRef(data.token);
+    const tok = { booking_id: (tokBk as any).id };
 
     // Fast-path idempotency: if we've already inserted this razorpay_payment_id,
     // just return. The unique index is still the ultimate guard below.
@@ -754,24 +712,70 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
 
 const GUEST_DOC_BUCKET = "guest-documents";
 
-async function tokenToBooking(token: string) {
+/**
+ * v1.1 UAT-030 — Portal accepts EITHER a booking-scoped token (32-char hex,
+ * legacy shareable link) OR a booking reference (e.g. HEXB-FA5AE5, the
+ * clean human-friendly URL).
+ *
+ * Resolution order:
+ *   1. Try booking_tokens.token exact match (legacy behaviour).
+ *   2. If not found, treat the input as a booking_reference (uppercased),
+ *      look up the booking, and auto-mint/reuse a portal token internally
+ *      so downstream operations (order creation, activity logs) still have
+ *      a token to key off. The guest never sees the token — the URL stays
+ *      as the booking reference throughout.
+ *
+ * Both paths return the same {supabaseAdmin, booking, token} shape so
+ * callers are agnostic. Token in return value is always the resolved
+ * internal token (needed by createRazorpayOrder which stores it on
+ * razorpay_orders rows).
+ */
+async function resolvePortalRef(input: string): Promise<{
+  supabaseAdmin: any; booking: any; token: string;
+}> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const raw = String(input || "").trim();
+  if (!raw) throw new Error("Missing portal reference");
+
+  // Path 1: token lookup.
   const { data: tok } = await supabaseAdmin
     .from("booking_tokens")
-    .select("booking_id, revoked_at, expires_at")
-    .eq("token", token)
+    .select("booking_id, revoked_at, expires_at, token")
+    .eq("token", raw)
     .maybeSingle();
-  if (!tok || (tok as any).revoked_at || ((tok as any).expires_at && new Date((tok as any).expires_at).getTime() < Date.now())) {
-    throw new Error("Link is invalid or expired");
+  if (tok) {
+    if ((tok as any).revoked_at) throw new Error("Link has been revoked");
+    if ((tok as any).expires_at && new Date((tok as any).expires_at).getTime() < Date.now()) {
+      throw new Error("Link has expired");
+    }
+    const { data: b } = await supabaseAdmin
+      .from("bookings")
+      .select("id, user_id, customer_id, check_in, advance_paid, status, booking_reference, guest_name")
+      .eq("id", (tok as any).booking_id)
+      .maybeSingle();
+    if (!b) throw new Error("Booking not found");
+    return { supabaseAdmin, booking: b as any, token: (tok as any).token };
   }
+
+  // Path 2: booking_reference lookup. References are stored uppercase.
+  const ref = raw.toUpperCase();
   const { data: b } = await supabaseAdmin
     .from("bookings")
     .select("id, user_id, customer_id, check_in, advance_paid, status, booking_reference, guest_name")
-    .eq("id", (tok as any).booking_id)
+    .eq("booking_reference", ref)
     .maybeSingle();
-  if (!b) throw new Error("Booking not found");
-  return { supabaseAdmin, booking: b as any };
+  if (!b) throw new Error("This booking link is invalid or expired.");
+  const mintedToken = await ensurePortalToken(supabaseAdmin, (b as any).id);
+  return { supabaseAdmin, booking: b as any, token: mintedToken };
 }
+
+// Legacy alias — kept so downstream call-sites don't churn.
+async function tokenToBooking(token: string) {
+  const { supabaseAdmin, booking } = await resolvePortalRef(token);
+  return { supabaseAdmin, booking };
+}
+
+
 
 // --- listPortalDocuments -----------------------------------------------------
 export const listPortalDocuments = createServerFn({ method: "POST" })

@@ -363,9 +363,13 @@ function BookingDetail() {
 
   const sharePaymentLink = async () => {
     try {
-      const { token } = await issueToken({ data: { booking_id: b.id } });
+      // v1.1 UAT-030 — Guest-facing URL uses the booking reference (e.g.
+      // /portal/HEXB-FA5AE5). We still issue a token so razorpay_orders and
+      // legacy /portal/<token> links keep working; the server-side resolver
+      // accepts either form.
+      await issueToken({ data: { booking_id: b.id } });
       const { publicOrigin } = await import("@/lib/public-url");
-      const url = `${publicOrigin()}/portal/${token}`;
+      const url = `${publicOrigin()}/portal/${b.booking_reference}`;
       const { paymentLinkMessage } = await import("@/lib/booking-messages");
       const text = paymentLinkMessage(b, url);
       try { await navigator.clipboard.writeText(url); toast.success("Payment link copied to clipboard"); } catch { /* noop */ }

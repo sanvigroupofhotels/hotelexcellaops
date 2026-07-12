@@ -1299,8 +1299,9 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
 
   const sharePaymentLink = async () => {
     try {
-      const { token } = await issueToken({ data: { booking_id: b.id } });
-      const url = `${publicOrigin()}/portal/${token}`;
+      // v1.1 UAT-030 — guest-facing URL uses the booking reference.
+      await issueToken({ data: { booking_id: b.id } });
+      const url = `${publicOrigin()}/portal/${b.booking_reference}`;
       const { paymentLinkMessage } = await import("@/lib/booking-messages");
       const text = paymentLinkMessage(b, url);
       try { await navigator.clipboard.writeText(url); toast.success("Payment link copied"); } catch { /* noop */ }
