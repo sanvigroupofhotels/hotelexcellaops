@@ -13,8 +13,9 @@ import { useOpsTimeLabels } from "@/lib/check-times";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { MetricCard } from "@/components/money";
 import {
-  IndianRupee, Phone, MessageCircle, ExternalLink, Plus, Search, Loader2, AlertCircle,
+  IndianRupee, Phone, MessageCircle, ExternalLink, Plus, Search, Loader2, AlertCircle, Copy,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { phoneToWaDigits } from "@/lib/phone";
 
@@ -145,7 +146,7 @@ function DuesPage() {
         </div>
 
 
-        {/* Filter chips + search */}
+        {/* Filter chips + search + copy summary */}
         <div className="flex flex-wrap items-center gap-2">
           {FILTERS.map((f) => (
             <button
@@ -161,6 +162,14 @@ function DuesPage() {
               {f.label}
             </button>
           ))}
+          <CopyDueSummaryButton
+            filterLabel={FILTERS.find((f) => f.key === filter)?.label ?? "Dues"}
+            rows={filtered.map(({ b, due }) => ({
+              guest: b.guest_name,
+              room: roomById.get(b.room_id ?? "") ?? "—",
+              due,
+            }))}
+          />
           <div className="ml-auto relative w-full md:w-72">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
@@ -171,6 +180,7 @@ function DuesPage() {
             />
           </div>
         </div>
+
 
         {/* List */}
         {lb ? (
@@ -331,3 +341,52 @@ function Pair({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+/**
+ * UAT-026 — copies the currently filtered view as a WhatsApp-ready summary.
+ * Format is dictated by ops requirements so pasted content lands directly
+ * in the internal collection group without further editing.
+ */
+function CopyDueSummaryButton({
+  filterLabel, rows,
+}: { filterLabel: string; rows: { guest: string; room: string; due: number }[] }) {
+  const totalDue = rows.reduce((s, r) => s + Number(r.due || 0), 0);
+  const onCopy = async () => {
+    if (rows.length === 0) { toast.error("No dues in this view to copy"); return; }
+    const lines = [
+      `*${filterLabel}* — ${rows.length} guest${rows.length === 1 ? "" : "s"} · Total ₹${Math.round(totalDue).toLocaleString("en-IN")}`,
+      "",
+      ...rows.map((r, i) =>
+        `${i + 1}. ${r.guest} · Room ${r.room} · ₹${Math.round(Number(r.due)).toLocaleString("en-IN")}`,
+      ),
+    ];
+    const text = lines.join("\n");
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        // Fallback for mobile Safari / non-secure contexts.
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed"; ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      toast.success(`Copied ${rows.length} due${rows.length === 1 ? "" : "s"}`);
+    } catch {
+      toast.error("Could not copy — please copy manually");
+    }
+  };
+  return (
+    <button
+      onClick={onCopy}
+      className="rounded-full px-3 py-1.5 text-xs font-medium border border-gold/40 bg-gold-soft/30 hover:bg-gold-soft/50 inline-flex items-center gap-1.5"
+      title="Copy summary for WhatsApp"
+    >
+      <Copy className="h-3.5 w-3.5" /> Copy Due Summary
+    </button>
+  );
+}
+

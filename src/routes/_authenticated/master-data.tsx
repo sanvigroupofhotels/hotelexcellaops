@@ -29,8 +29,10 @@ type NameMasterKey = "expense_types" | "complaint_categories";
 type NameDef = { kind: "name"; key: NameMasterKey; label: string; placeholder?: string };
 type SettingsKey = "payment_settings";
 type SettingsDef = { kind: "settings"; key: SettingsKey; label: string };
-type CategoryDef = LookupDef | NameDef | SettingsDef;
+type ChargeCatalogDef = { kind: "charge_catalog"; key: "charge_catalog"; label: string };
+type CategoryDef = LookupDef | NameDef | SettingsDef | ChargeCatalogDef;
 type GroupDef = { label: string; categories: CategoryDef[]; deepLinks?: { label: string; to: string }[] };
+
 
 const GROUPS: GroupDef[] = [
   {
@@ -55,15 +57,19 @@ const GROUPS: GroupDef[] = [
   {
     label: "Finance",
     categories: [
-      { kind: "lookup", key: "payment_mode", label: "Payment Modes", placeholder: "e.g. UPI" },
-      // Charge Categories removed 2026-07-07 — Charge Catalog is the single
-      // source of truth for chargeable items; the standalone `charge_category`
-      // master was unreferenced in code (verified via full ripgrep audit).
-      { kind: "lookup", key: "expense_category", label: "Expense Categories", placeholder: "e.g. Utilities" },
-      { kind: "lookup", key: "tax", label: "GST / Taxes", placeholder: "e.g. GST 18%" },
-    ],
-    deepLinks: [
-      { label: "Manage Charge Catalog", to: "/operations/charge-catalog" },
+      // Wired to Add Payment modal (`useMasterData("payment_method")`) —
+      // the DB `value` column is the stable identifier the Cash Book trigger
+      // matches on, so admins may safely rename `label` without breaking
+      // Cash routing.
+      { kind: "lookup", key: "payment_method", label: "Payment Modes", placeholder: "e.g. UPI" },
+      { kind: "charge_catalog", key: "charge_catalog", label: "Charge Catalog" },
+      // Removed 2026-07-12 (UAT-028):
+      //   `expense_category` master had entries but zero code references
+      //     (ripgrep audit — cash-book uses the dedicated `expense_types` table).
+      //   `tax` master had entries but pricing/tax lives in
+      //     `app_settings.key='tax'` — not in master_data.
+      // Any legacy rows in the DB are left in place for audit; the UI simply
+      // no longer surfaces them.
     ],
   },
   {
@@ -80,10 +86,11 @@ const GROUPS: GroupDef[] = [
   {
     label: "CashBook Masters",
     categories: [
-      { kind: "name", key: "expense_types", label: "Expense Types (Legacy)", placeholder: "e.g. Laundry" },
+      { kind: "name", key: "expense_types", label: "Expense Types", placeholder: "e.g. Laundry" },
       { kind: "lookup", key: "income_category", label: "Income Categories", placeholder: "e.g. Donation" },
     ],
   },
+
   {
     label: "Complaints",
     categories: [
@@ -152,6 +159,10 @@ function Content() {
       {cat && cat.kind === "settings" && cat.key === "payment_settings" && (
         <PaymentSettingsEditor />
       )}
+      {cat && cat.kind === "charge_catalog" && (
+        <ChargeCatalogPanel />
+      )}
+
 
       {/* Deep-links to dedicated CRUD pages */}
       {group.deepLinks && group.deepLinks.length > 0 && (
@@ -384,3 +395,52 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
     </label>
   );
 }
+
+/**
+ * ChargeCatalogPanel — Finance tab entry that surfaces Charge Catalog
+ * inline as a proper master (UAT-028). The full CRUD editor already lives
+ * at /operations/charge-catalog; we render a compact preview + deep-link
+ * primary action so admins land in a single Master Data hub instead of
+ * chasing a separate route.
+ */
+function ChargeCatalogPanel() {
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["charge-catalog", "active"],
+    queryFn: async () => {
+      const { listChargeCatalog } = await import("@/lib/charge-catalog-api");
+      return listChargeCatalog({ activeOnly: false });
+    },
+  });
+  return (
+    <div className="luxe-card rounded-xl p-4 md:p-5 space-y-4">
+      <div className="flex items-baseline justify-between gap-2 flex-wrap">
+        <div>
+          <h3 className="font-display text-lg md:text-xl">Charge Catalog</h3>
+          <p className="text-xs text-muted-foreground">
+            Master list of chargeable items surfaced in the In-house Charges dialog.
+          </p>
+        </div>
+        <Link to="/operations/charge-catalog" className="text-xs text-gold hover:underline inline-flex items-center gap-1">
+          Open Full Editor <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+      {isLoading ? (
+        <div className="p-8 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
+      ) : rows.length === 0 ? (
+        <div className="p-6 text-center text-xs text-muted-foreground">No catalog entries yet.</div>
+      ) : (
+        <div className="rounded-md border border-border divide-y divide-border max-h-80 overflow-y-auto">
+          {rows.map((r: any) => (
+            <div key={r.id} className="px-3 py-2 flex items-center justify-between text-sm">
+              <span className={cn(!r.active && "text-muted-foreground line-through")}>{r.label}</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {r.active ? "Active" : "Inactive"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+

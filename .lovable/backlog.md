@@ -15,10 +15,82 @@ after **P1 Housekeeping + Laundry Reporting** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-10 (HEOS **Core v1.1 — Stabilization Sprint 1**: operational UAT findings)
-- **Currently in flight:** _None — Sprint 1 shipped. Real-world UAT continues._
+- **Last updated:** 2026-07-12 (HEOS **Core v1.1 — Stabilization Sprint 2**: operational UAT findings + finance master data cleanup)
+- **Currently in flight:** _None — Sprint 2 shipped. Real-world UAT continues._
+
+## 2026-07-12 — HEOS Core v1.1 · Stabilization Sprint 2 (Operational UAT + Finance Cleanup)
+
+### Shipped
+
+**UAT-007 · Booking ↔ Housekeeping Extension Intelligence (P0, follow-up)** — Closed the last edge case: a fresh booking created directly at Checked-In (walk-in) on a room whose previous stay's Checkout task is already complete. `booking-create.submitNewBooking()` now calls `onBookingCheckedIn` after insert whenever `status === "Checked-In"`, so the room transitions Checkout → Service without any manual re-open. Every hook iterates `booking_room_assignments` for multi-room parity.
+
+**UAT-008 · House View Pricing Sync Everywhere (P0)** — Extracted `refreshAfterBookingMutation(qc, bookingId)` in `src/lib/booking-pricing-sync.ts` — single choke-point for post-mutation invalidations (`booking`, `booking-items`, `booking-payments`, `booking-charges`, `booking-room-assignments`, `bookings`, `booking-items-all`, `all-charge-totals`, `house-view`). House View move mutation now delegates to it. Long-press dialog, drag & drop, and popup Move all share the exact same refresh path — no additional Edit Booking save is ever required.
+
+**UAT-009 · Unified Availability Engine (P0, follow-up)** — Full audit confirms `listAvailableRoomsForStay` (rooms + assignments + maintenance) is the single source of truth for Create/Edit/Extend/Move/DnD/LongPress. `room-assignment-dialog.tsx` queries `listRooms` + `listOccupiedRoomIds` + `listActiveBlocks` — the same three data sources, filtered inline; not parallel logic. `humanizeStayError` translates DB-trigger conflicts uniformly. Physical Oak/Maple counts are enforced by the availability query set + DB triggers — never exceeded.
+
+**UAT-019 · Night Audit Blocker Matrix (P0)** — Documented in `docs/workflows.md`; `getPendingForAudit` already uses `.lte` (from Sprint 1) so today's un-arrived arrivals and un-departed departures block Business Date advancement. Business Date guard trigger `app_settings_guard_business_date` prevents Business Date exceeding Calendar Date. `night-audit-sessions-api.closeSession()` is the exclusive Business Date advancer.
+
+**UAT-024 · Past Due Carry Forward (P0)** — `booking-create.ts` new `carryForwardPastDue(booking)` helper: after a booking is created for a customer, looks up their most recent Checked-Out / Stay Completed booking, computes `amount + charges - advance_paid`, and if > ₹0.5 auto-creates a `booking_charge` with `category = "Past Due"` on the new booking. Cross-links activity on both bookings. Idempotent (skips if a Past-Due charge already references the same prior stay). "Past Due" was already seeded in `charge_catalog` — no migration needed.
+
+**UAT-025 · Razorpay Convenience Fee Reconciliation (P0)** — `razorpay-webhook.ts` now computes outstanding = `amount + charges − advance_paid` per booking. When the captured Razorpay amount exceeds outstanding by more than ₹1, the credit is split: booking_payment #1 for the outstanding, a "Razorpay Charges" booking_charge for the excess, and booking_payment #2 (with `razorpay_payment_id = null`, ref in `utr`) that pays the charge. Both payment rows carry the Razorpay reference in notes for full audit traceability. Idempotent — duplicate webhook deliveries short-circuit at the primary `razorpay_payment_id` unique index. "Razorpay Charges" was already seeded.
+
+**UAT-026 · Copy Due Summary (P1)** — New `CopyDueSummaryButton` on `dues.tsx`, sits beside the filter chips. Formats currently filtered rows as `*{Filter}* — {n} guests · Total ₹{total}` header + numbered `{guest} · Room {n} · ₹{due}` lines, ready to paste into the WhatsApp collection group. Uses `navigator.clipboard.writeText` with textarea fallback for mobile Safari.
+
+**UAT-027 · Notification Center (P1)** — New `/notifications` route: full history, search (title/body/reference), status filter (active/unread/read/dismissed), type filter (auto-populated), bulk select toolbar (mark read, dismiss), mark-all-read. Bell popup now ends with a "View All Notifications" link (replaces the old Close CTA). Popup still surfaces the 8 most recent for quick triage.
+
+**UAT-028 · Master Data — Finance Wiring & Cleanup (P1)** — Full audit + cleanup of `Master Data → Finance`:
+- **Payment Modes** — hub tab switched from `payment_mode` → `payment_method` category to match what the Add Payment modal already consumed (`useMasterData("payment_method")`). The DB `value` column is the stable identifier; the Cash Book DB trigger compares on `payment_mode = 'Cash'` and reads the payment row's `payment_mode` (populated from the master's `value`). Admins may rename the LABEL freely without breaking Cash routing.
+- **Charge Catalog** — promoted from a bottom-of-page deep link to a proper tab under Finance. Tab surfaces inline read-only preview + "Open Full Editor" link to the existing `/operations/charge-catalog` CRUD page (no duplicate editor).
+- **Expense Categories** (`expense_category`) — ripgrep audit found zero references. Tab removed from Master Data. Underlying rows left in the DB for audit; cash-book uses the dedicated `expense_types` table.
+- **GST / Taxes** (`tax`) — ripgrep audit: pricing/tax lives in `app_settings.key='tax'` (see `booking-engine.functions.ts`), NOT `master_data.tax`. Tab removed.
+- **Expense Types** — renamed from "Expense Types (Legacy)" back to just "Expense Types" (it is the primary and only source now; no legacy split remains).
+
+### Files changed
+
+- `src/lib/booking-pricing-sync.ts` (added `refreshAfterBookingMutation`)
+- `src/lib/booking-create.ts` (past-due carry forward + hk hook trigger for direct-Checked-In creation)
+- `src/lib/night-audit-api.ts` (blocker matrix docs)
+- `src/routes/api/public/razorpay-webhook.ts` (convenience-fee split)
+- `src/routes/_authenticated/dues.tsx` (Copy Due Summary)
+- `src/routes/_authenticated/notifications.tsx` (new — Notification Center)
+- `src/components/notification-bell.tsx` (Close → View All Notifications)
+- `src/routes/_authenticated/master-data.tsx` (Finance audit + tabs cleanup + Charge Catalog inline)
+- `src/routes/_authenticated/house-view.tsx` (`refreshAfterBookingMutation` in move mutation onSuccess)
+
+### Architectural decisions
+
+- **Ledger across stays.** Customer folio balances now travel with the customer. A single "Past Due" charge references the prior booking by `booking_reference` (idempotent). Reversal path: if reception writes off the past due, delete the charge on the new booking — the ledger remains linear.
+- **Convenience-fee split.** The primary payment always keeps `razorpay_payment_id` (unique across the table); the secondary "fee-payment" row uses NULL + stores the Razorpay ref in `utr`. This preserves duplicate-webhook protection while allowing the fee to appear as a real ledger entry that shows up in reports.
+- **Payment-mode stability.** UI dropdown surfaces `master_data.value` (not `label`), so the DB Cash Book trigger continues matching `payment_mode = 'Cash'` regardless of any admin label rename. Documented in the master-data.tsx code comment.
+- **Notification Center as future AI timeline.** The new `/notifications` route becomes the operational event feed. When Excella AI OS lands, agent activity, automation runs, and proactive suggestions plug into the same notifications table + this same UI — no parallel timeline required.
+- **Room-assignment-dialog left intact.** The dialog uses `listRooms + listOccupiedRoomIds + listActiveBlocks` — the same three data sources `listAvailableRoomsForStay` merges. Not parallel logic; a legitimate inline shape needed for the two-step Category → Room picker.
+
+### Regression impact assessment
+
+- **Bookings:** Create/Edit/Extend/Shorten/Move unchanged for single-room; multi-room verified through `booking_room_assignments` iteration.
+- **House View:** Move / long-press / drag-drop now consistently refresh popup and stay summary without a manual save.
+- **Night Audit:** No functional change — Sprint 1 already fixed `.lte`; Sprint 2 only documents.
+- **Razorpay:** Exact-amount payments unchanged (excess ≤ ₹1 → no split). Client-confirm duplicates skip the split cleanly (primary insert fails 23505 → no fee row created; the fee is already implicit in the original single-row credit). Failed fee-split is non-blocking so the primary credit always lands.
+- **Master Data:** Add Payment modal now shows the entries that admins actually edit (previously the "Payment Modes" hub tab was writing to a different DB category than the modal read). This is a bug-fix; no regression.
+- **Dues copy button:** Read-only affordance — no data mutation.
+- **Notification Center:** Additive; the bell popup keeps its recent-8 behaviour.
+- **Cash Book:** Confirmed unchanged — trigger compares on `payment_mode` value ("Cash"), which is what the modal now populates from `master_data.payment_method.value`.
+
+### Additional issues discovered
+
+- The `master_data.payment_mode` category had 5 stale rows that were being edited in the hub but never read anywhere in code. Left in place for audit; the hub no longer surfaces them.
+- Multi-room bookings had one legacy fall-back path (`bookings.room_id`) already covered in each HK hook.
+
+### Backlog reconciliation
+
+**Done (removed from open backlog):** UAT-007 · UAT-008 · UAT-009 · UAT-019 · UAT-024 · UAT-025 · UAT-026 · UAT-027 · UAT-028.
+
+**Still open (deferred per user directive):** UAT-001, UAT-002, UAT-006, UAT-016, UAT-017, UAT-018, UAT-023.
+
+---
 
 ## 2026-07-10 — HEOS Core v1.1 · Stabilization Sprint 1 (Operational UAT)
+
 
 ### Shipped
 

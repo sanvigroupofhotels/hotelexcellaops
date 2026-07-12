@@ -1,312 +1,154 @@
-# HEOS Core v1.1 — Stabilization Sprint 1
+# HEOS Core v1.1 — Stabilization Sprint 2
 
-Nine UAT findings, all rooted in real operational gaps. Approach: extend existing shared engines, never fork logic.
+Scope: 8 items (UAT‑007, 008, 009, 019, 024, 025, 026, 027, 028). Lower priority items (UAT‑001/002/006/016/017/018/023) remain in backlog. All work reuses existing shared engines — no parallel business logic.
 
-## P0 — UAT-001 Manual Laundry Pickup
+## P0 – Booking & Operational Correctness
 
-Current state: partial manual entry already exists in `laundry.tsx` (`manualSent`, `manualPickerOpen`, `qty_heos_queue: 0` on manual lines). Gaps: pickup blocked when queue is empty in some paths; manual-picker UX; verify manual lines flow identically through Batch Detail, Return, Correct-Return, Short/Damaged/Lost, Reporting, Monthly Billing, Vendor Statements, CSV Export.
+### UAT‑007 — Booking ↔ Housekeeping sync (remaining edge cases)
 
-Changes
+**Root cause hypothesis:** hooks in `hk-checkout-hook.ts` cover extend/shorten and same-day re-check-in, but the "HK already completed Checkout task, then a fresh booking is created on the same room the same business day" path isn't triggered when the new booking is *created* (only when an existing booking is checked in). Multi-room bookings need per-room iteration on every hook.
 
-- `src/routes/_authenticated/laundry.tsx` — allow creating batch with zero queue rows (already `activeRows.length === 0 && manualTotal === 0` gate is fine but needs review); polish manual add UX; ensure Linen Types Master is single source (already `listLinenTypes`, no free text).
-- `src/lib/laundry-batches-api.ts` — audit that all reads/aggregations key on the batch line itself (not on `laundry_queue`), so manual lines with `qty_heos_queue = 0` behave identically. Fix any spot that filters `qty_heos_queue > 0`.
-- `src/lib/reporting/laundry-reporting.ts` — verify aggregations count manual lines.
-- CSV export helpers under laundry — include manual rows unchanged.
+**Changes:**
 
-## P0 — UAT-007 Booking Extension Intelligence
+- `hk-checkout-hook.ts`: audit all four hooks (`onBookingCheckedOut`, `onBookingCheckoutShortened`, `onBookingCheckoutExtended`, `onBookingCheckedIn`) — ensure every one iterates `booking_room_assignments` and falls back to `bookings.room_number`. Add a new `onFreshBookingForRoomSameDay` invoked from `booking-create.ts` and `bookings-api.setBookingStatus('confirmed'|'checked_in')` when there is a completed HK Checkout task for that room + business date: it should re-open/create a `service` task for the new booking and cancel any residual `checkout` task tied to the old booking.
+- Wire hooks symmetrically in `booking-stay.ts` (extend/shorten already wired, verify multi-room).
+- Regression: existing single-room path unchanged.
 
-Single choke-point: `src/lib/hk-checkout-hook.ts` (`onBookingExtended`, `onBookingCheckoutShortened`, `onBookingReCheckedIn`). Ensure every entry point calls it; add missing branches.
+### UAT‑008 — House View pricing sync everywhere
 
-Changes
+**Root cause:** `updateBookingStay` calls `booking-pricing-sync`, but Long Press / DnD paths in `house-view.tsx` mutate `booking_room_assignments` directly and only invalidate `booking`/`booking-items`. Room-move doesn't touch items pricing (correct) but popup room label doesn't refresh because House View caches assignments by booking, not by room.
 
-- `src/lib/booking-stay.ts` — already calls `onBookingExtended` when `newOut > oldOut`. Add symmetric call `onBookingCheckoutShortened` when `newOut < oldOut` so previously-generated service tasks are re-evaluated / removed if the new checkout no longer overlaps HK's business date.
-- `src/lib/hk-checkout-hook.ts` — extend `onBookingExtended` and add `onBookingCheckoutShortened` to handle Scenario 2 (date changed again): close/reopen tasks based on new `check_out` vs business date. Add `onBookingReCheckedIn` for Scenario 3 (fresh booking, same guest+room after checkout task completed): if a completed Checkout task exists for that room on today's business date and a new Checked-In booking begins today, generate a Service task instead of a redundant Checkout task.
-- Multi-room (Scenario 4): iterate `booking_room_assignments` in `onBookingExtended` / shortened / re-check-in. Verify current hook already loops per-room; add if missing.
-- Entry points to audit: `booking-stay.ts`, `check-in-flow.tsx`, `booking-create.ts`, `bookings_.$id_.edit.tsx`, portal extension, night-audit rollover.
+**Changes:**
 
-## P0 — UAT-008 House View pricing refresh
+- Extract a single `refreshAfterBookingMutation(bookingId)` helper in `booking-pricing-sync.ts` that (a) recomputes pricing if item dates changed and (b) invalidates the standard set of query keys.
+- Use it from every House View mutation path (long-press dialog, drag-drop, move-room, stay-extension inline).
+- Confirm every mutation path awaits the refresh before closing the popup.
 
-`useResolvedRate` already exists but House View mutations don't recompute stored booking totals. Edit-Booking `save` presumably calls a pricing recompute — extract to a shared helper.
+### UAT‑009 — Unified Availability Engine audit
 
-Changes
+**Root cause:** `listAvailableRoomsForStay` is the source of truth but three surfaces bypass it: (i) additional-room assignment inside `room-assignment-dialog.tsx` occasionally reads plain `rooms`, (ii) House View drag-drop uses a fast in-memory check that doesn't consider maintenance/blocks, (iii) Edit Booking room picker in a certain branch.
 
-- New `src/lib/booking-pricing-sync.ts` (or inline into `booking-stay.ts`) — after any stay mutation, recompute derived totals using the same engine Edit Booking uses (rate × nights × items + charges − discounts − payments), persist to `bookings` and `booking_items`. Reuse existing `pricing.ts` helpers.
-- `src/lib/booking-stay.ts` — call the recompute after successful update, before returning.
-- House View long-press popup, move dialog, and DnD — invalidate the relevant React Query keys (`bookings`, `booking-items`, `house-view`) so the popup/summary refresh instantly. Confirm they already `invalidateQueries` on success; add missing keys.
+**Changes:**
 
-## P0 — UAT-009 Availability everywhere
+- Grep-audit every caller and route it through `listAvailableRoomsForStay` (or the pure `isRoomAvailableForStay` predicate for single-room DnD checks).
+- Add a shared `assertRoomsAvailable(roomIds, stay)` that throws `humanizeStayError`, invoked from Create/Edit/Extend/Move/DnD/LongPress/AdditionalRoom.
+- Add unit test-shaped assertion inline (no test framework changes) that both Oak/Maple never exceed physical count.
 
-`src/lib/room-availability.ts` (`listAvailableRoomsForStay`) is the source of truth. Audit every entry point:
+### UAT‑019 — Night Audit blocker matrix
 
-- Create Booking (`bookings_.new.tsx`, `booking-create.ts`)
-- Edit Booking (`bookings_.$id_.edit.tsx`)
-- Room Assignment dialog
-- Room Move dialog + `booking-stay.ts`
-- House View long-press, DnD
-- Additional room assignment
-- Stay extension
+**Root cause:** `getPendingForAudit` uses `.lte` for check‑in/out on business_date (fixed sprint 1). Remaining gaps: bookings with `status='pending'` whose check-in was in the past aren't surfaced; open cash drawer session; unfinalised complaints marked "requires-nightly" aren't in the matrix.
 
-Server-side: DB triggers already reject conflicts. Client-side: ensure UI room pickers call `listAvailableRoomsForStay` and never fall back to a plain `rooms` list. Add missing calls; humanize errors via `humanizeStayError`.
+**Changes:**
 
-## P0 — UAT-019 Night Audit blockers
+- Extend blocker list in `night-audit-api.ts`: pending-status past check-ins, un-finalised laundry batches for the day (optional), open cash close for business date if enabled.
+- `perform-night-audit.ts` guard re-reads full matrix immediately before advancing (double-check pattern).
+- Document blocker matrix in `docs/workflows.md` (Night Audit section).
 
-`src/lib/perform-night-audit.ts` — extend pre-flight validation to reject rollover when any booking has status Confirmed/Pending with `check_in <= businessDate` (i.e. pending arrival on the current business date). Surface actionable blocker list in the Night Audit stepper.
+## P0 – Customer Ledger & Payments
 
-## P1 — UAT-010 Guest Portal always accessible
+### UAT‑024 — Outstanding balance carry-forward
 
-Locate the button gate (probably in `bookings_.$id.tsx` or `portal.functions.ts` share flow). Remove the balance-zero condition; portal token stays valid regardless of balance. Payment section inside portal hides itself when balance is 0 (already the case).
+**Design:**
 
-## P2 — UAT-006 Housekeeping Work History nav
+- Add a "Past Due" entry to `charge_catalog` seed if missing.
+- On `createBooking` (booking-create.ts): after insert, look up customer's most recent booking with `status='checked_out'` (any variant, including force checkout) AND outstanding balance > 0. If found: create a `booking_charge` on the new booking with `category='Past Due'`, `amount = previous_outstanding`, description = `Carried from ${prev.booking_reference}`. Log to `booking_activities` on both bookings.
+- Guard: only carry forward if there is no manually settled record; skip if the previous booking has been zero'd by adjustment.
+- Add "Past Due" as a fixed seeded charge_catalog row via migration (idempotent upsert).
 
-Add a "Work History" secondary link inside the Housekeeping route header/toolbar that navigates to `/reporting/housekeeping` with the "Work History" tab preselected via a URL param. No duplicate page.
+### UAT‑025 — Razorpay convenience fee reconciliation
 
-## P3 — UAT-021 Cash Book action labels
+**Design in** `razorpay-webhook.ts`**:**
 
-`src/routes/_authenticated/cash.tsx` — rename action buttons to exactly `(+) Cash In` and `(-) Cash Out`, remove the leading icon.
+- Payload contains `amount` (guest paid) and `notes.booking_amount` (expected booking due) or we compute expected from `razorpay_orders`.
+- If `paid > booking_due`: split into two ledger entries — `booking_payment` = booking_due (applied), and a `booking_charge` (category='Razorpay Convenience Fee', amount=`paid − booking_due`, `paid_at=now`, linked payment id) auto-marked paid via a second `booking_payment` of the fee amount.
+- Seed `charge_catalog` row "Razorpay Convenience Fee" via migration.
+- Activity log entries on both charge and payment.
+- Regression: exact-amount payments untouched.
 
-## Regression scope
+## P1 – Due Collection
 
-- Laundry: full pickup → return → correction cycle; monthly billing.
-- Bookings: create, edit, extend, shorten, move, DnD, portal extend, multi-room.
-- Housekeeping: task lifecycle across extension edge cases.
-- Night Audit: blocker enforcement (should now surface pending check-ins).
+### UAT‑026 — Copy Due Summary
+
+- Add a "Copy Due Summary" button in `dues.tsx` beside the filter chips.
+- Reads currently filtered rows; format:
+  ```
+  {Filter Name} — Total {n} guests · ₹{total}
+  1. {Guest Name} · Room {n} · ₹{due}
+  2. …
+  ```
+- Uses `navigator.clipboard.writeText` with toast confirmation. Falls back to textarea select for mobile Safari.
+
+## P1 – Notification Center
+
+### UAT‑027 — Notification Center page
+
+- Replace "Close" in `notification-bell.tsx` with "View All Notifications" → `/notifications`.
+- New route `src/routes/_authenticated/notifications.tsx`: full history, search (title/body), filter (kind, read/unread, date range), Mark Read / Mark All Read, bulk-select toolbar.
+- Reuses `notifications-api.ts`; adds `listAllNotifications`, `bulkMarkRead` if missing.
+
+## P1 – Master Data (Finance)
+
+### UAT‑028 — Finance masters audit & wiring
+
+**Payment Modes:**
+
+- `add-booking-payment-modal.tsx` currently hardcodes modes. Rewire via `useMasterData('payment_mode', FALLBACK)`.
+- Preserve Cash → Cash Book behaviour by matching on the lowercased value/label (`mode.toLowerCase()==='cash'`), so admins renaming labels don't break the trigger.
+
+**Charge Catalog:**
+
+- Move from hyperlink in Finance group to a proper tab. Render an embedded charge-catalog editor inside master-data.tsx (or link to `/operations/charge-catalog` still, but present as a tab with an "Open Editor" primary action). Chosen approach: tab that shows a compact list inline with an "Open full editor" link, since the full editor already exists and this avoids duplicating CRUD.
+
+**Expense Categories (**`expense_category` **lookup):**
+
+- Ripgrep audit: verify no reference. If unreferenced → remove tab.
+
+**GST / Taxes (**`tax` **lookup):**
+
+- Ripgrep audit. If unreferenced → remove tab. (Pricing/tax logic lives in `pricing.ts` with config-driven values.)
+
+**Cash Book Masters:**
+
+- Rename `Expense Types (Legacy)` → `Expense Types`.
+
+**Verification steps:** ripgrep each master key; document referenced-by list in `docs/modules.md` under Master Data.
 
 ## Deliverables
 
-- Root-cause note per UAT (in-code comments where non-obvious + one-line summary in reply).
-- Updated `docs/workflows.md` where behaviour changes (extension intelligence, availability engine reuse, night-audit blockers).
-- `.lovable/backlog.md` reconciled.
+- `docs/workflows.md` — updated Night Audit + HK sync + Razorpay reconciliation sections.
+- `docs/modules.md` — Master Data reference matrix.
+- `.lovable/backlog.md` — reconcile P0/P1 to Done, keep lower-priority items open.
 
-Estimated diff: ~10–14 files, mostly under `src/lib/` and 3 route files. No schema migrations expected.
+## Regression Surface (to be re-verified after implementation)
 
-&nbsp;
+- Bookings create/edit/extend/shorten/move (single + multi-room)
+- House View long-press / drag-drop
+- Night Audit dry-run + advance
+- Razorpay full-payment + partial-payment + refund
+- Add Payment (Cash → Cash Book trigger)
+- Dues page filters + copy
+- Notification bell + new center
+- Master Data all tabs + downstream dropdowns (Add Payment modal, in-house charges, etc.)
 
-&nbsp;
+## Files Expected to Change
 
-My comments: 
-
-The plan looks good overall and I agree with the implementation approach. I appreciate that you're extending the existing shared engines instead of introducing parallel logic.
-
-&nbsp;
-
-A few additional points to consider while implementing:
-
-&nbsp;
-
-1. Laundry Manual Pickup
-
-&nbsp;
-
-Please ensure the Pickup screen is architecturally treated as merging two input sources:
-
-&nbsp;
-
-HEOS Suggested Linen (Housekeeping Queue)
+- `src/lib/hk-checkout-hook.ts`, `booking-create.ts`, `bookings-api.ts`, `booking-stay.ts`
+- `src/lib/booking-pricing-sync.ts`, `src/routes/_authenticated/house-view.tsx`
+- `src/lib/room-availability.ts` (helpers), `src/components/room-assignment-dialog.tsx`
+- `src/lib/night-audit-api.ts`, `src/lib/perform-night-audit.ts`
+- `src/routes/api/public/razorpay-webhook.ts`, `src/lib/booking-charges-api.ts`, `src/lib/booking-payments-api.ts`
+- `src/routes/_authenticated/dues.tsx`
+- `src/components/notification-bell.tsx`, `src/routes/_authenticated/notifications.tsx` (new), `src/lib/notifications-api.ts`
+- `src/routes/_authenticated/master-data.tsx`, `src/components/add-booking-payment-modal.tsx`
+- One migration: seed `Past Due` and `Razorpay Convenience Fee` in `charge_catalog` (idempotent).
+- Docs: `workflows.md`, `modules.md`, `.lovable/backlog.md`.
 
 &nbsp;
 
-Manual Linen Entries (selected from Linen Types Master)
+My comments 
 
-&nbsp;
+Approved. The implementation plan looks good and aligns with the existing HEOS architecture.
 
-&nbsp;
+One small request: for Payment Modes, if possible, please avoid relying on the display label/value (e.g., "cash"). Apply lower case comparison or something and make sure, this comparision doesn't  break anything - or Prefer a stable identifier or flag internally, which is convonient, so future renaming of payment modes doesn't affect Cash Book integration. 
 
-Once Confirm Pickup is clicked, both should become ordinary laundry_batch_lines.
-
-&nbsp;
-
-From that point onwards, no downstream workflow should distinguish between queue-generated and manually added lines, except for audit purposes (qty_heos_queue = 0).
-
-&nbsp;
-
-This includes:
-
-&nbsp;
-
-Batch Detail
-
-&nbsp;
-
-Return
-
-&nbsp;
-
-Correct Return
-
-&nbsp;
-
-Short / Damaged / Lost
-
-&nbsp;
-
-Reporting
-
-&nbsp;
-
-Monthly Billing
-
-&nbsp;
-
-Vendor Statements
-
-&nbsp;
-
-CSV Exports
-
-&nbsp;
-
-Activity Log
-
-&nbsp;
-
-&nbsp;
-
-The vendor slip remains the operational source of truth.
-
-&nbsp;
-
-&nbsp;
-
----
-
-&nbsp;
-
-2. Booking ↔ Housekeeping Intelligence
-
-&nbsp;
-
-While implementing the extension intelligence, please think operationally rather than matching only on guest identity.
-
-&nbsp;
-
-If a room becomes occupied again on the same business date (even if Reception creates a completely new booking for the same room), the Housekeeping workflow should intelligently transition from Checkout to Service wherever appropriate.
-
-&nbsp;
-
-The operational state of the room should drive the task lifecycle.
-
-&nbsp;
-
-&nbsp;
-
----
-
-&nbsp;
-
-3. Pricing & Availability
-
-&nbsp;
-
-Please ensure there is truly one shared Pricing Engine and one shared Availability Engine reused by every mutation path.
-
-&nbsp;
-
-This should include:
-
-&nbsp;
-
-Create Booking
-
-&nbsp;
-
-Edit Booking
-
-&nbsp;
-
-Stay Extension
-
-&nbsp;
-
-Room Move
-
-&nbsp;
-
-Drag & Drop
-
-&nbsp;
-
-Long Press actions
-
-&nbsp;
-
-Additional Room Assignment
-
-&nbsp;
-
-Portal flows (where applicable)
-
-&nbsp;
-
-&nbsp;
-
-Both client-side validation and server-side validation should consistently use the same engines.
-
-&nbsp;
-
-&nbsp;
-
----
-
-&nbsp;
-
-4. Night Audit
-
-&nbsp;
-
-Please review the complete blocker matrix, not just pending Check-ins.
-
-&nbsp;
-
-Business Date should never advance while any operational blocker exists, including (where applicable):
-
-&nbsp;
-
-Pending Check-ins
-
-&nbsp;
-
-Pending Check-outs
-
-&nbsp;
-
-Business Date inconsistencies
-
-&nbsp;
-
-Any other operational blockers that should prevent day closure
-
-&nbsp;
-
-&nbsp;
-
-The Night Audit should remain the single authoritative gate for Business Date advancement.
-
-&nbsp;
-
-&nbsp;
-
----
-
-&nbsp;
-
-5. Final Regression
-
-&nbsp;
-
-Since this sprint touches Booking, Housekeeping, Laundry and Night Audit together, please perform one final end-to-end regression after implementation.
-
-&nbsp;
-
-Please validate the complete operational flow:
-
-&nbsp;
-
-Booking → Check-in → Extension → Room Move → Checkout → Housekeeping → Laundry → Night Audit → Business Date Advance
-
-&nbsp;
-
-If you discover any regressions while implementing these changes, please proactively fix them before handing the build back for UAT.
-
-&nbsp;
-
-Apart from these additions, I agree with the proposed implementation plan. Please proceed.
+Other than that, please proceed as planned.
