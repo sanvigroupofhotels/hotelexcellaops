@@ -621,17 +621,9 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
       throw new Error("Payment signature verification failed");
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    // Validate token + booking
-    const { data: tok } = await supabaseAdmin
-      .from("booking_tokens")
-      .select("booking_id, revoked_at, expires_at")
-      .eq("token", data.token)
-      .maybeSingle();
-    if (!tok || tok.revoked_at || (tok.expires_at && new Date(tok.expires_at).getTime() < Date.now())) {
-      throw new Error("Link is invalid or expired");
-    }
+    // UAT-030 — resolves token OR booking_reference.
+    const { supabaseAdmin, booking: tokBk } = await resolvePortalRef(data.token);
+    const tok = { booking_id: (tokBk as any).id };
 
     // Fast-path idempotency: if we've already inserted this razorpay_payment_id,
     // just return. The unique index is still the ultimate guard below.
