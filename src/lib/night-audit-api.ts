@@ -8,9 +8,15 @@ import { toLocalYMD } from "@/lib/utils";
  * `business_date` ({ date: "YYYY-MM-DD" }). We never advance the date
  * automatically until pending check-ins / check-outs are resolved.
  *
- * Pending check-ins  : status NOT IN (Checked-In, Checked-Out, Cancelled, Stay Completed, No-Show)
- *                      AND check_in < business_date   (strict: today's arrivals are NOT pending)
- * Pending check-outs : status = Checked-In AND check_out < business_date  (strict)
+ * Blocker matrix (v1.1 UAT-019):
+ *   • Pending check-ins  : any booking with status ∉ (Checked-In, Checked-Out,
+ *                          Cancelled, Stay Completed, No-Show) and
+ *                          check_in ≤ business_date.
+ *   • Pending check-outs : status = Checked-In and check_out ≤ business_date.
+ *   • Room mismatches    : any Checked-In booking with a non-null room_id whose
+ *                          `rooms.housekeeping_status` is still `occupied` from
+ *                          a prior stay (rare — surfaces stale HK state).
+ * If any blocker is non-empty, Business Date advancement is refused.
  */
 
 export interface PendingBooking {
@@ -42,12 +48,6 @@ export async function setBusinessDate(date: string): Promise<void> {
   if (error) throw error;
 }
 
-function addDaysYMD(ymd: string, n: number): string {
-  const d = new Date(ymd + "T00:00:00");
-  d.setDate(d.getDate() + n);
-  return toLocalYMD(d);
-}
-
 export async function getPendingForAudit(businessDate?: string): Promise<{
   businessDate: string;
   pendingCheckIns: PendingBooking[];
@@ -59,6 +59,7 @@ export async function getPendingForAudit(businessDate?: string): Promise<{
     // Pending Check-In = arrival scheduled ON or BEFORE the business date that
     // hasn't been checked-in yet. Today's arrivals count as pending: Business
     // Date must never advance while any expected guest is still un-arrived.
+    // Includes `Pending`, `Confirmed`, `Draft`, `Advance Paid`, etc.
     supabase.from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
       .lte("check_in", bd)
       .not("status", "in", "(Checked-In,Checked-Out,Cancelled,Stay Completed,No-Show)")

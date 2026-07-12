@@ -13,12 +13,25 @@
  *                                  (DB trigger recomputes advance_paid and
  *                                   auto-creates a Cash Book entry on Cash)
  *   • Source Quote close-out     → `quotes-api.setStatus("Confirmed")`
+ *   • Past-Due Carry Forward     → v1.1 UAT-024: if the customer has a prior
+ *                                  Checked-Out booking with an outstanding
+ *                                  balance, auto-attach a "Past Due" charge
+ *                                  to the new booking. This turns the
+ *                                  customer's ledger into a running tab
+ *                                  across stays.
+ *   • Housekeeping check-in hook  → v1.1 UAT-007: if the new booking is
+ *                                  created directly as Checked-In (walk-in
+ *                                  with same-day check-in after another guest
+ *                                  already vacated), fire the check-in hook
+ *                                  so the operational workflow transitions
+ *                                  from Checkout back to Service correctly.
  *   • Activity logging           → handled DB-side by existing triggers on
  *                                  `bookings` / `booking_payments`.
  *
  * Every consumer (current and future Unified Booking Engine) MUST go through
  * this helper rather than re-wiring the steps inline.
  */
+import { supabase } from "@/integrations/supabase/client";
 import { createCustomer } from "@/lib/customers-api";
 import { createBooking, type BookingInput, type BookingRow } from "@/lib/bookings-api";
 import { addBookingItems, type BookingItemInput } from "@/lib/booking-items-api";
@@ -44,6 +57,8 @@ export interface SubmitNewBookingInput {
 export interface SubmitNewBookingResult {
   booking: BookingRow;
   createdCustomerId: string | null;
+  /** UAT-024: amount carried forward from a prior unpaid stay (0 if none). */
+  carriedForward?: number;
 }
 
 export async function submitNewBooking(input: SubmitNewBookingInput): Promise<SubmitNewBookingResult> {
@@ -99,5 +114,119 @@ export async function submitNewBooking(input: SubmitNewBookingInput): Promise<Su
     }
   }
 
-  return { booking, createdCustomerId };
+  // v1.1 UAT-024 — Past-Due Carry Forward.
+  // Runs after items are attached (so charges show alongside the new stay's
+  // totals) but before we return, so the caller sees the definitive booking.
+  let carriedForward = 0;
+  if (booking.customer_id) {
+    try {
+      carriedForward = await carryForwardPastDue(booking);
+    } catch (e) {
+      // Non-blocking — carry-forward is a convenience, not a gate on booking creation.
+      console.warn("carryForwardPastDue failed", e);
+    }
+  }
+
+  // v1.1 UAT-007 — HK check-in hook for direct walk-ins. Rare path: a
+  // reception user creates a booking already flagged Checked-In (walk-in).
+  // `setBookingStatus` wouldn't have fired because we skipped it; call the
+  // hook here so a room previously in Checkout workflow transitions to
+  // Service for the new guest.
+  if (booking.status === "Checked-In") {
+    try {
+      const { onBookingCheckedIn } = await import("@/lib/hk-checkout-hook");
+      await onBookingCheckedIn(booking.id);
+    } catch {
+      /* non-blocking — hook logs its own failures */
+    }
+  }
+
+  return { booking, createdCustomerId, carriedForward };
+}
+
+/**
+ * UAT-024 — carry the customer's unsettled balance from their most recent
+ * Checked-Out booking onto this new booking as a "Past Due" charge.
+ *
+ * Rules:
+ *   • Look at the same customer's most recent booking with status =
+ *     Checked-Out or Stay Completed (any force-checkout variant lands here).
+ *   • Compute outstanding = (booking.amount + booking_charges - advance_paid).
+ *   • If outstanding > 0 AND the new booking does not already have a Past Due
+ *     charge, create one on the new booking referencing the prior stay.
+ *   • Idempotent: safe to re-run — an existing Past Due row referencing the
+ *     same prior booking short-circuits.
+ *   • Activity log entries land on both bookings.
+ */
+async function carryForwardPastDue(newBooking: BookingRow): Promise<number> {
+  if (!newBooking.customer_id) return 0;
+
+  // Find the most recent prior booking for this customer that has closed out.
+  const { data: priors } = await supabase
+    .from("bookings" as any)
+    .select("id, booking_reference, amount, advance_paid, check_out, status")
+    .eq("customer_id", newBooking.customer_id)
+    .neq("id", newBooking.id)
+    .in("status", ["Checked-Out", "Stay Completed"])
+    .order("check_out", { ascending: false })
+    .limit(1);
+  const prior = (priors ?? [])[0] as any;
+  if (!prior) return 0;
+
+  // Sum any booking_charges on the prior stay so the carry-forward reflects
+  // the full folio total (room + F&B + laundry + past-due itself), not just
+  // the base amount.
+  const { data: chargeRows } = await supabase
+    .from("booking_charges" as any)
+    .select("amount")
+    .eq("booking_id", prior.id);
+  const priorCharges = ((chargeRows ?? []) as any[]).reduce(
+    (s, r) => s + Number(r.amount || 0), 0,
+  );
+  const outstanding = Number(prior.amount ?? 0) + priorCharges - Number(prior.advance_paid ?? 0);
+  if (outstanding <= 0.5) return 0; // Sub-rupee dust — treat as settled.
+
+  // Idempotency guard — never stack two Past Due charges for the same prior
+  // booking on the same new booking.
+  const { data: existing } = await supabase
+    .from("booking_charges" as any)
+    .select("id")
+    .eq("booking_id", newBooking.id)
+    .eq("category", "Past Due")
+    .ilike("notes", `%${prior.booking_reference}%`)
+    .limit(1);
+  if ((existing ?? []).length > 0) return 0;
+
+  const { createBookingCharge } = await import("@/lib/booking-charges-api");
+  await createBookingCharge({
+    booking_id: newBooking.id,
+    category: "Past Due",
+    quantity: 1,
+    unit_price: Math.round(outstanding * 100) / 100,
+    notes: `Carried forward from ${prior.booking_reference}`,
+    added_by: "System",
+  });
+
+  // Cross-link activity on both bookings so future audits can trace the ledger.
+  try {
+    const { logBookingActivity } = await import("@/lib/booking-activities-api");
+    await Promise.all([
+      logBookingActivity({
+        booking_id: newBooking.id,
+        action: "past_due_carried_in" as any,
+        from_status: null, to_status: null,
+        notes: `Past Due ₹${Math.round(outstanding)} carried forward from ${prior.booking_reference}`,
+      }),
+      logBookingActivity({
+        booking_id: prior.id,
+        action: "past_due_carried_out" as any,
+        from_status: null, to_status: null,
+        notes: `Balance ₹${Math.round(outstanding)} carried forward to ${newBooking.booking_reference}`,
+      }),
+    ]);
+  } catch {
+    /* activity log is best-effort */
+  }
+
+  return Math.round(outstanding * 100) / 100;
 }

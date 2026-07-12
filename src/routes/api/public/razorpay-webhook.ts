@@ -17,8 +17,23 @@
  *      sync). Client-side checkout success is NEVER treated as final — the
  *      webhook is the source of truth.
  *
+ * v1.1 UAT-025 — Convenience-fee reconciliation:
+ *   Razorpay may capture MORE than the booking's due amount when the guest
+ *   pays the platform convenience fee on top of the invoice. Left untouched,
+ *   the folio ends up over-paid and the fee is invisible in reporting. When
+ *   the captured amount exceeds the current outstanding balance, we split
+ *   the credit:
+ *     • booking_payment #1 = outstanding balance (paid_to = the booking)
+ *     • booking_charge     = "Razorpay Charges" for the excess
+ *     • booking_payment #2 = excess (marked paid, same Razorpay txn id in
+ *                             notes for future reconciliation)
+ *   Both payments carry `razorpay_order_id` / `razorpay_payment_id` in
+ *   notes so audit trail is preserved. The unique constraint on
+ *   `razorpay_payment_id` is intentionally applied to only the first
+ *   payment row — the second uses NULL there and stores the ref in `utr`.
+ *
  * Handled events:
- *   - payment.captured  → credit booking_payments
+ *   - payment.captured  → credit booking_payments (with fee split)
  *   - payment.authorized → credit booking_payments (auto-capture flow)
  *   - payment.failed    → mark razorpay_orders as failed (no payment row)
  *   - order.paid        → mark razorpay_orders as paid (safety net)
@@ -75,8 +90,6 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
         }
 
         const event = payload?.event as string | undefined;
-        // Razorpay does not send a header event-id in all cases — synthesize
-        // a stable id from event + payment/order id when missing.
         const paymentEntity = payload?.payload?.payment?.entity;
         const orderEntity = payload?.payload?.order?.entity;
         const razorpay_payment_id = paymentEntity?.id as string | undefined;
@@ -104,13 +117,9 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
         if (recErr) {
           const msg = String((recErr as any).message || "").toLowerCase();
           if ((recErr as any).code === "23505" || msg.includes("duplicate")) {
-            // Already processed — Razorpay retry. Ack.
             return ok();
           }
           console.error("razorpay_webhook_events insert failed:", recErr);
-          // Fall through — we still want to try processing so a hosed events
-          // table doesn't block payments. Any payment insert dup will be
-          // caught by the unique index on booking_payments.razorpay_payment_id.
         }
 
         try {
@@ -130,22 +139,46 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
               return err(400, "Missing booking_id");
             }
 
-            // Get user_id / customer_id from booking (required by NOT NULL / FK)
             const { data: booking } = await supabaseAdmin
               .from("bookings")
-              .select("user_id, customer_id, status")
+              .select("user_id, customer_id, status, amount, advance_paid, booking_reference")
               .eq("id", booking_id)
               .maybeSingle();
             if (!booking) return err(404, "Booking not found");
 
+            // Compute outstanding balance including in-house charges — needed
+            // for the convenience-fee split. Any charges already on the folio
+            // (Past Due, laundry, F&B) count towards the "real" due.
+            const { data: chargeRows } = await supabaseAdmin
+              .from("booking_charges")
+              .select("amount")
+              .eq("booking_id", booking_id);
+            const chargesTotal = ((chargeRows ?? []) as any[]).reduce(
+              (s, r) => s + Number(r.amount || 0), 0,
+            );
+            const bookingTotal = Number((booking as any).amount ?? 0) + chargesTotal;
+            const alreadyPaid = Number((booking as any).advance_paid ?? 0);
+            const outstanding = Math.max(0, bookingTotal - alreadyPaid);
+
+            // Threshold: only split when the excess is more than 1 rupee.
+            // Guards against float dust and tiny rounding.
+            const EXCESS_THRESHOLD = 1;
+            const primaryAmount =
+              amountInr > outstanding + EXCESS_THRESHOLD && outstanding > 0
+                ? outstanding
+                : amountInr;
+            const excessAmount = Math.max(0, amountInr - primaryAmount);
+
+            // Primary payment — always inserted (may be full amount when no
+            // outstanding tracked — treats as advance).
             const { error: insErr } = await supabaseAdmin.from("booking_payments").insert({
               booking_id,
               customer_id: (booking as any).customer_id,
-              amount: amountInr,
+              amount: primaryAmount,
               payment_mode: "Razorpay",
               collected_by: "Guest Portal",
               occurred_at: new Date().toISOString(),
-              notes: `Razorpay ${razorpay_payment_id}${token ? ` · token ${String(token).slice(0, 8)}…` : ""}`,
+              notes: `Razorpay ${razorpay_payment_id}${token ? ` · token ${String(token).slice(0, 8)}…` : ""}${excessAmount > 0 ? ` · fee split ₹${excessAmount.toFixed(2)}` : ""}`,
               user_id: (booking as any).user_id,
               razorpay_order_id,
               razorpay_payment_id,
@@ -164,10 +197,46 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
                   .eq("event_id", event_id);
                 return err(500, "DB error");
               }
-              // Duplicate — client confirm already recorded it. Continue.
+              // Duplicate — client confirm already recorded it. Skip the split
+              // to avoid double-charging the fee.
+            } else if (excessAmount > 0) {
+              // Convenience-fee split: create the charge + auto-pay it.
+              // Non-blocking on failure — the primary credit already landed.
+              try {
+                const { error: chErr } = await supabaseAdmin.from("booking_charges").insert({
+                  booking_id,
+                  user_id: (booking as any).user_id,
+                  category: "Razorpay Charges",
+                  quantity: 1,
+                  unit_price: Math.round(excessAmount * 100) / 100,
+                  amount: Math.round(excessAmount * 100) / 100,
+                  notes: `Payment gateway fee · ${razorpay_payment_id}`,
+                  added_by: "System",
+                  occurred_at: new Date().toISOString(),
+                } as any);
+                if (chErr) throw chErr;
+
+                // Second payment offsets the charge. Razorpay ref in `utr` so
+                // the primary payment can keep the unique `razorpay_payment_id`.
+                await supabaseAdmin.from("booking_payments").insert({
+                  booking_id,
+                  customer_id: (booking as any).customer_id,
+                  amount: Math.round(excessAmount * 100) / 100,
+                  payment_mode: "Razorpay",
+                  collected_by: "Guest Portal",
+                  occurred_at: new Date().toISOString(),
+                  notes: `Razorpay convenience fee · settles gateway charge for ${razorpay_payment_id}`,
+                  utr: razorpay_payment_id,
+                  user_id: (booking as any).user_id,
+                  razorpay_order_id,
+                  razorpay_payment_id: null,
+                  razorpay_method: method ?? null,
+                } as any);
+              } catch (feeErr) {
+                console.error("Razorpay fee split failed (non-blocking):", feeErr);
+              }
             }
 
-            // Mark the order as paid (best-effort)
             await supabaseAdmin
               .from("razorpay_orders")
               .update({ status: "paid", captured_at: new Date().toISOString() } as any)
@@ -187,7 +256,6 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
                 .eq("order_id", razorpay_order_id);
             }
           }
-          // Other events: acknowledged, no side effect.
 
           await supabaseAdmin
             .from("razorpay_webhook_events")

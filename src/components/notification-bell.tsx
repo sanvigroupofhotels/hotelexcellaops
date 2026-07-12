@@ -193,12 +193,14 @@ export function NotificationBell({
             </ul>
           )}
         </div>
-        <button
+        <Link
+          to="/notifications"
           onClick={() => setOpen(false)}
           className="border-t border-border px-4 py-2.5 text-xs font-medium text-gold inline-flex items-center justify-center gap-1.5 hover:bg-gold-soft/30 w-full"
         >
-          Close <ArrowRight className="h-3 w-3" />
-        </button>
+          View All Notifications <ArrowRight className="h-3 w-3" />
+        </Link>
+
       </PopoverContent>
     </Popover>
   );
