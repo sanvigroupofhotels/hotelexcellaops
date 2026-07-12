@@ -232,6 +232,28 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
                   razorpay_payment_id: null,
                   razorpay_method: method ?? null,
                 } as any);
+
+                // v1.1 UAT-025 — explicit activity trail so the auto-adjustment
+                // is discoverable from the booking's Activity History, not just
+                // implicit in the charges list.
+                await supabaseAdmin.from("booking_activities").insert({
+                  booking_id,
+                  action: "razorpay_fee_adjustment" as any,
+                  from_status: null,
+                  to_status: null,
+                  actor_id: null,
+                  actor_name: "System",
+                  actor_role: "system",
+                  notes: `Razorpay convenience fee ₹${excessAmount.toFixed(2)} recorded as In-house Charge (Razorpay Charges) · auto-generated for ${razorpay_payment_id}`,
+                  metadata: {
+                    razorpay_payment_id,
+                    razorpay_order_id,
+                    fee_amount: Math.round(excessAmount * 100) / 100,
+                    booking_due_at_capture: outstanding,
+                    amount_captured: amountInr,
+                    system_generated: true,
+                  },
+                } as any);
               } catch (feeErr) {
                 console.error("Razorpay fee split failed (non-blocking):", feeErr);
               }
