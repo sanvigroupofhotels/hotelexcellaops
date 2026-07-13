@@ -10,7 +10,12 @@ import {
   listStaff, createStaff, updateStaff,
   listExpenseTypes, createExpenseType, updateExpenseType,
   COLLECTION_TYPES, type CashTxRow,
+  uploadCashTxAttachment,
 } from "@/lib/cash-api";
+import {
+  CashTxAttachmentsPanel, CashTxAttachmentsViewer,
+  requiresCashOutAttachment, type StagedAttachment,
+} from "@/components/cash-tx-attachments";
 import { listBookings } from "@/lib/bookings-api";
 import { toast } from "sonner";
 import { useMasterData } from "@/hooks/use-master-data";
