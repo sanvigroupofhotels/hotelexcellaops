@@ -100,7 +100,8 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
                 )}
               </div>
             </div>
-          ))}
+            </div>
+          );})}
           <div className="flex justify-end pt-2 border-t border-border/40 text-sm font-medium">
             Total Charges: <span className="ml-2 text-gold">{inr(total)}</span>
           </div>
