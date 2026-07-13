@@ -10,7 +10,13 @@ import {
   listStaff, createStaff, updateStaff,
   listExpenseTypes, createExpenseType, updateExpenseType,
   COLLECTION_TYPES, type CashTxRow,
+  uploadCashTxAttachment,
+  CASH_OUT_ATTACHMENT_THRESHOLD_INR,
 } from "@/lib/cash-api";
+import {
+  CashTxAttachmentsPanel, CashTxAttachmentsViewer,
+  requiresCashOutAttachment, type StagedAttachment,
+} from "@/components/cash-tx-attachments";
 import { listBookings } from "@/lib/bookings-api";
 import { toast } from "sonner";
 import { useMasterData } from "@/hooks/use-master-data";
@@ -635,6 +641,9 @@ function TxDetailModal({ tx, onClose, onEdit }: { tx: CashTxRow; onClose: () => 
             {tx.notes && <DetailRow label="Notes" value={tx.notes} full />}
           </div>
 
+          {/* Bill/Receipt attachments (UAT-031) */}
+          <CashTxAttachmentsViewer txId={tx.id} />
+
           {/* Activity History */}
           <div className="border-t border-border pt-4">
             <h4 className="text-sm font-medium mb-3 flex items-center gap-2"><HistoryIcon className="h-4 w-4 text-gold"/> Activity History</h4>
@@ -680,6 +689,8 @@ function DetailRow({ label, value, full }: { label: string; value: React.ReactNo
 // ---------- Tx Form Modal (Create + Edit) ----------
 function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; edit?: CashTxRow; onClose: ()=>void }) {
   const qc = useQueryClient();
+  const { isAdmin, isOwner } = useUserRole();
+  const canBypassAttachmentRule = isAdmin || isOwner;
   const { data: staff = [] } = useQuery({ queryKey: ["staff","active","cashbook"], queryFn: () => listStaff(true, { availability: "cashbook" }) });
   const { data: etypes = [] } = useQuery({ queryKey: ["etypes","active"], queryFn: () => listExpenseTypes(true) });
   const { values: incomeTypes } = useMasterData("income_category", [...COLLECTION_TYPES]);
@@ -705,6 +716,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     return d.toISOString().slice(0,16);
   });
+  const [staged, setStaged] = useState<StagedAttachment[]>([]);
 
   const isOther = typeName === "Other" || typeName === "Others";
   if (kind==="expense" && etypes.length>0 && !typeName) {
@@ -737,12 +749,27 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
     occurred_at: new Date(occurredAt).toISOString(),
   });
 
+  const attachmentRequired = requiresCashOutAttachment({ kind, amount, canBypass: canBypassAttachmentRule });
+  // For NEW tx: staged attachments count. For EDIT: we assume any persisted
+  // attachments already meet the rule; the panel manages its own live state.
+  const meetsAttachmentRule = !attachmentRequired || isEdit || staged.length > 0;
+
   const save = useMutation({
-    mutationFn: () => isEdit ? updateCashTx(edit!.id, payload()) : createCashTx(payload()),
+    mutationFn: async () => {
+      if (isEdit) return updateCashTx(edit!.id, payload());
+      const row = await createCashTx(payload());
+      // Flush any staged attachments now that we have a tx id.
+      for (const s of staged) {
+        try { await uploadCashTxAttachment(row.id, s.file); }
+        catch (e: any) { toast.error(`Attachment "${s.file.name}" failed: ${e?.message ?? "unknown"}`); }
+      }
+      return row;
+    },
     onSuccess: () => {
       toast.success(isEdit ? "Transaction updated" : (kind==="collection" ? "Collection recorded" : "Expense recorded"));
       qc.invalidateQueries({ queryKey: ["cash-tx"] });
       qc.invalidateQueries({ queryKey: ["cash-tx-activities"] });
+      qc.invalidateQueries({ queryKey: ["cash-tx-attachments"] });
       onClose();
     },
     onError: (e: any) => toast.error(e.message),
@@ -842,10 +869,27 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
               <input type="datetime-local" className={inputCls} value={occurredAt} onChange={e=>setOccurredAt(e.target.value)} />
             </Field>
           </div>
+
+          {/* UAT-031: Bill/Receipt attachments (Cash Out).
+              Front-desk staff must attach at least one bill when Cash Out > ₹300.
+              Owners/Admins may bypass. Available on both Cash Out and (optionally) Cash In. */}
+          {kind === "expense" && (
+            <CashTxAttachmentsPanel
+              txId={isEdit ? edit!.id : null}
+              staged={staged}
+              onStagedChange={setStaged}
+            />
+          )}
+
+          {attachmentRequired && !meetsAttachmentRule && (
+            <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning">
+              A bill attachment is required for Cash Out over ₹{CASH_OUT_ATTACHMENT_THRESHOLD_INR}. Please attach at least one image or PDF.
+            </div>
+          )}
         </div>
         <div className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex gap-2 justify-end">
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-md border border-border">Cancel</button>
-          <button onClick={()=>save.mutate()} disabled={save.isPending}
+          <button onClick={()=>save.mutate()} disabled={save.isPending || !meetsAttachmentRule}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md gold-gradient text-charcoal font-medium disabled:opacity-60">
             {save.isPending && <Loader2 className="h-4 w-4 animate-spin"/>}
             {isEdit ? "Save Changes" : "Save"}

@@ -1,241 +1,141 @@
-# HEOS Core v1.1 — Stabilization Sprint 3
+## HEOS Core v1.1 — Stabilization Sprint 4 Plan
 
-Single stabilization shipment covering the remaining operational gaps. All work reuses existing shared engines (`booking-pricing-sync`, `booking-charges-api`, `booking-activities-api`, `hk-checkout-hook`, `laundry-batches-api`, `useMasterData`, `PermissionGate`).
+### P0 · Finance & Payments
+
+**UAT-025 · Razorpay Convenience Fee — Verification + polish**
+Fee split is already implemented in `src/routes/api/public/razorpay-webhook.ts` (lines 202–260): when captured > outstanding, it creates a `booking_charge` with `category='Razorpay Charges'`, records an offset payment, and logs `razorpay_fee_adjustment` in `booking_activities`. It IS visible under Booking → Charges.
+Actions:
+
+- Add a `system_generated: true` marker in the charge `notes`/metadata field so it's identifiable as auto-generated (already in activity metadata, extend to charge).
+- Add a small "Verify" note in the completion report showing where in the UI the guest can see it: `Booking Detail → Charges section` (rendered by `in-house-charges-section.tsx`).
+- Simulate a live webhook via `supabase--read_query` on `booking_charges` for recent Razorpay-Charges rows and share the query snippet in the report.
+
+**UAT-026 · Copy Due Summary right-align**
+`dues.tsx` — wrap toolbar with `flex items-center gap-2 w-full`, add `ml-auto` to Copy Due Summary button so it hugs the right edge next to search input.
+
+**UAT-028 · Payment Modes SoT — expose in Master Data UI**
+`master-data.tsx` — confirm the Finance group has a `payment_method` tab labelled "Payment Modes"; if missing, add it. Seed default modes on empty. Document in `docs/modules.md`.
+
+### P1 · Cash Book
+
+**UAT-031 · Cash Out Bill Attachment** (new)
+Schema:
+
+- New table `cash_tx_attachments` (id, tx_id fk, user_id, storage_path, mime_type, file_size, uploaded_by, uploaded_by_name, created_at). RLS: same visibility as parent tx.
+- New storage bucket `cash-tx-attachments` (private) with owner-based RLS.
+- Activity: extend `cash_tx_activities` action enum to include `attachment_added`, `attachment_replaced`, `attachment_deleted`.
+
+API (`src/lib/cash-api.ts`): add `listCashTxAttachments`, `uploadCashTxAttachment`, `deleteCashTxAttachment`, `signedCashTxAttachmentUrl`. Log activities.
+
+UI:
+
+- Add-Cash-Tx modal (find the current cash-out entry point — `cash.tsx`): file picker (image/pdf, multi), preview, delete.
+- Mandatory rule: FO staff + kind='expense' + amount > 300 ⇒ at least one attachment required before save. Owner/Admin bypass via `has_role('admin'|'owner')` check.
+- Detail/edit view: list attachments with View / Replace / Remove buttons (mirrors `add-booking-payment-modal.tsx` attachment block).
+
+### P2 · Laundry
+
+**UAT-001 · Manual Laundry Pickup (from empty queue)**
+`laundry.tsx` Pickup composer:
+
+- Remove `queue.length === 0` blocker (already partially done per Sprint 3 backlog note — confirm).
+- Add "+ Add Manual Line" button that opens a linen-type picker fed by `linen_types` master (`listLinenTypes`).
+- Manual line: `qty_heos_queue = 0`, `qty_manual = n`, `linen_type_id`, `linen_type_name`.
+- Mixed pickup: queue rows + manual rows coexist in draft.
+- On confirm, flatten to `laundry_batch_lines` (same shape).
+
+**UAT-002 · Manual Laundry Lifecycle parity**
+Audit `laundry-batches-api.ts` and `laundry-queue-api.ts` for any `qty_heos_queue > 0` filter and remove. Verify reporting/billing/CSV pull from `laundry_batch_lines` regardless of origin. Document parity in `docs/modules.md`.
+
+### P3 · Audits (documentation-only sprint tasks)
+
+**UAT-006 · Work History Nav** — Document rationale in `docs/navigation.md`: sidebar shortcut deep-links to `/reporting/housekeeping`, keeping HK Reports as SoT. Rationale: avoids duplicating report logic; permission-gated on `reporting.housekeeping.view`.
+
+**UAT-016 · Access Management audit** — Enumerate all routes vs `AppSidebar` permissions vs `permissions` table. Remove obsolete keys. Update `docs/permissions.md` with a full route-to-permission matrix.
+
+**UAT-017 · Laundry Reporting reconciliation** — Walk `reporting.laundry.tsx` + `lib/reporting/laundry-reporting.ts`. Verify Summary, Batch Details, Vendor Reports, CSV, Outstanding, Damaged, Lost totals all sum from raw `laundry_batch_lines`. Document formulas.
+
+**UAT-018 · Monthly Billing audit** — Verify vendor aggregation groups by `vendor_id + month(picked_up_at)`, per-batch totals × unit price, CSV/PDF parity. Document calculation formula in `docs/modules.md` under Laundry.
+
+**UAT-023 · Mobile UX final pass** — Sweep operational modules at 360px: tables get `overflow-x-auto`, modals use `luxe-card` full-height on small screens, buttons ≥44px tap targets, forms single-column below `sm`. Presentation-only.
+
+### Files Changed (planned)
+
+- `src/routes/api/public/razorpay-webhook.ts` (annotate)
+- `src/routes/_authenticated/dues.tsx` (right-align)
+- `src/routes/_authenticated/master-data.tsx` (payment_method tab confirm)
+- `src/routes/_authenticated/cash.tsx` (attachment UI + mandatory rule)
+- `src/lib/cash-api.ts` (attachment API)
+- `src/routes/_authenticated/laundry.tsx` (manual pickup)
+- `src/lib/laundry-batches-api.ts`, `src/lib/laundry-queue-api.ts` (parity audit)
+- New migration: `cash_tx_attachments` table + storage bucket + policies + activity enum
+- Docs: `permissions.md`, `modules.md`, `navigation.md`, `.lovable/backlog.md`
+
+### Regression Impact
+
+- Razorpay: no logic change, only note enrichment — zero risk.
+- Cash attachments: additive tables/bucket; the mandatory-rule enforcement is client-side + server RLS check; existing cash-out flow unaffected without attachments.
+- Laundry manual pickup: purely additive draft-composer feature; existing queue pickups untouched.
+- Access/reporting/mobile audits: doc-only + presentation-only.
+
+### Approval
+
+This is a large multi-file sprint including a new DB table + storage bucket. Please approve before I begin the migration and file edits.
+
+**My response -** 
+
+&nbsp;
+
+I think the plan is good overall. I would only leave a few concise comments before approving.
 
 ---
 
-## P0 — Finance & Payments
+**Approved. The plan looks good and aligns with the HEOS architecture. Please proceed with the implementation.**
 
-### UAT-025 — Razorpay convenience-fee as In-house Charge
+A few comments/clarifications before you begin:
 
-**Root cause**: current webhook records the full `amount_paid` as a `booking_payment` and does not split the overpayment into a distinct charge. Sprint 2 wired a ledger-side split, but not an operational "In-house Charge" visible in the booking's charges tab / activity log.
+### 1. UAT-025 – Razorpay Charges
 
-**Fix** (`src/routes/api/public/razorpay-webhook.ts`):
+Please don't just verify the implementation.
 
-1. After we settle the booking due, if `paid_paise > due_paise`, create a `booking_charge`:
-  - `category = 'Razorpay Charges'` (idempotently seeded in `charge_catalog` at first use)
-  - `amount = overpayment`
-  - `description = 'Razorpay convenience fee (auto)'`
-  - `is_system_generated = true` flag preserved in `notes` or a metadata field
-2. Log a `booking_activity`: `event_type='razorpay_fee_adjustment'` with actor `system`, message identifying it as auto-generated.
-3. Idempotency: guard on `razorpay_payment_id` so retries don't duplicate the charge.
-4. Keep existing payment recording untouched.
-
-### UAT-028 — Payment Modes single source of truth
-
-`add-booking-payment-modal.tsx` already uses `useMasterData("payment_method", PAYMENT_MODES)`. Audit and confirm:
-
-- No other add-payment surface uses hardcoded `PAYMENT_MODES` (search `bookings_.$id.tsx`, `cash.tsx`, portal payment flows).
-- Rename Master Data tab label to **Finance → Payment Modes** (category key stays `payment_method` for backward compat).
-- Document in `docs/master-data.md` (or `modules.md`) that `payment_method` is the SoT and Cash → Cash Book routing is preserved in `booking-payments-api.createBookingPayment`.
+Kindly ensure that the automatically created **"Razorpay Charges"** entry is clearly visible under **Booking → Charges** and is easily distinguishable as a **system-generated** charge. The corresponding Activity History should clearly link the payment and the automatically generated charge.
 
 ---
 
-## P1 — Booking Audit
+### 2. UAT-028 – Payment Modes
 
-### UAT-029 — Booking Creation audit trail
+If the actual master category is internally named `payment_method` for backward compatibility, that's perfectly fine.
 
-**Fix** (`src/lib/booking-create.ts`): after inserting the booking, always insert a `booking_activities` row `event_type='booking_created'` with structured payload:
-
-```
-{ created_by, working_as, source, initial_status, room_ids, checkin_date, checkout_date }
-```
-
-- Emit before any other side-effect (past-due carry-forward, HK hook, etc.) so it is always the first row.
-- Guard: skip if a `booking_created` row already exists (idempotent for retried mutations).
-- Backfill migration: for existing bookings without a `booking_created` activity, synthesize one at `created_at` using `created_by`, `source`, and current room assignments — non-editable by definition (activities are append-only).
+However, from an administrator's perspective, the Master Data UI should consistently present it as **Payment Modes**. There should be no confusion between **Payment Method** and **Payment Mode** anywhere in the application or documentation.
 
 ---
 
-## P1 — Due Collection UX
+### 3. UAT-031 – Cash Book Attachments
 
-### UAT-026 — Copy Due Summary polish (`src/routes/_authenticated/dues.tsx`)
+The proposed implementation looks good.
 
-1. **Header**: derive title from active filter:
-  - `all` → "Pending Dues (All Guests)"
-  - `inhouse` → "Pending Dues from In-House Guests"
-  - `today` → "Pending Dues from Today's Guests"
-  - `future` → "Pending Dues from Future Guests"
-2. **Placement**: move `Copy Due Summary` button into the toolbar row beside the Search input, right-aligned (`ml-auto`). Order: Filter chips → Search → Copy button.
+Please also ensure:
 
-Pure presentation change; no data logic touched.
-
----
-
-## P2 — Laundry
-
-### UAT-001 — Manual pickup (independent of HK Queue)
-
-**Files**: `src/routes/_authenticated/laundry.tsx` (Pickup tab), `src/lib/laundry-batches-api.ts`.
-
-1. Allow opening pickup composer when queue is empty.
-2. "Add Manual Line" action → picks from `linen_types` master, quantity input, adds to draft with `qty_heos_queue = 0`, `qty_manual = n`.
-3. Draft supports mixed queue + manual lines.
-4. On confirm, all lines flatten into `laundry_batch_lines` with existing shape; only audit column differs (`qty_heos_queue`).
-
-### UAT-002 — Manual lifecycle parity
-
-Audit `laundry-batches-api.ts` (return, correct-return, short/damaged/lost, reporting reducers, monthly billing aggregator, CSV export) to confirm no `qty_heos_queue > 0` filter exists. Where found, remove it. Add a regression note in `docs/modules.md#laundry`.
+- Attachments are visible from the Cash Book transaction detail page.
+- Images can be viewed in a full-screen/lightbox viewer.
+- PDFs can be opened/downloaded.
+- Multiple attachments are supported.
+- All attachment operations (add/replace/delete) are captured in the Activity History.
 
 ---
 
-## P3 — Navigation / Access / Reporting audits
+### 4. UAT-001 / UAT-002 – Laundry
 
-### UAT-006 — HK Work History
+Please test the complete lifecycle of manually added linen yourselves before considering this complete.
 
-Add "Work History" entry in Housekeeping sidebar group linking to `/reporting/housekeeping?tab=history` (or new sub-route if simpler). Gated on `reporting.housekeeping.view`.
-
-### UAT-016 — Access Management audit
-
-- Cross-reference every route in `src/routes/_authenticated/*` against `AppSidebar` and `permissions` seed.
-- Ensure new routes (`/notifications`, `/operations/charge-catalog`) have permission gates.
-- Remove obsolete keys (`operations.hk_issue_types`/`operations.linen_types` — verify still used).
-- Update `docs/permissions.md` matrix.
-
-### UAT-017 — Laundry Reporting audit
-
-Walk `src/routes/_authenticated/reporting.laundry.tsx` + `lib/reporting/laundry-reporting.ts`. Reconcile Summary/Batch/Vendor totals against raw `laundry_batch_lines`. Add totals for outstanding/damaged/lost if missing. Verify CSV parity.
-
-### UAT-018 — Monthly billing audit
-
-Verify vendor billing aggregation groups by `vendor_id + month(picked_up_at)`, matches per-batch totals, and Vendor Statement PDF/CSV export reconciles. Document formula in `docs/modules.md#laundry-billing`.
+Manual linen should behave **identically** to queue-generated linen across every downstream workflow. There should never be any operational distinction after the batch has been created.
 
 ---
 
-## P3 — Mobile UX (UAT-023)
+### 5. Performance
 
-Final pass on operational modules at 360px viewport:
-
-- Tables: ensure horizontal scroll or card fallback on `bookings`, `dues`, `laundry`, `housekeeping`.
-- Popups: `luxe-card` `max-h-[90vh] overflow-y-auto` on all modals.
-- Action buttons: min 44px tap target, prevent overflow with `flex-wrap`.
-- Forms: single-column at `<sm` breakpoint.
-
-Presentation-only; no logic changes.
+While working on these changes, if you notice any unnecessary queries, duplicate rendering, or opportunities to improve responsiveness, please optimize them as part of this sprint. Small performance improvements are always welcome where they don't affect architecture.
 
 ---
 
-## Deliverables
-
-**New/edited files** (est.):
-
-- `src/routes/api/public/razorpay-webhook.ts` — fee-as-charge split
-- `src/lib/booking-create.ts` — audit trail first event
-- `src/routes/_authenticated/dues.tsx` — header + placement
-- `src/routes/_authenticated/laundry.tsx` — manual pickup UI
-- `src/lib/laundry-batches-api.ts` — manual line support (if gaps found)
-- `src/routes/_authenticated/master-data.tsx` — Payment Modes label
-- `src/components/app-sidebar.tsx` — HK Work History link
-- `src/routes/_authenticated/reporting.laundry.tsx` — reconciliation fixes (if any)
-- Migration: seed `Razorpay Charges` in `charge_catalog`; backfill `booking_created` activities
-- Docs: `permissions.md`, `modules.md`, `workflows.md`, `.lovable/backlog.md`
-
-**Completion report** at end will include: root cause per UAT, files changed, arch decisions, regression impact, docs delta, backlog reconciliation, and any collateral fixes surfaced along the way.
-
----
-
-Shall I proceed with implementation as described?
-
-&nbsp;
-
-&nbsp;
-
-My response - 
-
-Approved. The implementation plan looks good and aligns with the existing HEOS architecture. Please proceed as planned.
-
-&nbsp;
-
-I'd like to add one more operational finding to this shipment if possible.
-
-&nbsp;
-
-UAT-030 – Guest Portal URL Simplification & Performance
-
-&nbsp;
-
-Currently, Guest Portal URLs look like:
-
-&nbsp;
-
-[https://guest.hotelexcella.in/portal/b57ca77ac11bad16df1902c89bf85b83](https://guest.hotelexcella.in/portal/b57ca77ac11bad16df1902c89bf85b83)
-
-&nbsp;
-
-I'd prefer the public-facing URL to use the Booking Reference instead, for example:
-
-&nbsp;
-
-[https://guest.hotelexcella.in/portal/HEXB-FA5AE5](https://guest.hotelexcella.in/portal/HEXB-FA5AE5)
-
-&nbsp;
-
-The Booking Reference is unique, much easier for Reception staff to communicate over phone or WhatsApp, and greatly simplifies troubleshooting and guest support.
-
-&nbsp;
-
-If the existing token is still required internally, that's perfectly fine. Please retain the current internal routing or lookup mechanism if needed, but expose the Booking Reference as the public-facing URL so the guest sees a clean, human-friendly URL.
-
-&nbsp;
-
-Additionally, please perform a Guest Portal Performance Audit while implementing this.
-
-&nbsp;
-
-The Guest Portal should open as quickly as possible, as it will become one of the primary guest-facing entry points of HEOS.
-
-&nbsp;
-
-Please review and optimize where applicable:
-
-&nbsp;
-
-Database lookup strategy (ensure Booking Reference lookup is indexed if used).
-
-&nbsp;
-
-Backend/API response times.
-
-&nbsp;
-
-Number of backend requests made during initial page load.
-
-&nbsp;
-
-Frontend bundle size and lazy loading opportunities.
-
-&nbsp;
-
-React rendering and unnecessary re-renders.
-
-&nbsp;
-
-Images and static assets.
-
-&nbsp;
-
-Any avoidable loading delays.
-
-&nbsp;
-
-&nbsp;
-
-If changing the URL from the current token to the Booking Reference introduces any measurable performance or architectural trade-offs, please explain them and implement the most efficient approach.
-
-&nbsp;
-
-Please also let me know the current Guest Portal performance metrics (initial page load/API timings) and any optimizations you make as part of this audit.
-
-&nbsp;
-
-The objective is to keep the Guest Portal simple, fast, and future-ready as we continue evolving HEOS toward Excella AI OS.
-
-&nbsp;
-
-&nbsp;
-
----
-
-&nbsp;
-
-Everything else in the proposed plan looks good. Please proceed with the implementation.
+Everything else looks good. Please proceed with the implementation.

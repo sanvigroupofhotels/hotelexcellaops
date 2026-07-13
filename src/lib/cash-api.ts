@@ -211,3 +211,142 @@ export async function getCashTxCreator(tx: CashTxRow): Promise<{ name: string | 
   if (data) return { name: (data as any).actor_name, role: (data as any).actor_role, at: (data as any).created_at };
   return { name: null, role: null, at: tx.created_at };
 }
+
+// ---------- Cash Tx Attachments (UAT-031) ----------
+export interface CashTxAttachment {
+  id: string;
+  tx_id: string;
+  user_id: string;
+  storage_path: string;
+  mime_type: string;
+  file_size: number | null;
+  original_filename: string | null;
+  uploaded_by: string | null;
+  uploaded_by_name: string | null;
+  created_at: string;
+}
+
+export const CASH_TX_ATTACHMENT_BUCKET = "cash-tx-attachments";
+/** FO Staff must attach at least one bill on Cash Out above this INR amount. */
+export const CASH_OUT_ATTACHMENT_THRESHOLD_INR = 300;
+
+export async function listCashTxAttachments(txId: string): Promise<CashTxAttachment[]> {
+  const { data, error } = await supabase
+    .from("cash_tx_attachments" as any)
+    .select("*")
+    .eq("tx_id", txId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as unknown as CashTxAttachment[];
+}
+
+async function logCashAttachmentActivity(
+  txId: string,
+  action: "attachment_added" | "attachment_replaced" | "attachment_deleted",
+  summary: string,
+) {
+  const { data: { user } } = await supabase.auth.getUser();
+  let name: string | null = null;
+  let role: string | null = null;
+  if (user) {
+    const [{ data: prof }, { data: roleRow }] = await Promise.all([
+      supabase.from("profiles" as any).select("display_name, email").eq("id", user.id).maybeSingle(),
+      supabase.from("user_roles" as any).select("role").eq("user_id", user.id).limit(1).maybeSingle(),
+    ]);
+    name = (prof as any)?.display_name ?? (prof as any)?.email ?? null;
+    role = (roleRow as any)?.role ?? null;
+  }
+  await supabase.from("cash_tx_activities" as any).insert({
+    tx_id: txId,
+    actor_id: user?.id ?? null,
+    actor_name: name,
+    actor_role: role,
+    action,
+    summary,
+  } as any);
+}
+
+export async function uploadCashTxAttachment(txId: string, file: File): Promise<CashTxAttachment> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+  const ext = (file.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+  const path = `${user.id}/${txId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const up = await supabase.storage.from(CASH_TX_ATTACHMENT_BUCKET).upload(path, file, {
+    contentType: file.type || "application/octet-stream",
+    upsert: false,
+  });
+  if (up.error) throw up.error;
+
+  const { data: prof } = await supabase.from("profiles" as any)
+    .select("display_name, email").eq("id", user.id).maybeSingle();
+  const uploader_name = (prof as any)?.display_name ?? (prof as any)?.email ?? null;
+
+  const { data, error } = await supabase.from("cash_tx_attachments" as any).insert({
+    tx_id: txId,
+    user_id: user.id,
+    storage_path: path,
+    mime_type: file.type || "application/octet-stream",
+    file_size: file.size ?? null,
+    original_filename: file.name ?? null,
+    uploaded_by: user.id,
+    uploaded_by_name: uploader_name,
+  } as any).select().single();
+  if (error) {
+    // Roll back the upload if the metadata insert failed.
+    await supabase.storage.from(CASH_TX_ATTACHMENT_BUCKET).remove([path]).catch(() => {});
+    throw error;
+  }
+  await logCashAttachmentActivity(
+    txId,
+    "attachment_added",
+    `Attachment added · ${file.name ?? "file"}`,
+  );
+  return data as unknown as CashTxAttachment;
+}
+
+export async function deleteCashTxAttachment(attachmentId: string) {
+  const { data: row, error: readErr } = await supabase
+    .from("cash_tx_attachments" as any)
+    .select("id, tx_id, storage_path, original_filename")
+    .eq("id", attachmentId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (!row) return;
+  const r: any = row;
+  const { error } = await supabase.from("cash_tx_attachments" as any).delete().eq("id", attachmentId);
+  if (error) throw error;
+  await supabase.storage.from(CASH_TX_ATTACHMENT_BUCKET).remove([r.storage_path]).catch(() => {});
+  await logCashAttachmentActivity(
+    r.tx_id,
+    "attachment_deleted",
+    `Attachment removed · ${r.original_filename ?? "file"}`,
+  );
+}
+
+export async function replaceCashTxAttachment(attachmentId: string, file: File): Promise<CashTxAttachment> {
+  const { data: row } = await supabase
+    .from("cash_tx_attachments" as any)
+    .select("id, tx_id, storage_path, original_filename")
+    .eq("id", attachmentId)
+    .maybeSingle();
+  if (!row) throw new Error("Attachment not found");
+  const r: any = row;
+  // Delete old row + object, then insert new (logs internally).
+  await supabase.from("cash_tx_attachments" as any).delete().eq("id", attachmentId);
+  await supabase.storage.from(CASH_TX_ATTACHMENT_BUCKET).remove([r.storage_path]).catch(() => {});
+  const created = await uploadCashTxAttachment(r.tx_id, file);
+  // Log replaced (uploadCashTxAttachment already logged 'attachment_added');
+  // add a 'replaced' summary as the canonical event for audit.
+  await logCashAttachmentActivity(
+    r.tx_id,
+    "attachment_replaced",
+    `Attachment replaced · ${r.original_filename ?? "old"} → ${file.name ?? "new"}`,
+  );
+  return created;
+}
+
+export async function signedCashTxAttachmentUrl(storagePath: string, expires = 300): Promise<string | null> {
+  const { data } = await supabase.storage.from(CASH_TX_ATTACHMENT_BUCKET).createSignedUrl(storagePath, expires);
+  return data?.signedUrl ?? null;
+}
+

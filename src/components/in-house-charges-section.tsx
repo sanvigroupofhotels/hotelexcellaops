@@ -60,11 +60,22 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
         <div className="text-center text-xs text-muted-foreground py-3">No in-house charges yet.</div>
       ) : (
         <div className="space-y-1.5">
-          {rows.map((r) => (
-            <div key={r.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-secondary/40 text-sm">
+          {rows.map((r) => {
+            // UAT-025: system-generated charges (Razorpay convenience fee auto-split)
+            // must be visually distinct from staff-added charges.
+            const isSystem = (r.added_by ?? "").toLowerCase() === "system"
+              || (r.added_by ?? "").toLowerCase().startsWith("system ")
+              || String(r.notes ?? "").toLowerCase().includes("[system-generated]");
+            return (
+            <div key={r.id} className={`flex items-center justify-between py-2 px-3 rounded-md text-sm ${isSystem ? "bg-gold-soft/30 border border-gold/30" : "bg-secondary/40"}`}>
               <div className="min-w-0 flex-1">
-                <div className="font-medium truncate">
+                <div className="font-medium truncate flex items-center gap-1.5">
                   {r.category}{r.category === "Other" && r.other_description ? ` · ${r.other_description}` : ""}
+                  {isSystem && (
+                    <span className="inline-flex items-center rounded-sm border border-gold/50 bg-gold-soft px-1.5 py-0 text-[9px] uppercase tracking-wider text-gold-dark">
+                      Auto
+                    </span>
+                  )}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
                   {Number(r.quantity)} × {inr(r.unit_price)} · {r.added_by ?? "—"} · {new Date(r.occurred_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
@@ -89,7 +100,7 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
                 )}
               </div>
             </div>
-          ))}
+          );})}
           <div className="flex justify-end pt-2 border-t border-border/40 text-sm font-medium">
             Total Charges: <span className="ml-2 text-gold">{inr(total)}</span>
           </div>
