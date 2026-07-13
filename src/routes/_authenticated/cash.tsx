@@ -11,6 +11,7 @@ import {
   listExpenseTypes, createExpenseType, updateExpenseType,
   COLLECTION_TYPES, type CashTxRow,
   uploadCashTxAttachment,
+  CASH_OUT_ATTACHMENT_THRESHOLD_INR,
 } from "@/lib/cash-api";
 import {
   CashTxAttachmentsPanel, CashTxAttachmentsViewer,
