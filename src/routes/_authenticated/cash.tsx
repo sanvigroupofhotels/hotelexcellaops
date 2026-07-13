@@ -865,10 +865,27 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
               <input type="datetime-local" className={inputCls} value={occurredAt} onChange={e=>setOccurredAt(e.target.value)} />
             </Field>
           </div>
+
+          {/* UAT-031: Bill/Receipt attachments (Cash Out).
+              Front-desk staff must attach at least one bill when Cash Out > ₹300.
+              Owners/Admins may bypass. Available on both Cash Out and (optionally) Cash In. */}
+          {kind === "expense" && (
+            <CashTxAttachmentsPanel
+              txId={isEdit ? edit!.id : null}
+              staged={staged}
+              onStagedChange={setStaged}
+            />
+          )}
+
+          {attachmentRequired && !meetsAttachmentRule && (
+            <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning">
+              A bill attachment is required for Cash Out over ₹{CASH_OUT_ATTACHMENT_THRESHOLD_INR}. Please attach at least one image or PDF.
+            </div>
+          )}
         </div>
         <div className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex gap-2 justify-end">
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-md border border-border">Cancel</button>
-          <button onClick={()=>save.mutate()} disabled={save.isPending}
+          <button onClick={()=>save.mutate()} disabled={save.isPending || !meetsAttachmentRule}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md gold-gradient text-charcoal font-medium disabled:opacity-60">
             {save.isPending && <Loader2 className="h-4 w-4 animate-spin"/>}
             {isEdit ? "Save Changes" : "Save"}
