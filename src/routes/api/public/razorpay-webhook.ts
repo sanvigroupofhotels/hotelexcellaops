@@ -210,8 +210,10 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
                   quantity: 1,
                   unit_price: Math.round(excessAmount * 100) / 100,
                   amount: Math.round(excessAmount * 100) / 100,
-                  notes: `Payment gateway fee · ${razorpay_payment_id}`,
-                  added_by: "System",
+                  // UAT-025: `[system-generated]` marker is what `in-house-charges-section.tsx`
+                  // keys off to render the "Auto" badge + highlighted background.
+                  notes: `[system-generated] Payment gateway fee · Razorpay ${razorpay_payment_id}`,
+                  added_by: "System (Razorpay)",
                   occurred_at: new Date().toISOString(),
                 } as any);
                 if (chErr) throw chErr;
