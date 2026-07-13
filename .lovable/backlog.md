@@ -15,7 +15,7 @@ after **P1 Housekeeping + Laundry Reporting** sprint.
 - Every completion report includes a **Reconciliation Summary**.
 - The **Platform Health** section below is refreshed every sprint.
 
-- **Last updated:** 2026-07-12 (HEOS **Core v1.1 — Stabilization Sprint 3**: operational completion sprint)
+- **Last updated:** 2026-07-13 (HEOS **Core v1.1 — Stabilization Sprint 4**: operational completion sprint)
 - **Currently in flight:** _None — Sprint 3 shipped. Real-world UAT continues._
 
 ## 2026-07-12 — HEOS Core v1.1 · Stabilization Sprint 3 (Operational Completion)
