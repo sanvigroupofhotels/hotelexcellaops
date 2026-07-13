@@ -641,6 +641,9 @@ function TxDetailModal({ tx, onClose, onEdit }: { tx: CashTxRow; onClose: () => 
             {tx.notes && <DetailRow label="Notes" value={tx.notes} full />}
           </div>
 
+          {/* Bill/Receipt attachments (UAT-031) */}
+          <CashTxAttachmentsViewer txId={tx.id} />
+
           {/* Activity History */}
           <div className="border-t border-border pt-4">
             <h4 className="text-sm font-medium mb-3 flex items-center gap-2"><HistoryIcon className="h-4 w-4 text-gold"/> Activity History</h4>
