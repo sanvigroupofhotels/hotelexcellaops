@@ -930,6 +930,53 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_tx_attachments: {
+        Row: {
+          created_at: string
+          file_size: number | null
+          id: string
+          mime_type: string
+          original_filename: string | null
+          storage_path: string
+          tx_id: string
+          uploaded_by: string | null
+          uploaded_by_name: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_size?: number | null
+          id?: string
+          mime_type: string
+          original_filename?: string | null
+          storage_path: string
+          tx_id: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string
+          original_filename?: string | null
+          storage_path?: string
+          tx_id?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_tx_attachments_tx_id_fkey"
+            columns: ["tx_id"]
+            isOneToOne: false
+            referencedRelation: "cash_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       charge_catalog: {
         Row: {
           active: boolean
