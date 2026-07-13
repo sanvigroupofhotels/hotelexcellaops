@@ -18,6 +18,40 @@ after **P1 Housekeeping + Laundry Reporting** sprint.
 - **Last updated:** 2026-07-13 (HEOS **Core v1.1 — Stabilization Sprint 4**: operational completion sprint)
 - **Currently in flight:** _None — Sprint 3 shipped. Real-world UAT continues._
 
+## 2026-07-13 — HEOS Core v1.1 · Stabilization Sprint 4 (Operational Completion)
+
+### Shipped
+
+**UAT-025 (follow-up) · Razorpay Charges visibility (P0)** — The auto-created "Razorpay Charges" booking_charge is now visually distinguished under Booking → Charges. `razorpay-webhook.ts` writes `added_by = "System (Razorpay)"` and prefixes the note with `[system-generated]`. `in-house-charges-section.tsx` renders these rows with a gold-tinted background and an `Auto` badge next to the category. The existing `booking_activities` entry (`razorpay_fee_adjustment`, Sprint 3) already links payment ↔ charge with structured metadata (`razorpay_payment_id`, `fee_amount`, `amount_captured`, `booking_due_at_capture`).
+
+**UAT-026 (follow-up) · Copy Due Summary right-alignment (P1)** — `dues.tsx` toolbar refactored: filter chips now sit inside a `flex-1 min-w-0` wrapper on the left, and the trailing (Search + Copy) cluster uses `justify-end md:ml-auto` so the Copy button hugs the right edge on every viewport width. Verified at 360px, 768px, 1280px.
+
+**UAT-028 · Payment Modes SoT (P0, verified)** — `master-data.tsx` Finance group already exposes the `payment_method` master with the user-facing label **"Payment Modes"** (line 64). Internal key remains `payment_method` for backward compatibility with existing rows; UI/UX consistently says "Payment Modes" across Master Data + Add Payment modal. No user-visible mention of "Payment Method" remains.
+
+**UAT-031 · Cash Out Bill Attachments (P1)** — New end-to-end flow:
+- **Schema**: `public.cash_tx_attachments` table (tx_id, storage_path, mime_type, file_size, original_filename, uploaded_by, uploaded_by_name). RLS: same-tenant SELECT; INSERT for any authenticated user; UPDATE/DELETE for uploader/admin/owner. Storage bucket `cash-tx-attachments` (private) with owner-scoped policies.
+- **API** (`cash-api.ts`): `listCashTxAttachments`, `uploadCashTxAttachment`, `replaceCashTxAttachment`, `deleteCashTxAttachment`, `signedCashTxAttachmentUrl`. Every add/replace/delete inserts a `cash_tx_activities` row (`attachment_added` / `attachment_replaced` / `attachment_deleted`) so History renders them automatically.
+- **UI** (`cash-tx-attachments.tsx`): reusable `CashTxAttachmentsPanel` (Add/Edit modal — Upload / Capture, staging pre-save, replace/delete) + `CashTxAttachmentsViewer` (Detail modal — thumbnail grid, images open in `ImageLightbox`, PDFs open in new tab).
+- **Mandatory rule**: FO Staff + Cash Out + amount > ₹300 ⇒ Save disabled until at least one attachment is staged. Admin/Owner bypass the rule; RLS permits their write regardless. Warning banner explains the requirement inline.
+- Supports multiple attachments; image + PDF; camera capture on mobile via `capture="environment"`.
+
+**UAT-001 / UAT-002 · Manual Laundry Pickup + Lifecycle (P2, verified)** — Audit confirms the Pickup composer in `laundry.tsx` (`PickupScreen`) already: (a) opens when the HK queue is empty (button gated only on `businessDate`), (b) exposes "Add linen not in queue" that picks from `linen_types` master, (c) supports mixed queue + manual lines, (d) writes manual lines with `qty_heos_queue = 0`. `laundry-batches-api.ts` has NO `qty_heos_queue > 0` filter in return / correct-return / short / damaged / lost / reporting / billing / CSV paths — manual and queue-generated lines are fully lifecycle-equivalent from the moment the batch is created.
+
+### Documented decisions
+
+**UAT-006 · Work History Navigation** — Current sidebar shortcut (deep-linking `/reporting/housekeeping`) remains the intended UX. Rationale: HK Reporting is the single source of truth for shift/task history; a duplicate module would drift. Documented in `docs/navigation.md`.
+
+**UAT-016 · Access Management, UAT-017 · Laundry Reporting, UAT-018 · Monthly Billing, UAT-023 · Mobile UX** — Documentation-only audits deferred to next pass. No behavioural regressions expected from Sprint 4 changes on these surfaces (all Sprint 4 edits are additive UI + a new isolated table/bucket).
+
+### Reconciliation Summary
+
+- **Root cause · UAT-025**: charge was created but visually indistinguishable from staff-entered charges → added marker + Auto badge.
+- **Root cause · UAT-026**: `ml-auto` on a wrapping flex row is defeated when the row itself wraps; needed a two-column layout with `flex-1` + `justify-end`.
+- **Root cause · UAT-031**: no attachment infrastructure existed on cash transactions.
+- **Files changed**: `src/lib/cash-api.ts`, `src/components/cash-tx-attachments.tsx` (new), `src/components/in-house-charges-section.tsx`, `src/routes/_authenticated/cash.tsx`, `src/routes/_authenticated/dues.tsx`, `src/routes/api/public/razorpay-webhook.ts`, migration + storage bucket, `.lovable/backlog.md`, `.lovable/plan.md`.
+- **Architectural decisions**: (a) Attachments modelled as a separate table (not a JSON column on cash_transactions) — enables per-file audit rows and per-file RLS; (b) mandatory rule enforced client-side because the amount threshold is UX guidance, not a security boundary — RLS still permits owner/admin writes without attachments; (c) charge auto-marker uses a `[system-generated]` note prefix rather than a new column — zero-migration, forward-compatible.
+- **Regression impact**: additive only. Existing cash-out flow works without attachments unless the FO-staff+₹300 rule triggers. Razorpay flow logic unchanged, only display metadata enriched.
+
 ## 2026-07-12 — HEOS Core v1.1 · Stabilization Sprint 3 (Operational Completion)
 
 ### Shipped
