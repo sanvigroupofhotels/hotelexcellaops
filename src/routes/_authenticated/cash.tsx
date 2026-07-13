@@ -685,6 +685,8 @@ function DetailRow({ label, value, full }: { label: string; value: React.ReactNo
 // ---------- Tx Form Modal (Create + Edit) ----------
 function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; edit?: CashTxRow; onClose: ()=>void }) {
   const qc = useQueryClient();
+  const { isAdmin, isOwner } = useUserRole();
+  const canBypassAttachmentRule = isAdmin || isOwner;
   const { data: staff = [] } = useQuery({ queryKey: ["staff","active","cashbook"], queryFn: () => listStaff(true, { availability: "cashbook" }) });
   const { data: etypes = [] } = useQuery({ queryKey: ["etypes","active"], queryFn: () => listExpenseTypes(true) });
   const { values: incomeTypes } = useMasterData("income_category", [...COLLECTION_TYPES]);
@@ -710,6 +712,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     return d.toISOString().slice(0,16);
   });
+  const [staged, setStaged] = useState<StagedAttachment[]>([]);
 
   const isOther = typeName === "Other" || typeName === "Others";
   if (kind==="expense" && etypes.length>0 && !typeName) {
@@ -742,12 +745,27 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
     occurred_at: new Date(occurredAt).toISOString(),
   });
 
+  const attachmentRequired = requiresCashOutAttachment({ kind, amount, canBypass: canBypassAttachmentRule });
+  // For NEW tx: staged attachments count. For EDIT: we assume any persisted
+  // attachments already meet the rule; the panel manages its own live state.
+  const meetsAttachmentRule = !attachmentRequired || isEdit || staged.length > 0;
+
   const save = useMutation({
-    mutationFn: () => isEdit ? updateCashTx(edit!.id, payload()) : createCashTx(payload()),
+    mutationFn: async () => {
+      if (isEdit) return updateCashTx(edit!.id, payload());
+      const row = await createCashTx(payload());
+      // Flush any staged attachments now that we have a tx id.
+      for (const s of staged) {
+        try { await uploadCashTxAttachment(row.id, s.file); }
+        catch (e: any) { toast.error(`Attachment "${s.file.name}" failed: ${e?.message ?? "unknown"}`); }
+      }
+      return row;
+    },
     onSuccess: () => {
       toast.success(isEdit ? "Transaction updated" : (kind==="collection" ? "Collection recorded" : "Expense recorded"));
       qc.invalidateQueries({ queryKey: ["cash-tx"] });
       qc.invalidateQueries({ queryKey: ["cash-tx-activities"] });
+      qc.invalidateQueries({ queryKey: ["cash-tx-attachments"] });
       onClose();
     },
     onError: (e: any) => toast.error(e.message),
