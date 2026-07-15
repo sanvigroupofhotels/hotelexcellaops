@@ -47,6 +47,7 @@ export function PaymentsReportsPage() {
   const [guest, setGuest] = useState("");
   const [bookingRef, setBookingRef] = useState("");
   const [mode, setMode] = useState("All");
+  const { modes: paymentModes } = usePaymentModes();
   const [collectedBy, setCollectedBy] = useState("");
   const [editPayment, setEditPayment] = useState<BookingPaymentRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
