@@ -57,6 +57,7 @@ import { listGuestDocuments } from "@/lib/guest-documents-api";
 import { getDocumentsRetention } from "@/lib/app-settings-api";
 import { toast } from "sonner";
 import { useOpsTimeLabels } from "@/lib/check-times";
+import { usePaymentModes } from "@/hooks/use-payment-modes";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
   component: BookingDetail,
@@ -69,6 +70,9 @@ function BookingDetail() {
   const navigate = useNavigate();
   const { isAdmin } = useUserRole();
   const currentStaff = useCurrentStaff();
+  // UAT-028: Payment Mode dropdowns everywhere read from the same shared
+  // hook (Master Data → Finance → Payment Modes).
+  const { modes: paymentModes } = usePaymentModes();
   useRealtimeInvalidate(["bookings"], [["booking", id], "bookings"], `booking-${id}`);
 
   const { data: b, isLoading } = useQuery({ queryKey: ["booking", id], queryFn: () => getBooking(id) });
@@ -825,7 +829,7 @@ function BookingDetail() {
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Mode</div>
                 <select value={refundMode} onChange={(e) => setRefundMode(e.target.value)}
                   className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5">
-                  <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
+                  {paymentModes.map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
               </label>
               <label className="col-span-2 space-y-1">
@@ -911,10 +915,7 @@ function BookingDetail() {
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Mode</span>
                     <select value={cancelRefundMode} onChange={(e) => setCancelRefundMode(e.target.value)}
                       className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                      <option>Cash</option>
-                      <option>UPI</option>
-                      <option>Card</option>
-                      <option>Bank Transfer</option>
+                      {paymentModes.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </label>
                   <label className="col-span-2 block text-xs">
