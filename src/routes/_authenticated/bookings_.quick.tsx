@@ -204,6 +204,7 @@ function QuickBookingPage() {
 
   // ---- Advance payment captured inline (stored via createBookingPayment) ----
   const [advanceAmount, setAdvanceAmount] = useState(0);
+  const { modes: paymentModes } = usePaymentModes();
   const [paymentMode, setPaymentMode] = useState("Cash");
 
   // ---- Validation guard rails ----
@@ -610,7 +611,7 @@ function QuickBookingPage() {
             </Field>
             <Field label="Mode">
               <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="qb-input">
-                {PAYMENT_MODES.map((m) => <option key={m}>{m}</option>)}
+                {paymentModes.map((m) => <option key={m}>{m}</option>)}
               </select>
             </Field>
           </div>
