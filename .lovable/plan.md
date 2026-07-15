@@ -1,141 +1,160 @@
-## HEOS Core v1.1 — Stabilization Sprint 4 Plan
+## HEOS Core v1.1 — Stabilization Sprint 5 Plan
 
-### P0 · Finance & Payments
+### P0 — Finance & Booking
 
-**UAT-025 · Razorpay Convenience Fee — Verification + polish**
-Fee split is already implemented in `src/routes/api/public/razorpay-webhook.ts` (lines 202–260): when captured > outstanding, it creates a `booking_charge` with `category='Razorpay Charges'`, records an offset payment, and logs `razorpay_fee_adjustment` in `booking_activities`. It IS visible under Booking → Charges.
-Actions:
+**UAT-028 · Payment Modes SoT (root cause found)**  
+`master_data.payment_method` has rows whose `label` was edited (e.g. "FabHotels", "Guest Portal") but `value` was left stale ("Other", "Bank Transfer"). `useMasterData()` returns `values`, so the Add Payment modal shows stale values, not the admin-edited labels.  
+Fix:
 
-- Add a `system_generated: true` marker in the charge `notes`/metadata field so it's identifiable as auto-generated (already in activity metadata, extend to charge).
-- Add a small "Verify" note in the completion report showing where in the UI the guest can see it: `Booking Detail → Charges section` (rendered by `in-house-charges-section.tsx`).
-- Simulate a live webhook via `supabase--read_query` on `booking_charges` for recent Razorpay-Charges rows and share the query snippet in the report.
+- Change `AddBookingPaymentModal` and every other Add-Payment surface (cancel/refund dialog, cash book, portal, booking engine review) to render **labels** and persist labels as the free-text mode string.
+- Also expose `useMasterData(...).labels` list directly for these dropdowns.
+- Add a `payment-modes` helper hook (`usePaymentModes()`) that returns `{ modes: string[] }` (labels, sorted, active) with a defensive fallback — so every dropdown pulls from one place. Replace all hard-coded `PAYMENT_MODES` UI usages with it. Storage constants stay for legacy/webhook code.
 
-**UAT-026 · Copy Due Summary right-align**
-`dues.tsx` — wrap toolbar with `flex items-center gap-2 w-full`, add `ml-auto` to Copy Due Summary button so it hugs the right edge next to search input.
+**UAT-032 · In-house Charges show Date + Time**  
+`in-house-charges-section.tsx` line 81 uses `toLocaleDateString`. Switch to the same formatter used by Payments (date + time, `en-IN`, `dd Mon · hh:mm AM/PM`). Apply anywhere charges are listed (booking detail, House View popup summary, cancel/refund preview, activity log summary line).
 
-**UAT-028 · Payment Modes SoT — expose in Master Data UI**
-`master-data.tsx` — confirm the Finance group has a `payment_method` tab labelled "Payment Modes"; if missing, add it. Seed default modes on empty. Document in `docs/modules.md`.
+**UAT-034 · Refund Financial Recalculation**  
+Audit every mutation path and ensure `refreshAfterBookingMutation(qc, bookingId)` (which awaits `recomputeBookingAmount` and invalidates every dependent cache) is called immediately after:
 
-### P1 · Cash Book
+- Payment create/edit/delete
+- Refund create (cancel dialog + explicit refund)
+- In-house Charge create/edit/delete
+- Razorpay webhook auto-charge (server side: also emit the same booking-level recalc via `recomputeBookingAmount` since QueryClient isn't available server-side — client cache refresh happens on refocus / realtime)
+- Discount/waiver/total-override save (Edit Booking already does this; verify)
+- Past-due carry forward (night audit)
+- Cash refund from cashbook
 
-**UAT-031 · Cash Out Bill Attachment** (new)
-Schema:
+Confirm the reconciliation identity in one place (`booking-totals.ts` helper if not already centralized):  
+`Balance Due = Room+Stay + In-house Charges − Discounts − Waivers − (Payments − Refunds)`
 
-- New table `cash_tx_attachments` (id, tx_id fk, user_id, storage_path, mime_type, file_size, uploaded_by, uploaded_by_name, created_at). RLS: same visibility as parent tx.
-- New storage bucket `cash-tx-attachments` (private) with owner-based RLS.
-- Activity: extend `cash_tx_activities` action enum to include `attachment_added`, `attachment_replaced`, `attachment_deleted`.
+### P1 — Verification Only (no code changes unless defects found)
 
-API (`src/lib/cash-api.ts`): add `listCashTxAttachments`, `uploadCashTxAttachment`, `deleteCashTxAttachment`, `signedCashTxAttachmentUrl`. Log activities.
+UAT-001, 002, 025 — spot check via read_query + code trace; document in backlog.
 
-UI:
+### P2 — Deferred Audits (documentation)
 
-- Add-Cash-Tx modal (find the current cash-out entry point — `cash.tsx`): file picker (image/pdf, multi), preview, delete.
-- Mandatory rule: FO staff + kind='expense' + amount > 300 ⇒ at least one attachment required before save. Owner/Admin bypass via `has_role('admin'|'owner')` check.
-- Detail/edit view: list attachments with View / Replace / Remove buttons (mirrors `add-booking-payment-modal.tsx` attachment block).
+- UAT-006 — Add rationale note in `navigation.md`.
+- UAT-016 — Audit routes vs sidebar vs `permissions.md`; remove obsolete keys; regenerate table.
+- UAT-017/018 — Reconcile laundry reports to `laundry_batch_lines`; add formula section in `modules.md`.
+- UAT-023 — Mobile pass — touch targets ≥44px, table→card fallback verification at 360px. Presentation-only tweaks where obvious.
 
-### P2 · Laundry
+### New — UAT-033 · Multiple Contact Numbers
 
-**UAT-001 · Manual Laundry Pickup (from empty queue)**
-`laundry.tsx` Pickup composer:
+**Schema (new migration)**
 
-- Remove `queue.length === 0` blocker (already partially done per Sprint 3 backlog note — confirm).
-- Add "+ Add Manual Line" button that opens a linen-type picker fed by `linen_types` master (`listLinenTypes`).
-- Manual line: `qty_heos_queue = 0`, `qty_manual = n`, `linen_type_id`, `linen_type_name`.
-- Mixed pickup: queue rows + manual rows coexist in draft.
-- On confirm, flatten to `laundry_batch_lines` (same shape).
+```
+customer_phones (
+  id uuid pk,
+  customer_id uuid fk → customers,
+  user_id uuid,           -- tenant scope
+  phone text not null,    -- normalized E.164-ish (reuses phone.ts)
+  is_primary boolean not null default false,
+  label text,             -- optional: "Personal", "Work"
+  created_at, updated_at
+)
+```
 
-**UAT-002 · Manual Laundry Lifecycle parity**
-Audit `laundry-batches-api.ts` and `laundry-queue-api.ts` for any `qty_heos_queue > 0` filter and remove. Verify reporting/billing/CSV pull from `laundry_batch_lines` regardless of origin. Document parity in `docs/modules.md`.
+- Unique index `(phone) where phone is not null` — cross-customer duplicates blocked.
+- Partial unique index: one primary per customer.
+- Backfill: `INSERT ... SELECT customer_id, user_id, phone, true FROM customers WHERE phone IS NOT NULL`.
+- Keep `customers.phone` populated with the primary for zero-regression reads (trigger keeps it in sync).
+- RLS: mirrors `customers` (`user_id = auth.uid()` + admin bypass).
+- GRANTs for authenticated + service_role.
 
-### P3 · Audits (documentation-only sprint tasks)
+**API (**`src/lib/customer-phones-api.ts`**)**
 
-**UAT-006 · Work History Nav** — Document rationale in `docs/navigation.md`: sidebar shortcut deep-links to `/reporting/housekeeping`, keeping HK Reports as SoT. Rationale: avoids duplicating report logic; permission-gated on `reporting.housekeeping.view`.
+- `listCustomerPhones(customerId)`, `addCustomerPhone`, `updateCustomerPhone`, `deleteCustomerPhone`, `promoteCustomerPhone`.
+- Extend `findCustomerByContact()` to search `customer_phones` (union).
+- Extend `searchCustomers()` to include phone rows.
+- All existing `customers.phone` reads keep working (primary is mirrored).
 
-**UAT-016 · Access Management audit** — Enumerate all routes vs `AppSidebar` permissions vs `permissions` table. Remove obsolete keys. Update `docs/permissions.md` with a full route-to-permission matrix.
+**UI**
 
-**UAT-017 · Laundry Reporting reconciliation** — Walk `reporting.laundry.tsx` + `lib/reporting/laundry-reporting.ts`. Verify Summary, Batch Details, Vendor Reports, CSV, Outstanding, Damaged, Lost totals all sum from raw `laundry_batch_lines`. Document formulas.
+- `customer-edit-dialog.tsx` — Contact section becomes a list: primary badge, add/edit/delete, promote-to-primary.
+- Customer detail page mirrors the list.
+- Duplicate-phone error: same "customer already exists — search and use existing record" message.
 
-**UAT-018 · Monthly Billing audit** — Verify vendor aggregation groups by `vendor_id + month(picked_up_at)`, per-batch totals × unit price, CSV/PDF parity. Document calculation formula in `docs/modules.md` under Laundry.
+### Files to change
 
-**UAT-023 · Mobile UX final pass** — Sweep operational modules at 360px: tables get `overflow-x-auto`, modals use `luxe-card` full-height on small screens, buttons ≥44px tap targets, forms single-column below `sm`. Presentation-only.
+- `src/lib/booking-payments-api.ts` (label-safe fallback list; already correct)
+- `src/hooks/use-payment-modes.ts` (new)
+- `src/components/add-booking-payment-modal.tsx`
+- `src/components/in-house-charges-section.tsx`
+- `src/routes/_authenticated/bookings_.$id.tsx` (refund/cancel refresh call)
+- `src/routes/_authenticated/cash.tsx` (payment mode dropdown, cash refund refresh)
+- `src/routes/portal.$token.tsx` + booking-engine review (payment mode dropdowns)
+- `src/lib/booking-pricing-sync.ts` (no code change; verify call sites)
+- New migration: `customer_phones` table + backfill + triggers
+- `src/lib/customer-phones-api.ts` (new)
+- `src/lib/customers-api.ts` (extend search)
+- `src/components/customer-edit-dialog.tsx`, `src/routes/_authenticated/customers_.$id.tsx`
+- Docs: `docs/permissions.md`, `docs/modules.md`, `docs/navigation.md`, `.lovable/backlog.md`
 
-### Files Changed (planned)
+### Regression impact
 
-- `src/routes/api/public/razorpay-webhook.ts` (annotate)
-- `src/routes/_authenticated/dues.tsx` (right-align)
-- `src/routes/_authenticated/master-data.tsx` (payment_method tab confirm)
-- `src/routes/_authenticated/cash.tsx` (attachment UI + mandatory rule)
-- `src/lib/cash-api.ts` (attachment API)
-- `src/routes/_authenticated/laundry.tsx` (manual pickup)
-- `src/lib/laundry-batches-api.ts`, `src/lib/laundry-queue-api.ts` (parity audit)
-- New migration: `cash_tx_attachments` table + storage bucket + policies + activity enum
-- Docs: `permissions.md`, `modules.md`, `navigation.md`, `.lovable/backlog.md`
+- Payment-mode display now shows labels instead of internal values. `booking_payments.payment_mode` retains whatever string it currently holds (both readable). No breaking read.
+- `customers.phone` remains authoritative for primary; existing queries unaffected. Only extra join for full-list surfaces.
+- Refund recalc uses the existing shared engine — no new business logic.
 
-### Regression Impact
+### Out of scope (explicit)
 
-- Razorpay: no logic change, only note enrichment — zero risk.
-- Cash attachments: additive tables/bucket; the mandatory-rule enforcement is client-side + server RLS check; existing cash-out flow unaffected without attachments.
-- Laundry manual pickup: purely additive draft-composer feature; existing queue pickups untouched.
-- Access/reporting/mobile audits: doc-only + presentation-only.
+- UAT-007, UAT-009 (excluded by user).
+- Repricing historical bookings retroactively; the recalc is per-mutation only.
 
-### Approval
+Confirm to proceed.
 
-This is a large multi-file sprint including a new DB table + storage bucket. Please approve before I begin the migration and file edits.
+My response - 
 
-**My response -** 
+UAT-028 – Payment Modes
 
-&nbsp;
+The proposed approach looks good.
 
-I think the plan is good overall. I would only leave a few concise comments before approving.
+Please ensure that every payment mode dropdown across the application (Add Payment, Refunds, Cash Book, Guest Portal, Booking Engine, etc.) reads from the same shared source. There should never be any possibility of different payment mode lists appearing in different modules.
 
----
+UAT-032 – In-house Charges Timestamp
 
-**Approved. The plan looks good and aligns with the HEOS architecture. Please proceed with the implementation.**
+Please use exactly the same date/time formatter as the Payments section so the entire booking timeline remains visually consistent.
 
-A few comments/clarifications before you begin:
+UAT-034 – Financial Reconciliation
 
-### 1. UAT-025 – Razorpay Charges
+While implementing, please also verify that every financial mutation flows through the shared recalculation engine, including:
 
-Please don't just verify the implementation.
+Payments
 
-Kindly ensure that the automatically created **"Razorpay Charges"** entry is clearly visible under **Booking → Charges** and is easily distinguishable as a **system-generated** charge. The corresponding Activity History should clearly link the payment and the automatically generated charge.
+Refunds
 
----
+In-house Charges
 
-### 2. UAT-028 – Payment Modes
+Charge edits/deletes
 
-If the actual master category is internally named `payment_method` for backward compatibility, that's perfectly fine.
+Razorpay auto charges
 
-However, from an administrator's perspective, the Master Data UI should consistently present it as **Payment Modes**. There should be no confusion between **Payment Method** and **Payment Mode** anywhere in the application or documentation.
+Past Due carry forward
 
----
+Discounts / Waivers
 
-### 3. UAT-031 – Cash Book Attachments
+Any future system-generated financial adjustments
 
-The proposed implementation looks good.
+The booking ledger should always remain internally consistent.
+
+UAT-033 – Multiple Contact Numbers
+
+The proposed design looks good.
 
 Please also ensure:
 
-- Attachments are visible from the Cash Book transaction detail page.
-- Images can be viewed in a full-screen/lightbox viewer.
-- PDFs can be opened/downloaded.
-- Multiple attachments are supported.
-- All attachment operations (add/replace/delete) are captured in the Activity History.
+One customer represents one real person.
 
----
+A customer may have multiple contact numbers.
 
-### 4. UAT-001 / UAT-002 – Laundry
+One number is always marked as Primary.
 
-Please test the complete lifecycle of manually added linen yourselves before considering this complete.
+Searching with any registered mobile number returns the same customer profile and booking history.
 
-Manual linen should behave **identically** to queue-generated linen across every downstream workflow. There should never be any operational distinction after the batch has been created.
+Duplicate phone numbers across different customers must not be allowed.
 
----
-
-### 5. Performance
-
-While working on these changes, if you notice any unnecessary queries, duplicate rendering, or opportunities to improve responsiveness, please optimize them as part of this sprint. Small performance improvements are always welcome where they don't affect architecture.
-
----
+This design will support future CRM and Excella AI OS capabilities.
 
 Everything else looks good. Please proceed with the implementation.
+
+&nbsp;
