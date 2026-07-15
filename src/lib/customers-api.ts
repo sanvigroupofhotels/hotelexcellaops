@@ -198,14 +198,25 @@ export async function findCustomerByNameAndPhone(name: string, phone: string) {
   return ((data?.[0] as unknown as CustomerRow) ?? null);
 }
 
-/** Search customers by partial name OR phone for autocomplete. */
+/** Search customers by partial name OR phone (any registered number) for autocomplete. */
 export async function searchCustomers(query: string, limit = 6) {
   const q = query.trim();
   if (q.length < 2) return [];
   const isPhoneish = /^[+0-9 ()-]+$/.test(q);
   let req = supabase.from("customers" as any).select("*");
   if (isPhoneish) {
-    req = req.ilike("phone", `%${q}%`);
+    // UAT-033: also match alternate numbers via customer_phones.
+    const { data: phoneHits } = await supabase
+      .from("customer_phones" as any)
+      .select("customer_id")
+      .ilike("phone", `%${q}%`)
+      .limit(limit * 2);
+    const ids = Array.from(new Set(((phoneHits ?? []) as any[]).map((r) => r.customer_id).filter(Boolean)));
+    if (ids.length > 0) {
+      req = supabase.from("customers" as any).select("*").or(`phone.ilike.%${q}%,id.in.(${ids.join(",")})`);
+    } else {
+      req = req.ilike("phone", `%${q}%`);
+    }
   } else {
     req = req.or(`guest_name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`);
   }
