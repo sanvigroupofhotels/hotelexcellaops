@@ -19,6 +19,7 @@ import { PricingBreakdownCard, StickyPricingFooter } from "@/components/pricing-
 import { lineSubtotal, nightsOf } from "@/components/line-items-editor";
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { NumField } from "@/components/num-field";
+import { usePaymentModes } from "@/hooks/use-payment-modes";
 import {
   StayFormSections, AdditionalRoomsCollapsibleCard, emptyStayValue, primaryToLineItem, lineItemToPrimary,
   type SharedStayValue,
