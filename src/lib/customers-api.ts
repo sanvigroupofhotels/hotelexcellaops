@@ -149,11 +149,23 @@ export async function deleteCustomer(id: string) {
 
 /**
  * Find existing customer by phone (preferred) or email.
- * Returns match plus a `matchType` indicating exactness so callers can decide
- * whether to auto-link silently or prompt the user.
+ * UAT-033: also searches the multi-phone table so any registered number
+ * resolves to the same customer profile.
  */
 export async function findCustomerByContact(phone?: string, email?: string, name?: string) {
   if (!phone && !email) return null;
+
+  // 1. Multi-phone lookup: any registered number resolves to its customer.
+  if (phone) {
+    const { findCustomerByAnyPhone } = await import("@/lib/customer-phones-api");
+    const cid = await findCustomerByAnyPhone(phone);
+    if (cid) {
+      const { data } = await supabase.from("customers" as any).select("*").eq("id", cid).maybeSingle();
+      if (data) return data as unknown as CustomerRow;
+    }
+  }
+
+  // 2. Legacy path (email + name refinement).
   let q = supabase.from("customers" as any).select("*");
   if (phone && email) {
     q = q.or(`phone.eq.${phone},email.eq.${email}`);
@@ -166,7 +178,6 @@ export async function findCustomerByContact(phone?: string, email?: string, name
   if (error) return null;
   const rows = (data ?? []) as unknown as CustomerRow[];
   if (rows.length === 0) return null;
-  // Prefer the exact name+phone row if the caller provided a name.
   const lname = (name ?? "").trim().toLowerCase();
   const exact = lname
     ? rows.find(r => (r.guest_name ?? "").trim().toLowerCase() === lname && (!phone || r.phone === phone))
