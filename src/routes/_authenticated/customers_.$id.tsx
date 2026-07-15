@@ -16,6 +16,7 @@ import {
   FilePlus, MessageCircle, Pencil, BedDouble,
 } from "lucide-react";
 import { CustomerDocumentsCard } from "@/components/customer-documents-card";
+import { CustomerPhonesPanel } from "@/components/customer-phones-panel";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
 import { phoneToWaDigits } from "@/lib/phone";
@@ -239,6 +240,7 @@ function CustomerDetail() {
             </div>
 
             <CustomerDocumentsCard customerId={c.id} />
+            <CustomerPhonesPanel customerId={c.id} />
 
             {/* P10 — Stacked order: Internal Notes ↓ Tag ↓ Lead Source */}
             <div className="luxe-card rounded-xl p-5">

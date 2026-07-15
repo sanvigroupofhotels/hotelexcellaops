@@ -880,3 +880,17 @@ Confirmed 2026-07-05 against the roadmap. All items below remain
 - **2026-07-05** — File created. Merged pending items from Sprint A
   (Razorpay + attribution), Sprint B (attribution audit), Phase 3A
   (Housekeeping), and Phase 2 (Operations foundation).
+
+## Sprint 5 — Completion Report (v1.1)
+
+**Shipped:**
+- UAT-028 · Payment Modes SoT — Root cause: dropdowns read `value` from `master_data.payment_method` while admin curates `label`. Fix: new `usePaymentModes()` hook returns active LABELS; wired into add-booking-payment-modal, booking detail refund + cancel selects, bookings_.new advance, bookings_.quick advance, and payments-reports filter. Single choke-point.
+- UAT-032 · In-house Charges show Date + Time using the same `toLocaleString("en-IN", {dateStyle:"short", timeStyle:"short"})` formatter as Payments.
+- UAT-034 · Refund/Financial Recalc — `invalidateAll` in bookings_.$id now awaits `refreshAfterBookingMutation` (recompute + fanout). Refund, cancel-with-refund, payment create/edit, payment delete, charge create/edit/delete all flow through the shared recalc engine. Balance Due, Advance Paid, Total Payable can no longer drift.
+- UAT-033 · Multiple Contact Numbers — New `customer_phones` table + RLS + duplicate-block unique index + one-primary-per-customer index + primary-mirror trigger to `customers.phone`. Backfilled all existing customers. New `customer-phones-api.ts` (list/add/update/delete/promote/findByAny). `customers-api.findCustomerByContact` + `searchCustomers` extended so any registered number resolves to the same customer profile. `CustomerPhonesPanel` UI added to customer detail page.
+
+**Verified (no change):** UAT-001 manual laundry pickup, UAT-002 lifecycle parity, UAT-025 Razorpay charge auto-appears with Auto badge + activity log.
+
+**Deferred (documentation-only pass in next sprint):** UAT-006 nav rationale, UAT-016 permissions audit, UAT-017/018 laundry reporting formulas, UAT-023 mobile presentation.
+
+**Regression impact:** Payment-mode dropdowns now show admin-curated labels; existing `booking_payments.payment_mode` strings remain valid. `customers.phone` continues to hold the primary via DB trigger — every legacy read path unaffected.
