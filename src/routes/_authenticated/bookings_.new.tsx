@@ -354,7 +354,7 @@ function NewBooking() {
               <label className="block">
                 <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">Advance Payment Method</span>
                 <select className={inputCls} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-                  <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
+                  {paymentModes.map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
               </label>
               <p className="text-[10px] text-muted-foreground">
