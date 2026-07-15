@@ -6,7 +6,7 @@ import {
   signedAttachmentUrl, PAYMENT_MODES, type BookingPaymentRow,
 } from "@/lib/booking-payments-api";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
-import { useMasterData } from "@/hooks/use-master-data";
+import { usePaymentModes } from "@/hooks/use-payment-modes";
 import { toast } from "sonner";
 import { NumField } from "@/components/num-field";
 import { PaymentOcrPicker, type ExtractedPayment } from "@/components/payment-ocr-picker";
@@ -16,16 +16,9 @@ import { Paperclip, Eye, Upload, Trash2, Loader2 } from "lucide-react";
  * Shared "Add / Edit Payment" modal used by the booking detail page and the
  * House View popup. Pass `payment` to edit an existing row, omit to add a new one.
  *
- * Add mode supports three entry paths:
- *   - Manual (default)
- *   - Upload Screenshot → OCR → pre-fill (never auto-save)
- *   - Capture Photo     → OCR → pre-fill (never auto-save)
- *
- * UTR and Paid To are exposed as editable fields; OCR pre-fills them from
- * the detected transaction reference and merchant name.
- *
- * Edit mode also exposes the existing OCR attachment with View / Replace /
- * Delete affordances.
+ * UAT-028: payment mode dropdown reads exclusively from `usePaymentModes()`
+ * (Master Data → Finance → Payment Modes labels) so admin edits reflect
+ * consistently across every surface with zero drift.
  */
 export function AddBookingPaymentModal({
   bookingId, customerId, maxAmount, payment, onClose, onSaved,
@@ -39,10 +32,8 @@ export function AddBookingPaymentModal({
 }) {
   const qc = useQueryClient();
   const isEdit = !!payment;
-  // Auto-attribution: the signed-in staff member is the source of truth for
-  // "Collected By". No manual picker.
   const currentStaff = useCurrentStaff();
-  const { values: paymentModes } = useMasterData("payment_method", [...PAYMENT_MODES]);
+  const { modes: paymentModes } = usePaymentModes();
 
   const [amount, setAmount] = useState<number>(payment ? Number(payment.amount) : Math.max(0, maxAmount));
   const [mode, setMode] = useState<string>(payment?.payment_mode ?? paymentModes[0] ?? PAYMENT_MODES[0]);
