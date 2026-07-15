@@ -19,6 +19,7 @@ import { PricingBreakdownCard, StickyPricingFooter } from "@/components/pricing-
 import { lineSubtotal, nightsOf } from "@/components/line-items-editor";
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { NumField } from "@/components/num-field";
+import { usePaymentModes } from "@/hooks/use-payment-modes";
 import {
   StayFormSections, AdditionalRoomsCollapsibleCard, emptyStayValue, primaryToLineItem, lineItemToPrimary,
   type SharedStayValue,
@@ -61,6 +62,7 @@ function NewBooking() {
 
   // Booking-only fields. Payment status (Pending/Advance Paid/Full Paid) is auto-derived server-side.
   const [advancePaid, setAdvancePaid] = useState<number>(0);
+  const { modes: paymentModes } = usePaymentModes();
   const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
   const [roomId, setRoomId] = useState<string | null>(prefillRoomId ?? null);
   const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(customerId ?? null);
@@ -354,7 +356,7 @@ function NewBooking() {
               <label className="block">
                 <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">Advance Payment Method</span>
                 <select className={inputCls} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-                  <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
+                  {paymentModes.map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
               </label>
               <p className="text-[10px] text-muted-foreground">

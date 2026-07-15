@@ -7,6 +7,7 @@ import { listBookings } from "@/lib/bookings-api";
 import { usePermissions } from "@/hooks/use-permissions";
 import { downloadCSV } from "@/lib/csv";
 import { PAYMENT_MODES, deleteBookingPayment, type BookingPaymentRow } from "@/lib/booking-payments-api";
+import { usePaymentModes } from "@/hooks/use-payment-modes";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -46,6 +47,7 @@ export function PaymentsReportsPage() {
   const [guest, setGuest] = useState("");
   const [bookingRef, setBookingRef] = useState("");
   const [mode, setMode] = useState("All");
+  const { modes: paymentModes } = usePaymentModes();
   const [collectedBy, setCollectedBy] = useState("");
   const [editPayment, setEditPayment] = useState<BookingPaymentRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -182,7 +184,7 @@ export function PaymentsReportsPage() {
             <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Payment Mode</span>
             <select value={mode} onChange={(e) => setMode(e.target.value)} className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 text-sm">
               <option value="All">All</option>
-              {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+              {paymentModes.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </label>
           <label className="block">

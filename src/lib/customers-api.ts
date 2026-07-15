@@ -149,11 +149,23 @@ export async function deleteCustomer(id: string) {
 
 /**
  * Find existing customer by phone (preferred) or email.
- * Returns match plus a `matchType` indicating exactness so callers can decide
- * whether to auto-link silently or prompt the user.
+ * UAT-033: also searches the multi-phone table so any registered number
+ * resolves to the same customer profile.
  */
 export async function findCustomerByContact(phone?: string, email?: string, name?: string) {
   if (!phone && !email) return null;
+
+  // 1. Multi-phone lookup: any registered number resolves to its customer.
+  if (phone) {
+    const { findCustomerByAnyPhone } = await import("@/lib/customer-phones-api");
+    const cid = await findCustomerByAnyPhone(phone);
+    if (cid) {
+      const { data } = await supabase.from("customers" as any).select("*").eq("id", cid).maybeSingle();
+      if (data) return data as unknown as CustomerRow;
+    }
+  }
+
+  // 2. Legacy path (email + name refinement).
   let q = supabase.from("customers" as any).select("*");
   if (phone && email) {
     q = q.or(`phone.eq.${phone},email.eq.${email}`);
@@ -166,7 +178,6 @@ export async function findCustomerByContact(phone?: string, email?: string, name
   if (error) return null;
   const rows = (data ?? []) as unknown as CustomerRow[];
   if (rows.length === 0) return null;
-  // Prefer the exact name+phone row if the caller provided a name.
   const lname = (name ?? "").trim().toLowerCase();
   const exact = lname
     ? rows.find(r => (r.guest_name ?? "").trim().toLowerCase() === lname && (!phone || r.phone === phone))
@@ -187,14 +198,25 @@ export async function findCustomerByNameAndPhone(name: string, phone: string) {
   return ((data?.[0] as unknown as CustomerRow) ?? null);
 }
 
-/** Search customers by partial name OR phone for autocomplete. */
+/** Search customers by partial name OR phone (any registered number) for autocomplete. */
 export async function searchCustomers(query: string, limit = 6) {
   const q = query.trim();
   if (q.length < 2) return [];
   const isPhoneish = /^[+0-9 ()-]+$/.test(q);
   let req = supabase.from("customers" as any).select("*");
   if (isPhoneish) {
-    req = req.ilike("phone", `%${q}%`);
+    // UAT-033: also match alternate numbers via customer_phones.
+    const { data: phoneHits } = await supabase
+      .from("customer_phones" as any)
+      .select("customer_id")
+      .ilike("phone", `%${q}%`)
+      .limit(limit * 2);
+    const ids = Array.from(new Set(((phoneHits ?? []) as any[]).map((r) => r.customer_id).filter(Boolean)));
+    if (ids.length > 0) {
+      req = supabase.from("customers" as any).select("*").or(`phone.ilike.%${q}%,id.in.(${ids.join(",")})`);
+    } else {
+      req = req.ilike("phone", `%${q}%`);
+    }
   } else {
     req = req.or(`guest_name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`);
   }

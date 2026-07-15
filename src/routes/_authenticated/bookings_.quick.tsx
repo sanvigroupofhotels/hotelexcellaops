@@ -38,6 +38,7 @@ import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { submitNewBooking } from "@/lib/booking-create";
 import { updateBooking, type BookingInput } from "@/lib/bookings-api";
+import { usePaymentModes } from "@/hooks/use-payment-modes";
 import { updateBookingStay } from "@/lib/booking-stay";
 import { replaceBookingItems } from "@/lib/booking-items-api";
 import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
@@ -55,6 +56,8 @@ export const Route = createFileRoute("/_authenticated/bookings_/quick")({
   component: QuickBookingPage,
 });
 
+// PAYMENT_MODES legacy fallback kept only for zero-import initial paint;
+// the actual dropdown reads `usePaymentModes()` (Master Data → Finance).
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Bank Transfer", "Other"];
 
 function makeRoomLine(room_type: string, rooms: number, adults: number, children: number, check_in: string, check_out: string, rate: number): LineItem {
@@ -201,6 +204,7 @@ function QuickBookingPage() {
 
   // ---- Advance payment captured inline (stored via createBookingPayment) ----
   const [advanceAmount, setAdvanceAmount] = useState(0);
+  const { modes: paymentModes } = usePaymentModes();
   const [paymentMode, setPaymentMode] = useState("Cash");
 
   // ---- Validation guard rails ----
@@ -607,7 +611,7 @@ function QuickBookingPage() {
             </Field>
             <Field label="Mode">
               <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="qb-input">
-                {PAYMENT_MODES.map((m) => <option key={m}>{m}</option>)}
+                {paymentModes.map((m) => <option key={m}>{m}</option>)}
               </select>
             </Field>
           </div>

@@ -57,6 +57,7 @@ import { listGuestDocuments } from "@/lib/guest-documents-api";
 import { getDocumentsRetention } from "@/lib/app-settings-api";
 import { toast } from "sonner";
 import { useOpsTimeLabels } from "@/lib/check-times";
+import { usePaymentModes } from "@/hooks/use-payment-modes";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
   component: BookingDetail,
@@ -69,6 +70,9 @@ function BookingDetail() {
   const navigate = useNavigate();
   const { isAdmin } = useUserRole();
   const currentStaff = useCurrentStaff();
+  // UAT-028: Payment Mode dropdowns everywhere read from the same shared
+  // hook (Master Data → Finance → Payment Modes).
+  const { modes: paymentModes } = usePaymentModes();
   useRealtimeInvalidate(["bookings"], [["booking", id], "bookings"], `booking-${id}`);
 
   const { data: b, isLoading } = useQuery({ queryKey: ["booking", id], queryFn: () => getBooking(id) });
@@ -85,9 +89,13 @@ function BookingDetail() {
     staleTime: 30_000,
   });
 
-  const invalidateAll = () => {
-    qc.invalidateQueries({ queryKey: ["booking", id] });
-    qc.invalidateQueries({ queryKey: ["bookings"] });
+  // UAT-034: every financial mutation flows through the shared booking
+  // totals engine. `invalidateAll` awaits recomputeBookingAmount and fans
+  // out invalidations to Payments / Charges / House View / Dues so the
+  // Booking Summary and Payment History can never drift.
+  const invalidateAll = async () => {
+    const { refreshAfterBookingMutation } = await import("@/lib/booking-pricing-sync");
+    await refreshAfterBookingMutation(qc, id);
     qc.invalidateQueries({ queryKey: ["booking-activities", id] });
   };
 
@@ -283,9 +291,12 @@ function BookingDetail() {
       });
     },
     onSuccess: async () => {
+      // UAT-034: shared recalc engine — Balance Due / Advance Paid reconcile
+      // immediately after a refund so Payment History never drifts from the
+      // Booking Summary.
+      await invalidateAll();
       qc.invalidateQueries({ queryKey: ["booking-payments", id] });
       qc.invalidateQueries({ queryKey: ["all-booking-payments"] });
-      qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["cash"] });
       qc.invalidateQueries({ queryKey: ["cash-tx-home"] });
       toast.success(`Refund ₹${refundAmount.toLocaleString("en-IN")} recorded`);
@@ -293,7 +304,6 @@ function BookingDetail() {
       setRefundOpen(false);
       setRefundAfterAction(null);
       if (after === "checkout") {
-        // Wait for advance recompute trigger; small delay then attempt
         setTimeout(() => status.mutate("Checked-Out" as any), 300);
       }
     },
@@ -819,7 +829,7 @@ function BookingDetail() {
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Mode</div>
                 <select value={refundMode} onChange={(e) => setRefundMode(e.target.value)}
                   className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5">
-                  <option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Card</option><option>Other</option>
+                  {paymentModes.map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
               </label>
               <label className="col-span-2 space-y-1">
@@ -905,10 +915,7 @@ function BookingDetail() {
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Refund Mode</span>
                     <select value={cancelRefundMode} onChange={(e) => setCancelRefundMode(e.target.value)}
                       className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
-                      <option>Cash</option>
-                      <option>UPI</option>
-                      <option>Card</option>
-                      <option>Bank Transfer</option>
+                      {paymentModes.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </label>
                   <label className="col-span-2 block text-xs">
@@ -1216,10 +1223,13 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
 
   const del = useMutation({
     mutationFn: (id: string) => deleteBookingPayment(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["booking-payments", bookingId] });
+    onSuccess: async () => {
+      // UAT-034: payment delete flows through the shared recalc engine so
+      // totals reconcile immediately (no drift between Payment History and
+      // Booking Summary).
+      const { refreshAfterBookingMutation } = await import("@/lib/booking-pricing-sync");
+      await refreshAfterBookingMutation(qc, bookingId);
       qc.invalidateQueries({ queryKey: ["booking-payment-activities", bookingId] });
-      qc.invalidateQueries({ queryKey: ["booking", bookingId] });
       qc.invalidateQueries({ queryKey: ["cash"] });
       toast.success("Payment removed");
       setDeleteId(null);

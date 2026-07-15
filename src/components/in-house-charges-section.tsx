@@ -11,8 +11,16 @@ import { useUserRole } from "@/hooks/use-role";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { NumField } from "@/components/num-field";
+import { refreshAfterBookingMutation } from "@/lib/booking-pricing-sync";
 
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
+/**
+ * UAT-032 — Every In-house Charge line displays date AND time using the
+ * exact same formatter used by the Payments list (see bookings_.$id.tsx)
+ * so the entire booking timeline is visually consistent.
+ */
+const fmtDateTime = (s: string) =>
+  new Date(s).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" });
 
 export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
   const qc = useQueryClient();
@@ -29,9 +37,12 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
 
   const delMut = useMutation({
     mutationFn: (id: string) => deleteBookingCharge(id),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Charge deleted");
-      qc.invalidateQueries({ queryKey: ["booking-charges", bookingId] });
+      // UAT-034: every financial mutation flows through the shared booking
+      // totals engine so Balance Due / Total Payable never drift.
+      await refreshAfterBookingMutation(qc, bookingId);
+      qc.invalidateQueries({ queryKey: ["all-charge-totals"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Could not delete"),
   });
@@ -78,7 +89,7 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
                   )}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  {Number(r.quantity)} × {inr(r.unit_price)} · {r.added_by ?? "—"} · {new Date(r.occurred_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                  {Number(r.quantity)} × {inr(r.unit_price)} · {r.added_by ?? "—"} · {fmtDateTime(r.occurred_at)}
                   {r.notes ? ` · ${r.notes}` : ""}
                 </div>
               </div>
@@ -157,12 +168,12 @@ export function ChargeFormDialog({
       if (editing) return updateBookingCharge(editing.id, payload);
       return createBookingCharge(payload);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success(editing ? "Charge updated" : "Charge added");
-      qc.invalidateQueries({ queryKey: ["booking-charges", bookingId] });
+      // UAT-034: shared recalc engine keeps booking.amount / Balance Due /
+      // House View pills in sync across every surface — no manual Save.
+      await refreshAfterBookingMutation(qc, bookingId);
       qc.invalidateQueries({ queryKey: ["all-charge-totals"] });
-      qc.invalidateQueries({ queryKey: ["booking", bookingId] });
-      qc.invalidateQueries({ queryKey: ["bookings"] });
       onOpenChange(false);
     },
     onError: (e: any) => toast.error(e?.message ?? "Save failed"),
