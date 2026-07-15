@@ -129,15 +129,15 @@ export function AddBookingPaymentModal({
       }
       return row;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success(isEdit ? "Payment updated" : "Payment added");
-      qc.invalidateQueries({ queryKey: ["booking-payments", bookingId] });
+      // UAT-034: route through the shared booking totals engine so
+      // Balance Due / Advance Paid / Total Payable reconcile immediately.
+      const { refreshAfterBookingMutation } = await import("@/lib/booking-pricing-sync");
+      await refreshAfterBookingMutation(qc, bookingId);
       qc.invalidateQueries({ queryKey: ["booking-payment-activities", bookingId] });
-      qc.invalidateQueries({ queryKey: ["booking", bookingId] });
-      qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["cash"] });
       qc.invalidateQueries({ queryKey: ["cash-tx-home"] });
-      qc.invalidateQueries({ queryKey: ["all-booking-payments"] });
       onSaved?.(); onClose();
     },
     onError: (e: any) => toast.error(e.message),
