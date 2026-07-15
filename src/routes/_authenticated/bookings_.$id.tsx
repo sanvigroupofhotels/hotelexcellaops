@@ -1223,10 +1223,13 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
 
   const del = useMutation({
     mutationFn: (id: string) => deleteBookingPayment(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["booking-payments", bookingId] });
+    onSuccess: async () => {
+      // UAT-034: payment delete flows through the shared recalc engine so
+      // totals reconcile immediately (no drift between Payment History and
+      // Booking Summary).
+      const { refreshAfterBookingMutation } = await import("@/lib/booking-pricing-sync");
+      await refreshAfterBookingMutation(qc, bookingId);
       qc.invalidateQueries({ queryKey: ["booking-payment-activities", bookingId] });
-      qc.invalidateQueries({ queryKey: ["booking", bookingId] });
       qc.invalidateQueries({ queryKey: ["cash"] });
       toast.success("Payment removed");
       setDeleteId(null);
