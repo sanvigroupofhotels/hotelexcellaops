@@ -62,6 +62,7 @@ function NewBooking() {
 
   // Booking-only fields. Payment status (Pending/Advance Paid/Full Paid) is auto-derived server-side.
   const [advancePaid, setAdvancePaid] = useState<number>(0);
+  const { modes: paymentModes } = usePaymentModes();
   const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
   const [roomId, setRoomId] = useState<string | null>(prefillRoomId ?? null);
   const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(customerId ?? null);
