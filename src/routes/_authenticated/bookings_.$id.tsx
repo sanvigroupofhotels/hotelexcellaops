@@ -287,9 +287,12 @@ function BookingDetail() {
       });
     },
     onSuccess: async () => {
+      // UAT-034: shared recalc engine — Balance Due / Advance Paid reconcile
+      // immediately after a refund so Payment History never drifts from the
+      // Booking Summary.
+      await invalidateAll();
       qc.invalidateQueries({ queryKey: ["booking-payments", id] });
       qc.invalidateQueries({ queryKey: ["all-booking-payments"] });
-      qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["cash"] });
       qc.invalidateQueries({ queryKey: ["cash-tx-home"] });
       toast.success(`Refund ₹${refundAmount.toLocaleString("en-IN")} recorded`);
@@ -297,7 +300,6 @@ function BookingDetail() {
       setRefundOpen(false);
       setRefundAfterAction(null);
       if (after === "checkout") {
-        // Wait for advance recompute trigger; small delay then attempt
         setTimeout(() => status.mutate("Checked-Out" as any), 300);
       }
     },
