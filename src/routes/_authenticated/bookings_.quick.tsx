@@ -38,6 +38,7 @@ import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { submitNewBooking } from "@/lib/booking-create";
 import { updateBooking, type BookingInput } from "@/lib/bookings-api";
+import { usePaymentModes } from "@/hooks/use-payment-modes";
 import { updateBookingStay } from "@/lib/booking-stay";
 import { replaceBookingItems } from "@/lib/booking-items-api";
 import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
@@ -55,6 +56,8 @@ export const Route = createFileRoute("/_authenticated/bookings_/quick")({
   component: QuickBookingPage,
 });
 
+// PAYMENT_MODES legacy fallback kept only for zero-import initial paint;
+// the actual dropdown reads `usePaymentModes()` (Master Data → Finance).
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Bank Transfer", "Other"];
 
 function makeRoomLine(room_type: string, rooms: number, adults: number, children: number, check_in: string, check_out: string, rate: number): LineItem {
