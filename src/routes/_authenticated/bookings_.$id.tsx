@@ -85,9 +85,13 @@ function BookingDetail() {
     staleTime: 30_000,
   });
 
-  const invalidateAll = () => {
-    qc.invalidateQueries({ queryKey: ["booking", id] });
-    qc.invalidateQueries({ queryKey: ["bookings"] });
+  // UAT-034: every financial mutation flows through the shared booking
+  // totals engine. `invalidateAll` awaits recomputeBookingAmount and fans
+  // out invalidations to Payments / Charges / House View / Dues so the
+  // Booking Summary and Payment History can never drift.
+  const invalidateAll = async () => {
+    const { refreshAfterBookingMutation } = await import("@/lib/booking-pricing-sync");
+    await refreshAfterBookingMutation(qc, id);
     qc.invalidateQueries({ queryKey: ["booking-activities", id] });
   };
 
