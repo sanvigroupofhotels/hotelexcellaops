@@ -507,13 +507,6 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
         </div>
       </div>
 
-      {/* Alternate mobile numbers — embedded under Your Details per UAT-041. */}
-      <div className="border-t border-border/40 pt-4">
-        <PortalPhonesSubsection token={token} />
-      </div>
-
-
-
       <div className="border-t border-border/40 pt-4">
         <button
           type="button"
@@ -524,7 +517,9 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
         </button>
         {optionalOpen && (
           <div className="mt-3 space-y-4">
-            <div className="space-y-2">
+            {/* Alternate mobile numbers — nested inside Optional per user request. */}
+            <PortalPhonesSubsection token={token} />
+            <div className="space-y-2 border-t border-border/40 pt-4">
               <h4 className="text-xs font-medium flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5 text-gold" /> Emergency Contact</h4>
               <div className="grid grid-cols-1 gap-2">
                 <Input label="Name" value={eName} onChange={setEName} />
@@ -543,6 +538,7 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
           </div>
         )}
       </div>
+
 
       <button
         disabled={saving}
