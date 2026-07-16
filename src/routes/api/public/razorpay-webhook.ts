@@ -160,9 +160,11 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
             const alreadyPaid = Number((booking as any).advance_paid ?? 0);
             const outstanding = Math.max(0, bookingTotal - alreadyPaid);
 
-            // Threshold: only split when the excess is more than 1 rupee.
-            // Guards against float dust and tiny rounding.
-            const EXCESS_THRESHOLD = 1;
+            // Dust tolerance — anything more than half a paisa above the
+            // outstanding balance is treated as a convenience/gateway fee.
+            // A ₹1 threshold silently absorbed typical Razorpay fees
+            // (e.g. ₹0.02 on ₹1.00) into the booking payment.
+            const EXCESS_THRESHOLD = 0.005;
             const primaryAmount =
               amountInr > outstanding + EXCESS_THRESHOLD && outstanding > 0
                 ? outstanding
