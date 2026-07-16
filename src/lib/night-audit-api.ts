@@ -64,11 +64,13 @@ export async function getPendingForAudit(businessDate?: string): Promise<{
       .lte("check_in", bd)
       .not("status", "in", "(Checked-In,Checked-Out,Cancelled,Stay Completed,No-Show)")
       .order("check_in", { ascending: true }),
-    // Pending Check-Out = still Checked-In with a departure ON or BEFORE the
-    // business date. Same rule: closing the day requires departures to be
-    // resolved (checked out, extended, or otherwise handled).
+    // UAT-037: Pending Check-Out = still Checked-In with a departure STRICTLY
+    // BEFORE the business date. Same-day departures (check_out == bd) are
+    // allowed to remain Checked-In while the day is being closed — Reception
+    // routinely processes them during Night Audit itself. Only overdue
+    // departures (check_out < bd) block Business Date advancement.
     supabase.from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
-      .lte("check_out", bd)
+      .lt("check_out", bd)
       .eq("status", "Checked-In" as any)
       .order("check_out", { ascending: true }),
     supabase.from("rooms" as any).select("id,room_number"),
