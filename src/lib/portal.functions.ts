@@ -667,19 +667,39 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
 
     const { data: booking } = await supabaseAdmin
       .from("bookings")
-      .select("user_id, customer_id")
+      .select("id, user_id, customer_id, amount, advance_paid")
       .eq("id", (tok as any).booking_id)
       .maybeSingle();
     if (!booking) throw new Error("Booking not found");
 
+    // UAT-025 — apply the same convenience-fee split the webhook does, so the
+    // guest-portal fast-path (which typically fires before the webhook) still
+    // creates the "Razorpay Charges" in-house charge and reconciles totals.
+    const { data: chargeRows } = await supabaseAdmin
+      .from("booking_charges")
+      .select("amount")
+      .eq("booking_id", (booking as any).id);
+    const chargesTotal = ((chargeRows ?? []) as any[]).reduce(
+      (s, r) => s + Number(r.amount || 0), 0,
+    );
+    const bookingTotal = Number((booking as any).amount ?? 0) + chargesTotal;
+    const alreadyPaid = Number((booking as any).advance_paid ?? 0);
+    const outstanding = Math.max(0, bookingTotal - alreadyPaid);
+    const EXCESS_THRESHOLD = 1;
+    const primaryAmount =
+      amountInr > outstanding + EXCESS_THRESHOLD && outstanding > 0
+        ? outstanding
+        : amountInr;
+    const excessAmount = Math.max(0, Math.round((amountInr - primaryAmount) * 100) / 100);
+
     const { error: insErr } = await supabaseAdmin.from("booking_payments").insert({
       booking_id: (tok as any).booking_id,
       customer_id: (booking as any).customer_id,
-      amount: amountInr,
+      amount: primaryAmount,
       payment_mode: "Razorpay",
       collected_by: "Guest Portal",
       occurred_at: new Date().toISOString(),
-      notes: `Razorpay ${data.razorpay_payment_id}`,
+      notes: `Razorpay ${data.razorpay_payment_id}${excessAmount > 0 ? ` · fee split ₹${excessAmount.toFixed(2)}` : ""}`,
       user_id: (booking as any).user_id,
       razorpay_order_id: data.razorpay_order_id,
       razorpay_payment_id: data.razorpay_payment_id,
@@ -687,7 +707,6 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
       razorpay_method: payment.method ?? null,
     } as any);
     if (insErr) {
-      // 23505 = unique_violation → the webhook beat us to it. Treat as success.
       if ((insErr as any).code === "23505" || String(insErr.message || "").toLowerCase().includes("duplicate")) {
         await supabaseAdmin
           .from("razorpay_orders")
@@ -699,7 +718,59 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
       throw new Error("Could not record payment");
     }
 
-    // Mark the order as paid (best-effort; webhook may also update).
+    if (excessAmount > 0) {
+      try {
+        const { error: chErr } = await supabaseAdmin.from("booking_charges").insert({
+          booking_id: (tok as any).booking_id,
+          user_id: (booking as any).user_id,
+          category: "Razorpay Charges",
+          quantity: 1,
+          unit_price: excessAmount,
+          amount: excessAmount,
+          notes: `[system-generated] Payment gateway fee · Razorpay ${data.razorpay_payment_id}`,
+          added_by: "System (Razorpay)",
+          occurred_at: new Date().toISOString(),
+        } as any);
+        if (chErr) throw chErr;
+
+        await supabaseAdmin.from("booking_payments").insert({
+          booking_id: (tok as any).booking_id,
+          customer_id: (booking as any).customer_id,
+          amount: excessAmount,
+          payment_mode: "Razorpay",
+          collected_by: "Guest Portal",
+          occurred_at: new Date().toISOString(),
+          notes: `Razorpay convenience fee · settles gateway charge for ${data.razorpay_payment_id}`,
+          utr: data.razorpay_payment_id,
+          user_id: (booking as any).user_id,
+          razorpay_order_id: data.razorpay_order_id,
+          razorpay_payment_id: null,
+          razorpay_method: payment.method ?? null,
+        } as any);
+
+        await supabaseAdmin.from("booking_activities").insert({
+          booking_id: (tok as any).booking_id,
+          action: "razorpay_fee_adjustment" as any,
+          from_status: null,
+          to_status: null,
+          actor_id: null,
+          actor_name: "System",
+          actor_role: "system",
+          notes: `Razorpay convenience fee ₹${excessAmount.toFixed(2)} recorded as In-house Charge (Razorpay Charges) · auto-generated for ${data.razorpay_payment_id}`,
+          metadata: {
+            razorpay_payment_id: data.razorpay_payment_id,
+            razorpay_order_id: data.razorpay_order_id,
+            fee_amount: excessAmount,
+            booking_due_at_capture: outstanding,
+            amount_captured: amountInr,
+            system_generated: true,
+          },
+        } as any);
+      } catch (feeErr) {
+        console.error("Razorpay fee split failed (non-blocking):", feeErr);
+      }
+    }
+
     await supabaseAdmin
       .from("razorpay_orders")
       .update({ status: "paid", captured_at: new Date().toISOString() } as any)
