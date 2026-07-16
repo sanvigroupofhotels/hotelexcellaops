@@ -507,6 +507,13 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
         </div>
       </div>
 
+      {/* Alternate mobile numbers — embedded under Your Details per UAT-041. */}
+      <div className="border-t border-border/40 pt-4">
+        <PortalPhonesSubsection token={token} />
+      </div>
+
+
+
       <div className="border-t border-border/40 pt-4">
         <button
           type="button"
