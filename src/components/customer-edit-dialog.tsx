@@ -6,6 +6,7 @@ import { updateCustomer, createCustomer, type CustomerRow } from "@/lib/customer
 import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
 import { useMasterData } from "@/hooks/use-master-data";
 import { validatePhoneNumber } from "@/lib/phone";
+import { CustomerPhonesPanel } from "@/components/customer-phones-panel";
 import { cn } from "@/lib/utils";
 
 const inputCls =
