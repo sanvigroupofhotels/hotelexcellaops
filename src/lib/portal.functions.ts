@@ -685,7 +685,11 @@ export const confirmRazorpayPayment = createServerFn({ method: "POST" })
     const bookingTotal = Number((booking as any).amount ?? 0) + chargesTotal;
     const alreadyPaid = Number((booking as any).advance_paid ?? 0);
     const outstanding = Math.max(0, bookingTotal - alreadyPaid);
-    const EXCESS_THRESHOLD = 1;
+    // Dust tolerance — anything more than half a paisa above the outstanding
+    // balance is treated as a convenience/gateway fee. A ₹1 threshold caused
+    // typical Razorpay fees (e.g. ₹0.02 on ₹1.00) to be silently absorbed
+    // into the booking payment instead of being surfaced as a charge.
+    const EXCESS_THRESHOLD = 0.005;
     const primaryAmount =
       amountInr > outstanding + EXCESS_THRESHOLD && outstanding > 0
         ? outstanding
