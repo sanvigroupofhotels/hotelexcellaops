@@ -486,13 +486,17 @@ function PickupScreen({ businessDate, onClose, me }: {
               {manualRows.map((l) => (
                 <div key={l.id} className="grid grid-cols-12 items-center gap-2 px-4 py-2.5 border-b border-border/60 text-sm">
                   <div className="col-span-5">{l.name}</div>
-                  <div className="col-span-2 text-right text-muted-foreground">—</div>
-                  <div className="col-span-2 text-right text-muted-foreground">—</div>
+                  <div className="col-span-2 text-right text-muted-foreground"></div>
+                  <div className="col-span-2 text-right text-muted-foreground"></div>
                   <div className="col-span-3 text-right flex items-center justify-end gap-1">
                     <input
                       type="number" inputMode="numeric" min={0}
-                      value={manualSent[l.id] ?? 0}
-                      onChange={(e) => setManualSent((s) => ({ ...s, [l.id]: Number(e.target.value) }))}
+                      placeholder="Qty"
+                      value={manualSent[l.id] ? manualSent[l.id] : ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setManualSent((s) => ({ ...s, [l.id]: raw === "" ? 0 : Math.max(0, Number(raw)) }));
+                      }}
                       className="w-16 bg-input/60 border border-border rounded-md px-2 py-1 text-right text-sm"
                     />
                     <button
