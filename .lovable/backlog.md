@@ -894,3 +894,91 @@ Confirmed 2026-07-05 against the roadmap. All items below remain
 **Deferred (documentation-only pass in next sprint):** UAT-006 nav rationale, UAT-016 permissions audit, UAT-017/018 laundry reporting formulas, UAT-023 mobile presentation.
 
 **Regression impact:** Payment-mode dropdowns now show admin-curated labels; existing `booking_payments.payment_mode` strings remain valid. `customers.phone` continues to hold the primary via DB trigger — every legacy read path unaffected.
+
+## Sprint 6 — Completion Report (v1.1)
+
+**Shipped:**
+
+- **UAT-037 · Night Audit Checkout Validation** — Root cause: `getPendingForAudit`
+  used `.lte("check_out", bd)` which flagged same-day departures as pending. Fix
+  changed to `.lt("check_out", bd)`; Business Date advancement now blocks only on
+  overdue departures (check_out < bd) and pending arrivals (check_in ≤ bd), which
+  matches the intent. `closeSession()` is the sole authority for BD advancement
+  and calls the same helper, so every entry path (dashboard one-click, stepper
+  Review, public API) honours the new rule.
+- **UAT-034 · Refund Reconciliation** — Ledger correctness verified end-to-end:
+  DB trigger `booking_payments_recompute` → `recompute_booking_advance`
+  aggregates `booking_payments.amount` with the sign flipped on refunds
+  (`SUM(CASE WHEN is_refund THEN -amount ELSE amount END)`), and fires on every
+  INSERT / UPDATE / DELETE against `booking_payments`. Cashbook mirror trigger
+  correctly writes `kind='expense'` for Cash refunds. UI drift eliminated by
+  making `refreshAfterBookingMutation` await `refetchQueries({type:"active"})`
+  for `["booking", id]`, `["booking-payments", id]`, and `["booking-charges", id]`
+  BEFORE fanning out invalidations — the Booking Summary can never render a
+  stale Advance Paid / Balance Due after any finance mutation. All refund entry
+  paths (manual refund, cancel-with-refund, checkout refund, payment
+  edit/delete, in-house charge create/edit/delete, override checkout,
+  Razorpay confirm) already flow through this helper.
+- **UAT-036 · Late Check-out Visualization** — New per-booking
+  `lateFractionByBooking` map is built in `house-view.tsx` from `booking_items`
+  (takes the most-extended slot across all items). Mapping: `upto-2pm → 0.25`,
+  `2-4pm → 0.50`, `after-4pm → 0.75`. `BookingChip` accepts a
+  `lateFractionDays` prop and extends its computed width by
+  `lateFractionDays * cellW` — applied only on the true departure edge
+  (`!continuesRight`) and only when the chip isn't sharing a cell with
+  other chips (`!isGrouped`). Same `cellW` used across `CELL_W` (desktop)
+  and `CELL_W_MOB` (mobile) so representation is consistent on both.
+- **UAT-033 · Alternate Contact Numbers — Operational Completion** —
+  Ops: `CustomerPhonesPanel` is now embedded inside `CustomerEditDialog`
+  under an "Mobile Numbers" section (shown only for existing customers).
+  Primary field in Personal section is read-only in edit mode with an
+  explanatory title — the panel below is the single control for
+  add / edit label / delete / promote-to-primary. Same panel remains on
+  the customer detail page (one component, no duplication). Portal:
+  new `PortalPhonesCard` component with add / delete alternate numbers
+  (Primary shown read-only, per spec). Backed by three new server
+  functions in `portal.functions.ts` (`listPortalPhones`, `addPortalPhone`,
+  `deletePortalPhone`) which resolve `customer_id` via the booking token
+  and rely on the existing DB unique index to block duplicates across
+  customers. Any registered number resolves to the same customer profile
+  (existing `findCustomerByAnyPhone` + extended `searchCustomers`).
+- **UAT-035 · Guest Portal Invoice Download** — New `getPortalInvoice`
+  server function returns `{ booking, items, payments, charges }` fetched
+  through the admin client after token resolution. New `PortalInvoiceCard`
+  in `portal.$token.tsx` opens the **exact same `InvoiceDialog` component**
+  used by Reception with the same `window.print` + print-scoped CSS PDF
+  pipeline. Single invoice implementation in the system — Proforma before
+  checkout, final GST invoice after.
+
+**Verified (no change required):**
+
+- UAT-001 · Manual Laundry Pickup — Existing manual entry path validated;
+  empty queue, mixed lines, and full lifecycle correct.
+- UAT-002 · Manual Laundry Lifecycle — Parity with queue-generated batches
+  confirmed.
+- UAT-025 · Razorpay Convenience Fee E2E — Webhook still writes
+  `[system-generated]` charge with "System (Razorpay)" attribution and
+  "Auto" badge in the UI.
+
+**Architectural decisions:**
+
+- `refetchQueries({ type: "active" })` chosen over `refetchQueries()` so
+  passive/inactive subscribers don't trigger extra work; matches how the
+  React Query devtools recommend "force refresh visible cards".
+- Portal alternate-number management deliberately scoped to non-primary
+  numbers only — Primary is a CRM identity concern that must remain in
+  ops-controlled scope.
+- Portal invoice re-uses the reception `InvoiceDialog` component
+  verbatim (branding fetch is anon-safe through the `app_settings` public
+  read policy). No parallel invoice/PDF pipeline exists.
+- Late Check-out visual is layout-only — `slotEndExclusive`, room-conflict
+  detection, and drag-availability calculations are UNCHANGED. Booking
+  block/maintenance overlaps remain correctly detected.
+
+**Regression impact:** None expected. Payment history and Business Date
+behaviour align with UAT spec; existing invoices remain identical between
+portal and reception (same component); customer search continues to be
+back-compat with `customers.phone`.
+
+**Documentation updates:** This report + inline code comments (`UAT-037`,
+`UAT-036`, `UAT-034` markers) so future auditors can trace the fix.
