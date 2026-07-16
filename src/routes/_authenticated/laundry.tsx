@@ -512,7 +512,7 @@ function PickupScreen({ businessDate, onClose, me }: {
                 <button
                   onClick={() => setManualPickerOpen(true)}
                   className="w-full px-4 py-2 text-[11px] uppercase tracking-wider text-gold hover:bg-muted/10 flex items-center justify-center gap-1.5"
-                ><Plus className="h-3.5 w-3.5" /> Add linen not in queue</button>
+                ><Plus className="h-3.5 w-3.5" /> Add Manual Line</button>
               ) : (
                 <div className="p-3 space-y-2">
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Pick a linen type</div>
