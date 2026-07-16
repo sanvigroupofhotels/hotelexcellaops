@@ -1072,7 +1072,7 @@ function Row({ label, value, strong, tone }: { label: string; value: string; str
 // ---------------------------------------------------------------------------
 // UAT-033 — Alternate Mobile Numbers (Guest Portal)
 // ---------------------------------------------------------------------------
-function PortalPhonesCard({ token }: { token: string }) {
+function PortalPhonesSubsection({ token }: { token: string }) {
   const list = useServerFn(listPortalPhones);
   const add = useServerFn(addPortalPhone);
   const del = useServerFn(deletePortalPhone);
