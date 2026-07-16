@@ -478,11 +478,14 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
     const chargesTotal = (chargeRows ?? []).reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
 
     const payable = Number((b as any).amount) + chargesTotal;
-    const balance = Math.max(0, payable - Number((b as any).advance_paid || 0));
-    if (balance <= 0) throw new Error("No balance due on this booking");
-    const amount = Math.min(balance, Math.round(data.amount));
-    if (amount <= 0) throw new Error("Amount must be greater than zero");
-    const amountPaise = Math.round(amount * 100);
+    // Work in paise from here on. Client amounts like ₹0.25 (25% of ₹1) must
+    // survive without being floored to zero. UAT-025.
+    const balancePaise = Math.max(0, Math.round(payable * 100) - Math.round(Number((b as any).advance_paid || 0) * 100));
+    if (balancePaise <= 0) throw new Error("No balance due on this booking");
+    const requestedPaise = Math.round(Number(data.amount) * 100);
+    const amountPaise = Math.min(balancePaise, requestedPaise);
+    if (amountPaise <= 0) throw new Error("Amount must be greater than zero");
+    const amount = amountPaise / 100;
 
     // Reuse an existing OPEN order for the same booking + intent + amount.
     const { data: reusable } = await supabaseAdmin
