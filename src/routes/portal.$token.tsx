@@ -261,23 +261,7 @@ function GuestPortal() {
           <GuestDetailsForm token={token} initial={b} onSaved={() => q.refetch()} />
         )}
 
-        {/* 3b. Alternate Mobile Numbers (UAT-033) */}
-        {!isCancelled && <PortalPhonesCard token={token} />}
-
-        {/* 5. Guest Documents */}
-        {!isCancelled && (
-          <DocumentsCard
-            token={token}
-            count={docs.length}
-            verified={hasVerifiedDoc}
-            onChanged={() => docsQ.refetch()}
-          />
-        )}
-
-        {/* 5b. Invoice (UAT-035) — reuses reception InvoiceDialog verbatim */}
-        {!isCancelled && <PortalInvoiceCard token={token} />}
-
-        {/* 6. Complete Your Booking — payment */}
+        {/* 3. Complete Your Booking — payment */}
         {!isCancelled && (
           <section id="portal-payment" className="space-y-3">
             <h2 className="font-display text-base flex items-center gap-2 px-1">
@@ -316,8 +300,8 @@ function GuestPortal() {
           </section>
         )}
 
-
-        {/* 7. Additional Services — Order Food */}
+        {/* Post-payment sequence — UAT-041 */}
+        {/* 1. Order Food */}
         {!isCancelled && (
           <OrderFoodCard
             bookingReference={b.reference}
@@ -327,13 +311,20 @@ function GuestPortal() {
           />
         )}
 
-        {/* 8. Report Complaint */}
+        {/* 2. Manage Documents */}
+        {!isCancelled && (
+          <DocumentsCard
+            token={token}
+            count={docs.length}
+            verified={hasVerifiedDoc}
+            onChanged={() => docsQ.refetch()}
+          />
+        )}
+
+        {/* 3. Report Complaint */}
         {!isCancelled && <ReportComplaintCard token={token} />}
 
-        {/* 9. Reviews & Feedback */}
-        {!isCancelled && <ReviewsCard token={token} />}
-
-        {/* 10. Cancel Booking */}
+        {/* 4. Cancel Booking */}
         {!isCancelled && (
           <CancelBookingCard
             token={token}
@@ -344,10 +335,17 @@ function GuestPortal() {
           />
         )}
 
+        {/* 5. Review / Feedback */}
+        {!isCancelled && <ReviewsCard token={token} />}
+
+        {/* 6. Invoice */}
+        {!isCancelled && <PortalInvoiceCard token={token} />}
+
       </div>
     </div>
   );
 }
+
 
 
 function Field({ label, value }: { label: string; value: string }) {
