@@ -56,12 +56,22 @@ const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-I
 
 function errMsg(e: any, fallback = "Something went wrong"): string {
   if (!e) return fallback;
-  if (typeof e === "string") return e;
-  if (e instanceof Error && e.message) return e.message;
-  const m = e?.message ?? e?.error?.message ?? e?.body?.message ?? e?.data?.message ?? e?.json?.message;
-  if (typeof m === "string" && m) return m;
-  try { const s = JSON.stringify(e); if (s && s !== "{}") return s; } catch {}
-  return fallback;
+  const raw = typeof e === "string"
+    ? e
+    : (e instanceof Error ? e.message : (e?.message ?? e?.error?.message ?? e?.body?.message ?? e?.data?.message ?? e?.json?.message ?? ""));
+  const msg = typeof raw === "string" ? raw.trim() : "";
+  if (!msg) return fallback;
+  // UAT-025 — never surface technical payloads to guests. Any serialized
+  // Zod issue array, JSON body, stack trace, or fetch/network noise falls
+  // back to the friendly business message.
+  const technical =
+    /^[\[{]/.test(msg) ||
+    /"code":\s*"invalid_/i.test(msg) ||
+    /zoderror|zod/i.test(msg) ||
+    /^\s*at\s+/m.test(msg) ||
+    /failed to fetch|networkerror|typeerror|unauthorized|forbidden|internal server/i.test(msg) ||
+    msg.length > 220;
+  return technical ? fallback : msg;
 }
 
 declare global { interface Window { Razorpay?: any; } }
