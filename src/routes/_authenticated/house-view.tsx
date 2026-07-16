@@ -1789,7 +1789,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         }
         return {
           left: continuesLeft ? 0 : 2,
-          width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 2}px - ${continuesRight ? 0 : 2}px)`,
+          width: `calc(${(span + (lateFractionDays || 0))} * ${cellW}px - ${continuesLeft ? 0 : 2}px - ${continuesRight ? 0 : 2}px)`,
           zIndex: highlight ? 25 : 20,
           touchAction: dragEnabled && isMobile ? "manipulation" : undefined,
         } as React.CSSProperties;
