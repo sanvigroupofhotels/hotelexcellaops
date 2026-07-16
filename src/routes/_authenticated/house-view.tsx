@@ -965,6 +965,17 @@ function HouseView() {
                                       const moveEligibility = getMoveEligibility(b, r.id);
                                       const continuesLeft = b.check_in < rangeStart;
                                       const continuesRight = endIdx < 0;
+                                      // UAT-036: extend the chip visually into
+                                      // the day after its departure when the
+                                      // booking has a Late Check-out slot,
+                                      // ONLY on the true departure edge (not
+                                      // when the chip continues off-screen)
+                                      // AND only when this row doesn't have
+                                      // multiple bookings sharing the cell
+                                      // (grouped rendering would collide).
+                                      const lateFractionDays = (!continuesRight && !isGrouped)
+                                        ? (lateFractionByBooking.get(b.id) ?? 0)
+                                        : 0;
                                       return (
                                         <BookingChip
                                           key={`${b.id}-${b._slotKey ?? b.check_in}`}
@@ -985,6 +996,7 @@ function HouseView() {
                                           origCheckOut={b.check_out}
                                           groupSlot={isGrouped ? idx : 0}
                                           groupSlots={isGrouped ? slotCount : 1}
+                                          lateFractionDays={lateFractionDays}
                                           onSelect={handleChipSelect}
                                           onLongPress={handleChipLongPress}
                                           onDragStartAvail={handleChipDragStartAvail}
