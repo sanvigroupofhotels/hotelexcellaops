@@ -9,7 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare,
   Save, ChevronDown, FileCheck, UtensilsCrossed, MessageCircleWarning, Star, XCircle,
-  ExternalLink, CreditCard, MessageCircle,
+  ExternalLink, CreditCard, MessageCircle, Plus, Trash2, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { validatePhoneNumber, normalizePhoneNumber } from "@/lib/phone";
@@ -24,10 +24,15 @@ import {
   cancelPortalBooking,
   submitPortalComplaint,
   submitPortalReview,
+  listPortalPhones,
+  addPortalPhone,
+  deletePortalPhone,
+  getPortalInvoice,
 } from "@/lib/portal.functions";
 import { useOpsTimeLabels } from "@/lib/check-times";
 import { PortalPaymentOptions, type PortalPaymentChoice } from "@/components/portal/payment-options";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
+import { InvoiceDialog } from "@/components/invoice-dialog";
 
 export const Route = createFileRoute("/portal/$token")({
   component: GuestPortal,
