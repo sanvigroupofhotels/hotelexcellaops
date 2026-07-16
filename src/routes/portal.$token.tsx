@@ -56,12 +56,22 @@ const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-I
 
 function errMsg(e: any, fallback = "Something went wrong"): string {
   if (!e) return fallback;
-  if (typeof e === "string") return e;
-  if (e instanceof Error && e.message) return e.message;
-  const m = e?.message ?? e?.error?.message ?? e?.body?.message ?? e?.data?.message ?? e?.json?.message;
-  if (typeof m === "string" && m) return m;
-  try { const s = JSON.stringify(e); if (s && s !== "{}") return s; } catch {}
-  return fallback;
+  const raw = typeof e === "string"
+    ? e
+    : (e instanceof Error ? e.message : (e?.message ?? e?.error?.message ?? e?.body?.message ?? e?.data?.message ?? e?.json?.message ?? ""));
+  const msg = typeof raw === "string" ? raw.trim() : "";
+  if (!msg) return fallback;
+  // UAT-025 — never surface technical payloads to guests. Any serialized
+  // Zod issue array, JSON body, stack trace, or fetch/network noise falls
+  // back to the friendly business message.
+  const technical =
+    /^[\[{]/.test(msg) ||
+    /"code":\s*"invalid_/i.test(msg) ||
+    /zoderror|zod/i.test(msg) ||
+    /^\s*at\s+/m.test(msg) ||
+    /failed to fetch|networkerror|typeerror|unauthorized|forbidden|internal server/i.test(msg) ||
+    msg.length > 220;
+  return technical ? fallback : msg;
 }
 
 declare global { interface Window { Razorpay?: any; } }
@@ -251,23 +261,7 @@ function GuestPortal() {
           <GuestDetailsForm token={token} initial={b} onSaved={() => q.refetch()} />
         )}
 
-        {/* 3b. Alternate Mobile Numbers (UAT-033) */}
-        {!isCancelled && <PortalPhonesCard token={token} />}
-
-        {/* 5. Guest Documents */}
-        {!isCancelled && (
-          <DocumentsCard
-            token={token}
-            count={docs.length}
-            verified={hasVerifiedDoc}
-            onChanged={() => docsQ.refetch()}
-          />
-        )}
-
-        {/* 5b. Invoice (UAT-035) — reuses reception InvoiceDialog verbatim */}
-        {!isCancelled && <PortalInvoiceCard token={token} />}
-
-        {/* 6. Complete Your Booking — payment */}
+        {/* 3. Complete Your Booking — payment */}
         {!isCancelled && (
           <section id="portal-payment" className="space-y-3">
             <h2 className="font-display text-base flex items-center gap-2 px-1">
@@ -306,8 +300,8 @@ function GuestPortal() {
           </section>
         )}
 
-
-        {/* 7. Additional Services — Order Food */}
+        {/* Post-payment sequence — UAT-041 */}
+        {/* 1. Order Food */}
         {!isCancelled && (
           <OrderFoodCard
             bookingReference={b.reference}
@@ -317,13 +311,20 @@ function GuestPortal() {
           />
         )}
 
-        {/* 8. Report Complaint */}
+        {/* 2. Manage Documents */}
+        {!isCancelled && (
+          <DocumentsCard
+            token={token}
+            count={docs.length}
+            verified={hasVerifiedDoc}
+            onChanged={() => docsQ.refetch()}
+          />
+        )}
+
+        {/* 3. Report Complaint */}
         {!isCancelled && <ReportComplaintCard token={token} />}
 
-        {/* 9. Reviews & Feedback */}
-        {!isCancelled && <ReviewsCard token={token} />}
-
-        {/* 10. Cancel Booking */}
+        {/* 4. Cancel Booking */}
         {!isCancelled && (
           <CancelBookingCard
             token={token}
@@ -334,10 +335,17 @@ function GuestPortal() {
           />
         )}
 
+        {/* 5. Review / Feedback */}
+        {!isCancelled && <ReviewsCard token={token} />}
+
+        {/* 6. Invoice */}
+        {!isCancelled && <PortalInvoiceCard token={token} />}
+
       </div>
     </div>
   );
 }
+
 
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -498,6 +506,13 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
           </label>
         </div>
       </div>
+
+      {/* Alternate mobile numbers — embedded under Your Details per UAT-041. */}
+      <div className="border-t border-border/40 pt-4">
+        <PortalPhonesSubsection token={token} />
+      </div>
+
+
 
       <div className="border-t border-border/40 pt-4">
         <button
@@ -1057,7 +1072,7 @@ function Row({ label, value, strong, tone }: { label: string; value: string; str
 // ---------------------------------------------------------------------------
 // UAT-033 — Alternate Mobile Numbers (Guest Portal)
 // ---------------------------------------------------------------------------
-function PortalPhonesCard({ token }: { token: string }) {
+function PortalPhonesSubsection({ token }: { token: string }) {
   const list = useServerFn(listPortalPhones);
   const add = useServerFn(addPortalPhone);
   const del = useServerFn(deletePortalPhone);
@@ -1092,10 +1107,10 @@ function PortalPhonesCard({ token }: { token: string }) {
   };
 
   return (
-    <div className="luxe-card rounded-xl p-5 space-y-3">
-      <h3 className="font-display text-base flex items-center gap-2"><Phone className="h-4 w-4 text-gold" /> My Mobile Numbers</h3>
+    <div className="space-y-3">
+      <h4 className="text-xs font-medium flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-gold" /> Alternate Mobile Numbers <span className="text-muted-foreground font-normal">(Optional)</span></h4>
       <p className="text-[11px] text-muted-foreground">
-        Your primary number is managed by reception. You can add alternate numbers below — any of them can be used to reach you.
+        Your primary number is managed by reception. Add alternate numbers below — any of them can be used to reach you.
       </p>
       {phonesQ.isLoading ? (
         <div className="flex justify-center py-2"><Loader2 className="h-4 w-4 animate-spin text-gold" /></div>

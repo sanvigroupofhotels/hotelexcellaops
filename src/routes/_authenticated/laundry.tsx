@@ -328,7 +328,10 @@ function PickupScreen({ businessDate, onClose, me }: {
   const rows: PickupPreviewRow[] = preview?.rows ?? [];
   const days = preview?.oldestDays ?? 0;
   const activeRows = rows.filter((r) => r.heos_queue > 0);
-  const queuedIds = new Set(rows.map((r) => r.linen_type_id));
+  // Only queue-backed linen types are "taken"; every other active linen
+  // type must remain pickable via the manual-line action, even when the
+  // queue is empty. UAT-001.
+  const queuedIds = new Set(activeRows.map((r) => r.linen_type_id));
   const linenById = useMemo(() => {
     const m = new Map<string, { id: string; name: string }>();
     for (const l of (allLinenTypes as any[])) m.set(l.id, { id: l.id, name: l.name });
@@ -509,7 +512,7 @@ function PickupScreen({ businessDate, onClose, me }: {
                 <button
                   onClick={() => setManualPickerOpen(true)}
                   className="w-full px-4 py-2 text-[11px] uppercase tracking-wider text-gold hover:bg-muted/10 flex items-center justify-center gap-1.5"
-                ><Plus className="h-3.5 w-3.5" /> Add linen not in queue</button>
+                ><Plus className="h-3.5 w-3.5" /> Add Manual Line</button>
               ) : (
                 <div className="p-3 space-y-2">
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Pick a linen type</div>
