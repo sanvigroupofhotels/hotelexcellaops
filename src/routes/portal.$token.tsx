@@ -1107,10 +1107,10 @@ function PortalPhonesSubsection({ token }: { token: string }) {
   };
 
   return (
-    <div className="luxe-card rounded-xl p-5 space-y-3">
-      <h3 className="font-display text-base flex items-center gap-2"><Phone className="h-4 w-4 text-gold" /> My Mobile Numbers</h3>
+    <div className="space-y-3">
+      <h4 className="text-xs font-medium flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-gold" /> Alternate Mobile Numbers <span className="text-muted-foreground font-normal">(Optional)</span></h4>
       <p className="text-[11px] text-muted-foreground">
-        Your primary number is managed by reception. You can add alternate numbers below — any of them can be used to reach you.
+        Your primary number is managed by reception. Add alternate numbers below — any of them can be used to reach you.
       </p>
       {phonesQ.isLoading ? (
         <div className="flex justify-center py-2"><Loader2 className="h-4 w-4 animate-spin text-gold" /></div>
