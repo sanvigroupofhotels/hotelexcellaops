@@ -1708,6 +1708,8 @@ interface BookingChipProps {
   origCheckOut: string;
   groupSlot?: number;
   groupSlots?: number;
+  /** UAT-036: fractional next-day extension for Late Check-out visualization (0..0.75). */
+  lateFractionDays?: number;
   onSelect: (b: any) => void;
   onLongPress: (b: any, roomId: string) => void;
   onDragStartAvail: (b: any, payload: string) => string;
@@ -1717,7 +1719,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
     b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligible, moveReason,
     isMobile, highlight, continuesLeft, continuesRight, origCheckIn, origCheckOut,
-    groupSlot = 0, groupSlots = 1,
+    groupSlot = 0, groupSlots = 1, lateFractionDays = 0,
     onSelect, onLongPress, onDragStartAvail, onDragEnd,
   } = props;
 
