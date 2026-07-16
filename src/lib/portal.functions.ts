@@ -1044,3 +1044,117 @@ export const submitPortalReview = createServerFn({ method: "POST" })
     } catch (e) { console.warn("[portal] review notification emit failed", e); }
     return { ok: true, route, externalReviewUrl: route === "external" ? externalUrl : null };
   });
+
+// ---------------------------------------------------------------------------
+// UAT-033 — Guest Portal Mobile Numbers
+// Guests can view all registered numbers (primary shown read-only) and
+// add / delete alternate (non-primary) numbers. Primary changes stay in Ops
+// so the CRM record can't be silently reassigned from the portal.
+// ---------------------------------------------------------------------------
+
+function normalizeInboundPhone(raw: string): string {
+  const digits = String(raw || "").replace(/[^\d+]/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("+")) return digits;
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
+  return digits.startsWith("+") ? digits : `+${digits}`;
+}
+
+export const listPortalPhones = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ token: z.string().min(6).max(128) }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await resolvePortalRef(data.token);
+    if (!booking.customer_id) return [] as any[];
+    const { data: rows, error } = await supabaseAdmin
+      .from("customer_phones")
+      .select("id, phone, label, is_primary, created_at")
+      .eq("customer_id", booking.customer_id)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (rows ?? []) as any[];
+  });
+
+export const addPortalPhone = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({
+    token: z.string().min(6).max(128),
+    phone: z.string().min(6).max(20),
+    label: z.string().max(60).optional(),
+  }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await resolvePortalRef(data.token);
+    if (!booking.customer_id) throw new Error("Customer profile is missing on this booking. Please contact reception.");
+    const phone = normalizeInboundPhone(data.phone);
+    if (phone.length < 8) throw new Error("Please enter a valid mobile number.");
+    // Duplicate across customers is blocked at the DB layer (unique index on phone).
+    const { error } = await supabaseAdmin.from("customer_phones").insert({
+      customer_id: booking.customer_id,
+      user_id: (booking as any).user_id,
+      phone,
+      label: (data.label || "").trim() || "Alternate",
+      is_primary: false,
+    } as any);
+    if (error) {
+      if ((error as any).code === "23505" || /duplicate key/i.test((error as any).message || "")) {
+        throw new Error("This mobile number is already linked to an existing customer. Please contact reception.");
+      }
+      throw error;
+    }
+    return { ok: true };
+  });
+
+export const deletePortalPhone = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({
+    token: z.string().min(6).max(128),
+    phone_id: z.string().uuid(),
+  }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking } = await resolvePortalRef(data.token);
+    if (!booking.customer_id) throw new Error("Customer profile is missing on this booking.");
+    // Guard: only allow deleting NON-PRIMARY rows on the same customer.
+    const { data: row } = await supabaseAdmin
+      .from("customer_phones")
+      .select("id, customer_id, is_primary")
+      .eq("id", data.phone_id)
+      .maybeSingle();
+    if (!row || (row as any).customer_id !== booking.customer_id) {
+      throw new Error("Number not found.");
+    }
+    if ((row as any).is_primary) {
+      throw new Error("The Primary number is managed by reception and cannot be removed from the portal.");
+    }
+    const { error } = await supabaseAdmin.from("customer_phones").delete().eq("id", data.phone_id);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------------------
+// UAT-035 — Guest Portal Invoice
+// Returns the exact same shape that InvoiceDialog consumes on Reception
+// (booking + items + payments + charges) so both surfaces render the SAME
+// invoice through the SAME component. No parallel PDF pipeline.
+// ---------------------------------------------------------------------------
+
+export const getPortalInvoice = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ token: z.string().min(6).max(128) }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin, booking: tokBk } = await resolvePortalRef(data.token);
+    const bookingId = (tokBk as any).id as string;
+
+    const [{ data: booking }, { data: items }, { data: payments }, { data: charges }] = await Promise.all([
+      supabaseAdmin.from("bookings").select("*").eq("id", bookingId).maybeSingle(),
+      supabaseAdmin.from("booking_items").select("*").eq("booking_id", bookingId).order("created_at", { ascending: true }),
+      supabaseAdmin.from("booking_payments").select("*").eq("booking_id", bookingId).order("occurred_at", { ascending: false }),
+      supabaseAdmin.from("booking_charges").select("*").eq("booking_id", bookingId).order("created_at", { ascending: true }),
+    ]);
+
+    if (!booking) throw new Error("Booking not found");
+    return {
+      booking,
+      items: items ?? [],
+      payments: payments ?? [],
+      charges: charges ?? [],
+    };
+  });
+

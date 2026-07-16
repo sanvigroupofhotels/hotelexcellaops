@@ -9,7 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Loader2, CheckCircle2, User, Calendar, Phone, Mail, AlertTriangle, MessageSquare,
   Save, ChevronDown, FileCheck, UtensilsCrossed, MessageCircleWarning, Star, XCircle,
-  ExternalLink, CreditCard, MessageCircle,
+  ExternalLink, CreditCard, MessageCircle, Plus, Trash2, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { validatePhoneNumber, normalizePhoneNumber } from "@/lib/phone";
@@ -24,10 +24,15 @@ import {
   cancelPortalBooking,
   submitPortalComplaint,
   submitPortalReview,
+  listPortalPhones,
+  addPortalPhone,
+  deletePortalPhone,
+  getPortalInvoice,
 } from "@/lib/portal.functions";
 import { useOpsTimeLabels } from "@/lib/check-times";
 import { PortalPaymentOptions, type PortalPaymentChoice } from "@/components/portal/payment-options";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
+import { InvoiceDialog } from "@/components/invoice-dialog";
 
 export const Route = createFileRoute("/portal/$token")({
   component: GuestPortal,
@@ -246,6 +251,9 @@ function GuestPortal() {
           <GuestDetailsForm token={token} initial={b} onSaved={() => q.refetch()} />
         )}
 
+        {/* 3b. Alternate Mobile Numbers (UAT-033) */}
+        {!isCancelled && <PortalPhonesCard token={token} />}
+
         {/* 5. Guest Documents */}
         {!isCancelled && (
           <DocumentsCard
@@ -255,6 +263,9 @@ function GuestPortal() {
             onChanged={() => docsQ.refetch()}
           />
         )}
+
+        {/* 5b. Invoice (UAT-035) — reuses reception InvoiceDialog verbatim */}
+        {!isCancelled && <PortalInvoiceCard token={token} />}
 
         {/* 6. Complete Your Booking — payment */}
         {!isCancelled && (
@@ -1042,3 +1053,133 @@ function Row({ label, value, strong, tone }: { label: string; value: string; str
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// UAT-033 — Alternate Mobile Numbers (Guest Portal)
+// ---------------------------------------------------------------------------
+function PortalPhonesCard({ token }: { token: string }) {
+  const list = useServerFn(listPortalPhones);
+  const add = useServerFn(addPortalPhone);
+  const del = useServerFn(deletePortalPhone);
+  const phonesQ = useQuery({
+    queryKey: ["portal-phones", token],
+    queryFn: () => list({ data: { token } }),
+    retry: false,
+  });
+  const [phone, setPhone] = useState("");
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState(false);
+  const rows = (phonesQ.data ?? []) as any[];
+
+  const submit = async () => {
+    if (!phone.trim() || !validatePhoneNumber(phone)) return toast.error("Please enter a valid mobile number.");
+    setBusy(true);
+    try {
+      await add({ data: { token, phone: normalizePhoneNumber(phone), label: label.trim() || undefined } });
+      toast.success("Number added");
+      setPhone(""); setLabel("");
+      phonesQ.refetch();
+    } catch (e: any) { toast.error(errMsg(e, "Could not add number")); }
+    finally { setBusy(false); }
+  };
+  const remove = async (id: string) => {
+    if (!confirm("Remove this number from your profile?")) return;
+    try {
+      await del({ data: { token, phone_id: id } });
+      toast.success("Number removed");
+      phonesQ.refetch();
+    } catch (e: any) { toast.error(errMsg(e, "Could not remove")); }
+  };
+
+  return (
+    <div className="luxe-card rounded-xl p-5 space-y-3">
+      <h3 className="font-display text-base flex items-center gap-2"><Phone className="h-4 w-4 text-gold" /> My Mobile Numbers</h3>
+      <p className="text-[11px] text-muted-foreground">
+        Your primary number is managed by reception. You can add alternate numbers below — any of them can be used to reach you.
+      </p>
+      {phonesQ.isLoading ? (
+        <div className="flex justify-center py-2"><Loader2 className="h-4 w-4 animate-spin text-gold" /></div>
+      ) : rows.length === 0 ? (
+        <div className="text-xs text-muted-foreground">No numbers on file yet.</div>
+      ) : (
+        <div className="space-y-1.5">
+          {rows.map((r) => (
+            <div key={r.id} className="flex items-center gap-2 py-2 px-3 rounded-md bg-secondary/40 text-sm">
+              <span className="font-mono">{r.phone}</span>
+              <span className="text-[10px] text-muted-foreground">{r.label || (r.is_primary ? "Primary" : "Alternate")}</span>
+              {r.is_primary ? (
+                <span className="ml-auto inline-flex items-center rounded-sm border border-gold/50 bg-gold-soft px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-gold-dark">Primary</span>
+              ) : (
+                <button
+                  onClick={() => remove(r.id)}
+                  className="ml-auto p-1 text-muted-foreground hover:text-destructive"
+                  title="Remove"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/40">
+        <input value={phone} onChange={(e) => setPhone(e.target.value)}
+          placeholder="+91 98xxxxxxxx"
+          className="flex-1 bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+        <input value={label} onChange={(e) => setLabel(e.target.value)}
+          placeholder="Label (e.g. Work)"
+          className="sm:w-40 bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+        <button onClick={submit} disabled={busy || !phone.trim()}
+          className="inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal disabled:opacity-50">
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// UAT-035 — Invoice download. Reuses the same InvoiceDialog + PDF pipeline
+// as Reception (window.print + print-scoped CSS). Only difference: the
+// data is fetched via a public server function scoped by token.
+// ---------------------------------------------------------------------------
+function PortalInvoiceCard({ token }: { token: string }) {
+  const fetchInvoice = useServerFn(getPortalInvoice);
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const openInvoice = async () => {
+    setLoading(true);
+    try {
+      const d = await fetchInvoice({ data: { token } });
+      setData(d);
+      setOpen(true);
+    } catch (e: any) { toast.error(errMsg(e, "Could not load invoice")); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="luxe-card rounded-xl p-5 space-y-3">
+      <h3 className="font-display text-base flex items-center gap-2"><FileText className="h-4 w-4 text-gold" /> Invoice</h3>
+      <p className="text-[11px] text-muted-foreground">
+        Download a copy of your invoice. Before checkout you'll see a Proforma; after checkout it becomes the final GST invoice — identical to what reception issues.
+      </p>
+      <button onClick={openInvoice} disabled={loading}
+        className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60">
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+        View / Download Invoice
+      </button>
+      {open && data && (
+        <InvoiceDialog
+          booking={data.booking}
+          items={data.items}
+          payments={data.payments}
+          charges={data.charges}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+

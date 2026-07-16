@@ -6,6 +6,7 @@ import { updateCustomer, createCustomer, type CustomerRow } from "@/lib/customer
 import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
 import { useMasterData } from "@/hooks/use-master-data";
 import { validatePhoneNumber } from "@/lib/phone";
+import { CustomerPhonesPanel } from "@/components/customer-phones-panel";
 import { cn } from "@/lib/utils";
 
 const inputCls =
@@ -109,8 +110,14 @@ export function CustomerEditDialog({
               <Field label="Name" required>
                 <input className={inputCls} value={form.guest_name} onChange={(e) => set("guest_name", e.target.value)} />
               </Field>
-              <Field label="Phone" required>
-                <input className={inputCls} value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+              <Field label={isCreate ? "Phone" : "Primary Phone"} required>
+                <input
+                  className={cn(inputCls, !isCreate && "opacity-70 cursor-not-allowed")}
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                  readOnly={!isCreate}
+                  title={isCreate ? undefined : "Manage numbers in the Mobile Numbers panel below · promote any number to Primary"}
+                />
               </Field>
               <Field label="Email">
                 <input className={inputCls} value={form.email} onChange={(e) => set("email", e.target.value)} />
@@ -126,6 +133,15 @@ export function CustomerEditDialog({
               </Field>
             </div>
           </Section>
+
+          {/* UAT-033: alternate mobile numbers — add / edit label / delete /
+              mark primary. Managed via the same panel as the Customer Detail
+              page (single source of truth). */}
+          {!isCreate && customer && (
+            <Section title="Mobile Numbers">
+              <CustomerPhonesPanel customerId={customer.id} />
+            </Section>
+          )}
 
           <Section title="Company">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

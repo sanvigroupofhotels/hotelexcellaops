@@ -85,6 +85,18 @@ export async function refreshAfterBookingMutation(
   if (!opts.skipPricing) {
     await recomputeBookingAmount(bookingId);
   }
+  // UAT-034: force-refetch the booking row BEFORE fanning out invalidations
+  // so the Booking Summary / Balance Due / Advance Paid can NEVER read a
+  // stale cache after a financial mutation. `advance_paid` is maintained by
+  // the `booking_payments_recompute` DB trigger (subtracts refunds) and is
+  // already committed by the time the mutation returned; we simply must
+  // pull it into the cache before the UI reads it again.
+  try {
+    await qc.refetchQueries({ queryKey: ["booking", bookingId], type: "active" });
+    await qc.refetchQueries({ queryKey: ["booking-payments", bookingId], type: "active" });
+    await qc.refetchQueries({ queryKey: ["booking-charges", bookingId], type: "active" });
+  } catch { /* refetch is best-effort; invalidation below is the safety net */ }
+
   const keys: (string | (string | undefined)[])[] = [
     ["booking", bookingId],
     ["booking-items", bookingId],

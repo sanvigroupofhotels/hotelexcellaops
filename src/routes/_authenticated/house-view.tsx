@@ -305,6 +305,23 @@ function HouseView() {
     return m;
   }, [allItems]);
 
+  // UAT-036: Late checkout visual — per booking, take the "most extended"
+  // slot across all its stay items. `upto-2pm` → 0.25 of next-day cell,
+  // `2-4pm` → 0.50, `after-4pm` → 0.75. Rendered by extending the chip's
+  // width on the departure slot only (see BookingChip).
+  const lateFractionByBooking = useMemo(() => {
+    const rank: Record<string, number> = { "upto-2pm": 0.25, "2-4pm": 0.5, "after-4pm": 0.75 };
+    const m = new Map<string, number>();
+    for (const it of allItems as any[]) {
+      if (!it.late_check_out || !it.late_check_out_slot) continue;
+      const f = rank[String(it.late_check_out_slot)] ?? 0;
+      if (f <= 0) continue;
+      const prev = m.get(it.booking_id) ?? 0;
+      if (f > prev) m.set(it.booking_id, f);
+    }
+    return m;
+  }, [allItems]);
+
   const itemsByBooking = useMemo(() => groupStayItems(allItems as any[]), [allItems]);
   const assignmentsByBooking = useMemo(() => groupStayAssignments(allAssignments as any[]), [allAssignments]);
 
@@ -948,6 +965,17 @@ function HouseView() {
                                       const moveEligibility = getMoveEligibility(b, r.id);
                                       const continuesLeft = b.check_in < rangeStart;
                                       const continuesRight = endIdx < 0;
+                                      // UAT-036: extend the chip visually into
+                                      // the day after its departure when the
+                                      // booking has a Late Check-out slot,
+                                      // ONLY on the true departure edge (not
+                                      // when the chip continues off-screen)
+                                      // AND only when this row doesn't have
+                                      // multiple bookings sharing the cell
+                                      // (grouped rendering would collide).
+                                      const lateFractionDays = (!continuesRight && !isGrouped)
+                                        ? (lateFractionByBooking.get(b.id) ?? 0)
+                                        : 0;
                                       return (
                                         <BookingChip
                                           key={`${b.id}-${b._slotKey ?? b.check_in}`}
@@ -968,6 +996,7 @@ function HouseView() {
                                           origCheckOut={b.check_out}
                                           groupSlot={isGrouped ? idx : 0}
                                           groupSlots={isGrouped ? slotCount : 1}
+                                          lateFractionDays={lateFractionDays}
                                           onSelect={handleChipSelect}
                                           onLongPress={handleChipLongPress}
                                           onDragStartAvail={handleChipDragStartAvail}
@@ -1679,6 +1708,8 @@ interface BookingChipProps {
   origCheckOut: string;
   groupSlot?: number;
   groupSlots?: number;
+  /** UAT-036: fractional next-day extension for Late Check-out visualization (0..0.75). */
+  lateFractionDays?: number;
   onSelect: (b: any) => void;
   onLongPress: (b: any, roomId: string) => void;
   onDragStartAvail: (b: any, payload: string) => string;
@@ -1688,7 +1719,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
     b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligible, moveReason,
     isMobile, highlight, continuesLeft, continuesRight, origCheckIn, origCheckOut,
-    groupSlot = 0, groupSlots = 1,
+    groupSlot = 0, groupSlots = 1, lateFractionDays = 0,
     onSelect, onLongPress, onDragStartAvail, onDragEnd,
   } = props;
 
@@ -1758,7 +1789,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         }
         return {
           left: continuesLeft ? 0 : 2,
-          width: `calc(${span} * ${cellW}px - ${continuesLeft ? 0 : 2}px - ${continuesRight ? 0 : 2}px)`,
+          width: `calc(${(span + (lateFractionDays || 0))} * ${cellW}px - ${continuesLeft ? 0 : 2}px - ${continuesRight ? 0 : 2}px)`,
           zIndex: highlight ? 25 : 20,
           touchAction: dragEnabled && isMobile ? "manipulation" : undefined,
         } as React.CSSProperties;
