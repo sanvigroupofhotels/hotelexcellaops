@@ -86,7 +86,7 @@ export async function processSignature(
   const cvs = document.createElement("canvas");
   cvs.width = Math.floor(srcW * scale);
   cvs.height = Math.floor(srcH * scale);
-  const ctx = cvs.getContext("2d", { willReadFrequently: true } as any);
+  const ctx = cvs.getContext("2d", { willReadFrequently: true } as any) as CanvasRenderingContext2D | null;
   if (!ctx) throw new Error("Canvas not supported");
   ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
 
