@@ -251,6 +251,9 @@ function GuestPortal() {
           <GuestDetailsForm token={token} initial={b} onSaved={() => q.refetch()} />
         )}
 
+        {/* 3b. Alternate Mobile Numbers (UAT-033) */}
+        {!isCancelled && <PortalPhonesCard token={token} />}
+
         {/* 5. Guest Documents */}
         {!isCancelled && (
           <DocumentsCard
@@ -260,6 +263,9 @@ function GuestPortal() {
             onChanged={() => docsQ.refetch()}
           />
         )}
+
+        {/* 5b. Invoice (UAT-035) — reuses reception InvoiceDialog verbatim */}
+        {!isCancelled && <PortalInvoiceCard token={token} />}
 
         {/* 6. Complete Your Booking — payment */}
         {!isCancelled && (
