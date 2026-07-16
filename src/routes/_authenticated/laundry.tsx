@@ -524,7 +524,7 @@ function PickupScreen({ businessDate, onClose, me }: {
                     {availableForManual.map((l: any) => (
                       <button
                         key={l.id}
-                        onClick={() => { setManualSent((s) => ({ ...s, [l.id]: 1 })); setManualPickerOpen(false); }}
+                        onClick={() => { setManualSent((s) => ({ ...s, [l.id]: 0 })); setManualPickerOpen(false); }}
                         className="px-2.5 py-1 rounded-full border border-border text-xs bg-input/40 hover:bg-muted/40"
                       >{l.name}</button>
                     ))}
