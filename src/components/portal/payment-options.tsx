@@ -1,16 +1,17 @@
 /**
- * Guest Portal — Payment Options card (scaffolding for next sprint).
+ * Guest Portal — Payment Options card.
  *
- * Renders the three payment paths a guest can choose on a public booking link:
- *   - Full Payment   → Razorpay (balance_due)
- *   - Part Payment   → Razorpay (custom amount, min = part_payment_value, max = balance_due)
- *   - Pay At Hotel   → no online txn; just acknowledge intent
+ * Three intents:
+ *   - full          → Razorpay for balance_due
+ *   - part          → Razorpay for auto-computed advance (defaultPartPercent of balance).
+ *                     Guest never enters the amount for this intent — UAT-025.
+ *   - pay_at_hotel  → no online txn; guest acknowledges intent
  *
- * Wiring to Razorpay + booking_payments creation happens in the dedicated
- * Guest Portal + Razorpay sprint. This component is intentionally headless of
- * any payment SDK so it can be reused once credentials are wired.
+ * Future extension: a distinct "custom" intent will surface an amount input.
+ * We intentionally do NOT combine "part" with manual amount entry so the
+ * 25% Advance flow stays one-tap.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CreditCard, IndianRupee, Hotel, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,36 +23,46 @@ export type PortalPaymentChoice =
 export interface PaymentOptionsProps {
   totalAmount: number;
   advancePaid: number;
-  /** Minimum part-payment amount (from booking.part_payment_value when type === 'fixed', else 0). */
+  /** Reserved for a future fixed-minimum flow; unused in the auto part path. */
   minPartPayment?: number;
   allowFull?: boolean;
   allowPart?: boolean;
   allowPayAtHotel?: boolean;
-  /** Default part payment percent (e.g. 25 → prefill 25% of balance). */
+  /** Advance percent when Part Payment is selected (e.g. 25). */
   defaultPartPercent?: number;
-  /** Disable while parent is initiating a Razorpay order. */
   busy?: boolean;
   onChoose: (choice: PortalPaymentChoice) => void | Promise<void>;
 }
 
-const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
+const inr = (n: number) =>
+  `₹${(Math.round(Number(n || 0) * 100) / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 export function PortalPaymentOptions({
-  totalAmount, advancePaid, minPartPayment = 0,
+  totalAmount, advancePaid,
   allowFull = true, allowPart = true, allowPayAtHotel = true, defaultPartPercent = 0,
   busy, onChoose,
 }: PaymentOptionsProps) {
-  const balance = Math.max(0, totalAmount - advancePaid);
+  // Paise-safe balance to avoid float drift on tiny amounts.
+  const balancePaise = Math.max(0, Math.round(totalAmount * 100) - Math.round(advancePaid * 100));
+  const balance = balancePaise / 100;
+
+  // Auto-computed advance for the "part" intent. Rounded UP to the nearest
+  // paise so ₹1 * 25% never becomes ₹0 and the total ever-collected never
+  // falls short of the configured percent.
+  const partPercent = defaultPartPercent > 0 ? defaultPartPercent : 25;
+  const partAmount = useMemo(() => {
+    const paise = Math.ceil((balancePaise * partPercent) / 100);
+    return Math.min(balancePaise, paise) / 100;
+  }, [balancePaise, partPercent]);
+
   const initialMode: "full" | "part" | "pay_at_hotel" =
     allowFull ? "full" : allowPart ? "part" : "pay_at_hotel";
   const [mode, setMode] = useState<"full" | "part" | "pay_at_hotel">(initialMode);
-  const prefillPart = defaultPartPercent > 0 ? Math.round((balance * defaultPartPercent) / 100) : Math.round(balance / 2);
-  const [partAmt, setPartAmt] = useState<number>(Math.max(minPartPayment, prefillPart));
 
   const submit = () => {
     if (mode === "full") onChoose({ kind: "full" });
     else if (mode === "pay_at_hotel") onChoose({ kind: "pay_at_hotel" });
-    else onChoose({ kind: "part", amount: Math.max(minPartPayment, Math.min(balance, Math.round(partAmt) || 0)) });
+    else onChoose({ kind: "part", amount: partAmount });
   };
 
   return (
@@ -63,29 +74,21 @@ export function PortalPaymentOptions({
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         {allowFull && <OptionTile active={mode === "full"} onClick={() => setMode("full")} icon={CreditCard} label="Pay Full" sub={inr(balance)} />}
-        {allowPart && <OptionTile active={mode === "part"} onClick={() => setMode("part")} icon={IndianRupee} label="Part Payment" sub={defaultPartPercent > 0 ? `${defaultPartPercent}% Advance` : "Pay Advance"} />}
+        {allowPart && <OptionTile active={mode === "part"} onClick={() => setMode("part")} icon={IndianRupee} label={`Pay ${partPercent}% Advance`} sub={inr(partAmount)} />}
         {allowPayAtHotel && <OptionTile active={mode === "pay_at_hotel"} onClick={() => setMode("pay_at_hotel")} icon={Hotel} label="Pay at Hotel" sub="On Check-In" />}
       </div>
 
       {mode === "part" && (
-        <label className="block">
-          <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Amount (₹)</span>
-          <input
-            type="number" inputMode="numeric"
-            min={minPartPayment || 0} max={balance}
-            value={partAmt}
-            onChange={(e) => setPartAmt(Number(e.target.value) || 0)}
-            className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-          />
-          {minPartPayment > 0 && (
-            <p className="text-[10px] text-muted-foreground mt-1">Minimum advance: {inr(minPartPayment)}</p>
-          )}
-        </label>
+        <div className="text-[11px] text-muted-foreground rounded-md border border-border/60 bg-muted/10 px-3 py-2">
+          You will pay <span className="text-foreground font-medium">{inr(partAmount)}</span> now
+          ({partPercent}% of the outstanding balance). The remaining {inr(balance - partAmount)} is
+          due at the hotel.
+        </div>
       )}
 
       <button
         onClick={submit}
-        disabled={busy || balance <= 0 && mode !== "pay_at_hotel"}
+        disabled={busy || (balance <= 0 && mode !== "pay_at_hotel")}
         className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal disabled:opacity-60"
       >
         {busy && <Loader2 className="h-4 w-4 animate-spin" />}
