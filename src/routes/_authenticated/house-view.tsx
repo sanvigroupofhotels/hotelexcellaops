@@ -305,6 +305,23 @@ function HouseView() {
     return m;
   }, [allItems]);
 
+  // UAT-036: Late checkout visual — per booking, take the "most extended"
+  // slot across all its stay items. `upto-2pm` → 0.25 of next-day cell,
+  // `2-4pm` → 0.50, `after-4pm` → 0.75. Rendered by extending the chip's
+  // width on the departure slot only (see BookingChip).
+  const lateFractionByBooking = useMemo(() => {
+    const rank: Record<string, number> = { "upto-2pm": 0.25, "2-4pm": 0.5, "after-4pm": 0.75 };
+    const m = new Map<string, number>();
+    for (const it of allItems as any[]) {
+      if (!it.late_check_out || !it.late_check_out_slot) continue;
+      const f = rank[String(it.late_check_out_slot)] ?? 0;
+      if (f <= 0) continue;
+      const prev = m.get(it.booking_id) ?? 0;
+      if (f > prev) m.set(it.booking_id, f);
+    }
+    return m;
+  }, [allItems]);
+
   const itemsByBooking = useMemo(() => groupStayItems(allItems as any[]), [allItems]);
   const assignmentsByBooking = useMemo(() => groupStayAssignments(allAssignments as any[]), [allAssignments]);
 
