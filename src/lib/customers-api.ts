@@ -117,6 +117,19 @@ export async function createCustomer(input: CustomerInput) {
     throw error;
   }
   const row = data as unknown as CustomerRow;
+  // Seed a Primary customer_phones row so the multi-phone mirror trigger has
+  // a primary to sync from. Without this, adding an alternate number later
+  // would wipe customers.phone (see tg_customer_phones_sync_primary).
+  if (row.phone && String(row.phone).trim() !== "") {
+    const { error: phoneErr } = await supabase
+      .from("customer_phones" as any)
+      .insert({ customer_id: row.id, user_id: user.id, phone: row.phone, is_primary: true, label: "Primary" } as any);
+    // Ignore duplicate-phone errors (23505): the number already belongs to
+    // another customer_phones row; customers.phone stays as the source of truth.
+    if (phoneErr && (phoneErr as any).code !== "23505") {
+      console.warn("createCustomer: could not seed primary customer_phones row", phoneErr);
+    }
+  }
   void logActivity({
     page: "Customers",
     action: "customer_created",
