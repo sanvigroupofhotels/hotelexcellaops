@@ -485,6 +485,10 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
     const requestedPaise = Math.round(Number(data.amount) * 100);
     const amountPaise = Math.min(balancePaise, requestedPaise);
     if (amountPaise <= 0) throw new Error("Amount must be greater than zero");
+    // Razorpay INR minimum order value is 100 paise (₹1). Anything below is
+    // rejected with BAD_REQUEST_ERROR; surface a clear message instead of
+    // the generic "Could not initiate payment".
+    if (amountPaise < 100) throw new Error("Minimum payable amount is ₹1. Please enter a higher amount.");
     const amount = amountPaise / 100;
 
     // Reuse an existing OPEN order for the same booking + intent + amount.
