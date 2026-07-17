@@ -519,6 +519,9 @@ export const createBookingEngineOrder = createServerFn({ method: "POST" })
     const balance = Math.max(0, Number((b as any).amount) - Number((b as any).advance_paid || 0));
     const amount = Math.min(balance, Math.round(data.amount));
     if (amount <= 0) throw new Error("Amount must be greater than zero");
+    // Razorpay INR minimum order value is ₹1 (100 paise). Guard before the
+    // orders API rejects with BAD_REQUEST_ERROR so guests see a clear message.
+    if (amount * 100 < 100) throw new Error("Minimum payable amount is ₹1. Please enter a higher amount.");
 
     const res = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
