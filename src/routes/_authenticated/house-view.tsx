@@ -1714,6 +1714,10 @@ interface BookingChipProps {
   groupSlots?: number;
   /** UAT-036: fractional next-day extension for Late Check-out visualization (0..0.75). */
   lateFractionDays?: number;
+  /** UAT-036 follow-up: fractional inset from left when a previous booking in
+   *  the same room has a Late Check-out that extends into this chip's start
+   *  cell. Prevents visual overlap by pushing the start edge to the right. */
+  incomingLateDays?: number;
   onSelect: (b: any) => void;
   onLongPress: (b: any, roomId: string) => void;
   onDragStartAvail: (b: any, payload: string) => string;
