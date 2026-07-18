@@ -357,7 +357,11 @@ function BookingDetail() {
   const chargesTotal = sumCharges(charges);
   const payable = Number(b.amount) + chargesTotal;
   const advance = Number(b.advance_paid || 0);
-  const balance = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, payable - advance);
+  // Signed balance: negative = overpaid (Guest Credit). Cancelled/No-Show forced to 0.
+  // UAT-044: preserve negative sign so UI can render "Guest Credit". Downstream
+  // consumers that need a non-negative amount (Add-Payment maxAmount, checkout
+  // override gating) must clamp locally with Math.max(0, balance).
+  const balance = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : (payable - advance);
   const overpaid = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, advance - payable);
   const isCheckedOut = b.status === "Checked-Out";
 
