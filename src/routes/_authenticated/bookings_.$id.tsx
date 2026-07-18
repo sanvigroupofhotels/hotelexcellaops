@@ -1160,8 +1160,8 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
           <PriceRow label="Total Payable" value={Number(b.amount) + chargesTotal} />
           <PriceRow label="Amount Paid" value={-Number(b.advance_paid || 0)} />
           <li className="flex items-baseline justify-between pt-1.5 mt-1 border-t border-border">
-            <span className="text-sm font-medium">Balance Due</span>
-            <span className="font-display text-lg text-gold">₹{balance.toLocaleString("en-IN")}</span>
+            <span className="text-sm font-medium">{balance < 0 ? "Guest Credit" : "Balance Due"}</span>
+            <span className={cn("font-display text-lg", balance < 0 ? "text-success" : "text-gold")}>₹{Math.abs(balance).toLocaleString("en-IN")}</span>
           </li>
         </ul>
       </div>
