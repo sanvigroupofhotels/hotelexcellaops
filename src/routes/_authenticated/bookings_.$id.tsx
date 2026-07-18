@@ -972,7 +972,7 @@ function BookingDetail() {
 
       {addPaymentForCheckoutOpen && (
         <AddBookingPaymentModal
-          bookingId={id} customerId={b.customer_id} maxAmount={balance}
+          bookingId={id} customerId={b.customer_id} maxAmount={Math.max(0, balance)}
           onClose={() => setAddPaymentForCheckoutOpen(false)}
           onSaved={() => { setAddPaymentForCheckoutOpen(false); toast.success("Payment recorded. You can now check-out."); }}
         />
