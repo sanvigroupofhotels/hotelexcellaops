@@ -316,8 +316,8 @@ export function InvoiceDialog({
               <div className="flex justify-between"><span className="text-muted-foreground">Total Booking Amount</span><span className="tabular-nums">{inr(total)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Amount Paid</span><span className="tabular-nums">{inr(advance)}</span></div>
               <div className="flex justify-between border-t border-border pt-2">
-                <span className="font-medium">{isFinal ? "Outstanding Balance" : "Balance Due"}</span>
-                <span className="font-display text-lg gold-text-gradient tabular-nums">{inr(balance)}</span>
+                <span className="font-medium">{balance < 0 ? "Guest Credit" : (isFinal ? "Outstanding Balance" : "Balance Due")}</span>
+                <span className={cn("font-display text-lg tabular-nums", balance < 0 ? "text-success" : "gold-text-gradient")}>{inr(Math.abs(balance))}</span>
               </div>
             </div>
           </div>
