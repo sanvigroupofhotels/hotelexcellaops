@@ -1727,7 +1727,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
     b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligible, moveReason,
     isMobile, highlight, continuesLeft, continuesRight, origCheckIn, origCheckOut,
-    groupSlot = 0, groupSlots = 1, lateFractionDays = 0,
+    groupSlot = 0, groupSlots = 1, lateFractionDays = 0, incomingLateDays = 0,
     onSelect, onLongPress, onDragStartAvail, onDragEnd,
   } = props;
 
