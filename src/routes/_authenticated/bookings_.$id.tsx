@@ -1266,7 +1266,7 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
         )}
         <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Total Payable</span><Money value={bookingAmount + chargesTotal} size="sm" /></div>
         <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Total Advance Paid (net of refunds)</span><Money value={advance} size="sm" /></div>
-        <div className="flex justify-between items-baseline gap-3 border-t border-border pt-2"><span className="font-medium">Balance Due</span><Money value={balance} size="lg" className="gold-text-gradient" /></div>
+        <div className="flex justify-between items-baseline gap-3 border-t border-border pt-2"><span className="font-medium">{balance < 0 ? "Guest Credit" : "Balance Due"}</span><Money value={Math.abs(balance)} size="lg" className={balance < 0 ? "text-success" : "gold-text-gradient"} /></div>
       </div>
 
       {payments.length > 0 && (
