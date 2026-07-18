@@ -1354,7 +1354,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
               className="p-1.5 rounded-md text-green-600 hover:bg-green-600/10 disabled:opacity-40 disabled:pointer-events-none">
               <MessageCircle className="h-4 w-4" />
             </button>
-            <button onClick={sharePaymentLink} disabled={balance <= 0 || isCheckedOut} title="Payment Link" aria-label="Payment Link"
+            <button onClick={sharePaymentLink} disabled={b.status === "Cancelled"} title="Share Guest Portal" aria-label="Share Guest Portal"
               className="p-1.5 rounded-md text-gold hover:bg-gold-soft/40 disabled:opacity-40 disabled:pointer-events-none">
               <Link2 className="h-4 w-4" />
             </button>
