@@ -13,6 +13,7 @@ import { nodeToBlob } from "@/lib/share-quote";
 import { computePricing } from "@/lib/pricing";
 import { useOpsTimeLabels } from "@/lib/check-times";
 import { getBrandingSettings } from "@/lib/app-settings-api";
+import { cn } from "@/lib/utils";
 
 const fmtDate = (s: string) =>
   new Date(s + (s.length === 10 ? "T00:00:00" : "")).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
