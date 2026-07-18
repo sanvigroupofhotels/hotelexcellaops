@@ -211,7 +211,13 @@ export function maxSelectableRooms(
   if (!row) {
     return { max: Math.max(1, currentlySelected), available: 0, total: 0, label: `No ${room_type} inventory configured` };
   }
-  const max = Math.max(currentlySelected, row.available + currentlySelected);
+  // row.available already reflects true free capacity for the requested window
+  // (when editing, `exclude_booking_id` removes the current booking's demand so
+  // its own rooms are folded back into `available`). We therefore cap at
+  // `row.available` and use `currentlySelected` only as a floor — it preserves
+  // an existing selection if live inventory drops mid-edit, but never inflates
+  // the cap beyond real availability. This prevents oversell on New Booking.
+  const max = Math.max(currentlySelected, row.available);
   const label =
     row.available <= 0
       ? `${room_type} fully booked for these dates`
