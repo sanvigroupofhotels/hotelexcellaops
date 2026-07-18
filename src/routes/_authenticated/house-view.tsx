@@ -1394,7 +1394,10 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
           )}
           <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Total Charges</span><Money value={totalCharges} size="sm" /></div>
           <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Advance Paid</span><Money value={Number(b.advance_paid || 0)} size="sm" /></div>
-          <div className="flex justify-between items-baseline gap-3 border-t border-border/50 pt-1"><span className="font-medium">Balance Due</span><Money value={balance} size="lg" className="gold-text-gradient" /></div>
+          <div className="flex justify-between items-baseline gap-3 border-t border-border/50 pt-1">
+            <span className="font-medium">{balance < 0 ? "Guest Credit" : "Balance Due"}</span>
+            <Money value={Math.abs(balance)} size="lg" className={balance < 0 ? "text-success" : "gold-text-gradient"} />
+          </div>
         </div>
         {canTransact && (
           <div className="grid grid-cols-2 gap-2 pt-1">
