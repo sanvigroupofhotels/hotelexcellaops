@@ -1367,14 +1367,14 @@ function PaymentsLedger({ bookingId, bookingAmount, chargesTotal = 0, advance, b
 
       {addOpen && (
         <AddBookingPaymentModal
-          bookingId={bookingId} customerId={customerId} maxAmount={balance}
+          bookingId={bookingId} customerId={customerId} maxAmount={Math.max(0, balance)}
           onClose={() => setAddOpen(false)}
         />
       )}
       {editPayment && (
         <AddBookingPaymentModal
           bookingId={bookingId} customerId={customerId}
-          maxAmount={balance + Number(editPayment.amount)}
+          maxAmount={Math.max(0, balance + Number(editPayment.amount))}
           payment={editPayment}
           onClose={() => setEditPayment(null)}
         />
