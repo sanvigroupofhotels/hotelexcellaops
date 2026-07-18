@@ -1443,7 +1443,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
     </div>
     {payOpen && (
       <AddBookingPaymentModal
-        bookingId={b.id} customerId={b.customer_id} maxAmount={balance}
+        bookingId={b.id} customerId={b.customer_id} maxAmount={Math.max(0, balance)}
         onClose={() => setPayOpen(false)}
         onSaved={() => onClose()}
       />
