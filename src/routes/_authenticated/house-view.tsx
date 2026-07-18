@@ -997,6 +997,9 @@ function HouseView() {
                                       const lateFractionDays = (!continuesRight && !isGrouped)
                                         ? (lateFractionByBooking.get(b.id) ?? 0)
                                         : 0;
+                                      const incomingLateDays = (!continuesLeft && !isGrouped)
+                                        ? (outgoingLateByRoomDay.get(`${r.id}|${b.check_in}`) ?? 0)
+                                        : 0;
                                       return (
                                         <BookingChip
                                           key={`${b.id}-${b._slotKey ?? b.check_in}`}
