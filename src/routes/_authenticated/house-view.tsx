@@ -1354,7 +1354,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
               className="p-1.5 rounded-md text-green-600 hover:bg-green-600/10 disabled:opacity-40 disabled:pointer-events-none">
               <MessageCircle className="h-4 w-4" />
             </button>
-            <button onClick={sharePaymentLink} disabled={balance <= 0 || isCheckedOut} title="Payment Link" aria-label="Payment Link"
+            <button onClick={sharePaymentLink} disabled={b.status === "Cancelled"} title="Share Guest Portal" aria-label="Share Guest Portal"
               className="p-1.5 rounded-md text-gold hover:bg-gold-soft/40 disabled:opacity-40 disabled:pointer-events-none">
               <Link2 className="h-4 w-4" />
             </button>
@@ -1394,7 +1394,10 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
           )}
           <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Total Charges</span><Money value={totalCharges} size="sm" /></div>
           <div className="flex justify-between items-baseline gap-3"><span className="text-muted-foreground">Advance Paid</span><Money value={Number(b.advance_paid || 0)} size="sm" /></div>
-          <div className="flex justify-between items-baseline gap-3 border-t border-border/50 pt-1"><span className="font-medium">Balance Due</span><Money value={balance} size="lg" className="gold-text-gradient" /></div>
+          <div className="flex justify-between items-baseline gap-3 border-t border-border/50 pt-1">
+            <span className="font-medium">{balance < 0 ? "Guest Credit" : "Balance Due"}</span>
+            <Money value={Math.abs(balance)} size="lg" className={balance < 0 ? "text-success" : "gold-text-gradient"} />
+          </div>
         </div>
         {canTransact && (
           <div className="grid grid-cols-2 gap-2 pt-1">
