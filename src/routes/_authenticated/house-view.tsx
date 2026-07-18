@@ -340,6 +340,27 @@ function HouseView() {
     [blocks, rangeStart, rangeEnd],
   );
 
+  // UAT-036 follow-up: outgoing-late map keyed by `${roomId}|${checkoutDate}`.
+  // Value = fractional next-day extension (0..0.75) contributed by a booking
+  // that vacates the room on that date with a Late Check-out slot. The next
+  // booking starting on that same date in the same room shifts its left edge
+  // by this fraction so the two chips never visually overlap.
+  const outgoingLateByRoomDay = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const b of visibleBookings) {
+      const f = lateFractionByBooking.get(b.id) ?? 0;
+      if (f <= 0) continue;
+      const { paired } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      for (const { room_id: rid, slot } of paired) {
+        const endDay = slotEndExclusive(slot);
+        const key = `${rid}|${endDay}`;
+        const prev = m.get(key) ?? 0;
+        if (f > prev) m.set(key, f);
+      }
+    }
+    return m;
+  }, [visibleBookings, lateFractionByBooking, itemsByBooking, assignmentsByBooking, rooms]);
+
   /**
    * Place bookings into rooms. Multi-room aware with per-type placeholders:
    *   - For each booking, render once per ASSIGNED room.
