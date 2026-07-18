@@ -340,6 +340,27 @@ function HouseView() {
     [blocks, rangeStart, rangeEnd],
   );
 
+  // UAT-036 follow-up: outgoing-late map keyed by `${roomId}|${checkoutDate}`.
+  // Value = fractional next-day extension (0..0.75) contributed by a booking
+  // that vacates the room on that date with a Late Check-out slot. The next
+  // booking starting on that same date in the same room shifts its left edge
+  // by this fraction so the two chips never visually overlap.
+  const outgoingLateByRoomDay = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const b of visibleBookings) {
+      const f = lateFractionByBooking.get(b.id) ?? 0;
+      if (f <= 0) continue;
+      const { paired } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      for (const { room_id: rid, slot } of paired) {
+        const endDay = slotEndExclusive(slot);
+        const key = `${rid}|${endDay}`;
+        const prev = m.get(key) ?? 0;
+        if (f > prev) m.set(key, f);
+      }
+    }
+    return m;
+  }, [visibleBookings, lateFractionByBooking, itemsByBooking, assignmentsByBooking, rooms]);
+
   /**
    * Place bookings into rooms. Multi-room aware with per-type placeholders:
    *   - For each booking, render once per ASSIGNED room.
@@ -976,6 +997,9 @@ function HouseView() {
                                       const lateFractionDays = (!continuesRight && !isGrouped)
                                         ? (lateFractionByBooking.get(b.id) ?? 0)
                                         : 0;
+                                      const incomingLateDays = (!continuesLeft && !isGrouped)
+                                        ? (outgoingLateByRoomDay.get(`${r.id}|${b.check_in}`) ?? 0)
+                                        : 0;
                                       return (
                                         <BookingChip
                                           key={`${b.id}-${b._slotKey ?? b.check_in}`}
@@ -997,6 +1021,7 @@ function HouseView() {
                                           groupSlot={isGrouped ? idx : 0}
                                           groupSlots={isGrouped ? slotCount : 1}
                                           lateFractionDays={lateFractionDays}
+                                          incomingLateDays={incomingLateDays}
                                           onSelect={handleChipSelect}
                                           onLongPress={handleChipLongPress}
                                           onDragStartAvail={handleChipDragStartAvail}
@@ -1241,7 +1266,8 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   const additionalCharges = (chargesForBooking as any[]).reduce((s, c) => s + Number(c.amount || 0), 0);
   const roomCharges = Number(b.amount) || 0;
   const totalCharges = roomCharges + additionalCharges;
-  const balance = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, totalCharges - Number(b.advance_paid || 0));
+  // UAT-044: signed balance — negative = overpaid (Guest Credit).
+  const balance = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : (totalCharges - Number(b.advance_paid || 0));
   const today = businessDate ?? dateKey(new Date());
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
@@ -1442,7 +1468,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
     </div>
     {payOpen && (
       <AddBookingPaymentModal
-        bookingId={b.id} customerId={b.customer_id} maxAmount={balance}
+        bookingId={b.id} customerId={b.customer_id} maxAmount={Math.max(0, balance)}
         onClose={() => setPayOpen(false)}
         onSaved={() => onClose()}
       />
@@ -1713,6 +1739,10 @@ interface BookingChipProps {
   groupSlots?: number;
   /** UAT-036: fractional next-day extension for Late Check-out visualization (0..0.75). */
   lateFractionDays?: number;
+  /** UAT-036 follow-up: fractional inset from left when a previous booking in
+   *  the same room has a Late Check-out that extends into this chip's start
+   *  cell. Prevents visual overlap by pushing the start edge to the right. */
+  incomingLateDays?: number;
   onSelect: (b: any) => void;
   onLongPress: (b: any, roomId: string) => void;
   onDragStartAvail: (b: any, payload: string) => string;
@@ -1722,7 +1752,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
     b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligible, moveReason,
     isMobile, highlight, continuesLeft, continuesRight, origCheckIn, origCheckOut,
-    groupSlot = 0, groupSlots = 1, lateFractionDays = 0,
+    groupSlot = 0, groupSlots = 1, lateFractionDays = 0, incomingLateDays = 0,
     onSelect, onLongPress, onDragStartAvail, onDragEnd,
   } = props;
 
@@ -1791,8 +1821,8 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
           } as React.CSSProperties;
         }
         return {
-          left: continuesLeft ? 0 : 2,
-          width: `calc(${(span + (lateFractionDays || 0))} * ${cellW}px - ${continuesLeft ? 0 : 2}px - ${continuesRight ? 0 : 2}px)`,
+          left: `calc(${continuesLeft ? 0 : 2}px + ${incomingLateDays || 0} * ${cellW}px)`,
+          width: `calc(${(span + (lateFractionDays || 0) - (incomingLateDays || 0))} * ${cellW}px - ${continuesLeft ? 0 : 2}px - ${continuesRight ? 0 : 2}px)`,
           zIndex: highlight ? 25 : 20,
           touchAction: dragEnabled && isMobile ? "manipulation" : undefined,
         } as React.CSSProperties;

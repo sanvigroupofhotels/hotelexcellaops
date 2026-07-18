@@ -55,7 +55,8 @@ export function InvoiceDialog({
   const advance = Number(booking.advance_paid || 0);
   const bookingAmount = Number(booking.amount || 0);
   const total = bookingAmount + chargesTotal;
-  const balance = Math.max(0, total - advance);
+  // UAT-044: signed balance — negative = overpaid (Guest Credit).
+  const balance = total - advance;
   const discount = Number(booking.discount || 0);
   const taxRate = Number((booking as any).tax_rate || 0);
 
