@@ -1241,7 +1241,8 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   const additionalCharges = (chargesForBooking as any[]).reduce((s, c) => s + Number(c.amount || 0), 0);
   const roomCharges = Number(b.amount) || 0;
   const totalCharges = roomCharges + additionalCharges;
-  const balance = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, totalCharges - Number(b.advance_paid || 0));
+  // UAT-044: signed balance — negative = overpaid (Guest Credit).
+  const balance = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : (totalCharges - Number(b.advance_paid || 0));
   const today = businessDate ?? dateKey(new Date());
   const status = b.status as string;
   const [payOpen, setPayOpen] = useState(false);
