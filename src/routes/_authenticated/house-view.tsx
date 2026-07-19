@@ -1618,8 +1618,28 @@ function NightAuditPendingBanner({ onOpen, businessDate }: { onOpen: () => void;
   });
   const ciN = data?.pendingCheckIns.length ?? 0;
   const coN = data?.pendingCheckOuts.length ?? 0;
-  if (ciN + coN === 0) return null;
-  const bdLabel = businessDate ? new Date(businessDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : null;
+  const bd = data?.businessDate ?? businessDate;
+  // Audit is only "pending" once the calendar has actually moved past the
+  // business date past the 6am grace window. Same-day pending check-ins
+  // during regular operating hours must NOT surface as an audit blocker.
+  const isOverdue = (() => {
+    if (!bd) return false;
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false,
+    }).formatToParts(new Date());
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    const todayYMD = `${get("year")}-${get("month")}-${get("day")}`;
+    const hour = parseInt(get("hour") || "0", 10);
+    if (todayYMD <= bd) return false;
+    // > 1 day past → definitely overdue regardless of hour.
+    const bdDate = new Date(bd + "T00:00:00");
+    const nextYMD = new Date(bdDate); nextYMD.setDate(nextYMD.getDate() + 1);
+    const nextStr = `${nextYMD.getFullYear()}-${String(nextYMD.getMonth() + 1).padStart(2, "0")}-${String(nextYMD.getDate()).padStart(2, "0")}`;
+    if (todayYMD > nextStr) return true;
+    return hour >= 6;
+  })();
+  if (!isOverdue || ciN + coN === 0) return null;
+  const bdLabel = bd ? new Date(bd + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : null;
   return (
     <div className="luxe-card rounded-xl p-3 border-warning/40 bg-warning/10 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-warning text-sm">
