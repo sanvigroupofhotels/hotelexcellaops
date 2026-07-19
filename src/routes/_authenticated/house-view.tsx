@@ -373,8 +373,20 @@ function HouseView() {
    *     room when no type match is available).
    *   - Bookings with no items default to 1 virtual placeholder (any vacant room).
    */
-  const byRoom = useMemo(() => {
+  const byRoomAndOutgoing = useMemo(() => {
     const m = new Map<string, any[]>();
+    // Start from the paired-only map and grow it as virtual chips are placed
+    // so subsequent placements can skip lanes with an incoming-late fraction
+    // AND so chip rendering (which reads the final map) shifts arriving chips
+    // even when the outgoing late-checkout stay is unassigned.
+    const outMap = new Map(outgoingLateByRoomDayFromPaired);
+    const bumpOutgoing = (b: any, rid: string, slot: any) => {
+      const f = lateFractionByBooking.get(b.id) ?? 0;
+      if (f <= 0) return;
+      const key = `${rid}|${slotEndExclusive(slot)}`;
+      const prev = outMap.get(key) ?? 0;
+      if (f > prev) outMap.set(key, f);
+    };
     const conflictsAt = (rid: string, slot: any) =>
       (m.get(rid) ?? []).some((x) => segmentsOverlap(slot, x));
 
@@ -402,14 +414,14 @@ function HouseView() {
         const fallback = (rooms as any[]);
         const candidates = matching.length > 0 ? matching : fallback;
 
-        // UAT-046: For UNASSIGNED (virtual) placements only, prefer fully
-        // clean lanes and skip lanes where the previous stay leaves a
-        // Late Check-out fractional extension into this slot's arrival
-        // day. Keeps House View readable during reservation planning;
-        // assigned rooms (step 1) intentionally reflect real occupancy
-        // even if it visually collides with the outgoing chip.
+        // UAT-046 + follow-up: For UNASSIGNED (virtual) placements, prefer
+        // fully clean lanes and skip lanes where ANY previous stay (paired
+        // OR virtual) leaves a Late Check-out fractional extension into
+        // this slot's arrival day. Reading from the incrementally-grown
+        // `outMap` (rather than the paired-only base map) ensures virtual
+        // late-checkout representations are also respected.
         const hasIncomingLate = (rid: string) =>
-          (outgoingLateByRoomDay.get(`${rid}|${slot.check_in}`) ?? 0) > 0;
+          (outMap.get(`${rid}|${slot.check_in}`) ?? 0) > 0;
 
         const tryPlace = (allowLateLane: boolean): boolean => {
           for (const r of candidates) {
@@ -419,6 +431,7 @@ function HouseView() {
             const arr = m.get(r.id) ?? [];
             arr.push({ ...b, room_id: r.id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
             m.set(r.id, arr);
+            bumpOutgoing(b, r.id, slot);
             return true;
           }
           return false;
@@ -430,13 +443,24 @@ function HouseView() {
           const arr = m.get(candidates[0].id) ?? [];
           arr.push({ ...b, room_id: candidates[0].id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
           m.set(candidates[0].id, arr);
+          bumpOutgoing(b, candidates[0].id, slot);
         }
       }
     }
 
+    // Also account for late-checkouts contributed by PAIRED assignments so
+    // arriving chips in step 1 that share a lane with an outgoing late chip
+    // get the same visual shift. (Paired base map already covers this; keep
+    // in sync in case both paired + virtual segments touch the same room.)
+    for (const b of visibleBookings) {
+      const f = lateFractionByBooking.get(b.id) ?? 0;
+      if (f <= 0) continue;
+      const { paired } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      for (const { room_id: rid, slot } of paired) bumpOutgoing(b, rid, slot);
+    }
+
     // 3) Hide Checked-Out / Stay Completed bookings on a room once another
     //    booking has been assigned to that same room with overlapping dates.
-    //    (Keeps the checked-out pill visible only until the room turns over.)
     for (const [rid, arr] of m) {
       const filtered = arr.filter((b) => {
         const isPast = b.status === "Checked-Out" || b.status === "Stay Completed";
@@ -450,8 +474,12 @@ function HouseView() {
       });
       m.set(rid, filtered);
     }
-    return m;
-  }, [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd, outgoingLateByRoomDay]);
+    return { byRoom: m, outgoingLateByRoomDay: outMap };
+  }, [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd, outgoingLateByRoomDayFromPaired, lateFractionByBooking]);
+
+  const byRoom = byRoomAndOutgoing.byRoom;
+  const outgoingLateByRoomDay = byRoomAndOutgoing.outgoingLateByRoomDay;
+
 
   const blocksByRoom = useMemo(() => {
     const m = new Map<string, any[]>();
