@@ -256,7 +256,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     // same numbers the guest was invoiced.
     const { data: itemRows } = await supabaseAdmin
       .from("booking_items")
-      .select("subtotal, rate, rooms, check_in, check_out, early_check_in, early_check_in_slot, late_check_out, late_check_out_slot, pet_size, extra_adults, drivers")
+      .select("subtotal, rate, rooms, room_type, check_in, check_out, early_check_in, early_check_in_slot, late_check_out, late_check_out_slot, pet_size, extra_adults, drivers")
       .eq("booking_id", (b as any).id);
     const rows = (itemRows ?? []) as any[];
 
