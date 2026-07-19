@@ -236,7 +236,7 @@ function GuestPortal() {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <StayField label="Check-In" date={b.checkIn} kind="in" />
             <StayField label="Check-Out" date={b.checkOut} kind="out" />
-            <Field label="Room" value={b.roomType} />
+            <Field label={b.roomType.includes(",") || b.roomType.includes("×") ? "Rooms" : "Room"} value={b.roomType} />
             <Field label="Guests" value={String(b.guests)} />
             <Field label="Payable" value={inr(b.payable)} />
             <Field label="Paid" value={inr(b.advancePaid)} />

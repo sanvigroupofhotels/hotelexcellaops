@@ -256,7 +256,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     // same numbers the guest was invoiced.
     const { data: itemRows } = await supabaseAdmin
       .from("booking_items")
-      .select("subtotal, rate, rooms, check_in, check_out, early_check_in, early_check_in_slot, late_check_out, late_check_out_slot, pet_size, extra_adults, drivers")
+      .select("subtotal, rate, rooms, room_type, check_in, check_out, early_check_in, early_check_in_slot, late_check_out, late_check_out_slot, pet_size, extra_adults, drivers")
       .eq("booking_id", (b as any).id);
     const rows = (itemRows ?? []) as any[];
 
@@ -298,6 +298,20 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       ? roomChargesFromRows
       : rows.reduce((s: number, r: any) => s + Number(r.subtotal || 0), 0);
 
+    // UAT-045: Aggregate all stay items into a single room summary so
+    // multi-type bookings (e.g. "Oak Room × 5, Mapple Room × 1") match
+    // what the Booking Detail and Shared Booking Image already show.
+    const typeAgg = new Map<string, number>();
+    for (const r of rows) {
+      const label = String(r.room_type ?? "").trim();
+      if (!label) continue;
+      const qty = Math.max(1, Number(r.rooms) || 1);
+      typeAgg.set(label, (typeAgg.get(label) ?? 0) + qty);
+    }
+    const roomSummary = typeAgg.size > 0
+      ? Array.from(typeAgg.entries()).map(([t, q]) => `${t} × ${q}`).join(", ")
+      : ((b as any).room_details ?? "");
+
     const total = Number((b as any).amount) || 0;
     const subtotal = Number((b as any).subtotal) || 0;
     const taxes = Number((b as any).taxes) || 0;
@@ -324,7 +338,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       email: (b as any).email ?? "",
       checkIn: (b as any).check_in,
       checkOut: (b as any).check_out,
-      roomType: (b as any).room_details ?? "",
+      roomType: roomSummary,
       roomNumber,
       guests: (b as any).guests,
       breakfastIncluded: false,

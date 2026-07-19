@@ -399,17 +399,29 @@ function HouseView() {
         const fallback = (rooms as any[]);
         const candidates = matching.length > 0 ? matching : fallback;
 
-        let placed = false;
-        for (const r of candidates) {
-          // Skip rooms already assigned to this same booking (it's the same booking already shown).
-          if (assignedRoomIds.includes(r.id)) continue;
-          if (conflictsAt(r.id, slot)) continue;
-          const arr = m.get(r.id) ?? [];
-          arr.push({ ...b, room_id: r.id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
-          m.set(r.id, arr);
-          placed = true;
-          break;
-        }
+        // UAT-046: For UNASSIGNED (virtual) placements only, prefer fully
+        // clean lanes and skip lanes where the previous stay leaves a
+        // Late Check-out fractional extension into this slot's arrival
+        // day. Keeps House View readable during reservation planning;
+        // assigned rooms (step 1) intentionally reflect real occupancy
+        // even if it visually collides with the outgoing chip.
+        const hasIncomingLate = (rid: string) =>
+          (outgoingLateByRoomDay.get(`${rid}|${slot.check_in}`) ?? 0) > 0;
+
+        const tryPlace = (allowLateLane: boolean): boolean => {
+          for (const r of candidates) {
+            if (assignedRoomIds.includes(r.id)) continue;
+            if (conflictsAt(r.id, slot)) continue;
+            if (!allowLateLane && hasIncomingLate(r.id)) continue;
+            const arr = m.get(r.id) ?? [];
+            arr.push({ ...b, room_id: r.id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
+            m.set(r.id, arr);
+            return true;
+          }
+          return false;
+        };
+
+        const placed = tryPlace(false) || tryPlace(true);
         // If still unplaced, drop into the first matching room regardless (rare overflow).
         if (!placed && candidates[0]) {
           const arr = m.get(candidates[0].id) ?? [];
@@ -436,7 +448,7 @@ function HouseView() {
       m.set(rid, filtered);
     }
     return m;
-  }, [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd]);
+  }, [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd, outgoingLateByRoomDay]);
 
   const blocksByRoom = useMemo(() => {
     const m = new Map<string, any[]>();

@@ -173,11 +173,13 @@ function NightAuditDashboard() {
               <AlertTriangle className="h-5 w-5 text-amber-500" /> Cannot Perform Night Audit
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Please resolve pending check-ins and check-outs before performing Night Audit.
+              Business Date <span className="font-medium text-foreground">{fmtDate(businessDate)}</span> has unresolved
+              activity. Please resolve all pending check-ins and overdue check-outs before advancing to{" "}
+              <span className="font-medium text-foreground">{nextDay(businessDate)}</span>.
               {pendingDialog && (
                 <span className="block mt-2 text-foreground">
                   {pendingDialog.ci} pending check-in{pendingDialog.ci === 1 ? "" : "s"} ·{" "}
-                  {pendingDialog.co} pending check-out{pendingDialog.co === 1 ? "" : "s"}
+                  {pendingDialog.co} overdue check-out{pendingDialog.co === 1 ? "" : "s"}
                 </span>
               )}
             </AlertDialogDescription>
