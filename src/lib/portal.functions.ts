@@ -338,7 +338,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       email: (b as any).email ?? "",
       checkIn: (b as any).check_in,
       checkOut: (b as any).check_out,
-      roomType: (b as any).room_details ?? "",
+      roomType: roomSummary,
       roomNumber,
       guests: (b as any).guests,
       breakfastIncluded: false,
