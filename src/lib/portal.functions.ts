@@ -298,6 +298,20 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       ? roomChargesFromRows
       : rows.reduce((s: number, r: any) => s + Number(r.subtotal || 0), 0);
 
+    // UAT-045: Aggregate all stay items into a single room summary so
+    // multi-type bookings (e.g. "Oak Room × 5, Mapple Room × 1") match
+    // what the Booking Detail and Shared Booking Image already show.
+    const typeAgg = new Map<string, number>();
+    for (const r of rows) {
+      const label = String(r.room_type ?? "").trim();
+      if (!label) continue;
+      const qty = Math.max(1, Number(r.rooms) || 1);
+      typeAgg.set(label, (typeAgg.get(label) ?? 0) + qty);
+    }
+    const roomSummary = typeAgg.size > 0
+      ? Array.from(typeAgg.entries()).map(([t, q]) => `${t} × ${q}`).join(", ")
+      : ((b as any).room_details ?? "");
+
     const total = Number((b as any).amount) || 0;
     const subtotal = Number((b as any).subtotal) || 0;
     const taxes = Number((b as any).taxes) || 0;
