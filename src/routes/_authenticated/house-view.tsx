@@ -448,7 +448,7 @@ function HouseView() {
       m.set(rid, filtered);
     }
     return m;
-  }, [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd]);
+  }, [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd, outgoingLateByRoomDay]);
 
   const blocksByRoom = useMemo(() => {
     const m = new Map<string, any[]>();
