@@ -345,7 +345,10 @@ function HouseView() {
   // that vacates the room on that date with a Late Check-out slot. The next
   // booking starting on that same date in the same room shifts its left edge
   // by this fraction so the two chips never visually overlap.
-  const outgoingLateByRoomDay = useMemo(() => {
+  // Initial outgoing-late map from PAIRED (assigned) segments only. The final
+  // map (which also accounts for virtual placements below) is computed inside
+  // `byRoomAndOutgoing` and re-exposed via `outgoingLateByRoomDay`.
+  const outgoingLateByRoomDayFromPaired = useMemo(() => {
     const m = new Map<string, number>();
     for (const b of visibleBookings) {
       const f = lateFractionByBooking.get(b.id) ?? 0;
