@@ -76,6 +76,17 @@ function normalizeMoveStatus(status: string | null | undefined) {
   return String(status ?? "").toLowerCase().replace(/[\s-]+/g, " ").trim();
 }
 
+/**
+ * House View virtual allocation treats only booking_room_assignments as a hard
+ * room assignment. `bookings.room_id` is kept as a legacy/detail-page mirror and
+ * can be populated by prefill flows; using it here makes unassigned bookings
+ * stick to a previous visual lane instead of being packed into the first clean
+ * lane.
+ */
+function withoutLegacyRoomId<T extends { room_id?: string | null }>(booking: T): T & { room_id: null } {
+  return { ...booking, room_id: null };
+}
+
 function todayKolkataKey() {
   const parts = new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
@@ -328,7 +339,7 @@ function HouseView() {
   const visibleBookings = useMemo(
     () => (bookings as any[]).filter((b) => {
       if (b.status === "Cancelled" || b.status === "No-Show") return false;
-      const { slots } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      const { slots } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]);
       return slots.some((slot) => segmentOverlapsRange(slot, rangeStart, rangeEnd));
     }),
     [bookings, itemsByBooking, assignmentsByBooking, rooms, rangeStart, rangeEnd],
@@ -353,7 +364,7 @@ function HouseView() {
     for (const b of visibleBookings) {
       const f = lateFractionByBooking.get(b.id) ?? 0;
       if (f <= 0) continue;
-      const { paired } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      const { paired } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]);
       for (const { room_id: rid, slot } of paired) {
         const endDay = slotEndExclusive(slot);
         const key = `${rid}|${endDay}`;
@@ -389,10 +400,12 @@ function HouseView() {
     };
     const conflictsAt = (rid: string, slot: any) =>
       (m.get(rid) ?? []).some((x) => segmentsOverlap(slot, x));
+    const blockedAt = (rid: string, slot: any) =>
+      visibleBlocks.some((x: any) => x.room_id === rid && slot.check_in < x.end_date && x.start_date < slotEndExclusive(slot));
 
     // 1) Render each booking only on rooms paired to active stay segments.
     for (const b of visibleBookings) {
-      const { paired } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      const { paired } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]);
       for (const { room_id: rid, slot } of paired) {
         if (!segmentOverlapsRange(slot, rangeStart, rangeEnd)) continue;
         const arr = m.get(rid) ?? [];
@@ -402,49 +415,49 @@ function HouseView() {
     }
 
     // 2) Place virtual placeholders only for unpaired stay segments overlapping this date range.
+    // Build the work list first and sort by stay date so an earlier unassigned
+    // stay can register its late-checkout residual before a next-day arrival is
+    // packed. This removes any dependency on bookings query/create order.
+    const virtualSlots: Array<{ b: any; slot: any; assignedRoomIds: string[] }> = [];
     for (const b of visibleBookings) {
-      const { paired, unpaired } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      const { paired, unpaired } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]);
       const assignedRoomIds = paired.map((p) => p.room_id);
       for (const slot of unpaired) {
         if (!segmentOverlapsRange(slot, rangeStart, rangeEnd)) continue;
-        // Candidate rooms: matching type first, then any room as fallback.
-        const matching = (rooms as any[]).filter((r) =>
-          slot.room_type ? stayRoomTypesMatch(r.room_type, slot.room_type) : true,
-        );
-        const fallback = (rooms as any[]);
-        const candidates = matching.length > 0 ? matching : fallback;
+        virtualSlots.push({ b, slot, assignedRoomIds });
+      }
+    }
+    virtualSlots.sort((a, b) =>
+      String(a.slot.check_in).localeCompare(String(b.slot.check_in)) ||
+      String(slotEndExclusive(a.slot)).localeCompare(String(slotEndExclusive(b.slot))) ||
+      String(a.b.created_at ?? a.b.booking_reference ?? a.b.id).localeCompare(String(b.b.created_at ?? b.b.booking_reference ?? b.b.id))
+    );
+    for (const { b, slot, assignedRoomIds } of virtualSlots) {
+      // Candidate rooms: matching type first, then any room as fallback.
+      const matching = (rooms as any[]).filter((r) =>
+        slot.room_type ? stayRoomTypesMatch(r.room_type, slot.room_type) : true,
+      );
+      const fallback = (rooms as any[]);
+      const candidates = matching.length > 0 ? matching : fallback;
 
-        // UAT-046 + follow-up: For UNASSIGNED (virtual) placements, prefer
-        // fully clean lanes and skip lanes where ANY previous stay (paired
-        // OR virtual) leaves a Late Check-out fractional extension into
-        // this slot's arrival day. Reading from the incrementally-grown
-        // `outMap` (rather than the paired-only base map) ensures virtual
-        // late-checkout representations are also respected.
-        const hasIncomingLate = (rid: string) =>
-          (outMap.get(`${rid}|${slot.check_in}`) ?? 0) > 0;
+      // UAT-046B: unassigned placeholders are packed from scratch into the
+      // first fully clean visual lane. They must not inherit/stick to a
+      // previous `bookings.room_id`, and they must not consume residual space
+      // left by late check-out / extension representations. Only an explicit
+      // booking_room_assignments row is treated as a hard staff assignment.
+      const hasIncomingLate = (rid: string) =>
+        (outMap.get(`${rid}|${slot.check_in}`) ?? 0) > 0;
 
-        const tryPlace = (allowLateLane: boolean): boolean => {
-          for (const r of candidates) {
-            if (assignedRoomIds.includes(r.id)) continue;
-            if (conflictsAt(r.id, slot)) continue;
-            if (!allowLateLane && hasIncomingLate(r.id)) continue;
-            const arr = m.get(r.id) ?? [];
-            arr.push({ ...b, room_id: r.id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
-            m.set(r.id, arr);
-            bumpOutgoing(b, r.id, slot);
-            return true;
-          }
-          return false;
-        };
-
-        const placed = tryPlace(false) || tryPlace(true);
-        // If still unplaced, drop into the first matching room regardless (rare overflow).
-        if (!placed && candidates[0]) {
-          const arr = m.get(candidates[0].id) ?? [];
-          arr.push({ ...b, room_id: candidates[0].id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
-          m.set(candidates[0].id, arr);
-          bumpOutgoing(b, candidates[0].id, slot);
-        }
+      for (const r of candidates) {
+        if (assignedRoomIds.includes(r.id)) continue;
+        if (conflictsAt(r.id, slot)) continue;
+        if (blockedAt(r.id, slot)) continue;
+        if (hasIncomingLate(r.id)) continue;
+        const arr = m.get(r.id) ?? [];
+        arr.push({ ...b, room_id: r.id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
+        m.set(r.id, arr);
+        bumpOutgoing(b, r.id, slot);
+        break;
       }
     }
 
@@ -455,7 +468,7 @@ function HouseView() {
     for (const b of visibleBookings) {
       const f = lateFractionByBooking.get(b.id) ?? 0;
       if (f <= 0) continue;
-      const { paired } = pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]);
+      const { paired } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]);
       for (const { room_id: rid, slot } of paired) bumpOutgoing(b, rid, slot);
     }
 
@@ -475,7 +488,7 @@ function HouseView() {
       m.set(rid, filtered);
     }
     return { byRoom: m, outgoingLateByRoomDay: outMap };
-  }, [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd, outgoingLateByRoomDayFromPaired, lateFractionByBooking]);
+  }, [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd, visibleBlocks, outgoingLateByRoomDayFromPaired, lateFractionByBooking]);
 
   const byRoom = byRoomAndOutgoing.byRoom;
   const outgoingLateByRoomDay = byRoomAndOutgoing.outgoingLateByRoomDay;
@@ -723,7 +736,7 @@ function HouseView() {
     return r ? r.room_number : null;
   };
   const roomNumbersFor = (b: any): string[] =>
-    pairStaySlotsToRooms(b, itemsByBooking, assignmentsByBooking, rooms as any[]).paired
+    pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]).paired
       .filter(({ slot }) => segmentCoversDate(slot, todayKey))
       .map(({ room_id }) => roomNumber(room_id)).filter(Boolean) as string[];
   const breakfastRoomNumbers = breakfastBookings.flatMap(roomNumbersFor);
@@ -817,7 +830,7 @@ function HouseView() {
               {searchQ.trim() && searchMatches.length > 0 && (
                 <div className="absolute z-40 left-0 right-0 mt-1 luxe-card rounded-md max-h-80 overflow-auto shadow-xl">
                   {searchMatches.map((m) => {
-                    const roomNums = pairStaySlotsToRooms(m, itemsByBooking, assignmentsByBooking, rooms as any[]).paired
+                    const roomNums = pairStaySlotsToRooms(withoutLegacyRoomId(m), itemsByBooking, assignmentsByBooking, rooms as any[]).paired
                       .map(({ room_id }) => (rooms as any[]).find((r) => r.id === room_id)?.room_number).filter(Boolean);
                     return (
                       <button key={m.id} onClick={() => jumpToBooking(m)}
@@ -1580,7 +1593,7 @@ function VacantActionMenu({ room, date, onBlock, onClose }: { room: any; date: s
         </div>
         <Link
           to="/bookings/new"
-          search={{ roomId: room.id, roomType: room.room_type, checkIn: date, checkOut: nextKey }}
+          search={{ roomType: room.room_type, checkIn: date, checkOut: nextKey }}
           onClick={onClose}
           className="w-full inline-flex items-center justify-center gap-2 gold-gradient text-charcoal rounded-md px-3 py-2.5 text-sm font-medium"
         >

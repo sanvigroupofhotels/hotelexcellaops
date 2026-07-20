@@ -35,7 +35,6 @@ export const Route = createFileRoute("/_authenticated/bookings_/new")({
   validateSearch: (s: Record<string, unknown>) => ({
     customerId: typeof s.customerId === "string" ? s.customerId : undefined,
     fromQuoteId: typeof s.fromQuoteId === "string" ? s.fromQuoteId : undefined,
-    roomId: typeof s.roomId === "string" ? s.roomId : undefined,
     roomType: typeof s.roomType === "string" ? s.roomType : undefined,
     checkIn: typeof s.checkIn === "string" ? s.checkIn : undefined,
     checkOut: typeof s.checkOut === "string" ? s.checkOut : undefined,
@@ -48,7 +47,7 @@ const inputCls =
 
 function NewBooking() {
   const navigate = useNavigate();
-  const { customerId, fromQuoteId, roomId: prefillRoomId, roomType: prefillRoomType, checkIn: prefillIn, checkOut: prefillOut } = Route.useSearch();
+  const { customerId, fromQuoteId, roomType: prefillRoomType, checkIn: prefillIn, checkOut: prefillOut } = Route.useSearch();
 
   // Shared stay sections shape (same as Quote forms).
   const [stay, setStay] = useState<SharedStayValue>(() => {
@@ -64,7 +63,6 @@ function NewBooking() {
   const [advancePaid, setAdvancePaid] = useState<number>(0);
   const { modes: paymentModes } = usePaymentModes();
   const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
-  const [roomId, setRoomId] = useState<string | null>(prefillRoomId ?? null);
   const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(customerId ?? null);
   const [matchedCustomer, setMatchedCustomer] = useState<CustomerRow | null>(null);
   const [forceNew, setForceNew] = useState(false);
@@ -237,7 +235,7 @@ function NewBooking() {
         check_in: stay.check_in, check_out: stay.check_out,
         adults: stay.adults, children: stay.children, guests: stay.guests,
         room_details: `${stay.room_type} × ${stay.rooms}`,
-        room_id: roomId,
+        room_id: null,
         amount,
         subtotal: pricing.subtotal,
         taxes: pricing.taxes,
