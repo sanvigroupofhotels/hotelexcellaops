@@ -35,7 +35,6 @@ export const Route = createFileRoute("/_authenticated/bookings_/new")({
   validateSearch: (s: Record<string, unknown>) => ({
     customerId: typeof s.customerId === "string" ? s.customerId : undefined,
     fromQuoteId: typeof s.fromQuoteId === "string" ? s.fromQuoteId : undefined,
-    roomId: typeof s.roomId === "string" ? s.roomId : undefined,
     roomType: typeof s.roomType === "string" ? s.roomType : undefined,
     checkIn: typeof s.checkIn === "string" ? s.checkIn : undefined,
     checkOut: typeof s.checkOut === "string" ? s.checkOut : undefined,
