@@ -415,37 +415,49 @@ function HouseView() {
     }
 
     // 2) Place virtual placeholders only for unpaired stay segments overlapping this date range.
+    // Build the work list first and sort by stay date so an earlier unassigned
+    // stay can register its late-checkout residual before a next-day arrival is
+    // packed. This removes any dependency on bookings query/create order.
+    const virtualSlots: Array<{ b: any; slot: any; assignedRoomIds: string[] }> = [];
     for (const b of visibleBookings) {
       const { paired, unpaired } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]);
       const assignedRoomIds = paired.map((p) => p.room_id);
       for (const slot of unpaired) {
         if (!segmentOverlapsRange(slot, rangeStart, rangeEnd)) continue;
-        // Candidate rooms: matching type first, then any room as fallback.
-        const matching = (rooms as any[]).filter((r) =>
-          slot.room_type ? stayRoomTypesMatch(r.room_type, slot.room_type) : true,
-        );
-        const fallback = (rooms as any[]);
-        const candidates = matching.length > 0 ? matching : fallback;
+        virtualSlots.push({ b, slot, assignedRoomIds });
+      }
+    }
+    virtualSlots.sort((a, b) =>
+      String(a.slot.check_in).localeCompare(String(b.slot.check_in)) ||
+      String(slotEndExclusive(a.slot)).localeCompare(String(slotEndExclusive(b.slot))) ||
+      String(a.b.created_at ?? a.b.booking_reference ?? a.b.id).localeCompare(String(b.b.created_at ?? b.b.booking_reference ?? b.b.id))
+    );
+    for (const { b, slot, assignedRoomIds } of virtualSlots) {
+      // Candidate rooms: matching type first, then any room as fallback.
+      const matching = (rooms as any[]).filter((r) =>
+        slot.room_type ? stayRoomTypesMatch(r.room_type, slot.room_type) : true,
+      );
+      const fallback = (rooms as any[]);
+      const candidates = matching.length > 0 ? matching : fallback;
 
-        // UAT-046B: unassigned placeholders are packed from scratch into the
-        // first fully clean visual lane. They must not inherit/stick to a
-        // previous `bookings.room_id`, and they must not consume residual space
-        // left by late check-out / extension representations. Only an explicit
-        // booking_room_assignments row is treated as a hard staff assignment.
-        const hasIncomingLate = (rid: string) =>
-          (outMap.get(`${rid}|${slot.check_in}`) ?? 0) > 0;
+      // UAT-046B: unassigned placeholders are packed from scratch into the
+      // first fully clean visual lane. They must not inherit/stick to a
+      // previous `bookings.room_id`, and they must not consume residual space
+      // left by late check-out / extension representations. Only an explicit
+      // booking_room_assignments row is treated as a hard staff assignment.
+      const hasIncomingLate = (rid: string) =>
+        (outMap.get(`${rid}|${slot.check_in}`) ?? 0) > 0;
 
-        for (const r of candidates) {
-          if (assignedRoomIds.includes(r.id)) continue;
-          if (conflictsAt(r.id, slot)) continue;
-          if (blockedAt(r.id, slot)) continue;
-          if (hasIncomingLate(r.id)) continue;
-          const arr = m.get(r.id) ?? [];
-          arr.push({ ...b, room_id: r.id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
-          m.set(r.id, arr);
-          bumpOutgoing(b, r.id, slot);
-          break;
-        }
+      for (const r of candidates) {
+        if (assignedRoomIds.includes(r.id)) continue;
+        if (conflictsAt(r.id, slot)) continue;
+        if (blockedAt(r.id, slot)) continue;
+        if (hasIncomingLate(r.id)) continue;
+        const arr = m.get(r.id) ?? [];
+        arr.push({ ...b, room_id: r.id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
+        m.set(r.id, arr);
+        bumpOutgoing(b, r.id, slot);
+        break;
       }
     }
 
