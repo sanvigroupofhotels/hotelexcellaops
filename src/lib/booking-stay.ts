@@ -260,6 +260,34 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
           .eq("id", item.id);
         if (itemErr) throw itemErr;
       }
+
+      // Anchor-based assignment segment resize. `booking_room_assignments`
+      // rows carry their own [start_date, end_date) window (UAT-047). When
+      // the booking's stay window shifts or extends, segments anchored to
+      // the old start/end must follow — otherwise an extension leaves the
+      // trailing days with no assignment coverage, so House View chips
+      // render truncated and visually collide with the next-day booking
+      // in the same room. Also keeps the popup's check-out in sync since
+      // the paired slot's check_out is min(item, segment).
+      const { data: segs, error: segsErr } = await supabase
+        .from("booking_room_assignments" as any)
+        .select("id, start_date, end_date")
+        .eq("booking_id", booking_id);
+      if (segsErr) throw segsErr;
+      for (const seg of (segs ?? []) as any[]) {
+        const segIn = seg.start_date || oldIn;
+        const segOut = seg.end_date || oldOut;
+        const patch = {
+          start_date: segIn === oldIn ? newIn : segIn,
+          end_date: segOut === oldOut ? newOut : segOut,
+        };
+        if (patch.start_date === segIn && patch.end_date === segOut) continue;
+        const { error: segErr } = await supabase
+          .from("booking_room_assignments" as any)
+          .update(patch)
+          .eq("id", seg.id);
+        if (segErr) throw segErr;
+      }
     }
   } catch (e) {
     throw new Error(humanizeStayError(e));
