@@ -15,10 +15,16 @@ export type StayItemLike = {
 };
 
 export type StayAssignmentLike = {
+  id?: string | null;
   room_id: string;
   booking_id?: string | null;
   created_at?: string | null;
+  /** Segment start (inclusive YYYY-MM-DD). Optional for legacy callers. */
+  start_date?: string | null;
+  /** Segment end (exclusive YYYY-MM-DD). Optional for legacy callers. */
+  end_date?: string | null;
 };
+
 
 export type StayRoomLike = {
   id: string;
