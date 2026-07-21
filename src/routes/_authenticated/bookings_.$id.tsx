@@ -527,7 +527,7 @@ function BookingDetail() {
                               </span>
                               {showSegment && (
                                 <span className="text-[10.5px] text-muted-foreground">
-                                  {fmtFull(a.start_date)} → {fmtFull(a.end_date)}
+                                  {new Date(a.start_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → {new Date(a.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
                                   {a.ended_reason === "room_change" ? " · closed on room change" : ""}
                                 </span>
                               )}
