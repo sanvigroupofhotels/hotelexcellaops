@@ -229,16 +229,17 @@ export function RoomAssignmentDialog({
         });
       }
 
-      // Perform the assignment (and remove the old one for change mode).
+      // Perform the assignment (and split the old one for change mode).
       if (mode === "change" && changingAssignment) {
-        await addAssignment(bookingId, pickedRoomId);
-        await removeAssignment(bookingId, changingAssignment.id);
+        // UAT-047: preserve history — split the segment on the business date
+        // rather than delete + insert (which rewrote past occupancy).
+        await splitAssignment(bookingId, changingAssignment.id, pickedRoomId, null);
         await logBookingActivity({
           booking_id: bookingId,
           action: "reactivated",
           from_status: booking?.status ?? null,
           to_status: booking?.status ?? null,
-          notes: `Room Changed: ${changingRoom?.room_number ?? "?"} → ${newRoom?.room_number ?? "?"}`,
+          notes: `Room Changed: ${changingRoom?.room_number ?? "?"} → ${newRoom?.room_number ?? "?"} (segment split)`,
         });
       } else {
         await addAssignment(bookingId, pickedRoomId);
@@ -250,6 +251,7 @@ export function RoomAssignmentDialog({
           notes: `Room Assigned: ${newRoom?.room_number ?? "?"}`,
         });
       }
+
     },
     onSuccess: async () => {
       invalidate();
