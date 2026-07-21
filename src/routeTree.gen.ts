@@ -103,6 +103,7 @@ import { Route as AuthenticatedBookingsQuickRouteImport } from './routes/_authen
 import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenticated/bookings_.new'
 import { Route as AuthenticatedBookingsIdRouteImport } from './routes/_authenticated/bookings_.$id'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AuthenticatedStaffIdLedgerRouteImport } from './routes/_authenticated/staff_.$id.ledger'
 import { Route as AuthenticatedSettingsIntegrationsIdRouteImport } from './routes/_authenticated/settings_.integrations.$id'
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
@@ -625,6 +626,11 @@ const Char91DotmcpChar93InvokeToolToolRoute =
     path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedStaffIdLedgerRoute =
   AuthenticatedStaffIdLedgerRouteImport.update({
     id: '/staff_/$id/ledger',
@@ -697,6 +703,7 @@ export interface FileRoutesByFullPath {
   '/be/': typeof BeIndexRoute
   '/booking-engine/': typeof BookingEngineIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
@@ -791,6 +798,7 @@ export interface FileRoutesByTo {
   '/be': typeof BeIndexRoute
   '/booking-engine': typeof BookingEngineIndexRoute
   '/portal': typeof PortalIndexRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
@@ -892,6 +900,7 @@ export interface FileRoutesById {
   '/be/': typeof BeIndexRoute
   '/booking-engine/': typeof BookingEngineIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
   '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
@@ -993,6 +1002,7 @@ export interface FileRouteTypes {
     | '/be/'
     | '/booking-engine/'
     | '/portal/'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/bookings/$id'
     | '/bookings/new'
@@ -1087,6 +1097,7 @@ export interface FileRouteTypes {
     | '/be'
     | '/booking-engine'
     | '/portal'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/bookings/$id'
     | '/bookings/new'
@@ -1187,6 +1198,7 @@ export interface FileRouteTypes {
     | '/be/'
     | '/booking-engine/'
     | '/portal/'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/bookings_/$id'
     | '/_authenticated/bookings_/new'
@@ -1250,6 +1262,7 @@ export interface RootRouteChildren {
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   BeSplatRoute: typeof BeSplatRoute
   BeIndexRoute: typeof BeIndexRoute
+  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicCleanupGuestDocumentsRoute: typeof ApiPublicCleanupGuestDocumentsRoute
   ApiPublicHotelzifyPollRoute: typeof ApiPublicHotelzifyPollRoute
@@ -1919,6 +1932,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/staff_/$id/ledger': {
       id: '/_authenticated/staff_/$id/ledger'
       path: '/staff/$id/ledger'
@@ -2239,6 +2259,7 @@ const rootRouteChildren: RootRouteChildren = {
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   BeSplatRoute: BeSplatRoute,
   BeIndexRoute: BeIndexRoute,
+  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicCleanupGuestDocumentsRoute: ApiPublicCleanupGuestDocumentsRoute,
   ApiPublicHotelzifyPollRoute: ApiPublicHotelzifyPollRoute,
