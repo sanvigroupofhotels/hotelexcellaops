@@ -127,11 +127,9 @@ function CriticalTasksPage() {
         setPendingDialog({ ci: result.pendingCheckIns ?? 0, co: result.pendingCheckOuts ?? 0 });
         return;
       }
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["night-audit-pending"] }),
-        qc.invalidateQueries({ queryKey: ["night-audit-status"] }),
-        qc.invalidateQueries({ queryKey: ["bookings"] }),
-      ]);
+      // UAT-049: broad invalidation so every Business Date-derived cache
+      // refreshes without a manual reload.
+      await qc.invalidateQueries();
       setSuccessDialog({ prev: result.previousBusinessDate!, next: result.newBusinessDate! });
     } catch (e: any) {
       toast.error(e?.message ?? "Could not perform Night Audit");
