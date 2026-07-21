@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PortalRouteImport } from './routes/portal'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as BookingEngineRouteImport } from './routes/booking-engine'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
@@ -53,6 +54,8 @@ import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAccessSettingsRouteImport } from './routes/_authenticated/access-settings'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedOperationsIndexRouteImport } from './routes/_authenticated/operations.index'
 import { Route as AuthenticatedNightAuditIndexRouteImport } from './routes/_authenticated/night-audit.index'
@@ -99,6 +102,7 @@ import { Route as AuthenticatedComplaintsIdRouteImport } from './routes/_authent
 import { Route as AuthenticatedBookingsQuickRouteImport } from './routes/_authenticated/bookings_.quick'
 import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenticated/bookings_.new'
 import { Route as AuthenticatedBookingsIdRouteImport } from './routes/_authenticated/bookings_.$id'
+import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as AuthenticatedStaffIdLedgerRouteImport } from './routes/_authenticated/staff_.$id.ledger'
 import { Route as AuthenticatedSettingsIntegrationsIdRouteImport } from './routes/_authenticated/settings_.integrations.$id'
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
@@ -107,6 +111,11 @@ import { Route as AuthenticatedBookingsIdEditRouteImport } from './routes/_authe
 const PortalRoute = PortalRouteImport.update({
   id: '/portal',
   path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -327,6 +336,18 @@ const AuthenticatedAccessSettingsRoute =
     id: '/access-settings',
     path: '/access-settings',
     getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotmcpChar93ListToolsRoute =
+  Char91DotmcpChar93ListToolsRouteImport.update({
+    id: '/.mcp/list-tools',
+    path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
@@ -598,6 +619,12 @@ const AuthenticatedBookingsIdRoute = AuthenticatedBookingsIdRouteImport.update({
   path: '/bookings/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const Char91DotmcpChar93InvokeToolToolRoute =
+  Char91DotmcpChar93InvokeToolToolRouteImport.update({
+    id: '/.mcp/invoke-tool/$tool',
+    path: '/.mcp/invoke-tool/$tool',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedStaffIdLedgerRoute =
   AuthenticatedStaffIdLedgerRouteImport.update({
     id: '/staff_/$id/ledger',
@@ -627,7 +654,10 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/booking-engine': typeof BookingEngineRouteWithChildren
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
   '/portal': typeof PortalRouteWithChildren
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/attendance': typeof AuthenticatedAttendanceRoute
@@ -667,6 +697,7 @@ export interface FileRoutesByFullPath {
   '/be/': typeof BeIndexRoute
   '/booking-engine/': typeof BookingEngineIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/bookings/quick': typeof AuthenticatedBookingsQuickRoute
@@ -720,6 +751,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/attendance': typeof AuthenticatedAttendanceRoute
@@ -757,6 +791,7 @@ export interface FileRoutesByTo {
   '/be': typeof BeIndexRoute
   '/booking-engine': typeof BookingEngineIndexRoute
   '/portal': typeof PortalIndexRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/bookings/quick': typeof AuthenticatedBookingsQuickRoute
@@ -813,7 +848,10 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/booking-engine': typeof BookingEngineRouteWithChildren
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
   '/portal': typeof PortalRouteWithChildren
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
@@ -854,6 +892,7 @@ export interface FileRoutesById {
   '/be/': typeof BeIndexRoute
   '/booking-engine/': typeof BookingEngineIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
   '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
   '/_authenticated/bookings_/quick': typeof AuthenticatedBookingsQuickRoute
@@ -911,7 +950,10 @@ export interface FileRouteTypes {
     | '/'
     | '/booking-engine'
     | '/login'
+    | '/mcp'
     | '/portal'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/access-settings'
     | '/analytics'
     | '/attendance'
@@ -951,6 +993,7 @@ export interface FileRouteTypes {
     | '/be/'
     | '/booking-engine/'
     | '/portal/'
+    | '/.mcp/invoke-tool/$tool'
     | '/bookings/$id'
     | '/bookings/new'
     | '/bookings/quick'
@@ -1004,6 +1047,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/mcp'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/access-settings'
     | '/analytics'
     | '/attendance'
@@ -1041,6 +1087,7 @@ export interface FileRouteTypes {
     | '/be'
     | '/booking-engine'
     | '/portal'
+    | '/.mcp/invoke-tool/$tool'
     | '/bookings/$id'
     | '/bookings/new'
     | '/bookings/quick'
@@ -1096,7 +1143,10 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/booking-engine'
     | '/login'
+    | '/mcp'
     | '/portal'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/_authenticated/access-settings'
     | '/_authenticated/analytics'
     | '/_authenticated/attendance'
@@ -1137,6 +1187,7 @@ export interface FileRouteTypes {
     | '/be/'
     | '/booking-engine/'
     | '/portal/'
+    | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/bookings_/$id'
     | '/_authenticated/bookings_/new'
     | '/_authenticated/bookings_/quick'
@@ -1193,9 +1244,13 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   BookingEngineRoute: typeof BookingEngineRouteWithChildren
   LoginRoute: typeof LoginRoute
+  McpRoute: typeof McpRoute
   PortalRoute: typeof PortalRouteWithChildren
+  Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
+  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   BeSplatRoute: typeof BeSplatRoute
   BeIndexRoute: typeof BeIndexRoute
+  Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicCleanupGuestDocumentsRoute: typeof ApiPublicCleanupGuestDocumentsRoute
   ApiPublicHotelzifyPollRoute: typeof ApiPublicHotelzifyPollRoute
   ApiPublicNightAuditRoute: typeof ApiPublicNightAuditRoute
@@ -1211,6 +1266,13 @@ declare module '@tanstack/react-router' {
       path: '/portal'
       fullPath: '/portal'
       preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -1513,6 +1575,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/access-settings'
       preLoaderRoute: typeof AuthenticatedAccessSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/list-tools': {
+      id: '/.mcp/list-tools'
+      path: '/.mcp/list-tools'
+      fullPath: '/.mcp/list-tools'
+      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/settings/': {
       id: '/_authenticated/settings/'
@@ -1836,6 +1912,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBookingsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/.mcp/invoke-tool/$tool': {
+      id: '/.mcp/invoke-tool/$tool'
+      path: '/.mcp/invoke-tool/$tool'
+      fullPath: '/.mcp/invoke-tool/$tool'
+      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/staff_/$id/ledger': {
       id: '/_authenticated/staff_/$id/ledger'
       path: '/staff/$id/ledger'
@@ -2149,9 +2232,14 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   BookingEngineRoute: BookingEngineRouteWithChildren,
   LoginRoute: LoginRoute,
+  McpRoute: McpRoute,
   PortalRoute: PortalRouteWithChildren,
+  Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
+  Char91DotwellKnownChar93OauthProtectedResourceRoute:
+    Char91DotwellKnownChar93OauthProtectedResourceRoute,
   BeSplatRoute: BeSplatRoute,
   BeIndexRoute: BeIndexRoute,
+  Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicCleanupGuestDocumentsRoute: ApiPublicCleanupGuestDocumentsRoute,
   ApiPublicHotelzifyPollRoute: ApiPublicHotelzifyPollRoute,
   ApiPublicNightAuditRoute: ApiPublicNightAuditRoute,
