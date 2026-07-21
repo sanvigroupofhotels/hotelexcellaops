@@ -218,9 +218,12 @@ export function maxSelectableRooms(
   // an existing selection if live inventory drops mid-edit, but never inflates
   // the cap beyond real availability. This prevents oversell on New Booking.
   const max = Math.max(currentlySelected, row.available);
+  // Surface maintenance transparency: users see WHY inventory is reduced so a
+  // legitimate block doesn't read as a phantom deduction (UAT-048).
+  const blockedSuffix = row.blocked > 0 ? ` (${row.blocked} on maintenance)` : "";
   const label =
     row.available <= 0
-      ? `${room_type} fully booked for these dates`
-      : `${row.available} of ${row.total} ${room_type}s available`;
+      ? `${room_type} fully booked for these dates${blockedSuffix}`
+      : `${row.available} of ${row.total} ${room_type}s available${blockedSuffix}`;
   return { max, available: row.available, total: row.total, label };
 }
