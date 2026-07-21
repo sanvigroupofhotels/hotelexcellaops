@@ -22,11 +22,14 @@ export async function onBookingCheckedOut(bookingId: string): Promise<void> {
     const businessDate = await getBusinessDate();
     const correlation_id = newCorrelationId();
 
-    // Room IDs come from booking_room_assignments; fall back to bookings.room_id
-    // for legacy single-room stays.
+    // UAT-047: pick only the FINAL segment(s) — historical rooms already
+    // had their departure processed at the room-change split. `end_date` for
+    // the last segment equals the booking's check_out.
     const { data: assigns } = await supabase.from("booking_room_assignments" as any)
-      .select("room_id,start_date,end_date").eq("booking_id", bookingId).lte("start_date", businessDate).gte("end_date", businessDate);
-    let roomIds = ((assigns ?? []) as any[]).map((a) => a.room_id).filter(Boolean) as string[];
+      .select("room_id,start_date,end_date").eq("booking_id", bookingId);
+    const rows = ((assigns ?? []) as any[]);
+    const maxEnd = rows.reduce((m, r) => (String(r.end_date) > m ? String(r.end_date) : m), "");
+    let roomIds = rows.filter((r) => String(r.end_date) === maxEnd).map((a) => a.room_id).filter(Boolean) as string[];
     if (roomIds.length === 0) {
       const { data: b } = await supabase.from("bookings" as any)
         .select("room_id").eq("id", bookingId).maybeSingle();
