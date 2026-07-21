@@ -432,22 +432,31 @@ export type Database = {
         Row: {
           booking_id: string
           created_at: string
+          end_date: string
+          ended_reason: string | null
           id: string
           room_id: string
+          start_date: string
           user_id: string
         }
         Insert: {
           booking_id: string
           created_at?: string
+          end_date: string
+          ended_reason?: string | null
           id?: string
           room_id: string
+          start_date: string
           user_id: string
         }
         Update: {
           booking_id?: string
           created_at?: string
+          end_date?: string
+          ended_reason?: string | null
           id?: string
           room_id?: string
+          start_date?: string
           user_id?: string
         }
         Relationships: [
@@ -4083,6 +4092,18 @@ export type Database = {
         Args: { p_booking_id: string }
         Returns: undefined
       }
+      get_room_occupancy_segments: {
+        Args: { p_booking_id?: string }
+        Returns: {
+          assignment_id: string
+          booking_id: string
+          created_at: string
+          end_date: string
+          ended_reason: string
+          room_id: string
+          start_date: string
+        }[]
+      }
       has_permission: {
         Args: { _permission_key: string; _user_id: string }
         Returns: boolean
@@ -4137,6 +4158,15 @@ export type Database = {
       }
       resolve_username_to_email: {
         Args: { _username: string }
+        Returns: string
+      }
+      split_room_assignment: {
+        Args: {
+          p_booking_id: string
+          p_effective_date?: string
+          p_new_room_id: string
+          p_old_assignment_id: string
+        }
         Returns: string
       }
       sweep_abandoned_leads: { Args: never; Returns: number }

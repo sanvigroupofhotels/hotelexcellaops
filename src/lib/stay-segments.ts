@@ -15,10 +15,16 @@ export type StayItemLike = {
 };
 
 export type StayAssignmentLike = {
+  id?: string | null;
   room_id: string;
   booking_id?: string | null;
   created_at?: string | null;
+  /** Segment start (inclusive YYYY-MM-DD). Optional for legacy callers. */
+  start_date?: string | null;
+  /** Segment end (exclusive YYYY-MM-DD). Optional for legacy callers. */
+  end_date?: string | null;
 };
+
 
 export type StayRoomLike = {
   id: string;
@@ -129,30 +135,87 @@ export function pairStaySlotsToRooms(
 ) {
   const slots = expandStaySlots(booking, itemsByBooking.get(booking.id) ?? []);
   const assigned = [...(assignmentsByBooking.get(booking.id) ?? [])];
-  if (assigned.length === 0 && booking.room_id) assigned.push({ room_id: booking.room_id, booking_id: booking.id });
+  if (assigned.length === 0 && booking.room_id) {
+    assigned.push({
+      room_id: booking.room_id,
+      booking_id: booking.id,
+      start_date: booking.check_in,
+      end_date: booking.check_out === booking.check_in
+        ? slotEndExclusive({ check_in: booking.check_in, check_out: booking.check_out })
+        : booking.check_out,
+    });
+  }
 
+  // Order segments by start_date so mid-stay swaps register in real chronological
+  // order — old room then new room, preserving history.
   assigned.sort((a, b) => {
-    if (booking.room_id && a.room_id === booking.room_id) return -1;
-    if (booking.room_id && b.room_id === booking.room_id) return 1;
+    const sa = String(a.start_date ?? booking.check_in);
+    const sb = String(b.start_date ?? booking.check_in);
+    if (sa !== sb) return sa.localeCompare(sb);
     return String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""));
   });
 
   const roomById = new Map(rooms.map((room) => [room.id, room]));
-  const used = new Set<number>();
+  // Per-slot cursor tracks how much of the slot's date range has been paired.
+  const cursors = slots.map((s) => s.check_in);
   const paired: Array<{ room_id: string; slot: StaySlot }> = [];
 
   for (const assignment of assigned) {
     const room = roomById.get(assignment.room_id);
-    let slotIndex = slots.findIndex((slot, index) => !used.has(index) && stayRoomTypesMatch(room?.room_type, slot.room_type));
-    if (slotIndex < 0) slotIndex = slots.findIndex((_, index) => !used.has(index));
+    const segStart = String(assignment.start_date ?? booking.check_in);
+    const segEnd = String(assignment.end_date ?? booking.check_out);
+
+    // Prefer a slot with matching room_type whose remaining window overlaps
+    // the segment window; fall back to any slot with a remaining overlap.
+    const overlaps = (slotIdx: number) => {
+      const s = slots[slotIdx];
+      const cursor = cursors[slotIdx];
+      const slotEnd = slotEndExclusive(s);
+      const a = cursor > segStart ? cursor : segStart;
+      const b = slotEnd < segEnd ? slotEnd : segEnd;
+      return a < b ? { a, b } : null;
+    };
+
+    let slotIndex = slots.findIndex((slot, i) => overlaps(i) && stayRoomTypesMatch(room?.room_type, slot.room_type));
+    if (slotIndex < 0) slotIndex = slots.findIndex((_, i) => !!overlaps(i));
     if (slotIndex < 0) continue;
-    used.add(slotIndex);
-    paired.push({ room_id: assignment.room_id, slot: slots[slotIndex] });
+
+    const range = overlaps(slotIndex)!;
+    const base = slots[slotIndex];
+    // Emit a slot narrowed to the segment intersection so House View chips
+    // render each segment on its own date range.
+    paired.push({
+      room_id: assignment.room_id,
+      slot: {
+        key: `${base.key}:${assignment.id ?? assignment.room_id}:${range.a}`,
+        booking_id: booking.id,
+        room_type: base.room_type,
+        check_in: range.a,
+        // Keep half-open semantics: chip's check_out is exclusive in day-use
+        // math (see slotEndExclusive). For multi-day segments range.b is the
+        // exclusive end date, which is already correct as check_out.
+        check_out: range.b,
+      },
+    });
+    cursors[slotIndex] = range.b;
   }
 
-  return {
-    paired,
-    unpaired: slots.filter((_, index) => !used.has(index)),
-    slots,
-  };
+  // Unpaired = slots whose cursor didn't reach their check_out (or day-use end).
+  const unpaired: StaySlot[] = [];
+  for (let i = 0; i < slots.length; i++) {
+    const s = slots[i];
+    const cursor = cursors[i];
+    const slotEnd = slotEndExclusive(s);
+    if (cursor < slotEnd) {
+      unpaired.push({
+        key: `${s.key}:unpaired:${cursor}`,
+        booking_id: booking.id,
+        room_type: s.room_type,
+        check_in: cursor,
+        check_out: s.check_out === s.check_in && cursor === s.check_in ? s.check_out : slotEnd,
+      });
+    }
+  }
+
+  return { paired, unpaired, slots };
 }
