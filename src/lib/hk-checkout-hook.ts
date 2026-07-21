@@ -25,7 +25,7 @@ export async function onBookingCheckedOut(bookingId: string): Promise<void> {
     // Room IDs come from booking_room_assignments; fall back to bookings.room_id
     // for legacy single-room stays.
     const { data: assigns } = await supabase.from("booking_room_assignments" as any)
-      .select("room_id").eq("booking_id", bookingId);
+      .select("room_id,start_date,end_date").eq("booking_id", bookingId).lte("start_date", businessDate).gte("end_date", businessDate);
     let roomIds = ((assigns ?? []) as any[]).map((a) => a.room_id).filter(Boolean) as string[];
     if (roomIds.length === 0) {
       const { data: b } = await supabase.from("bookings" as any)
@@ -116,7 +116,7 @@ export async function onBookingExtended(bookingId: string): Promise<void> {
     if (!checkOut || checkOut <= businessDate) return; // stay must extend past today
 
     const { data: assigns } = await supabase.from("booking_room_assignments" as any)
-      .select("room_id").eq("booking_id", bookingId);
+      .select("room_id,start_date,end_date").eq("booking_id", bookingId).lte("start_date", businessDate).gte("end_date", businessDate);
     let roomIds = ((assigns ?? []) as any[]).map((a) => a.room_id).filter(Boolean) as string[];
     if (roomIds.length === 0 && (b as any)?.room_id) roomIds = [(b as any).room_id];
     if (roomIds.length === 0) return;
@@ -210,7 +210,7 @@ export async function onBookingCheckoutShortened(bookingId: string): Promise<voi
     if (checkOut && checkOut > businessDate) return;
 
     const { data: assigns } = await supabase.from("booking_room_assignments" as any)
-      .select("room_id").eq("booking_id", bookingId);
+      .select("room_id,start_date,end_date").eq("booking_id", bookingId).lte("start_date", businessDate).gte("end_date", businessDate);
     let roomIds = ((assigns ?? []) as any[]).map((a) => a.room_id).filter(Boolean) as string[];
     if (roomIds.length === 0 && (b as any)?.room_id) roomIds = [(b as any).room_id];
     if (roomIds.length === 0) return;
@@ -292,7 +292,7 @@ export async function onBookingCheckedIn(bookingId: string): Promise<void> {
     if (!checkOut || checkOut <= businessDate) return;
 
     const { data: assigns } = await supabase.from("booking_room_assignments" as any)
-      .select("room_id").eq("booking_id", bookingId);
+      .select("room_id,start_date,end_date").eq("booking_id", bookingId).lte("start_date", businessDate).gte("end_date", businessDate);
     let roomIds = ((assigns ?? []) as any[]).map((a) => a.room_id).filter(Boolean) as string[];
     if (roomIds.length === 0 && (b as any)?.room_id) roomIds = [(b as any).room_id];
     if (roomIds.length === 0) return;
