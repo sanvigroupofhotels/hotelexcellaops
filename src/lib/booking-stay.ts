@@ -154,6 +154,50 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
     };
   }
 
+  // UAT-050: server-side room-type availability guard. When the stay window
+  // changes, verify every room_type on this booking still fits inventory for
+  // the new [newIn, newOut). Shared engine — same `getRoomTypeAvailability`
+  // used by New Booking + capacity widgets — so there is exactly one source
+  // of truth for "can this stay be accommodated?". Excluding this booking
+  // folds its own current demand back into `available` so shortening or
+  // shifting within already-owned inventory never trips the guard.
+  if (newIn !== oldIn || newOut !== oldOut) {
+    const { getRoomTypeAvailability } = await import("@/lib/room-inventory");
+    const { data: bookingItems } = await supabase
+      .from("booking_items" as any)
+      .select("room_type, rooms")
+      .eq("booking_id", booking_id);
+    const demand: Record<string, number> = {};
+    for (const it of (bookingItems ?? []) as any[]) {
+      const key = String(it.room_type ?? "").trim();
+      if (!key) continue;
+      demand[key] = (demand[key] ?? 0) + Math.max(1, Number(it.rooms ?? 1) || 1);
+    }
+    if (Object.keys(demand).length > 0) {
+      const avail = await getRoomTypeAvailability({
+        check_in: newIn,
+        check_out: newOut,
+        exclude_booking_id: booking_id,
+      });
+      const norm = (s: string) => s.trim().replace(/\s+room$/i, "").toLowerCase();
+      const shortages: string[] = [];
+      for (const [label, need] of Object.entries(demand)) {
+        const key = norm(label);
+        const row = Object.values(avail.byType).find((r) => norm(r.room_type) === key);
+        const availCount = row?.available ?? 0;
+        if (availCount < need) {
+          shortages.push(`${label}: need ${need}, ${availCount} available`);
+        }
+      }
+      if (shortages.length > 0) {
+        throw new Error(
+          `Unable to update booking. Insufficient inventory for the requested dates — ${shortages.join("; ")}. Please shorten the stay, reduce rooms, or pick another room type.`,
+        );
+      }
+    }
+  }
+
+
   // Update the booking; DB triggers enforce conflict/block rules.
   const update: Record<string, any> = {};
   if (newIn !== oldIn) update.check_in = newIn;
