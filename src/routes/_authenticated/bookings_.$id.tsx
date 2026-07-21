@@ -512,10 +512,25 @@ function BookingDetail() {
                     <ul className="space-y-1.5 mb-3">
                       {assignments.map((a) => {
                         const room = rooms.find((r: any) => r.id === a.room_id);
+                        // UAT-047: show segment date range when the booking has
+                        // multiple segments (mid-stay room change) so history
+                        // stays visible on the Booking Detail Timeline.
+                        const showSegment =
+                          assignments.length > 1
+                          || a.start_date !== b.check_in
+                          || a.end_date !== b.check_out;
                         return (
                           <li key={a.id} className="flex items-center justify-between text-sm bg-muted/30 rounded-md px-2.5 py-1.5">
-                            <span>
-                              {room ? <>Room <span className="font-medium">{room.room_number}</span> · {room.room_type}</> : "Unknown room"}
+                            <span className="flex flex-col">
+                              <span>
+                                {room ? <>Room <span className="font-medium">{room.room_number}</span> · {room.room_type}</> : "Unknown room"}
+                              </span>
+                              {showSegment && (
+                                <span className="text-[10.5px] text-muted-foreground">
+                                  {fmtFull(a.start_date)} → {fmtFull(a.end_date)}
+                                  {a.ended_reason === "room_change" ? " · closed on room change" : ""}
+                                </span>
+                              )}
                             </span>
                             {b.status !== "Checked-Out" && (
                               <span className="flex items-center gap-2 text-[11px]">
