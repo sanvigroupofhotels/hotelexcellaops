@@ -112,11 +112,13 @@ export async function getRoomTypeAvailability(
 
   // Total inventory per canonical type key.
   const totalByKey: Record<string, { label: string; total: number }> = {};
+  const activeRoomIds = new Set<string>();
   for (const r of (rooms ?? []) as any[]) {
     const label = r.room_type ?? "Other";
     const key = normalizeRoomTypeKey(label);
     if (!totalByKey[key]) totalByKey[key] = { label, total: 0 };
     totalByKey[key].total += 1;
+    activeRoomIds.add(r.id);
   }
 
   // Committed demand from booking_items (room_type may use display labels
@@ -130,14 +132,20 @@ export async function getRoomTypeAvailability(
     bookedByKey[key] = (bookedByKey[key] ?? 0) + n;
   }
 
-  // Maintenance blocks count against the blocked room's specific type.
+  // Maintenance blocks count against the blocked room's specific type — but
+  // ONLY if that room is still in the active inventory. UAT-048: rooms that
+  // are marked inactive (rooms.active=false) are already excluded from
+  // `total`, so counting their maintenance block again would double-deduct
+  // and produce "18 of 19" when the true state is "19 of 19".
   const blockedByKey: Record<string, number> = {};
   for (const m of (blocks ?? []) as any[]) {
+    if (m.room_id && !activeRoomIds.has(m.room_id)) continue;
     const label = m.rooms?.room_type ?? "";
     const key = normalizeRoomTypeKey(label);
     if (!key) continue;
     blockedByKey[key] = (blockedByKey[key] ?? 0) + 1;
   }
+
 
   const byType: Record<string, RoomTypeAvailabilityRow> = {};
   for (const [key, { label, total }] of Object.entries(totalByKey)) {
