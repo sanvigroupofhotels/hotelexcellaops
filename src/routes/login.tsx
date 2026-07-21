@@ -6,7 +6,14 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Loader2, LogIn } from "lucide-react";
 
+function isSameOriginRelative(path: unknown): path is string {
+  return typeof path === "string" && path.startsWith("/") && !path.startsWith("//");
+}
+
 export const Route = createFileRoute("/login")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: isSameOriginRelative(s.next) ? (s.next as string) : undefined,
+  }),
   component: LoginPage,
 });
 
@@ -41,11 +48,18 @@ async function signInWithIdentifier(identifier: string, password: string) {
 function LoginPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (!loading && user) return <Navigate to="/" />;
+  if (!loading && user) {
+    if (next && isSameOriginRelative(next)) {
+      window.location.replace(next);
+      return null;
+    }
+    return <Navigate to="/" />;
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +68,10 @@ function LoginPage() {
       const { error } = await signInWithIdentifier(identifier, password);
       if (error) throw error;
       toast.success("Welcome back");
+      if (next && isSameOriginRelative(next)) {
+        window.location.replace(next);
+        return;
+      }
       navigate({ to: "/" });
     } catch (err: any) {
       toast.error(err.message ?? "Authentication failed");

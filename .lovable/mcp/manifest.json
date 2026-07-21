@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "sdk_version": "0.23.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://zkvstlhjrzvdsllasvsx.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "hotel-excella-mcp",
+      "version": "0.1.0",
+      "title": "Hotel Excella"
+    },
+    "tools": [
+      {
+        "name": "whoami",
+        "title": "Who am I",
+        "description": "Returns the signed-in Hotel Excella user's id, email, and roles. Use to verify the MCP connection is authenticated as the expected user.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_bookings",
+        "title": "List bookings",
+        "description": "List Hotel Excella bookings visible to the signed-in user. Supports optional filters: status, arriving-on date (YYYY-MM-DD), and a text search over guest name or booking reference. Returns up to 50 most-recent bookings.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "status": {
+              "description": "Optional booking status filter, e.g. 'Confirmed', 'Checked-In', 'Checked-Out'.",
+              "type": "string"
+            },
+            "arriving_on": {
+              "description": "Optional check-in date filter in YYYY-MM-DD.",
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "search": {
+              "description": "Optional text to match against guest name or booking reference.",
+              "type": "string"
+            },
+            "limit": {
+              "description": "Max rows to return (default 25, hard capped at 50).",
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
