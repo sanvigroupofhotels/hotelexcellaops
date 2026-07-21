@@ -69,10 +69,11 @@ export async function listAvailableRoomsForStay(input: AvailableRoomsInput): Pro
         .not("status", "in", closedIn),
       supabase
         .from("booking_room_assignments" as any)
-        .select("booking_id, room_id, bookings!inner(check_in,check_out,status)")
-        .lt("bookings.check_in", check_out)
-        .gt("bookings.check_out", check_in)
+        .select("booking_id, room_id, start_date, end_date, bookings!inner(status)")
+        .lt("start_date", check_out)
+        .gt("end_date", check_in)
         .not("bookings.status", "in", closedIn),
+
       supabase
         .from("room_maintenance" as any)
         .select("room_id, start_date, end_date, active")
