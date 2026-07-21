@@ -72,11 +72,10 @@ function NightAuditDashboard() {
         setPendingDialog({ ci: result.pendingCheckIns ?? 0, co: result.pendingCheckOuts ?? 0 });
         return;
       }
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["night-audit-pending"] }),
-        qc.invalidateQueries({ queryKey: ["night-audit-status"] }),
-        qc.invalidateQueries({ queryKey: ["bookings"] }),
-      ]);
+      // UAT-049: Business Date is threaded through many caches (bookings,
+      // house view, availability, HK, laundry, reporting…). Broad invalidation
+      // avoids "stale until manual refresh" symptoms across the app.
+      await qc.invalidateQueries();
       setSuccessDialog({ prev: result.previousBusinessDate!, next: result.newBusinessDate! });
     } catch (e: any) {
       toast.error(e?.message ?? "Could not perform Night Audit");
