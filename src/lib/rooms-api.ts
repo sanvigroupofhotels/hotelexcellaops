@@ -143,7 +143,7 @@ export async function listOccupiedRoomIds(
       .not("room_id", "is", null),
     supabase
       .from("booking_room_assignments" as any)
-      .select("room_id,booking_id,bookings:bookings!inner(id,check_in,check_out,status)"),
+      .select("room_id,booking_id,start_date,end_date,bookings:bookings!inner(id,status)"),
   ]);
   if (e1) throw e1;
   if (e2) throw e2;
@@ -159,10 +159,12 @@ export async function listOccupiedRoomIds(
   for (const b of (bks ?? []) as any[]) {
     consider(b.id, b.room_id, b.check_in, b.check_out, b.status);
   }
+  // UAT-047: assignment segments carry their own [start_date, end_date) window.
+  // Only block the room for the segment's own window, not the whole booking.
   for (const a of (asg ?? []) as any[]) {
     const b = a.bookings;
     if (!b) continue;
-    consider(b.id, a.room_id, b.check_in, b.check_out, b.status);
+    consider(b.id, a.room_id, a.start_date, a.end_date, b.status);
   }
   return out;
 }
