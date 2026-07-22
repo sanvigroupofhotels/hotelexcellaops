@@ -623,12 +623,16 @@ function HouseView() {
         status?: string; virtual?: boolean;
       };
       // Future / Arriving / Upcoming bookings: ignore room change on drop —
-      // only the date shift applies. Checked-In may change room.
-      // Virtual (unassigned) chips: also date-only; old/new room are left untouched.
+      // only the date shift applies. Checked-In may change room but its
+      // check-in date is IMMUTABLE, so we suppress the date delta so
+      // reception can drop the chip onto any cell of the destination room
+      // (including cells later than the current check-in) — e.g. moving a
+      // guest BACK into a previously-occupied room on a follow-up date.
+      // Virtual (unassigned) chips: date-only; old/new room untouched.
       const status = normalizeMoveStatus(parsed.status);
       const roomChangeAllowed = status === "checked in" && !parsed.virtual;
       const effectiveTargetRoom = roomChangeAllowed ? targetRoomId : (parsed.oldRoomId ?? null);
-      const delta = ymdDiffDays(targetDate, parsed.checkIn);
+      const delta = roomChangeAllowed ? 0 : ymdDiffDays(targetDate, parsed.checkIn);
       const newCheckIn = ymdAddDays(parsed.checkIn, delta);
       const newCheckOut = ymdAddDays(parsed.checkOut, delta);
       if ((parsed.oldRoomId ?? null) === effectiveTargetRoom && newCheckIn === parsed.checkIn) return;
