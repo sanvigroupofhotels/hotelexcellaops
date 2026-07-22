@@ -116,7 +116,7 @@ export async function onBookingExtended(bookingId: string): Promise<void> {
     const { data: assigns } = await supabase.from("booking_room_assignments" as any)
       .select("room_id,start_date,end_date").eq("booking_id", bookingId).lte("start_date", businessDate).gte("end_date", businessDate);
     let roomIds = ((assigns ?? []) as any[]).map((a) => a.room_id).filter(Boolean) as string[];
-    if (roomIds.length === 0 && (b as any)?.room_id) roomIds = [(b as any).room_id];
+    // UAT-047: no bookings.room_id fallback — segments are the source of truth.
     if (roomIds.length === 0) return;
 
     // Skip rooms with an exception row for today.
@@ -210,7 +210,7 @@ export async function onBookingCheckoutShortened(bookingId: string): Promise<voi
     const { data: assigns } = await supabase.from("booking_room_assignments" as any)
       .select("room_id,start_date,end_date").eq("booking_id", bookingId).lte("start_date", businessDate).gte("end_date", businessDate);
     let roomIds = ((assigns ?? []) as any[]).map((a) => a.room_id).filter(Boolean) as string[];
-    if (roomIds.length === 0 && (b as any)?.room_id) roomIds = [(b as any).room_id];
+    // UAT-047: no bookings.room_id fallback — segments are the source of truth.
     if (roomIds.length === 0) return;
 
     let superseded = 0;
@@ -292,7 +292,7 @@ export async function onBookingCheckedIn(bookingId: string): Promise<void> {
     const { data: assigns } = await supabase.from("booking_room_assignments" as any)
       .select("room_id,start_date,end_date").eq("booking_id", bookingId).lte("start_date", businessDate).gte("end_date", businessDate);
     let roomIds = ((assigns ?? []) as any[]).map((a) => a.room_id).filter(Boolean) as string[];
-    if (roomIds.length === 0 && (b as any)?.room_id) roomIds = [(b as any).room_id];
+    // UAT-047: no bookings.room_id fallback — segments are the source of truth.
     if (roomIds.length === 0) return;
 
     // Check for completed checkout_clean tasks today on any of these rooms.
