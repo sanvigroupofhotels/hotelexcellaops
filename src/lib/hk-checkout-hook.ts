@@ -351,3 +351,82 @@ export async function onBookingCheckedIn(bookingId: string): Promise<void> {
     });
   }
 }
+
+/**
+ * Housekeeping — room MOVED side-effect hook.
+ *
+ * Fired after `split_room_assignment` completes for an in-house booking.
+ * Treats the previous room as if the guest checked out of it on the
+ * business date:
+ *   1. Flip previous room housekeeping_status → dirty.
+ *   2. Ensure a `checkout_clean` task for the previous room today.
+ *   3. Supersede any open `continue_service` task on that room for today.
+ *
+ * The room automatically becomes available for reassignment because
+ * availability is derived from `booking_room_assignments` segments —
+ * the old segment is closed by the RPC on the effective (business) date.
+ *
+ * Non-blocking: failures never propagate back into the move flow.
+ * Idempotent: safe to call more than once per (booking, room, day).
+ */
+export async function onBookingRoomMoved(
+  bookingId: string,
+  previousRoomId: string,
+): Promise<void> {
+  if (!previousRoomId) return;
+  try {
+    const businessDate = await getBusinessDate();
+    const correlation_id = newCorrelationId();
+
+    // Supersede any open continue-service task on the vacated room for today.
+    await supabase.from("housekeeping_tasks" as any)
+      .update({
+        state: "skipped",
+        skipped_reason: "superseded_by_checkout",
+        finished_at: new Date().toISOString(),
+      } as any)
+      .eq("room_id", previousRoomId)
+      .eq("business_date", businessDate)
+      .eq("type", "continue_service")
+      .eq("state", "open");
+
+    // Flip vacated room housekeeping → dirty.
+    await setRoomHousekeepingStatus({
+      roomId: previousRoomId,
+      next: "dirty",
+      reason: "Guest moved to another room",
+      correlationId: correlation_id,
+      activityAction: "hk_checkout_marked_dirty" as any,
+      metadata: { booking_id: bookingId, business_date: businessDate, trigger: "room_move" },
+    });
+
+    // Create the checkout clean task for the vacated room.
+    await ensureCheckoutTask({
+      room_id: previousRoomId,
+      booking_id: bookingId,
+      business_date: businessDate,
+      correlation_id,
+    });
+
+    void logActivity({
+      page: "Housekeeping",
+      action: "hk_room_move_hook_ran" as any,
+      entity_type: "booking",
+      entity_id: bookingId,
+      entity_reference: businessDate,
+      summary: `Room move · vacated room marked dirty and checkout task ensured`,
+      metadata: { businessDate, previous_room_id: previousRoomId },
+      source: "manual",
+      correlation_id,
+    });
+  } catch (e: any) {
+    void logActivity({
+      page: "Housekeeping",
+      action: "hk_room_move_hook_failed" as any,
+      entity_type: "booking",
+      entity_id: bookingId,
+      summary: `Housekeeping room-move hook failed: ${e?.message ?? e}`,
+      source: "manual",
+    });
+  }
+}
