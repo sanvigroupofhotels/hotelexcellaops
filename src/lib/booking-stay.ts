@@ -252,10 +252,6 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
         // assignment rows). Fall back to updating bookings.room_id only —
         // no history to preserve.
       }
-        // No segment for the from-room (edge case: legacy booking without
-        // assignment rows). Fall back to updating bookings.room_id only —
-        // no history to preserve.
-      }
     }
 
     if (newIn !== oldIn || newOut !== oldOut) {
