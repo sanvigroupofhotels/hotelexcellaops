@@ -242,14 +242,16 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
         .maybeSingle();
       if (segLookupErr) throw segLookupErr;
       if ((segRow as any)?.id) {
-        const { error: rpcErr } = await supabase.rpc("split_room_assignment" as any, {
-          p_booking_id: booking_id,
-          p_old_assignment_id: (segRow as any).id,
-          p_new_room_id: newRoom,
-          p_effective_date: null,
-        } as any);
-        if (rpcErr) throw rpcErr;
+        // Route through the shared helper so the HK "room moved" side-effect
+        // (mark previous room dirty + ensure checkout task) fires once, for
+        // every entry point (Booking Detail, House View drag/drop, mobile
+        // Move dialog, Edit Booking, popup).
+        await splitAssignment(booking_id, (segRow as any).id, newRoom, null);
       } else {
+        // No segment for the from-room (edge case: legacy booking without
+        // assignment rows). Fall back to updating bookings.room_id only —
+        // no history to preserve.
+      }
         // No segment for the from-room (edge case: legacy booking without
         // assignment rows). Fall back to updating bookings.room_id only —
         // no history to preserve.
