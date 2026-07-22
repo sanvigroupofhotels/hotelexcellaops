@@ -225,14 +225,34 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
       .eq("id", booking_id);
     if (bErr) throw bErr;
 
-    // Move the corresponding assignment row when the room changed.
+    // Room change → route through split_room_assignment RPC so history is
+    // preserved (UAT-047). The RPC operates on the SPECIFIC segment matching
+    // moveFromRoom only; sibling rooms on the same booking are untouched.
+    // Pre-arrival segments (start_date >= business_date) are replaced in
+    // place by the RPC, so this same path is safe for future bookings too.
     if (!sameRoom && moveFromRoom && newRoom) {
-      const { error: aErr } = await supabase
+      const { data: segRow, error: segLookupErr } = await supabase
         .from("booking_room_assignments" as any)
-        .update({ room_id: newRoom } as any)
+        .select("id, start_date")
         .eq("booking_id", booking_id)
-        .eq("room_id", moveFromRoom);
-      if (aErr) throw aErr;
+        .eq("room_id", moveFromRoom)
+        .order("start_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (segLookupErr) throw segLookupErr;
+      if ((segRow as any)?.id) {
+        const { error: rpcErr } = await supabase.rpc("split_room_assignment" as any, {
+          p_booking_id: booking_id,
+          p_old_assignment_id: (segRow as any).id,
+          p_new_room_id: newRoom,
+          p_effective_date: null,
+        } as any);
+        if (rpcErr) throw rpcErr;
+      } else {
+        // No segment for the from-room (edge case: legacy booking without
+        // assignment rows). Fall back to updating bookings.room_id only —
+        // no history to preserve.
+      }
     }
 
     if (newIn !== oldIn || newOut !== oldOut) {
