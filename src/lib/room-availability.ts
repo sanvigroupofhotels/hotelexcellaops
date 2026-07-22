@@ -58,15 +58,13 @@ export async function listAvailableRoomsForStay(input: AvailableRoomsInput): Pro
     .eq("active", true);
   if (room_type) roomsQ.eq("room_type", room_type);
 
-  const [{ data: rooms, error: rErr }, { data: bookings, error: bErr }, { data: assigns, error: aErr }, { data: blocks, error: mErr }] =
+  // UAT-047: `booking_room_assignments` is the SINGLE SOURCE OF TRUTH for
+  // physical room occupancy. `bookings.room_id` is a compatibility mirror
+  // only. Segment windows carry the authoritative dates; a mid-stay room
+  // change frees the old room from the effective date onward.
+  const [{ data: rooms, error: rErr }, { data: assigns, error: aErr }, { data: blocks, error: mErr }] =
     await Promise.all([
       roomsQ,
-      supabase
-        .from("bookings")
-        .select("id, room_id, check_in, check_out, status")
-        .lt("check_in", check_out)
-        .gt("check_out", check_in)
-        .not("status", "in", closedIn),
       supabase
         .from("booking_room_assignments" as any)
         .select("booking_id, room_id, start_date, end_date, bookings!inner(status)")
@@ -83,15 +81,10 @@ export async function listAvailableRoomsForStay(input: AvailableRoomsInput): Pro
     ]);
 
   if (rErr) throw rErr;
-  if (bErr) throw bErr;
   if (aErr) throw aErr;
   if (mErr) throw mErr;
 
   const busy = new Set<string>();
-  for (const b of (bookings ?? []) as any[]) {
-    if (exclude_booking_id && b.id === exclude_booking_id) continue;
-    if (b.room_id) busy.add(b.room_id);
-  }
   for (const a of (assigns ?? []) as any[]) {
     if (exclude_booking_id && a.booking_id === exclude_booking_id) continue;
     if (a.room_id) busy.add(a.room_id);
