@@ -22,19 +22,14 @@ export async function onBookingCheckedOut(bookingId: string): Promise<void> {
     const businessDate = await getBusinessDate();
     const correlation_id = newCorrelationId();
 
-    // UAT-047: pick only the FINAL segment(s) — historical rooms already
-    // had their departure processed at the room-change split. `end_date` for
-    // the last segment equals the booking's check_out.
+    // UAT-047: segments are the SINGLE SOURCE OF TRUTH. Pick only the FINAL
+    // segment(s) — historical rooms already had their departure processed at
+    // the room-change split.
     const { data: assigns } = await supabase.from("booking_room_assignments" as any)
       .select("room_id,start_date,end_date").eq("booking_id", bookingId);
     const rows = ((assigns ?? []) as any[]);
     const maxEnd = rows.reduce((m, r) => (String(r.end_date) > m ? String(r.end_date) : m), "");
-    let roomIds = rows.filter((r) => String(r.end_date) === maxEnd).map((a) => a.room_id).filter(Boolean) as string[];
-    if (roomIds.length === 0) {
-      const { data: b } = await supabase.from("bookings" as any)
-        .select("room_id").eq("id", bookingId).maybeSingle();
-      if ((b as any)?.room_id) roomIds = [(b as any).room_id];
-    }
+    const roomIds = rows.filter((r) => String(r.end_date) === maxEnd).map((a) => a.room_id).filter(Boolean) as string[];
     if (roomIds.length === 0) return;
 
     for (const roomId of roomIds) {
