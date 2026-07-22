@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import { onBookingRoomMoved } from "@/lib/hk-checkout-hook";
+import { getBusinessDate } from "@/lib/night-audit-api";
 import type { BookingItemRow } from "@/lib/booking-items-api";
 
 /**
