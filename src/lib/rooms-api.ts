@@ -138,7 +138,7 @@ export async function listOccupiedRoomIds(
   // the old room from the effective date onward.
   const { data: asg, error } = await supabase
     .from("booking_room_assignments" as any)
-    .select("room_id,booking_id,start_date,end_date,bookings:bookings!inner(id,status)");
+    .select("room_id,booking_id,start_date,end_date,ended_reason,bookings:bookings!inner(id,status)");
   if (error) throw error;
   const out = new Set<string>();
   for (const a of (asg ?? []) as any[]) {
@@ -147,8 +147,15 @@ export async function listOccupiedRoomIds(
     if (excludeBookingId && b.id === excludeBookingId) continue;
     if (!a.room_id) continue;
     if (["Cancelled", "Stay Completed", "Checked-Out", "No-Show"].includes(b.status)) continue;
-    // Checked-In stays block the segment's room until Checked-Out even if
-    // the segment's end_date has technically passed (late departures).
+    // Segments closed by a room change are historical — the guest is no
+    // longer physically in that room. Treat them purely as date overlaps so
+    // the vacated room becomes available immediately for new bookings.
+    if (a.ended_reason === "room_change") {
+      if (datesOverlap(check_in, check_out, a.start_date, a.end_date)) out.add(a.room_id);
+      continue;
+    }
+    // Checked-In stays block the segment's OPEN room until Checked-Out even
+    // if the segment's end_date has technically passed (late departures).
     if (b.status === "Checked-In") { out.add(a.room_id); continue; }
     if (datesOverlap(check_in, check_out, a.start_date, a.end_date)) out.add(a.room_id);
   }
