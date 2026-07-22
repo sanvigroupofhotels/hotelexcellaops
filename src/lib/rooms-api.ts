@@ -131,40 +131,26 @@ export async function listOccupiedRoomIds(
   excludeBookingId?: string,
 ): Promise<Set<string>> {
   if (!check_in || !check_out || check_out < check_in) return new Set();
-  // Pull bookings.room_id rows AND booking_room_assignments rows. A room is
-  // occupied if (a) its date range overlaps OR (b) the booking is still
-  // Checked-In — until the guest is Checked-Out / Cancelled / No-Show the
-  // room must stay blocked, even when check_out has passed.
-  const [{ data: bks, error: e1 }, { data: asg, error: e2 }] = await Promise.all([
-    supabase
-      .from("bookings" as any)
-      .select("id,room_id,check_in,check_out,status")
-      .not("status", "in", "(Cancelled,Stay Completed,Checked-Out,No-Show)")
-      .not("room_id", "is", null),
-    supabase
-      .from("booking_room_assignments" as any)
-      .select("room_id,booking_id,start_date,end_date,bookings:bookings!inner(id,status)"),
-  ]);
-  if (e1) throw e1;
-  if (e2) throw e2;
+  // UAT-047: `booking_room_assignments` is the SINGLE SOURCE OF TRUTH for
+  // physical room occupancy. `bookings.room_id` is a compatibility mirror
+  // only — never used for availability checks. Each assignment carries its
+  // own [start_date, end_date) segment window so mid-stay room changes free
+  // the old room from the effective date onward.
+  const { data: asg, error } = await supabase
+    .from("booking_room_assignments" as any)
+    .select("room_id,booking_id,start_date,end_date,bookings:bookings!inner(id,status)");
+  if (error) throw error;
   const out = new Set<string>();
-  const consider = (id: string, room_id: string | null, ci: string, co: string, status: string) => {
-    if (!room_id) return;
-    if (excludeBookingId && id === excludeBookingId) return;
-    if (["Cancelled", "Stay Completed", "Checked-Out", "No-Show"].includes(status)) return;
-    // Checked-In stays block the room indefinitely until Checked-Out.
-    if (status === "Checked-In") { out.add(room_id); return; }
-    if (datesOverlap(check_in, check_out, ci, co)) out.add(room_id);
-  };
-  for (const b of (bks ?? []) as any[]) {
-    consider(b.id, b.room_id, b.check_in, b.check_out, b.status);
-  }
-  // UAT-047: assignment segments carry their own [start_date, end_date) window.
-  // Only block the room for the segment's own window, not the whole booking.
   for (const a of (asg ?? []) as any[]) {
     const b = a.bookings;
     if (!b) continue;
-    consider(b.id, a.room_id, a.start_date, a.end_date, b.status);
+    if (excludeBookingId && b.id === excludeBookingId) continue;
+    if (!a.room_id) continue;
+    if (["Cancelled", "Stay Completed", "Checked-Out", "No-Show"].includes(b.status)) continue;
+    // Checked-In stays block the segment's room until Checked-Out even if
+    // the segment's end_date has technically passed (late departures).
+    if (b.status === "Checked-In") { out.add(a.room_id); continue; }
+    if (datesOverlap(check_in, check_out, a.start_date, a.end_date)) out.add(a.room_id);
   }
   return out;
 }
