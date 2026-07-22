@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { splitAssignment } from "@/lib/booking-room-assignments-api";
 
 /**
  * Single source of truth for stay mutations (room change / date change).
