@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import { onBookingRoomMoved } from "@/lib/hk-checkout-hook";
+import { getBusinessDate } from "@/lib/night-audit-api";
 import type { BookingItemRow } from "@/lib/booking-items-api";
 
 /**
@@ -98,6 +100,15 @@ export async function splitAssignment(
   new_room_id: string,
   effective_date?: string | null,
 ) {
+  // Capture previous room BEFORE the split so we can fire the HK hook.
+  const { data: prev } = await supabase
+    .from("booking_room_assignments" as any)
+    .select("room_id,start_date")
+    .eq("id", old_assignment_id)
+    .maybeSingle();
+  const prevRoomId = (prev as any)?.room_id as string | undefined;
+  const prevStart = (prev as any)?.start_date as string | undefined;
+
   const { error } = await supabase.rpc("split_room_assignment" as any, {
     p_booking_id: booking_id,
     p_old_assignment_id: old_assignment_id,
@@ -105,6 +116,19 @@ export async function splitAssignment(
     p_effective_date: effective_date ?? null,
   } as any);
   if (error) throw error;
+
+  // Fire the HK "room moved" side-effect only for OPERATIONAL moves — i.e.
+  // when the previous segment had already started (guest was physically in
+  // that room). Pre-arrival replacements (start_date > business_date) are
+  // just data corrections and should not create checkout tasks.
+  if (prevRoomId && prevStart && prevRoomId !== new_room_id) {
+    try {
+      const businessDate = await getBusinessDate();
+      if (prevStart <= businessDate) {
+        await onBookingRoomMoved(booking_id, prevRoomId);
+      }
+    } catch { /* non-blocking */ }
+  }
 }
 
 /** Keep legacy `bookings.room_id` pointed at the segment covering today. */
