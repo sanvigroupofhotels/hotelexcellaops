@@ -117,16 +117,17 @@ export async function splitAssignment(
   } as any);
   if (error) throw error;
 
-  // Fire the HK "room moved" side-effect only for OPERATIONAL moves — i.e.
-  // when the previous segment had already started (guest was physically in
-  // that room). Pre-arrival replacements (start_date > business_date) are
-  // just data corrections and should not create checkout tasks.
-  if (prevRoomId && prevStart && prevRoomId !== new_room_id) {
+  // Fire the HK "room moved" side-effect for any operational move where the
+  // guest was physically in the previous room (segment had already started
+  // by today). The hook itself is idempotent and non-blocking. We resolve
+  // the business date defensively — if the lookup fails we still fire the
+  // hook rather than silently skip the operational release (Finding 1).
+  if (prevRoomId && prevRoomId !== new_room_id) {
     try {
-      const businessDate = await getBusinessDate();
-      if (prevStart <= businessDate) {
-        await onBookingRoomMoved(booking_id, prevRoomId);
-      }
+      let businessDate: string | null = null;
+      try { businessDate = await getBusinessDate(); } catch { businessDate = null; }
+      const started = !prevStart || !businessDate || prevStart <= businessDate;
+      if (started) await onBookingRoomMoved(booking_id, prevRoomId);
     } catch { /* non-blocking */ }
   }
 }
