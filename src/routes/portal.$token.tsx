@@ -1058,7 +1058,12 @@ function PricingBreakdown({ b }: { b: any }) {
           <div className="space-y-1 border-t border-border/40 pt-2">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Payments</div>
             <Row label="Amount Paid" value={inr(b.advancePaid)} />
-            <Row label="Balance Payable" value={inr(balance)} strong tone={balance > 0 ? "warning" : "success"} />
+            <Row
+              label={balance < 0 ? "Guest Credit" : "Balance Payable"}
+              value={inr(Math.abs(balance))}
+              strong
+              tone={balance > 0 ? "warning" : "success"}
+            />
           </div>
         </div>
       )}
