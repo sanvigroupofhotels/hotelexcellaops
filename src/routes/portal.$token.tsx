@@ -289,6 +289,17 @@ function GuestPortal() {
                 busy={busy}
                 onChoose={onChoose}
               />
+            ) : b.balanceDue < 0 ? (
+              <div className="luxe-card rounded-xl p-5 text-center text-sm text-emerald-600 space-y-1">
+                <CheckCircle2 className="h-6 w-6 mx-auto mb-2" />
+                <div>No balance due.</div>
+                <div className="text-emerald-700 font-medium">
+                  Guest Credit: {inr(Math.abs(Number(b.balanceDue || 0)))}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Overpayment on file — our team will assist with a refund or adjustment.
+                </div>
+              </div>
             ) : (
               <div className="luxe-card rounded-xl p-5 text-center text-sm text-emerald-600">
                 <CheckCircle2 className="h-6 w-6 mx-auto mb-2" /> No balance due.
