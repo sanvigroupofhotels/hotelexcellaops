@@ -116,16 +116,16 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   }
 
   const oldRoom: string | null = (current as any).room_id ?? null;
-  const oldIn: string = (current as any).check_in;
-  const oldOut: string = (current as any).check_out;
+  const ymd = (s?: string | null) => (s ? String(s).slice(0, 10) : s);
+  // Normalize to YYYY-MM-DD everywhere so a call site that hands us an ISO
+  // timestamp or timezone-shifted string cannot spuriously look like a date
+  // change against the booking's stored date.
+  const oldIn: string = ymd((current as any).check_in) as string;
+  const oldOut: string = ymd((current as any).check_out) as string;
   const oldOverride: number | null = (current as any).total_override == null ? null : Number((current as any).total_override);
 
-  // Normalize incoming date strings to YYYY-MM-DD so a call site that hands
-  // us an ISO timestamp or timezone-shifted string does not spuriously look
-  // like a date change against the booking's stored date.
-  const ymd = (s?: string | null) => (s ? String(s).slice(0, 10) : s);
-  const oldInYmd = ymd(oldIn) as string;
-  const oldOutYmd = ymd(oldOut) as string;
+  const oldInYmd = oldIn;
+  const oldOutYmd = oldOut;
   const newIn = ymd(input.new_check_in) ?? oldInYmd;
   const newOut = ymd(input.new_check_out) ?? oldOutYmd;
   const moveFromRoom = input.old_room_id ?? oldRoom;
