@@ -147,16 +147,11 @@ export async function listOccupiedRoomIds(
     if (excludeBookingId && b.id === excludeBookingId) continue;
     if (!a.room_id) continue;
     if (["Cancelled", "Stay Completed", "Checked-Out", "No-Show"].includes(b.status)) continue;
-    // Segments closed by a room change are historical — the guest is no
-    // longer physically in that room. Treat them purely as date overlaps so
-    // the vacated room becomes available immediately for new bookings.
-    if (a.ended_reason === "room_change") {
-      if (datesOverlap(check_in, check_out, a.start_date, a.end_date)) out.add(a.room_id);
-      continue;
-    }
-    // Checked-In stays block the segment's OPEN room until Checked-Out even
-    // if the segment's end_date has technically passed (late departures).
-    if (b.status === "Checked-In") { out.add(a.room_id); continue; }
+    // UAT-052: availability is a pure date-overlap check on the segment's
+    // [start_date, end_date) window — regardless of whether the segment is
+    // still open or was closed by a mid-stay room change. The current
+    // operational status of the room today is irrelevant for a FUTURE
+    // booking whose window does not touch this segment's window.
     if (datesOverlap(check_in, check_out, a.start_date, a.end_date)) out.add(a.room_id);
   }
   return out;
