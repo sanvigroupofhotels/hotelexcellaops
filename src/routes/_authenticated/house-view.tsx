@@ -222,7 +222,9 @@ function HouseView() {
     setMoveDialog({
       bookingId: b.id, guestName: b.guest_name,
       oldRoomId: b._virtual ? null : roomId,
-      checkIn: b.check_in, checkOut: b.check_out, status: b.status,
+      checkIn: b._bookingCheckIn ?? b.check_in,
+      checkOut: b._bookingCheckOut ?? b.check_out,
+      status: b.status,
       virtual: !!b._virtual,
     });
   }
@@ -409,7 +411,15 @@ function HouseView() {
       for (const { room_id: rid, slot } of paired) {
         if (!segmentOverlapsRange(slot, rangeStart, rangeEnd)) continue;
         const arr = m.get(rid) ?? [];
-        arr.push({ ...b, room_id: rid, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key });
+        arr.push({
+          ...b,
+          room_id: rid,
+          check_in: slot.check_in,
+          check_out: slot.check_out,
+          _slotKey: slot.key,
+          _bookingCheckIn: b.check_in,
+          _bookingCheckOut: b.check_out,
+        });
         m.set(rid, arr);
       }
     }
@@ -454,7 +464,16 @@ function HouseView() {
         if (blockedAt(r.id, slot)) continue;
         if (hasIncomingLate(r.id)) continue;
         const arr = m.get(r.id) ?? [];
-        arr.push({ ...b, room_id: r.id, check_in: slot.check_in, check_out: slot.check_out, _slotKey: slot.key, _virtual: true });
+        arr.push({
+          ...b,
+          room_id: r.id,
+          check_in: slot.check_in,
+          check_out: slot.check_out,
+          _slotKey: slot.key,
+          _bookingCheckIn: b.check_in,
+          _bookingCheckOut: b.check_out,
+          _virtual: true,
+        });
         m.set(r.id, arr);
         bumpOutgoing(b, r.id, slot);
         break;
@@ -682,7 +701,9 @@ function HouseView() {
     setMoveDialog({
       bookingId: b.id, guestName: b.guest_name,
       oldRoomId: b._virtual ? null : roomId,
-      checkIn: b.check_in, checkOut: b.check_out, status: b.status,
+      checkIn: b._bookingCheckIn ?? b.check_in,
+      checkOut: b._bookingCheckOut ?? b.check_out,
+      status: b.status,
       virtual: !!b._virtual,
     });
   }, []);
@@ -1060,6 +1081,8 @@ function HouseView() {
                                       const incomingLateDays = (!continuesLeft && !isGrouped)
                                         ? (outgoingLateByRoomDay.get(`${r.id}|${b.check_in}`) ?? 0)
                                         : 0;
+                                      const mutationCheckIn = b.status === "Checked-In" ? (b._bookingCheckIn ?? b.check_in) : b.check_in;
+                                      const mutationCheckOut = b.status === "Checked-In" ? (b._bookingCheckOut ?? b.check_out) : b.check_out;
                                       return (
                                         <BookingChip
                                           key={`${b.id}-${b._slotKey ?? b.check_in}`}
@@ -1076,8 +1099,8 @@ function HouseView() {
                                           highlight={highlightId === b.id}
                                           continuesLeft={continuesLeft}
                                           continuesRight={continuesRight}
-                                          origCheckIn={b.check_in}
-                                          origCheckOut={b.check_out}
+                                          origCheckIn={mutationCheckIn}
+                                          origCheckOut={mutationCheckOut}
                                           groupSlot={isGrouped ? idx : 0}
                                           groupSlots={isGrouped ? slotCount : 1}
                                           lateFractionDays={lateFractionDays}
