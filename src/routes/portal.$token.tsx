@@ -289,6 +289,17 @@ function GuestPortal() {
                 busy={busy}
                 onChoose={onChoose}
               />
+            ) : b.balanceDue < 0 ? (
+              <div className="luxe-card rounded-xl p-5 text-center text-sm text-emerald-600 space-y-1">
+                <CheckCircle2 className="h-6 w-6 mx-auto mb-2" />
+                <div>No balance due.</div>
+                <div className="text-emerald-700 font-medium">
+                  Guest Credit: {inr(Math.abs(Number(b.balanceDue || 0)))}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Overpayment on file — our team will assist with a refund or adjustment.
+                </div>
+              </div>
             ) : (
               <div className="luxe-card rounded-xl p-5 text-center text-sm text-emerald-600">
                 <CheckCircle2 className="h-6 w-6 mx-auto mb-2" /> No balance due.
@@ -1047,7 +1058,12 @@ function PricingBreakdown({ b }: { b: any }) {
           <div className="space-y-1 border-t border-border/40 pt-2">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Payments</div>
             <Row label="Amount Paid" value={inr(b.advancePaid)} />
-            <Row label="Balance Payable" value={inr(balance)} strong tone={balance > 0 ? "warning" : "success"} />
+            <Row
+              label={balance < 0 ? "Guest Credit" : "Balance Payable"}
+              value={inr(Math.abs(balance))}
+              strong
+              tone={balance > 0 ? "warning" : "success"}
+            />
           </div>
         </div>
       )}
