@@ -121,29 +121,79 @@ export async function getRoomTypeAvailability(
     activeRoomIds.add(r.id);
   }
 
-  // Committed demand from booking_items (room_type may use display labels
-  // like "Oak Room" — normalize so it matches the rooms.room_type bucket).
-  const bookedByKey: Record<string, number> = {};
+  // UAT-051: Booked demand must be computed per NIGHT, then peaked across
+  // the requested range — not summed across the whole window. Two back-to-back
+  // bookings (23→24 and 25→26) both overlap [23,26) but never share a night,
+  // so summing them double-counts inventory and rejects a valid 23→26 stay.
+  // Correct model:
+  //   for each night N in [check_in, check_out):
+  //     demand[N] = Σ rooms whose booking spans N (check_in ≤ N < check_out)
+  //   booked = max over nights of demand[N]
+  // This is exactly what the "single-night check" already returns, so
+  // multi-night results now stay consistent with day-by-day availability.
+  const nights: string[] = [];
+  {
+    const start = new Date(check_in + "T00:00:00Z");
+    const end = new Date(check_out + "T00:00:00Z");
+    for (let d = new Date(start); d < end; d.setUTCDate(d.getUTCDate() + 1)) {
+      nights.push(d.toISOString().slice(0, 10));
+    }
+  }
+  const addDay = (iso: string) => {
+    const d = new Date(iso + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const demandByKeyNight: Record<string, Record<string, number>> = {};
   for (const it of (items ?? []) as any[]) {
     if (exclude_booking_id && it.booking_id === exclude_booking_id) continue;
     const key = normalizeRoomTypeKey(it.room_type ?? "");
     if (!key) continue;
     const n = Math.max(1, Number(it.rooms ?? 1) || 1);
-    bookedByKey[key] = (bookedByKey[key] ?? 0) + n;
+    const bIn = it.bookings?.check_in as string | undefined;
+    const bOut = it.bookings?.check_out as string | undefined;
+    if (!bIn || !bOut) continue;
+    // Day-use bookings (check_in === check_out) occupy that single night.
+    const effOut = bIn === bOut ? addDay(bIn) : bOut;
+    if (!demandByKeyNight[key]) demandByKeyNight[key] = {};
+    for (const night of nights) {
+      if (bIn <= night && night < effOut) {
+        demandByKeyNight[key][night] = (demandByKeyNight[key][night] ?? 0) + n;
+      }
+    }
+  }
+  const bookedByKey: Record<string, number> = {};
+  for (const [key, perNight] of Object.entries(demandByKeyNight)) {
+    let peak = 0;
+    for (const v of Object.values(perNight)) if (v > peak) peak = v;
+    bookedByKey[key] = peak;
   }
 
   // Maintenance blocks count against the blocked room's specific type — but
-  // ONLY if that room is still in the active inventory. UAT-048: rooms that
-  // are marked inactive (rooms.active=false) are already excluded from
-  // `total`, so counting their maintenance block again would double-deduct
-  // and produce "18 of 19" when the true state is "19 of 19".
-  const blockedByKey: Record<string, number> = {};
+  // ONLY if that room is still active inventory (UAT-048). Apply the same
+  // per-night peak so overlapping-but-non-concurrent blocks don't stack.
+  const blockDemandByKeyNight: Record<string, Record<string, number>> = {};
   for (const m of (blocks ?? []) as any[]) {
     if (m.room_id && !activeRoomIds.has(m.room_id)) continue;
     const label = m.rooms?.room_type ?? "";
     const key = normalizeRoomTypeKey(label);
     if (!key) continue;
-    blockedByKey[key] = (blockedByKey[key] ?? 0) + 1;
+    const mIn = m.start_date as string;
+    const mOut = m.end_date as string;
+    if (!mIn || !mOut) continue;
+    if (!blockDemandByKeyNight[key]) blockDemandByKeyNight[key] = {};
+    for (const night of nights) {
+      if (mIn <= night && night < mOut) {
+        blockDemandByKeyNight[key][night] = (blockDemandByKeyNight[key][night] ?? 0) + 1;
+      }
+    }
+  }
+  const blockedByKey: Record<string, number> = {};
+  for (const [key, perNight] of Object.entries(blockDemandByKeyNight)) {
+    let peak = 0;
+    for (const v of Object.values(perNight)) if (v > peak) peak = v;
+    blockedByKey[key] = peak;
   }
 
 
