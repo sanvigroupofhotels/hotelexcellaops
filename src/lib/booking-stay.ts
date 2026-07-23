@@ -116,12 +116,18 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   }
 
   const oldRoom: string | null = (current as any).room_id ?? null;
-  const oldIn: string = (current as any).check_in;
-  const oldOut: string = (current as any).check_out;
+  const ymd = (s?: string | null) => (s ? String(s).slice(0, 10) : s);
+  // Normalize to YYYY-MM-DD everywhere so a call site that hands us an ISO
+  // timestamp or timezone-shifted string cannot spuriously look like a date
+  // change against the booking's stored date.
+  const oldIn: string = ymd((current as any).check_in) as string;
+  const oldOut: string = ymd((current as any).check_out) as string;
   const oldOverride: number | null = (current as any).total_override == null ? null : Number((current as any).total_override);
 
-  const newIn = input.new_check_in ?? oldIn;
-  const newOut = input.new_check_out ?? oldOut;
+  const oldInYmd = oldIn;
+  const oldOutYmd = oldOut;
+  const newIn = ymd(input.new_check_in) ?? oldInYmd;
+  const newOut = ymd(input.new_check_out) ?? oldOutYmd;
   const moveFromRoom = input.old_room_id ?? oldRoom;
   const newRoom = input.new_room_id ?? moveFromRoom;
 
@@ -131,27 +137,35 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   }
 
   const isCheckedIn = status === "Checked-In";
+  const sameRoom = (newRoom ?? null) === (moveFromRoom ?? null);
+  const datesUnchanged = newIn === oldInYmd && newOut === oldOutYmd;
 
-  if (isCheckedIn && newIn !== oldIn) {
-    throw new Error("Check-in date cannot be changed after the guest has checked in.");
-  }
-  if (!isCheckedIn) {
-    const today = todayKolkata();
-    if (newIn < today) {
-      throw new Error("Check-in date cannot be in the past.");
+  // UAT-047 final: a room move must never be interpreted as a booking-date
+  // modification. Only enforce check-in-date guards when the caller is
+  // actually trying to change dates. Room-only moves (including moving a
+  // Checked-In guest back to a previously-occupied room) skip these guards
+  // entirely and flow through split_room_assignment below.
+  if (!datesUnchanged) {
+    if (isCheckedIn && newIn !== oldInYmd) {
+      throw new Error("Check-in date cannot be changed after the guest has checked in.");
+    }
+    if (!isCheckedIn) {
+      const today = todayKolkata();
+      if (newIn < today) {
+        throw new Error("Check-in date cannot be in the past.");
+      }
     }
   }
 
   // No-op short circuit
-  const sameRoom = (newRoom ?? null) === (moveFromRoom ?? null);
-  if (sameRoom && newIn === oldIn && newOut === oldOut) {
+  if (sameRoom && datesUnchanged) {
     return {
       booking_id,
-      check_in: oldIn,
-      check_out: oldOut,
+      check_in: oldInYmd,
+      check_out: oldOutYmd,
       room_id: moveFromRoom,
-      before: { check_in: oldIn, check_out: oldOut, room_id: moveFromRoom },
-      after: { check_in: oldIn, check_out: oldOut, room_id: moveFromRoom },
+      before: { check_in: oldInYmd, check_out: oldOutYmd, room_id: moveFromRoom },
+      after: { check_in: oldInYmd, check_out: oldOutYmd, room_id: moveFromRoom },
     };
   }
 
