@@ -126,7 +126,7 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
 
   const oldInYmd = oldIn;
   const oldOutYmd = oldOut;
-  const newIn = ymd(input.new_check_in) ?? oldInYmd;
+  let newIn = ymd(input.new_check_in) ?? oldInYmd;
   const newOut = ymd(input.new_check_out) ?? oldOutYmd;
   const moveFromRoom = input.old_room_id ?? oldRoom;
   const newRoom = input.new_room_id ?? moveFromRoom;
@@ -138,6 +138,18 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
 
   const isCheckedIn = status === "Checked-In";
   const sameRoom = (newRoom ?? null) === (moveFromRoom ?? null);
+  const roomChanged = !sameRoom;
+
+  // House View renders split occupancy segments with their segment start date.
+  // After the first room move, a later move can legitimately originate from a
+  // segment whose start_date is newer than the booking's original check_in. For
+  // Checked-In bookings the check-in date is immutable, so a room move must
+  // canonicalize any incoming segment start back to the booking start instead
+  // of treating it as an attempted date change.
+  if (isCheckedIn && roomChanged && newIn !== oldInYmd) {
+    newIn = oldInYmd;
+  }
+
   const datesUnchanged = newIn === oldInYmd && newOut === oldOutYmd;
 
   // UAT-047 final: a room move must never be interpreted as a booking-date
