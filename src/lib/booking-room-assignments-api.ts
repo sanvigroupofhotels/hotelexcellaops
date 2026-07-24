@@ -81,12 +81,40 @@ export async function addAssignment(
   if (error) throw error;
 
   await syncLegacyBookingRoom(booking_id);
+
+  // Phase 1 polish: reconcile HK when a room becomes operationally occupied.
+  // If the booking is already Checked-In and the new segment covers today,
+  // the check-in hook ensures a continue-service task for the added room.
+  try {
+    const { data: b } = await supabase
+      .from("bookings" as any).select("status").eq("id", booking_id).maybeSingle();
+    if ((b as any)?.status === "Checked-In") {
+      const { onBookingCheckedIn } = await import("@/lib/hk-checkout-hook");
+      await onBookingCheckedIn(booking_id);
+    }
+  } catch { /* non-blocking */ }
 }
 
 export async function removeAssignment(booking_id: string, assignment_id: string) {
+  // Capture the removed room so we can fire the HK release hook.
+  const { data: prev } = await supabase
+    .from("booking_room_assignments" as any)
+    .select("room_id").eq("id", assignment_id).maybeSingle();
+  const prevRoomId = (prev as any)?.room_id as string | undefined;
+
   const { error } = await supabase.from("booking_room_assignments" as any).delete().eq("id", assignment_id);
   if (error) throw error;
   await syncLegacyBookingRoom(booking_id);
+
+  if (prevRoomId) {
+    try {
+      const { data: b } = await supabase
+        .from("bookings" as any).select("status").eq("id", booking_id).maybeSingle();
+      if ((b as any)?.status === "Checked-In") {
+        await onBookingRoomMoved(booking_id, prevRoomId);
+      }
+    } catch { /* non-blocking */ }
+  }
 }
 
 /**
