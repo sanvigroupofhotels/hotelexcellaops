@@ -77,6 +77,28 @@ export async function addAssignment(
     end_date = end_date ?? effectiveOut;
   }
 
+  // Avoid colliding with historical segments of the same (booking, room). If
+  // the guest previously occupied this room within the same booking, the new
+  // segment must start after the latest prior segment's end (and never before
+  // today's business date — segments cannot be back-dated).
+  const { data: priorSegs } = await supabase
+    .from("booking_room_assignments" as any)
+    .select("start_date,end_date")
+    .eq("booking_id", booking_id)
+    .eq("room_id", room_id);
+  let earliest = start_date;
+  try {
+    const bd = await getBusinessDate();
+    if (bd && bd > earliest) earliest = bd;
+  } catch { /* fall through */ }
+  for (const s of (priorSegs ?? []) as any[]) {
+    if (s.end_date > earliest) earliest = s.end_date;
+  }
+  if (earliest > start_date) start_date = earliest;
+  if (start_date >= end_date) {
+    throw new Error("Cannot assign this room — the remaining stay window is empty after historical occupancy.");
+  }
+
   let item_id = opts?.item_id ?? null;
   if (!item_id) {
     const { data: item } = await supabase
