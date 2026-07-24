@@ -28,6 +28,8 @@ interface Props {
   changingAssignmentId?: string | null;
   /** Called when in checkin-flow and all required rooms have been assigned. */
   onAllAssigned?: () => void;
+  /** Phase 2: assign/reassign a specific operational booking item. */
+  targetItemId?: string | null;
 }
 
 /**
@@ -45,7 +47,7 @@ interface Props {
  * (pricing preserved), then the room is assigned.
  */
 export function RoomAssignmentDialog({
-  bookingId, open, onClose, mode, changingAssignmentId, onAllAssigned,
+  bookingId, open, onClose, mode, changingAssignmentId, onAllAssigned, targetItemId,
 }: Props) {
   const qc = useQueryClient();
 
@@ -73,10 +75,24 @@ export function RoomAssignmentDialog({
   const { data: blocks = [] } = useQuery({
     queryKey: ["blocks", "active"], queryFn: listActiveBlocks, enabled: open,
   });
+  const { data: businessDate } = useQuery({
+    queryKey: ["business-date"],
+    queryFn: async () => (await import("@/lib/night-audit-api")).getBusinessDate(),
+    enabled: open,
+    staleTime: 30_000,
+  });
+
+  const availabilityStart = useMemo(() => {
+    const ci = booking?.check_in as string | undefined;
+    if (!ci) return "";
+    if (booking?.status === "Checked-In" && businessDate && businessDate > ci) return businessDate;
+    return ci;
+  }, [booking?.check_in, booking?.status, businessDate]);
+
   const { data: occupiedRoomIds = new Set<string>() } = useQuery({
-    queryKey: ["rooms-occupied", booking?.check_in, booking?.check_out, bookingId],
-    queryFn: () => listOccupiedRoomIds(booking!.check_in, booking!.check_out, bookingId),
-    enabled: open && !!(booking?.check_in && booking?.check_out),
+    queryKey: ["rooms-occupied", availabilityStart, booking?.check_out, bookingId],
+    queryFn: () => listOccupiedRoomIds(availabilityStart, booking!.check_out, bookingId),
+    enabled: open && !!(availabilityStart && booking?.check_out),
   });
 
   // Distinct categories — group rooms by their base label (first word of room_type).
@@ -116,14 +132,16 @@ export function RoomAssignmentDialog({
   // Assigned-by-category, derived from current assignments + rooms.
   const assignedMix = useMemo(() => {
     const out: Record<string, number> = {};
+    const co = booking?.check_out as string | undefined;
     for (const a of assignments) {
+      if (availabilityStart && co && !(a.start_date < co && availabilityStart < a.end_date)) continue;
       const r = (rooms as any[]).find((x) => x.id === a.room_id);
       const t = canon(r?.room_type);
       if (!t) continue;
       out[t] = (out[t] ?? 0) + 1;
     }
     return out;
-  }, [assignments, rooms, canon]);
+  }, [assignments, rooms, canon, booking?.check_out, availabilityStart]);
 
   // Next slot category (first category with a deficit).
   const nextSlotType: string | null = useMemo(() => {
@@ -158,7 +176,11 @@ export function RoomAssignmentDialog({
   }, [open, mode, changingRoom?.room_type, nextSlotType, categories.join("|")]);
 
   // Room counter (current / required) for header.
-  const totalAssigned = assignments.length;
+  const totalAssigned = useMemo(() => {
+    const co = booking?.check_out as string | undefined;
+    if (!availabilityStart || !co) return assignments.length;
+    return assignments.filter((a) => a.start_date < co && availabilityStart < a.end_date).length;
+  }, [assignments, booking?.check_out, availabilityStart]);
   const slotNumber = mode === "change"
     ? null
     : Math.min(required, totalAssigned + 1);
@@ -169,7 +191,7 @@ export function RoomAssignmentDialog({
     // the booking window) block re-selection. Historical segments closed by a
     // prior room-change are already released and must not gate future picks —
     // otherwise moving 105→201→105 hides 105 from the dropdown.
-    const ci = booking?.check_in as string | undefined;
+    const ci = availabilityStart || (booking?.check_in as string | undefined);
     const co = booking?.check_out as string | undefined;
     const activeSameBooking = new Set(
       assignments
@@ -187,7 +209,7 @@ export function RoomAssignmentDialog({
       }
       return true;
     });
-  }, [rooms, pickedCategory, assignments, booking, blocks, occupiedRoomIds, mode, changingAssignment]);
+  }, [rooms, pickedCategory, assignments, booking, blocks, occupiedRoomIds, mode, changingAssignment, availabilityStart]);
 
   // ---------- Mutations ----------
   const invalidate = () => {
@@ -243,9 +265,21 @@ export function RoomAssignmentDialog({
 
       // Perform the assignment (and split the old one for change mode).
       if (mode === "change" && changingAssignment) {
+        if (targetItemId && !changingAssignment.item_id) {
+          await supabase
+            .from("booking_room_assignments" as any)
+            .update({ item_id: targetItemId } as any)
+            .eq("id", changingAssignment.id);
+        }
         // UAT-047: preserve history — split the segment on the business date
         // rather than delete + insert (which rewrote past occupancy).
         await splitAssignment(bookingId, changingAssignment.id, pickedRoomId, null);
+        if (targetItemId) {
+          await supabase
+            .from("booking_items" as any)
+            .update({ assigned_room_id: pickedRoomId } as any)
+            .eq("id", targetItemId);
+        }
         await logBookingActivity({
           booking_id: bookingId,
           action: "reactivated",
@@ -254,7 +288,7 @@ export function RoomAssignmentDialog({
           notes: `Room Changed: ${changingRoom?.room_number ?? "?"} → ${newRoom?.room_number ?? "?"} (segment split)`,
         });
       } else {
-        await addAssignment(bookingId, pickedRoomId);
+        await addAssignment(bookingId, pickedRoomId, { item_id: targetItemId ?? null });
         await logBookingActivity({
           booking_id: bookingId,
           action: "reactivated",
@@ -282,12 +316,16 @@ export function RoomAssignmentDialog({
       }
       // checkin-flow: refetch latest assignments, then decide.
       const latest = await listAssignments(bookingId);
-      if (latest.length >= required) {
+      const co = booking?.check_out as string | undefined;
+      const latestCount = availabilityStart && co
+        ? latest.filter((a) => a.start_date < co && availabilityStart < a.end_date).length
+        : latest.length;
+      if (latestCount >= required) {
         toast.success("All rooms assigned");
         onClose();
         onAllAssigned?.();
       } else {
-        toast.success(`Room assigned (${latest.length} / ${required})`);
+        toast.success(`Room assigned (${latestCount} / ${required})`);
         // Dialog stays open; next slot type is recomputed by effect on assignments change.
       }
     },

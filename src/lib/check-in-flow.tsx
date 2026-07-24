@@ -193,7 +193,8 @@ export function useCheckInController(
 
       const hasDocs = (docs?.length ?? 0) > 0;
       const required = requiredRoomCount(items as any);
-      const fullyAssigned = (assignments?.length ?? 0) >= required;
+      const assignedItems = (items as any[]).filter((it) => it.assigned_room_id).length;
+      const fullyAssigned = assignedItems >= required || (assignments?.length ?? 0) >= required;
 
       const docsOk = hasDocs || docsForced || opts2?.skipDocs === true;
       if (!docsOk) {
