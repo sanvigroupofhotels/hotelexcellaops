@@ -1863,10 +1863,11 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
     b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligible, moveReason,
     isMobile, highlight, continuesLeft, continuesRight, origCheckIn, origCheckOut,
     groupSlot = 0, groupSlots = 1, lateFractionDays = 0, incomingLateDays = 0,
+    isHistorical = false,
     onSelect, onLongPress, onDragStartAvail, onDragEnd,
   } = props;
 
-  const dragEnabled = moveEligible;
+  const dragEnabled = moveEligible && !isHistorical;
   const longPress = useLongPress({
     enabled: dragEnabled && isMobile,
     delayMs: LONG_PRESS_DELAY_MS,
