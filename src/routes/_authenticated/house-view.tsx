@@ -1109,6 +1109,7 @@ function HouseView() {
                                           groupSlots={isGrouped ? slotCount : 1}
                                           lateFractionDays={lateFractionDays}
                                           incomingLateDays={incomingLateDays}
+                                          isHistorical={!!b._historical}
                                           onSelect={handleChipSelect}
                                           onLongPress={handleChipLongPress}
                                           onDragStartAvail={handleChipDragStartAvail}
