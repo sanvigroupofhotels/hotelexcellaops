@@ -23,6 +23,8 @@ export type StayAssignmentLike = {
   start_date?: string | null;
   /** Segment end (exclusive YYYY-MM-DD). Optional for legacy callers. */
   end_date?: string | null;
+  /** Segment closure reason: 'room_change' marks a historical segment. */
+  ended_reason?: string | null;
 };
 
 
@@ -38,6 +40,8 @@ export type StaySlot = {
   room_type: string | null;
   check_in: string;
   check_out: string;
+  /** Set on paired slots when the underlying assignment is a closed historical segment. */
+  ended_reason?: string | null;
 };
 
 export function normalizeStayRoomType(value?: string | null) {
@@ -195,6 +199,7 @@ export function pairStaySlotsToRooms(
         // math (see slotEndExclusive). For multi-day segments range.b is the
         // exclusive end date, which is already correct as check_out.
         check_out: range.b,
+        ended_reason: assignment.ended_reason ?? null,
       },
     });
     cursors[slotIndex] = range.b;

@@ -153,6 +153,7 @@ export type Database = {
           category: string
           created_at: string
           id: string
+          item_id: string | null
           notes: string | null
           occurred_at: string
           other_description: string | null
@@ -168,6 +169,7 @@ export type Database = {
           category: string
           created_at?: string
           id?: string
+          item_id?: string | null
           notes?: string | null
           occurred_at?: string
           other_description?: string | null
@@ -183,6 +185,7 @@ export type Database = {
           category?: string
           created_at?: string
           id?: string
+          item_id?: string | null
           notes?: string | null
           occurred_at?: string
           other_description?: string | null
@@ -199,15 +202,88 @@ export type Database = {
             referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "booking_charges_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "booking_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_item_activities: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          booking_id: string
+          created_at: string
+          field: string | null
+          id: string
+          item_id: string
+          metadata: Json | null
+          new_value: string | null
+          old_value: string | null
+          summary: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          booking_id: string
+          created_at?: string
+          field?: string | null
+          id?: string
+          item_id: string
+          metadata?: Json | null
+          new_value?: string | null
+          old_value?: string | null
+          summary?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          booking_id?: string
+          created_at?: string
+          field?: string | null
+          id?: string
+          item_id?: string
+          metadata?: Json | null
+          new_value?: string | null
+          old_value?: string | null
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_item_activities_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_item_activities_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "booking_items"
+            referencedColumns: ["id"]
+          },
         ]
       }
       booking_items: {
         Row: {
           adults: number
+          assigned_room_id: string | null
           booking_id: string
           breakfast_included: boolean
           check_in: string
           check_out: string
+          checked_in_at: string | null
+          checked_out_at: string | null
           children: number
           created_at: string
           drivers: number
@@ -216,12 +292,15 @@ export type Database = {
           extra_adults: number
           extra_bed: number
           id: string
+          item_status: Database["public"]["Enums"]["booking_item_status"]
           late_check_out: boolean
           late_check_out_slot: string | null
           nights: number | null
           notes: string | null
           pet_size: string
           position: number
+          primary_occupant_name: string | null
+          primary_phone: string | null
           rate: number
           room_type: string
           rooms: number
@@ -230,10 +309,13 @@ export type Database = {
         }
         Insert: {
           adults?: number
+          assigned_room_id?: string | null
           booking_id: string
           breakfast_included?: boolean
           check_in: string
           check_out: string
+          checked_in_at?: string | null
+          checked_out_at?: string | null
           children?: number
           created_at?: string
           drivers?: number
@@ -242,12 +324,15 @@ export type Database = {
           extra_adults?: number
           extra_bed?: number
           id?: string
+          item_status?: Database["public"]["Enums"]["booking_item_status"]
           late_check_out?: boolean
           late_check_out_slot?: string | null
           nights?: number | null
           notes?: string | null
           pet_size?: string
           position?: number
+          primary_occupant_name?: string | null
+          primary_phone?: string | null
           rate?: number
           room_type?: string
           rooms?: number
@@ -256,10 +341,13 @@ export type Database = {
         }
         Update: {
           adults?: number
+          assigned_room_id?: string | null
           booking_id?: string
           breakfast_included?: boolean
           check_in?: string
           check_out?: string
+          checked_in_at?: string | null
+          checked_out_at?: string | null
           children?: number
           created_at?: string
           drivers?: number
@@ -268,12 +356,15 @@ export type Database = {
           extra_adults?: number
           extra_bed?: number
           id?: string
+          item_status?: Database["public"]["Enums"]["booking_item_status"]
           late_check_out?: boolean
           late_check_out_slot?: string | null
           nights?: number | null
           notes?: string | null
           pet_size?: string
           position?: number
+          primary_occupant_name?: string | null
+          primary_phone?: string | null
           rate?: number
           room_type?: string
           rooms?: number
@@ -281,6 +372,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "booking_items_assigned_room_id_fkey"
+            columns: ["assigned_room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "booking_items_booking_id_fkey"
             columns: ["booking_id"]
@@ -4206,6 +4304,12 @@ export type Database = {
         | "fo_staff"
         | "housekeeping"
       attendance_status: "Present" | "Absent" | "HalfDay" | "Leave"
+      booking_item_status:
+        | "Confirmed"
+        | "Checked-In"
+        | "Checked-Out"
+        | "Cancelled"
+        | "No-Show"
       booking_status:
         | "Draft"
         | "Confirmed"
@@ -4405,6 +4509,13 @@ export const Constants = {
         "housekeeping",
       ],
       attendance_status: ["Present", "Absent", "HalfDay", "Leave"],
+      booking_item_status: [
+        "Confirmed",
+        "Checked-In",
+        "Checked-Out",
+        "Cancelled",
+        "No-Show",
+      ],
       booking_status: [
         "Draft",
         "Confirmed",

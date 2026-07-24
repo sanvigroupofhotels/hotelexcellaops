@@ -419,6 +419,10 @@ function HouseView() {
           _slotKey: slot.key,
           _bookingCheckIn: b.check_in,
           _bookingCheckOut: b.check_out,
+          // Phase 1 polish: closed historical segments (guest already moved
+          // out of this room via split_room_assignment) render greyed on the
+          // House View so the timeline shows real occupancy history.
+          _historical: !!slot.ended_reason,
         });
         m.set(rid, arr);
       }
@@ -1105,6 +1109,7 @@ function HouseView() {
                                           groupSlots={isGrouped ? slotCount : 1}
                                           lateFractionDays={lateFractionDays}
                                           incomingLateDays={incomingLateDays}
+                                          isHistorical={!!b._historical}
                                           onSelect={handleChipSelect}
                                           onLongPress={handleChipLongPress}
                                           onDragStartAvail={handleChipDragStartAvail}
@@ -1846,6 +1851,8 @@ interface BookingChipProps {
    *  the same room has a Late Check-out that extends into this chip's start
    *  cell. Prevents visual overlap by pushing the start edge to the right. */
   incomingLateDays?: number;
+  /** Phase 1 polish: historical (closed) occupancy segment — render muted. */
+  isHistorical?: boolean;
   onSelect: (b: any) => void;
   onLongPress: (b: any, roomId: string) => void;
   onDragStartAvail: (b: any, payload: string) => string;
@@ -1856,10 +1863,11 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
     b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligible, moveReason,
     isMobile, highlight, continuesLeft, continuesRight, origCheckIn, origCheckOut,
     groupSlot = 0, groupSlots = 1, lateFractionDays = 0, incomingLateDays = 0,
+    isHistorical = false,
     onSelect, onLongPress, onDragStartAvail, onDragEnd,
   } = props;
 
-  const dragEnabled = moveEligible;
+  const dragEnabled = moveEligible && !isHistorical;
   const longPress = useLongPress({
     enabled: dragEnabled && isMobile,
     delayMs: LONG_PRESS_DELAY_MS,
@@ -1900,6 +1908,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         radiusClasses,
         blockClasses(b),
         b._virtual && "border-dashed",
+        isHistorical && "opacity-50 grayscale saturate-50 border-dashed pointer-events-none",
         dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
         // NOTE: `touch-none` was previously applied to mobile-movable chips.
         // It blocks native panning, which is the dominant cause of laggy
