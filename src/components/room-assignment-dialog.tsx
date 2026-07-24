@@ -265,9 +265,21 @@ export function RoomAssignmentDialog({
 
       // Perform the assignment (and split the old one for change mode).
       if (mode === "change" && changingAssignment) {
+        if (targetItemId && !changingAssignment.item_id) {
+          await supabase
+            .from("booking_room_assignments" as any)
+            .update({ item_id: targetItemId } as any)
+            .eq("id", changingAssignment.id);
+        }
         // UAT-047: preserve history — split the segment on the business date
         // rather than delete + insert (which rewrote past occupancy).
         await splitAssignment(bookingId, changingAssignment.id, pickedRoomId, null);
+        if (targetItemId) {
+          await supabase
+            .from("booking_items" as any)
+            .update({ assigned_room_id: pickedRoomId } as any)
+            .eq("id", targetItemId);
+        }
         await logBookingActivity({
           booking_id: bookingId,
           action: "reactivated",
