@@ -419,6 +419,10 @@ function HouseView() {
           _slotKey: slot.key,
           _bookingCheckIn: b.check_in,
           _bookingCheckOut: b.check_out,
+          // Phase 1 polish: closed historical segments (guest already moved
+          // out of this room via split_room_assignment) render greyed on the
+          // House View so the timeline shows real occupancy history.
+          _historical: !!slot.ended_reason,
         });
         m.set(rid, arr);
       }
