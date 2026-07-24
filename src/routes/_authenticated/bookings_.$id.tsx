@@ -1008,6 +1008,138 @@ function formatActivity(a: any): string {
   }
 }
 
+function RoomManagementGrid({
+  booking,
+  items,
+  rooms,
+  assignments,
+  activeAssignments,
+  activities,
+  busy,
+  onAssign,
+  onMove,
+  onRemove,
+  onItemCheckIn,
+  onItemCheckOut,
+}: {
+  booking: any;
+  items: any[];
+  rooms: any[];
+  assignments: any[];
+  activeAssignments: any[];
+  activities: any[];
+  busy: boolean;
+  onAssign: (itemId: string) => void;
+  onMove: (itemId: string, assignmentId: string) => void;
+  onRemove: (itemId: string, assignmentId: string) => void;
+  onItemCheckIn: (itemId: string) => void;
+  onItemCheckOut: (itemId: string) => void;
+}) {
+  const required = requiredRoomCount(items as any);
+  const assigned = activeAssignments.length;
+  const ready = assigned >= required;
+  const latestActivities = activities.slice(0, 4);
+  const canEditRooms = booking.status !== "Checked-Out" && booking.status !== "Cancelled" && booking.status !== "No-Show";
+
+  return (
+    <div className="luxe-card rounded-xl p-5">
+      <h4 className="font-display text-lg mb-2 flex items-center gap-2">
+        <DoorOpen className="h-4 w-4 text-gold" /> Room Management
+      </h4>
+      <div className={cn("text-xs font-medium mb-3", ready ? "text-emerald-500" : "text-warning")}>
+        Assigned {assigned} / {required} {ready ? "✓ Ready for Check-In" : `· ${Math.max(0, required - assigned)} remaining`}
+      </div>
+
+      <div className="space-y-2">
+        {items.map((item, index) => {
+          const active = activeAssignments.find((a) => a.item_id === item.id)
+            ?? activeAssignments.find((a) => a.room_id === item.assigned_room_id);
+          const room = rooms.find((r) => r.id === (active?.room_id ?? item.assigned_room_id));
+          const history = assignments.filter((a) => a.item_id === item.id || (item.assigned_room_id && a.room_id === item.assigned_room_id));
+          const status = item.item_status ?? (booking.status === "Checked-In" ? "Checked-In" : "Confirmed");
+          const hasRoom = !!active?.id;
+          return (
+            <div key={item.id} className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <span>Room Item {index + 1}</span>
+                    <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">{status}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {item.room_type} · {new Date(item.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → {new Date(item.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                  </div>
+                  <div className="mt-1 text-sm">
+                    {room ? <>Assigned: <span className="font-medium">Room {room.room_number}</span> · {room.room_type}</> : <span className="text-warning">No room assigned</span>}
+                  </div>
+                </div>
+                {canEditRooms && (
+                  <div className="flex flex-wrap justify-end gap-1.5 text-[11px] shrink-0">
+                    {!hasRoom ? (
+                      <button disabled={busy} onClick={() => onAssign(item.id)} className="rounded-md gold-gradient px-2.5 py-1.5 font-medium text-charcoal disabled:opacity-50">
+                        Assign
+                      </button>
+                    ) : (
+                      <>
+                        <button disabled={busy} onClick={() => onMove(item.id, active.id)} className="rounded-md border border-border bg-card px-2.5 py-1.5 hover:border-gold/40 disabled:opacity-50">
+                          Move
+                        </button>
+                        <button disabled={busy} onClick={() => onRemove(item.id, active.id)} className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-destructive hover:bg-destructive/20 disabled:opacity-50">
+                          Remove
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {hasRoom && booking.status === "Checked-In" && (
+                <div className="flex gap-1.5 text-[11px]">
+                  {status !== "Checked-In" && (
+                    <button disabled={busy} onClick={() => onItemCheckIn(item.id)} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1.5 hover:border-gold/40 disabled:opacity-50">
+                      <LogIn className="h-3 w-3" /> Item Check-In
+                    </button>
+                  )}
+                  {status !== "Checked-Out" && (
+                    <button disabled={busy} onClick={() => onItemCheckOut(item.id)} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1.5 hover:border-gold/40 disabled:opacity-50">
+                      <LogOut className="h-3 w-3" /> Item Check-Out
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {history.length > 1 && (
+                <div className="border-t border-border pt-1.5 text-[10.5px] text-muted-foreground space-y-0.5">
+                  {history.map((seg) => {
+                    const segRoom = rooms.find((r) => r.id === seg.room_id);
+                    return (
+                      <div key={seg.id}>
+                        Room {segRoom?.room_number ?? "—"}: {new Date(seg.start_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → {new Date(seg.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}{seg.ended_reason === "room_change" ? " · closed on room change" : ""}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {latestActivities.length > 0 && (
+        <div className="mt-3 border-t border-border pt-2 space-y-1">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Room Operations Audit</div>
+          {latestActivities.map((a) => (
+            <div key={a.id} className="text-[10.5px] text-muted-foreground flex justify-between gap-2">
+              <span>{a.summary ?? a.action}</span>
+              <span className="tabular-nums shrink-0">{new Date(a.created_at).toLocaleDateString("en-IN")}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CheckoutOverrideForm({ balance, onCancel, onAddPayment, onProceed }: {
   balance: number;
   onCancel: () => void;
