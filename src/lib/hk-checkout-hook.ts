@@ -430,3 +430,63 @@ export async function onBookingRoomMoved(
     });
   }
 }
+
+export async function onBookingItemCheckedOut(
+  bookingId: string,
+  itemId: string,
+  roomId: string,
+): Promise<void> {
+  if (!roomId) return;
+  try {
+    const businessDate = await getBusinessDate();
+    const correlation_id = newCorrelationId();
+
+    await supabase.from("housekeeping_tasks" as any)
+      .update({
+        state: "skipped",
+        skipped_reason: "superseded_by_checkout",
+        finished_at: new Date().toISOString(),
+      } as any)
+      .eq("room_id", roomId)
+      .eq("business_date", businessDate)
+      .eq("type", "continue_service")
+      .eq("state", "open");
+
+    await setRoomHousekeepingStatus({
+      roomId,
+      next: "dirty",
+      reason: "Room item checked out",
+      correlationId: correlation_id,
+      activityAction: "hk_checkout_marked_dirty" as any,
+      metadata: { booking_id: bookingId, item_id: itemId, business_date: businessDate, trigger: "item_check_out" },
+    });
+
+    await ensureCheckoutTask({
+      room_id: roomId,
+      booking_id: bookingId,
+      business_date: businessDate,
+      correlation_id,
+    });
+
+    void logActivity({
+      page: "Housekeeping",
+      action: "hk_room_move_hook_ran" as any,
+      entity_type: "booking_item",
+      entity_id: itemId,
+      entity_reference: businessDate,
+      summary: "Room item checked out · checkout task ensured",
+      metadata: { businessDate, booking_id: bookingId, room_id: roomId },
+      source: "manual",
+      correlation_id,
+    });
+  } catch (e: any) {
+    void logActivity({
+      page: "Housekeeping",
+      action: "hk_room_move_hook_failed" as any,
+      entity_type: "booking_item",
+      entity_id: itemId,
+      summary: `Housekeeping item checkout hook failed: ${e?.message ?? e}`,
+      source: "manual",
+    });
+  }
+}

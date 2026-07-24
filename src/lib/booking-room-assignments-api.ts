@@ -20,6 +20,7 @@ export interface BookingRoomAssignmentRow {
   id: string;
   booking_id: string;
   room_id: string;
+  item_id: string | null;
   user_id: string;
   created_at: string;
   start_date: string; // inclusive YYYY-MM-DD
@@ -27,7 +28,7 @@ export interface BookingRoomAssignmentRow {
   ended_reason: string | null;
 }
 
-const SEG_COLS = "id,booking_id,room_id,user_id,created_at,start_date,end_date,ended_reason";
+const SEG_COLS = "id,booking_id,room_id,item_id,user_id,created_at,start_date,end_date,ended_reason";
 
 export async function listAssignments(booking_id: string) {
   const { data, error } = await supabase
@@ -54,7 +55,7 @@ export async function listAssignmentsCoveringDate(booking_id: string, date: stri
 export async function addAssignment(
   booking_id: string,
   room_id: string,
-  opts?: { start_date?: string; end_date?: string },
+  opts?: { start_date?: string; end_date?: string; item_id?: string | null },
 ) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
@@ -76,9 +77,29 @@ export async function addAssignment(
     end_date = end_date ?? effectiveOut;
   }
 
+  let item_id = opts?.item_id ?? null;
+  if (!item_id) {
+    const { data: item } = await supabase
+      .from("booking_items" as any)
+      .select("id")
+      .eq("booking_id", booking_id)
+      .is("assigned_room_id", null)
+      .order("position", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    item_id = (item as any)?.id ?? null;
+  }
+
   const { error } = await supabase.from("booking_room_assignments" as any)
-    .insert({ booking_id, room_id, user_id: user.id, start_date, end_date } as any);
+    .insert({ booking_id, room_id, user_id: user.id, start_date, end_date, item_id } as any);
   if (error) throw error;
+
+  if (item_id) {
+    await supabase
+      .from("booking_items" as any)
+      .update({ assigned_room_id: room_id } as any)
+      .eq("id", item_id);
+  }
 
   await syncLegacyBookingRoom(booking_id);
 
@@ -99,12 +120,20 @@ export async function removeAssignment(booking_id: string, assignment_id: string
   // Capture the removed room so we can fire the HK release hook.
   const { data: prev } = await supabase
     .from("booking_room_assignments" as any)
-    .select("room_id").eq("id", assignment_id).maybeSingle();
+    .select("room_id,item_id").eq("id", assignment_id).maybeSingle();
   const prevRoomId = (prev as any)?.room_id as string | undefined;
+  const itemId = (prev as any)?.item_id as string | undefined;
 
   const { error } = await supabase.from("booking_room_assignments" as any).delete().eq("id", assignment_id);
   if (error) throw error;
   await syncLegacyBookingRoom(booking_id);
+
+  if (itemId) {
+    await supabase
+      .from("booking_items" as any)
+      .update({ assigned_room_id: null } as any)
+      .eq("id", itemId);
+  }
 
   if (prevRoomId) {
     try {
@@ -131,11 +160,12 @@ export async function splitAssignment(
   // Capture previous room BEFORE the split so we can fire the HK hook.
   const { data: prev } = await supabase
     .from("booking_room_assignments" as any)
-    .select("room_id,start_date")
+    .select("room_id,start_date,item_id")
     .eq("id", old_assignment_id)
     .maybeSingle();
   const prevRoomId = (prev as any)?.room_id as string | undefined;
   const prevStart = (prev as any)?.start_date as string | undefined;
+  const itemId = (prev as any)?.item_id as string | undefined;
 
   const { error } = await supabase.rpc("split_room_assignment" as any, {
     p_booking_id: booking_id,
@@ -144,6 +174,13 @@ export async function splitAssignment(
     p_effective_date: effective_date ?? null,
   } as any);
   if (error) throw error;
+
+  if (itemId) {
+    await supabase
+      .from("booking_items" as any)
+      .update({ assigned_room_id: new_room_id } as any)
+      .eq("id", itemId);
+  }
 
   // Fire the HK "room moved" side-effect for any operational move where the
   // guest was physically in the previous room (segment had already started
