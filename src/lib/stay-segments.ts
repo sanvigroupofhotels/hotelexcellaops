@@ -199,6 +199,7 @@ export function pairStaySlotsToRooms(
         // math (see slotEndExclusive). For multi-day segments range.b is the
         // exclusive end date, which is already correct as check_out.
         check_out: range.b,
+        ended_reason: assignment.ended_reason ?? null,
       },
     });
     cursors[slotIndex] = range.b;
