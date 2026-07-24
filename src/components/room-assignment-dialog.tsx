@@ -165,12 +165,24 @@ export function RoomAssignmentDialog({
 
   // Filter rooms by selected category, exclude already-assigned/blocked/occupied/the-one-being-changed.
   const eligibleRooms = useMemo(() => {
+    // UAT-047 final: only *currently-active* assignments (segments overlapping
+    // the booking window) block re-selection. Historical segments closed by a
+    // prior room-change are already released and must not gate future picks —
+    // otherwise moving 105→201→105 hides 105 from the dropdown.
+    const ci = booking?.check_in as string | undefined;
+    const co = booking?.check_out as string | undefined;
+    const activeSameBooking = new Set(
+      assignments
+        .filter((a) => a.id !== changingAssignment?.id)
+        .filter((a) => !ci || !co || (a.start_date < co && ci < a.end_date))
+        .map((a) => a.room_id),
+    );
     return (rooms as any[]).filter((r) => {
       if (pickedCategory && r.room_type !== pickedCategory) return false;
       if (mode === "change" && changingAssignment && r.id === changingAssignment.room_id) return false;
-      if (assignments.some((a) => a.room_id === r.id && a.id !== changingAssignment?.id)) return false;
-      if (booking?.check_in && booking?.check_out) {
-        if (isRoomBlockedInRange(blocks as any, r.id, booking.check_in, booking.check_out)) return false;
+      if (activeSameBooking.has(r.id)) return false;
+      if (ci && co) {
+        if (isRoomBlockedInRange(blocks as any, r.id, ci, co)) return false;
         if (occupiedRoomIds.has(r.id) && r.id !== changingAssignment?.room_id) return false;
       }
       return true;
