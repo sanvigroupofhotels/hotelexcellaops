@@ -132,7 +132,7 @@ export async function checkOutBookingItem(itemId: string) {
 
   const { error } = await supabase
     .from("booking_items" as any)
-    .update({ item_status: "Checked-Out", checked_out_at: new Date().toISOString() } as any)
+    .update({ assigned_room_id: null, item_status: "Checked-Out", checked_out_at: new Date().toISOString() } as any)
     .eq("id", itemId);
   if (error) throw error;
   if (activeAssignment) await closeAssignmentSegment(activeAssignment, "item_check_out");

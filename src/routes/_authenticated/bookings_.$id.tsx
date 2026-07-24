@@ -1058,6 +1058,7 @@ function RoomManagementGrid({
           const history = assignments.filter((a) => a.item_id === item.id || (item.assigned_room_id && a.room_id === item.assigned_room_id));
           const status = item.item_status ?? (booking.status === "Checked-In" ? "Checked-In" : "Confirmed");
           const hasRoom = !!active?.id;
+          const itemCanOperate = canEditRooms && status !== "Checked-Out" && status !== "Cancelled" && status !== "No-Show";
           return (
             <div key={item.id} className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-2">
               <div className="flex items-start justify-between gap-3">
@@ -1073,7 +1074,7 @@ function RoomManagementGrid({
                     {room ? <>Assigned: <span className="font-medium">Room {room.room_number}</span> · {room.room_type}</> : <span className="text-warning">No room assigned</span>}
                   </div>
                 </div>
-                {canEditRooms && (
+                {itemCanOperate && (
                   <div className="flex flex-wrap justify-end gap-1.5 text-[11px] shrink-0">
                     {!hasRoom ? (
                       <button disabled={busy} onClick={() => onAssign(item.id)} className="rounded-md gold-gradient px-2.5 py-1.5 font-medium text-charcoal disabled:opacity-50">
