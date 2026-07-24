@@ -1851,6 +1851,8 @@ interface BookingChipProps {
    *  the same room has a Late Check-out that extends into this chip's start
    *  cell. Prevents visual overlap by pushing the start edge to the right. */
   incomingLateDays?: number;
+  /** Phase 1 polish: historical (closed) occupancy segment — render muted. */
+  isHistorical?: boolean;
   onSelect: (b: any) => void;
   onLongPress: (b: any, roomId: string) => void;
   onDragStartAvail: (b: any, payload: string) => string;
