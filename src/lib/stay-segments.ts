@@ -23,6 +23,8 @@ export type StayAssignmentLike = {
   start_date?: string | null;
   /** Segment end (exclusive YYYY-MM-DD). Optional for legacy callers. */
   end_date?: string | null;
+  /** Segment closure reason: 'room_change' marks a historical segment. */
+  ended_reason?: string | null;
 };
 
 
