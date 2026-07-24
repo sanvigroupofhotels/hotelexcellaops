@@ -40,6 +40,8 @@ export type StaySlot = {
   room_type: string | null;
   check_in: string;
   check_out: string;
+  /** Set on paired slots when the underlying assignment is a closed historical segment. */
+  ended_reason?: string | null;
 };
 
 export function normalizeStayRoomType(value?: string | null) {
