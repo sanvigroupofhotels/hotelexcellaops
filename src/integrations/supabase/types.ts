@@ -533,6 +533,7 @@ export type Database = {
           end_date: string
           ended_reason: string | null
           id: string
+          item_id: string | null
           room_id: string
           start_date: string
           user_id: string
@@ -543,6 +544,7 @@ export type Database = {
           end_date: string
           ended_reason?: string | null
           id?: string
+          item_id?: string | null
           room_id: string
           start_date: string
           user_id: string
@@ -553,6 +555,7 @@ export type Database = {
           end_date?: string
           ended_reason?: string | null
           id?: string
+          item_id?: string | null
           room_id?: string
           start_date?: string
           user_id?: string
@@ -563,6 +566,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_room_assignments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "booking_items"
             referencedColumns: ["id"]
           },
           {
@@ -4086,6 +4096,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      backfill_booking_item_segment_links: { Args: never; Returns: undefined }
       cleanup_expired_guest_documents: { Args: never; Returns: number }
       confirm_laundry_return: {
         Args: {
