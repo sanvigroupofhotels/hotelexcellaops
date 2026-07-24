@@ -50,6 +50,12 @@ import { listBookingCharges, chargesTotal as sumCharges } from "@/lib/booking-ch
 import {
   listAssignments, removeAssignment, requiredRoomCount,
 } from "@/lib/booking-room-assignments-api";
+import {
+  checkInBookingItem,
+  checkOutBookingItem,
+  listBookingItemActivities,
+  removeRoomFromBookingItem,
+} from "@/lib/booking-item-operations-api";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
@@ -263,6 +269,7 @@ function BookingDetail() {
   const checkIn = useCheckInController();
   // When set, the Assign dialog acts as a "Change" — confirming swaps the named assignment.
   const [changingAssignmentId, setChangingAssignmentId] = useState<string | null>(null);
+  const [targetItemId, setTargetItemId] = useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelRefundAmount, setCancelRefundAmount] = useState<number>(0);
@@ -315,6 +322,11 @@ function BookingDetail() {
     queryFn: () => listAssignments(id),
     enabled: !!id,
   });
+  const { data: itemActivities = [] } = useQuery({
+    queryKey: ["booking-item-activities", id],
+    queryFn: () => listBookingItemActivities(id),
+    enabled: !!id,
+  });
 
   const unassignRoom = useMutation({
     mutationFn: async (assignmentId: string) => {
@@ -323,6 +335,21 @@ function BookingDetail() {
     },
     onSuccess: () => { invalidateAll(); refetchAssignments(); toast.success("Room unassigned"); },
     onError: (e: any) => toast.error(e?.message ?? "Could not unassign room"),
+  });
+  const itemCheckIn = useMutation({
+    mutationFn: (itemId: string) => checkInBookingItem(itemId),
+    onSuccess: () => { invalidateAll(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room item checked in"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not check in room item"),
+  });
+  const itemCheckOut = useMutation({
+    mutationFn: (itemId: string) => checkOutBookingItem(itemId),
+    onSuccess: () => { invalidateAll(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room item checked out"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not check out room item"),
+  });
+  const itemRemoveRoom = useMutation({
+    mutationFn: (input: { itemId: string; assignmentId: string }) => removeRoomFromBookingItem(input),
+    onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room removed from item"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not remove room"),
   });
 
   const { data: payments = [] } = useQuery({
@@ -364,6 +391,8 @@ function BookingDetail() {
   const balance = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : (payable - advance);
   const overpaid = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : Math.max(0, advance - payable);
   const isCheckedOut = b.status === "Checked-Out";
+  const operationalStart = b.status === "Checked-In" && businessDate && businessDate > b.check_in ? businessDate : b.check_in;
+  const activeAssignments = assignments.filter((a) => a.start_date < b.check_out && operationalStart < a.end_date);
 
   const sendWa = (template: WhatsAppTemplate) => {
     if (!b.phone) { toast.error("Customer has no phone number"); return; }
@@ -491,80 +520,28 @@ function BookingDetail() {
               </div>
             )}
 
-            {/* Assigned room(s) — supports multi-room bookings */}
-            {(() => {
-              const required = requiredRoomCount(items as any);
-              const assigned = assignments.length;
-              const remaining = Math.max(0, required - assigned);
-              const ready = assigned >= required;
-              return (
-                <div className="luxe-card rounded-xl p-5">
-                  <h4 className="font-display text-lg mb-2 flex items-center gap-2">
-                    <DoorOpen className="h-4 w-4 text-gold" /> Room Assignment
-                  </h4>
-                  <div className={cn(
-                    "text-xs font-medium mb-3",
-                    ready ? "text-emerald-500" : "text-warning",
-                  )}>
-                    Assigned {assigned} / {required} {ready ? "✓ Ready for Check-In" : `· ${remaining} remaining`}
-                  </div>
-                  {assignments.length > 0 && (
-                    <ul className="space-y-1.5 mb-3">
-                      {assignments.map((a) => {
-                        const room = rooms.find((r: any) => r.id === a.room_id);
-                        // UAT-047: show segment date range when the booking has
-                        // multiple segments (mid-stay room change) so history
-                        // stays visible on the Booking Detail Timeline.
-                        const showSegment =
-                          assignments.length > 1
-                          || a.start_date !== b.check_in
-                          || a.end_date !== b.check_out;
-                        return (
-                          <li key={a.id} className="flex items-center justify-between text-sm bg-muted/30 rounded-md px-2.5 py-1.5">
-                            <span className="flex flex-col">
-                              <span>
-                                {room ? <>Room <span className="font-medium">{room.room_number}</span> · {room.room_type}</> : "Unknown room"}
-                              </span>
-                              {showSegment && (
-                                <span className="text-[10.5px] text-muted-foreground">
-                                  {new Date(a.start_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → {new Date(a.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                                  {a.ended_reason === "room_change" ? " · closed on room change" : ""}
-                                </span>
-                              )}
-                            </span>
-                            {b.status !== "Checked-Out" && (
-                              <span className="flex items-center gap-2 text-[11px]">
-                                <button
-                                  onClick={() => {
-                                    setChangingAssignmentId(a.id);
-                                    setAssignRoomOpen(true);
-                                  }}
-                                  className="text-muted-foreground hover:text-gold"
-                                  aria-label="Change room"
-                                >Change</button>
-                                <span className="text-border">|</span>
-                                <button
-                                  onClick={() => unassignRoom.mutate(a.id)}
-                                  disabled={unassignRoom.isPending}
-                                  className="text-muted-foreground hover:text-destructive"
-                                  aria-label="Remove room"
-                                >Remove</button>
-                              </span>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                  {!ready && b.status !== "Checked-Out" && (
-                    <button onClick={() => { setChangingAssignmentId(null); setAssignRoomOpen(true); }}
-                      className="inline-flex items-center gap-2 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">
-                      <DoorOpen className="h-3.5 w-3.5" /> {assigned === 0 ? "Assign Rooms" : "Assign Another Room"}
-                    </button>
-                  )}
-                </div>
-              );
-            })()}
+            <RoomManagementGrid
+              booking={b}
+              items={items as any[]}
+              rooms={rooms as any[]}
+              assignments={assignments as any[]}
+              activeAssignments={activeAssignments as any[]}
+              activities={itemActivities as any[]}
+              busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemCheckIn.isPending || itemCheckOut.isPending}
+              onAssign={(itemId) => {
+                setTargetItemId(itemId);
+                setChangingAssignmentId(null);
+                setAssignRoomOpen(true);
+              }}
+              onMove={(itemId, assignmentId) => {
+                setTargetItemId(itemId);
+                setChangingAssignmentId(assignmentId);
+                setAssignRoomOpen(true);
+              }}
+              onRemove={(itemId, assignmentId) => itemRemoveRoom.mutate({ itemId, assignmentId })}
+              onItemCheckIn={(itemId) => itemCheckIn.mutate(itemId)}
+              onItemCheckOut={(itemId) => itemCheckOut.mutate(itemId)}
+            />
 
             <div className="luxe-card rounded-xl p-5">
               <h4 className="font-display text-lg mb-3">Status</h4>
@@ -996,9 +973,10 @@ function BookingDetail() {
       <RoomAssignmentDialog
         bookingId={id}
         open={assignRoomOpen}
-        onClose={() => { setAssignRoomOpen(false); setChangingAssignmentId(null); }}
+        onClose={() => { setAssignRoomOpen(false); setChangingAssignmentId(null); setTargetItemId(null); }}
         mode={changingAssignmentId ? "change" : "assign-one"}
         changingAssignmentId={changingAssignmentId}
+        targetItemId={targetItemId}
       />
 
       {/* Manage-mode documents (Check-In flow uses useCheckInController) */}
