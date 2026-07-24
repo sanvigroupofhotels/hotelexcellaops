@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { removeAssignment } from "@/lib/booking-room-assignments-api";
+import { getBusinessDate } from "@/lib/night-audit-api";
 
 export type BookingItemStatus = "Confirmed" | "Checked-In" | "Checked-Out" | "Cancelled" | "No-Show";
 
@@ -61,6 +62,36 @@ async function getItem(itemId: string) {
   return data as any;
 }
 
+async function getAssignment(assignmentId: string) {
+  const { data, error } = await supabase
+    .from("booking_room_assignments" as any)
+    .select("id, booking_id, room_id, item_id, start_date, end_date")
+    .eq("id", assignmentId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Room assignment not found");
+  return data as any;
+}
+
+async function closeAssignmentSegment(assignment: any, reason: string) {
+  const businessDate = await getBusinessDate();
+  const effectiveDate = businessDate > assignment.start_date ? businessDate : assignment.start_date;
+  if (effectiveDate <= assignment.start_date) {
+    const { error } = await supabase
+      .from("booking_room_assignments" as any)
+      .delete()
+      .eq("id", assignment.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase
+    .from("booking_room_assignments" as any)
+    .update({ end_date: effectiveDate, ended_reason: reason } as any)
+    .eq("id", assignment.id);
+  if (error) throw error;
+}
+
 export async function checkInBookingItem(itemId: string) {
   const item = await getItem(itemId);
   if (!item.assigned_room_id) throw new Error("Assign a room before item check-in.");
@@ -86,11 +117,25 @@ export async function checkOutBookingItem(itemId: string) {
   const item = await getItem(itemId);
   if (!item.assigned_room_id) throw new Error("No room assigned to check out.");
   const previous = item.item_status ?? "Confirmed";
+  const businessDate = await getBusinessDate();
+  const { data: activeAssignment, error: activeErr } = await supabase
+    .from("booking_room_assignments" as any)
+    .select("id, booking_id, room_id, item_id, start_date, end_date")
+    .eq("item_id", itemId)
+    .eq("room_id", item.assigned_room_id)
+    .lte("start_date", businessDate)
+    .gt("end_date", businessDate)
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (activeErr) throw activeErr;
+
   const { error } = await supabase
     .from("booking_items" as any)
     .update({ item_status: "Checked-Out", checked_out_at: new Date().toISOString() } as any)
     .eq("id", itemId);
   if (error) throw error;
+  if (activeAssignment) await closeAssignmentSegment(activeAssignment, "item_check_out");
   try {
     const { onBookingItemCheckedOut } = await import("@/lib/hk-checkout-hook");
     await onBookingItemCheckedOut(item.booking_id, itemId, item.assigned_room_id);
@@ -111,7 +156,20 @@ export async function checkOutBookingItem(itemId: string) {
 
 export async function removeRoomFromBookingItem(input: { itemId: string; assignmentId: string }) {
   const item = await getItem(input.itemId);
-  await removeAssignment(item.booking_id, input.assignmentId);
+  const assignment = await getAssignment(input.assignmentId);
+  const businessDate = await getBusinessDate();
+  const started = assignment.start_date < businessDate || item.item_status === "Checked-In";
+  if (started) {
+    await closeAssignmentSegment(assignment, "room_removed");
+    try {
+      const { onBookingItemCheckedOut } = await import("@/lib/hk-checkout-hook");
+      await onBookingItemCheckedOut(item.booking_id, input.itemId, assignment.room_id);
+    } catch {
+      /* non-blocking housekeeping fanout */
+    }
+  } else {
+    await removeAssignment(item.booking_id, input.assignmentId);
+  }
   const { error } = await supabase
     .from("booking_items" as any)
     .update({ assigned_room_id: null, item_status: "Confirmed", checked_in_at: null, checked_out_at: null } as any)

@@ -243,34 +243,18 @@ export async function rebalanceBookingItemTypes(
     for (let i = 0; i < n; i++) queue.push(t);
   }
   while (queue.length < slots.length) queue.push(queue[queue.length - 1] ?? slots[0].room_type);
-  const rows = slots.map((s, idx) => ({
-    booking_id,
-    position: idx,
-    room_type: queue[idx],
-    rooms: 1,
-    adults: s.adults,
-    children: s.children,
-    check_in: s.check_in,
-    check_out: s.check_out,
-    breakfast_included: s.breakfast_included,
-    extra_bed: s.extra_bed,
-    rate: Number(s.rate),
-    subtotal: Number(s.subtotal) / Math.max(1, Number(s.rooms ?? 1)),
-    notes: s.notes,
-    early_check_in: s.early_check_in,
-    early_check_in_slot: s.early_check_in_slot,
-    late_check_out: s.late_check_out,
-    late_check_out_slot: s.late_check_out_slot,
-    pet_size: s.pet_size,
-    extra_adults: s.extra_adults,
-    drivers: s.drivers,
-  }));
-  const { error: delErr } = await supabase
-    .from("booking_items" as any).delete().eq("booking_id", booking_id);
-  if (delErr) throw delErr;
-  const { error: insErr } = await supabase
-    .from("booking_items" as any).insert(rows as any);
-  if (insErr) throw insErr;
+  for (const [idx, s] of slots.entries()) {
+    const { error } = await supabase
+      .from("booking_items" as any)
+      .update({
+        position: idx,
+        room_type: queue[idx],
+        rooms: 1,
+        subtotal: Number(s.subtotal) / Math.max(1, Number(s.rooms ?? 1)),
+      } as any)
+      .eq("id", s.id);
+    if (error) throw error;
+  }
 }
 
 /** Normalize a room type label so "Oak" == "Oak Room" == "oak  room ". */
