@@ -32,11 +32,31 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
   const { values: categories } = useChargeCategories();
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState<BookingChargeRow | null>(null);
+  const [defaultItemId, setDefaultItemId] = useState<string | null>(null);
 
   const q = useQuery({
     queryKey: ["booking-charges", bookingId],
     queryFn: () => listBookingCharges(bookingId),
   });
+  // Milestone 3 — load booking items + rooms so charges can be attributed to
+  // a specific operational room. Attribution is stored on booking_charges.item_id
+  // (nullable). Financial totals still aggregate at booking level.
+  const itemsQ = useQuery({
+    queryKey: ["booking-items", bookingId],
+    queryFn: () => listBookingItems(bookingId),
+    enabled: !!bookingId,
+  });
+  const roomsQ = useQuery({ queryKey: ["rooms"], queryFn: listRooms });
+  const items = itemsQ.data ?? [];
+  const rooms = roomsQ.data ?? [];
+  const itemLabel = (itemId: string | null): string => {
+    if (!itemId) return "Booking-level";
+    const it = items.find((i: any) => i.id === itemId);
+    if (!it) return "Booking-level";
+    const room = rooms.find((r: any) => r.id === (it as any).assigned_room_id);
+    const idx = items.findIndex((i: any) => i.id === itemId) + 1;
+    return room ? `Room ${room.room_number}` : `Room Item ${idx}`;
+  };
 
   const delMut = useMutation({
     mutationFn: (id: string) => deleteBookingCharge(id),
@@ -53,6 +73,35 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
   const rows = q.data ?? [];
   const total = chargesTotal(rows);
 
+  // Milestone 3 — group displayed charges by attributed operational room, with
+  // an "Unattributed / Booking-level" bucket at the top. Aggregation stays
+  // booking-level (Balance Due, invoice, taxes) — this is a presentation-only
+  // grouping to prepare for future per-room folios.
+  const grouped = useMemo(() => {
+    const groups = new Map<string, BookingChargeRow[]>();
+    for (const r of rows) {
+      const key = r.item_id ?? "__booking__";
+      const list = groups.get(key) ?? [];
+      list.push(r);
+      groups.set(key, list);
+    }
+    const ordered: Array<{ key: string; label: string; rows: BookingChargeRow[] }> = [];
+    if (groups.has("__booking__")) {
+      ordered.push({ key: "__booking__", label: "Booking-level", rows: groups.get("__booking__")! });
+    }
+    for (const it of items as any[]) {
+      if (groups.has(it.id)) {
+        ordered.push({ key: it.id, label: itemLabel(it.id), rows: groups.get(it.id)! });
+      }
+    }
+    // Any orphan item_ids (item deleted after charge posted) fall through last.
+    for (const [k, v] of groups.entries()) {
+      if (k === "__booking__") continue;
+      if (!ordered.some((g) => g.key === k)) ordered.push({ key: k, label: "Unlinked room", rows: v });
+    }
+    return ordered;
+  }, [rows, items, rooms]);
+
   return (
     <div className="luxe-card rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
@@ -61,7 +110,7 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
           <h3 className="font-display text-base">In-House Charges</h3>
         </div>
         <button
-          onClick={() => { setEditing(null); setOpenForm(true); }}
+          onClick={() => { setEditing(null); setDefaultItemId(null); setOpenForm(true); }}
           className="inline-flex items-center gap-1.5 rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal"
         >
           <Plus className="h-3.5 w-3.5" /> Add Charge
@@ -73,48 +122,69 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
       ) : rows.length === 0 ? (
         <div className="text-center text-xs text-muted-foreground py-3">No in-house charges yet.</div>
       ) : (
-        <div className="space-y-1.5">
-          {rows.map((r) => {
-            // UAT-025: system-generated charges (Razorpay convenience fee auto-split)
-            // must be visually distinct from staff-added charges.
-            const isSystem = (r.added_by ?? "").toLowerCase() === "system"
-              || (r.added_by ?? "").toLowerCase().startsWith("system ")
-              || String(r.notes ?? "").toLowerCase().includes("[system-generated]");
-            return (
-            <div key={r.id} className={`flex items-center justify-between py-2 px-3 rounded-md text-sm ${isSystem ? "bg-gold-soft/30 border border-gold/30" : "bg-secondary/40"}`}>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium truncate flex items-center gap-1.5">
-                  {r.category}{r.category === "Other" && r.other_description ? ` · ${r.other_description}` : ""}
-                  {isSystem && (
-                    <span className="inline-flex items-center rounded-sm border border-gold/50 bg-gold-soft px-1.5 py-0 text-[9px] uppercase tracking-wider text-gold-dark">
-                      Auto
-                    </span>
-                  )}
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  {Number(r.quantity)} × {inr(r.unit_price)} · {r.added_by ?? "—"} · {fmtDateTime(r.occurred_at)}
-                  {r.notes ? ` · ${r.notes}` : ""}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 ml-3">
-                <span className="font-medium text-sm">{inr(r.amount)}</span>
-                <button
-                  onClick={() => { setEditing(r); setOpenForm(true); }}
-                  className="p-1 rounded text-muted-foreground hover:text-gold" title="Edit"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                {isAdmin && (
+        <div className="space-y-3">
+          {grouped.map((g) => (
+            <div key={g.key} className="space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <DoorOpen className="h-3 w-3 text-gold" /> {g.label}
+                </span>
+                {items.length > 0 && g.key === "__booking__" && (
                   <button
-                    onClick={() => { if (confirm("Delete this charge?")) delMut.mutate(r.id); }}
-                    className="p-1 rounded text-muted-foreground hover:text-destructive" title="Delete (Admin)"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                    onClick={() => { setEditing(null); setDefaultItemId(null); setOpenForm(true); }}
+                    className="text-[10px] normal-case tracking-normal text-muted-foreground hover:text-gold"
+                  >+ add</button>
+                )}
+                {items.length > 0 && g.key !== "__booking__" && (
+                  <button
+                    onClick={() => { setEditing(null); setDefaultItemId(g.key); setOpenForm(true); }}
+                    className="text-[10px] normal-case tracking-normal text-muted-foreground hover:text-gold"
+                  >+ add to this room</button>
                 )}
               </div>
+              {g.rows.map((r) => {
+                // UAT-025: system-generated charges (Razorpay convenience fee auto-split)
+                // must be visually distinct from staff-added charges.
+                const isSystem = (r.added_by ?? "").toLowerCase() === "system"
+                  || (r.added_by ?? "").toLowerCase().startsWith("system ")
+                  || String(r.notes ?? "").toLowerCase().includes("[system-generated]");
+                return (
+                <div key={r.id} className={`flex items-center justify-between py-2 px-3 rounded-md text-sm ${isSystem ? "bg-gold-soft/30 border border-gold/30" : "bg-secondary/40"}`}>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium truncate flex items-center gap-1.5">
+                      {r.category}{r.category === "Other" && r.other_description ? ` · ${r.other_description}` : ""}
+                      {isSystem && (
+                        <span className="inline-flex items-center rounded-sm border border-gold/50 bg-gold-soft px-1.5 py-0 text-[9px] uppercase tracking-wider text-gold-dark">
+                          Auto
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {Number(r.quantity)} × {inr(r.unit_price)} · {r.added_by ?? "—"} · {fmtDateTime(r.occurred_at)}
+                      {r.notes ? ` · ${r.notes}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 ml-3">
+                    <span className="font-medium text-sm">{inr(r.amount)}</span>
+                    <button
+                      onClick={() => { setEditing(r); setDefaultItemId(r.item_id ?? null); setOpenForm(true); }}
+                      className="p-1 rounded text-muted-foreground hover:text-gold" title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => { if (confirm("Delete this charge?")) delMut.mutate(r.id); }}
+                        className="p-1 rounded text-muted-foreground hover:text-destructive" title="Delete (Admin)"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );})}
             </div>
-          );})}
+          ))}
           <div className="flex justify-end pt-2 border-t border-border/40 text-sm font-medium">
             Total Charges: <span className="ml-2 text-gold">{inr(total)}</span>
           </div>
@@ -122,16 +192,20 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
       )}
 
       <ChargeFormDialog
-        key={editing?.id ?? "new"}
+        key={editing?.id ?? `new-${defaultItemId ?? "booking"}`}
         open={openForm}
-        onOpenChange={(v) => { setOpenForm(v); if (!v) setEditing(null); }}
+        onOpenChange={(v) => { setOpenForm(v); if (!v) { setEditing(null); setDefaultItemId(null); } }}
         bookingId={bookingId}
         categories={categories}
         editing={editing}
+        items={items as any[]}
+        rooms={rooms as any[]}
+        defaultItemId={defaultItemId}
       />
     </div>
   );
 }
+
 
 export function ChargeFormDialog({
   open, onOpenChange, bookingId, categories, editing,
