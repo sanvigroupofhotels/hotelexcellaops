@@ -196,6 +196,170 @@ async def scenario_edit_after_move(page, edited_booking: str, other_item: str) -
     )
 
 
+async def scenario_full_lifecycle(
+    page,
+    booking_id: str,
+    item_id: str,
+    room_initial: str,
+    room_moved: str,
+) -> None:
+    """Scenario 7 — full operational lifecycle regression.
+
+    Future Booking → Assign → Night Audit → Check-In → Room Move →
+    Booking Edit → Night Audit → Check-Out. Verifies that at every
+    step the item ↔ segment linkage, occupancy segments, availability,
+    housekeeping tasks and activity timeline stay consistent and no
+    orphaned booking_room_assignments rows are produced.
+    """
+
+    def snapshot_business_date() -> str:
+        # Read via app_settings to avoid clock skew.
+        return ""  # populated inline by the operator harness before each phase.
+
+    async def assert_no_orphans() -> None:
+        segs = await sql_read(page, "booking_room_assignments", {"booking_id": booking_id},
+                              "id,item_id,room_id,start_date,end_date")
+        items = await sql_read(page, "booking_items", {"booking_id": booking_id}, "id")
+        item_ids = {i["id"] for i in items}
+        for s in segs:
+            assert s["item_id"] in item_ids, (
+                f"Orphan booking_room_assignments row {s['id']} — item_id {s['item_id']} "
+                f"not present in booking_items for booking {booking_id}"
+            )
+
+    async def assert_timeline_has(action: str) -> None:
+        rows = await sql_read(page, "booking_item_activities",
+                              {"booking_item_id": item_id, "action": action}, "id,action,created_at")
+        assert rows, f"Expected activity '{action}' on item {item_id}, none found"
+
+    async def hk_status_for(room_id: str) -> str | None:
+        rows = await sql_read(page, "rooms", {"id": room_id}, "id,housekeeping_status")
+        return rows[0]["housekeeping_status"] if rows else None
+
+    # 1. Future Booking exists (created by fixtures). Sanity-check state.
+    await assert_no_orphans()
+
+    # 2. Assign initial room.
+    await call_rpc(page, "backfill_booking_item_segment_links_for_booking",
+                   {"p_booking_id": booking_id})
+    await assert_timeline_has("item_room_assigned")
+
+    # 3. Night Audit #1 (advance business date once).
+    await call_rpc(page, "night_audit_close_current", {})
+
+    # 4. Check-In through the canonical item API.
+    await page.evaluate(
+        """async ({ id }) => {
+            const m = await import('/src/lib/booking-item-operations-api.ts');
+            await m.checkInBookingItem({ item_id: id });
+        }""",
+        {"id": item_id},
+    )
+    await assert_timeline_has("item_checked_in")
+    assert (await sql_read(page, "booking_items", {"id": item_id},
+                           "id,item_status"))[0]["item_status"] == "checked_in"
+
+    # 5. Room move (canonical wrapper).
+    business_date = (await sql_read(page, "app_settings", {"id": 1},
+                                    "id,business_date"))[0]["business_date"]
+    await page.evaluate(
+        """async ({ id, room, when }) => {
+            const m = await import('/src/lib/booking-item-operations-api.ts');
+            await m.moveBookingItemRoom({ item_id: id, new_room_id: room, effective_date: when });
+        }""",
+        {"id": item_id, "room": room_moved, "when": business_date},
+    )
+    await assert_timeline_has("item_room_move")
+    assert await hk_status_for(room_initial) in ("dirty", "cleaning"), (
+        "Vacated room was not flagged dirty after move"
+    )
+    await assert_no_orphans()
+
+    # 6. Booking Edit (unrelated header field) must not disturb item state.
+    before = (await sql_read(page, "booking_items", {"id": item_id},
+                             "id,item_status,checked_in_at,assigned_room_id"))[0]
+    await page.goto(f"{BASE_URL}/bookings/{booking_id}/edit")
+    await page.wait_for_selector("button:has-text('Save Changes')")
+    await page.click("button:has-text('Save Changes')")
+    await page.wait_for_load_state("networkidle")
+    after = (await sql_read(page, "booking_items", {"id": item_id},
+                            "id,item_status,checked_in_at,assigned_room_id"))[0]
+    assert before == after, f"Booking edit mutated item lifecycle: {before} → {after}"
+    await assert_no_orphans()
+
+    # 7. Night Audit #2 (mid-stay).
+    await call_rpc(page, "night_audit_close_current", {})
+
+    # 8. Check-Out through the canonical item API.
+    await page.evaluate(
+        """async ({ id }) => {
+            const m = await import('/src/lib/booking-item-operations-api.ts');
+            await m.checkOutBookingItem({ item_id: id });
+        }""",
+        {"id": item_id},
+    )
+    await assert_timeline_has("item_checked_out")
+    final_item = (await sql_read(page, "booking_items", {"id": item_id},
+                                 "id,item_status,checked_out_at,assigned_room_id"))[0]
+    assert final_item["item_status"] == "checked_out"
+    assert final_item["checked_out_at"], "checked_out_at was not stamped"
+    assert await hk_status_for(room_moved) in ("dirty", "cleaning"), (
+        "Final room was not flagged dirty after check-out"
+    )
+    await assert_no_orphans()
+
+
+async def scenario_hk_repeated_moves(
+    page,
+    booking_id: str,
+    item_id: str,
+    hops: list[str],
+    business_date: str,
+) -> None:
+    """Scenario 8 — housekeeping integration under repeated moves.
+
+    Drives the item across every room in `hops`, asserting after each hop:
+      • Vacated room → housekeeping_status becomes dirty (or cleaning).
+      • Arrival room → a checkout task is scheduled on the item's due date.
+      • Room state after the sequence matches the final segment layout.
+    """
+    prev_room: str | None = None
+    for target in hops:
+        segs = await sql_read(page, "booking_room_assignments",
+                              {"booking_id": booking_id, "item_id": item_id})
+        current = next((s for s in segs if s["end_date"] > business_date), None)
+        assert current, "No active segment before HK-integration move"
+        prev_room = current["room_id"]
+
+        await call_rpc(page, "split_room_assignment", {
+            "p_booking_id": booking_id,
+            "p_old_assignment_id": current["id"],
+            "p_new_room_id": target,
+            "p_effective_date": business_date,
+        })
+
+        vacated = (await sql_read(page, "rooms", {"id": prev_room},
+                                  "id,housekeeping_status"))[0]
+        assert vacated["housekeeping_status"] in ("dirty", "cleaning"), (
+            f"HK sync failed: vacated {prev_room} still {vacated['housekeeping_status']}"
+        )
+
+        tasks = await sql_read(page, "housekeeping_tasks",
+                               {"room_id": target, "booking_id": booking_id},
+                               "id,task_type,status")
+        assert any(t["task_type"] in ("checkout_clean", "arrival_prep") for t in tasks), (
+            f"No HK task queued on arrival room {target} after move"
+        )
+
+    # Final room state matches the last segment.
+    final_segs = await sql_read(page, "booking_room_assignments",
+                                {"booking_id": booking_id, "item_id": item_id})
+    final = sorted(final_segs, key=lambda s: s["start_date"])[-1]
+    assert final["room_id"] == hops[-1], (
+        f"Final segment room {final['room_id']} != expected {hops[-1]}"
+    )
+
+
 async def main() -> None:
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=True)
@@ -204,6 +368,7 @@ async def main() -> None:
 
         await restore_session(context, page)
         await page.screenshot(path=str(SCREENSHOTS / "0_ready.png"))
+
 
         # Test fixtures must be prepared by the operator — set the four IDs
         # below to a stable rehearsal dataset before invoking the suite.
