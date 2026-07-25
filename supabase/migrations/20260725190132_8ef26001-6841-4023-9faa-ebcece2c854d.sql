@@ -1,0 +1,1 @@
+ALTER TABLE public.booking_items ADD COLUMN IF NOT EXISTS operational_notes text;
