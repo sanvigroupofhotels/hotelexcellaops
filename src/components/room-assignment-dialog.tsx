@@ -271,14 +271,16 @@ export function RoomAssignmentDialog({
             .update({ item_id: targetItemId } as any)
             .eq("id", changingAssignment.id);
         }
-        // UAT-047: preserve history — split the segment on the business date
-        // rather than delete + insert (which rewrote past occupancy).
-        await splitAssignment(bookingId, changingAssignment.id, pickedRoomId, null);
-        if (targetItemId) {
-          await supabase
-            .from("booking_items" as any)
-            .update({ assigned_room_id: pickedRoomId } as any)
-            .eq("id", targetItemId);
+        // Milestone 0: route every room move through the canonical item API
+        // when a target item is resolvable; otherwise fall back to the shared
+        // splitAssignment path. Both land on `split_room_assignment` RPC so
+        // history preservation and HK fanout are identical.
+        const effectiveItemId = targetItemId ?? changingAssignment.item_id ?? null;
+        if (effectiveItemId) {
+          const { moveBookingItemRoom } = await import("@/lib/booking-item-operations-api");
+          await moveBookingItemRoom({ itemId: effectiveItemId, newRoomId: pickedRoomId });
+        } else {
+          await splitAssignment(bookingId, changingAssignment.id, pickedRoomId, null);
         }
         await logBookingActivity({
           booking_id: bookingId,
