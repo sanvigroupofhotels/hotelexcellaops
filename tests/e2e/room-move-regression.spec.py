@@ -412,6 +412,24 @@ async def main() -> None:
         # Scenario 5 — edit after move.
         await scenario_edit_after_move(page, fixtures["booking_b"], fixtures["item_a"])
 
+        # Scenario 7 — full operational lifecycle.
+        await scenario_full_lifecycle(
+            page,
+            fixtures["booking_a"],
+            fixtures["item_a"],
+            fixtures["room_102"],
+            fixtures["room_104"],
+        )
+
+        # Scenario 8 — housekeeping integration across repeated moves.
+        await scenario_hk_repeated_moves(
+            page,
+            fixtures["booking_a"],
+            fixtures["item_a"],
+            [fixtures["room_104"], fixtures["room_102"], fixtures["room_105"]],
+            fixtures["business_date"],
+        )
+
         await page.screenshot(path=str(SCREENSHOTS / "final.png"))
         print("All room-move regression scenarios PASSED.")
         await browser.close()
