@@ -196,6 +196,95 @@ export async function listBookingItemActivities(bookingId: string) {
   if (error) throw error;
   return (data ?? []) as unknown as BookingItemActivityRow[];
 }
+
+/** Timeline scoped to a single operational room (Booking Item). */
+export async function listItemActivities(itemId: string) {
+  const { data, error } = await supabase
+    .from("booking_item_activities" as any)
+    .select("*")
+    .eq("item_id", itemId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as BookingItemActivityRow[];
+}
+
+/**
+ * Milestone 1 — update primary occupant on a Booking Item.
+ * Reception frequently records the person actually staying in a room, which
+ * may differ from the booking holder (corporate stays, group bookings).
+ */
+export async function updateBookingItemOccupant(input: {
+  itemId: string;
+  name: string | null;
+  phone: string | null;
+}) {
+  const { data: current, error: readErr } = await supabase
+    .from("booking_items" as any)
+    .select("id, booking_id, primary_occupant_name, primary_phone")
+    .eq("id", input.itemId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (!current) throw new Error("Room item not found");
+  const prev = current as any;
+
+  const name = (input.name ?? "").trim() || null;
+  const phone = (input.phone ?? "").trim() || null;
+  if (prev.primary_occupant_name === name && prev.primary_phone === phone) return;
+
+  const { error } = await supabase
+    .from("booking_items" as any)
+    .update({ primary_occupant_name: name, primary_phone: phone } as any)
+    .eq("id", input.itemId);
+  if (error) throw error;
+
+  await logItemActivity({
+    item_id: input.itemId,
+    booking_id: prev.booking_id,
+    action: "item_occupant_updated",
+    field: "primary_occupant",
+    old_value: `${prev.primary_occupant_name ?? ""} · ${prev.primary_phone ?? ""}`,
+    new_value: `${name ?? ""} · ${phone ?? ""}`,
+    summary: name ? `Occupant set to ${name}${phone ? ` (${phone})` : ""}` : "Occupant cleared",
+  });
+}
+
+/**
+ * Milestone 1 — update operational notes on a Booking Item.
+ * Room-specific reception instructions (e.g. "no housekeeping before 11am").
+ * Distinct from booking-level notes.
+ */
+export async function updateBookingItemOperationalNotes(input: {
+  itemId: string;
+  notes: string | null;
+}) {
+  const { data: current, error: readErr } = await supabase
+    .from("booking_items" as any)
+    .select("id, booking_id, operational_notes")
+    .eq("id", input.itemId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (!current) throw new Error("Room item not found");
+  const prev = current as any;
+  const next = (input.notes ?? "").trim() || null;
+  if (prev.operational_notes === next) return;
+
+  const { error } = await supabase
+    .from("booking_items" as any)
+    .update({ operational_notes: next } as any)
+    .eq("id", input.itemId);
+  if (error) throw error;
+
+  await logItemActivity({
+    item_id: input.itemId,
+    booking_id: prev.booking_id,
+    action: "item_notes_updated",
+    field: "operational_notes",
+    old_value: prev.operational_notes ?? null,
+    new_value: next,
+    summary: next ? "Operational notes updated" : "Operational notes cleared",
+  });
+}
+
 /**
  * Move an operational room (Booking Item) to a different physical room.
  *
