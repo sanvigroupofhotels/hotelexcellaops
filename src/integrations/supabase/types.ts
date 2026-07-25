@@ -4097,6 +4097,10 @@ export type Database = {
     }
     Functions: {
       backfill_booking_item_segment_links: { Args: never; Returns: undefined }
+      backfill_booking_item_segment_links_for_booking: {
+        Args: { p_booking_id: string }
+        Returns: undefined
+      }
       cleanup_expired_guest_documents: { Args: never; Returns: number }
       confirm_laundry_return: {
         Args: {
