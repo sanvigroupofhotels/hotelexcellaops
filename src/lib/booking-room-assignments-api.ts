@@ -172,6 +172,11 @@ export async function removeAssignment(booking_id: string, assignment_id: string
  * Mid-stay room change: splits the current segment on the business date and
  * opens a new segment on the new room. Server-side RPC keeps the operation
  * atomic and computes the effective date from `app_settings.business_date`.
+ *
+ * Milestone 0: this is the SINGLE server-side room-move implementation. Every
+ * entry point (House View drag, RoomAssignmentDialog change mode, Room
+ * Management Grid, `moveBookingItemRoom`) MUST land here so history, HK
+ * fanout, and per-item activity logging behave identically.
  */
 export async function splitAssignment(
   booking_id: string,
@@ -202,6 +207,30 @@ export async function splitAssignment(
       .from("booking_items" as any)
       .update({ assigned_room_id: new_room_id } as any)
       .eq("id", itemId);
+  }
+
+  // Per-item activity log — every room move produces a timeline entry on the
+  // operational room, regardless of which UI initiated it. Non-blocking.
+  if (itemId && prevRoomId && prevRoomId !== new_room_id) {
+    try {
+      const [{ data: fromRoom }, { data: toRoom }, { data: { user } }] = await Promise.all([
+        supabase.from("rooms" as any).select("room_number").eq("id", prevRoomId).maybeSingle(),
+        supabase.from("rooms" as any).select("room_number").eq("id", new_room_id).maybeSingle(),
+        supabase.auth.getUser(),
+      ]);
+      await supabase.from("booking_item_activities" as any).insert({
+        item_id: itemId,
+        booking_id,
+        actor_id: user?.id ?? null,
+        actor_name: user?.email ?? null,
+        action: "item_room_move",
+        field: "assigned_room_id",
+        old_value: prevRoomId,
+        new_value: new_room_id,
+        summary: `Room moved: ${(fromRoom as any)?.room_number ?? "?"} → ${(toRoom as any)?.room_number ?? "?"}`,
+        metadata: { effective_date: effective_date ?? null },
+      } as any);
+    } catch { /* non-blocking */ }
   }
 
   // Fire the HK "room moved" side-effect for any operational move where the

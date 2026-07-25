@@ -196,3 +196,51 @@ export async function listBookingItemActivities(bookingId: string) {
   if (error) throw error;
   return (data ?? []) as unknown as BookingItemActivityRow[];
 }
+/**
+ * Move an operational room (Booking Item) to a different physical room.
+ *
+ * Milestone 0 canonical wrapper. Locates the item's currently active segment
+ * and delegates to `splitAssignment` — the single server-side room-move path
+ * backing every UI entry point (House View drag, Booking Detail Room
+ * Management Grid, Room Assignment dialog).
+ *
+ * Behaviour guaranteed by the underlying `split_room_assignment` RPC:
+ *   • Historical segments (start_date < business_date) are never modified.
+ *   • Repeated occupancy (102 → 104 → 102) creates a fresh forward segment;
+ *     the GiST exclusion constraint prevents genuine overlaps.
+ *   • `booking_items.assigned_room_id` is re-pointed to the new room.
+ *   • Per-item activity log written inside `splitAssignment`.
+ *   • HK hooks fired for the vacated room.
+ */
+export async function moveBookingItemRoom(input: {
+  itemId: string;
+  newRoomId: string;
+  effectiveDate?: string | null;
+}) {
+  const { splitAssignment } = await import("@/lib/booking-room-assignments-api");
+  const item = await getItem(input.itemId);
+  const businessDate = await getBusinessDate();
+
+  // Locate the segment currently linked to this item on/after today. Prefer
+  // the segment that covers the business date; fall back to the earliest
+  // future segment; final fallback is any segment for this item.
+  const { data: segments, error } = await supabase
+    .from("booking_room_assignments" as any)
+    .select("id,start_date,end_date,room_id")
+    .eq("item_id", input.itemId)
+    .order("start_date", { ascending: true });
+  if (error) throw error;
+  const list = (segments ?? []) as any[];
+  if (list.length === 0) {
+    throw new Error("This room has no active segment to move. Assign a room first.");
+  }
+  const active = list.find(
+    (s) => s.start_date <= businessDate && s.end_date > businessDate,
+  ) ?? list.find((s) => s.end_date > businessDate) ?? list[list.length - 1];
+
+  if (active.room_id === input.newRoomId) {
+    throw new Error("Guest is already in this room.");
+  }
+
+  await splitAssignment(item.booking_id, active.id, input.newRoomId, input.effectiveDate ?? null);
+}

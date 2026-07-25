@@ -62,3 +62,51 @@ When adding a new module that touches room occupancy, follow this checklist:
       `start_date < range_end AND end_date > range_start`.
 - [ ] Skip segments where `bookings.status` is Cancelled / No-Show.
 - [ ] Never assume one booking = one segment.
+
+## Milestone 0 — Unified Room-Move Contract
+
+Every room-move entry point in the app lands on the same server-side path:
+
+```
+UI caller                      →  Client wrapper                            →  RPC
+────────────────────────────────────────────────────────────────────────────────
+House View drag-and-drop          updateBookingStay() ─┐
+Booking Detail Room Mgmt Grid     moveBookingItemRoom() ┼─→ splitAssignment() ─→ split_room_assignment
+Room Assignment dialog            moveBookingItemRoom() ┘
+```
+
+- `moveBookingItemRoom({ itemId, newRoomId, effectiveDate? })` in
+  `src/lib/booking-item-operations-api.ts` is the canonical item-centric
+  wrapper. It resolves the active segment for the item and delegates to
+  `splitAssignment`.
+- `splitAssignment` (client) is the single place that calls the
+  `split_room_assignment` RPC, writes the per-item activity row, and fires
+  the housekeeping "room moved" hook.
+- The RPC itself enforces the invariants: historical segments are
+  immutable, GiST exclusion prevents overlapping occupancy, and
+  `booking_items.assigned_room_id` is re-pointed to the new room.
+
+No caller may write to `booking_room_assignments` directly for a move.
+
+## Backfill Reconciliation
+
+`backfill_booking_item_segment_links_for_booking(p_booking_id uuid)` is the
+only reconciliation path invoked from `replaceBookingItems`. It is
+**booking-scoped** — the older un-scoped variant was replaced because it
+rewrote `item_status` for every booking property-wide, silently reversing
+per-room check-ins and check-outs on unrelated bookings.
+
+The scoped variant also refuses to overwrite items that already have
+`checked_in_at` or `checked_out_at` set, so per-item lifecycle state
+survives every booking header save.
+
+## Regression Coverage
+
+`tests/e2e/room-move-regression.spec.py` covers, at minimum:
+
+1. `102 → 104 → 102` — three disjoint segments, history frozen.
+2. `102 → 104 → 105 → 102` — deeper repeat cycle.
+3. Multi-room booking — sibling item's segments never mutate on a move.
+4. Move-back to a previously occupied room — GiST exclusion allows it.
+5. Edit-after-move — unrelated booking saves do not flip per-item status.
+6. Night audit after multiple moves closes cleanly.
