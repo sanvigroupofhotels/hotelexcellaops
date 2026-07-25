@@ -1,17 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, Loader2, Receipt } from "lucide-react";
+import { Plus, Trash2, Pencil, Loader2, Receipt, DoorOpen } from "lucide-react";
 import {
   listBookingCharges, createBookingCharge, updateBookingCharge,
   deleteBookingCharge, chargesTotal, type BookingChargeRow,
 } from "@/lib/booking-charges-api";
+import { listBookingItems } from "@/lib/booking-items-api";
+import { listRooms } from "@/lib/rooms-api";
 import { useChargeCategories } from "@/hooks/use-charge-categories";
 import { useUserRole } from "@/hooks/use-role";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { NumField } from "@/components/num-field";
 import { refreshAfterBookingMutation } from "@/lib/booking-pricing-sync";
+
 
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 /**
