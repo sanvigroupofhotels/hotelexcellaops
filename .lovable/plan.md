@@ -1,120 +1,8 @@
-# HEOS – Room Occupancy Completion & Multi-Room Operations
+HEOS Phase 2 — Operational Room Model (Milestone Plan)
 
-This plan closes UAT-047 properly and turns each room in a multi-room booking into an independently operational unit — while keeping the booking as the single commercial record and `booking_room_assignments` (segments) as the single source of truth for occupancy history.
+&nbsp;
 
-Because the scope is large, I'll ship it in **four sequenced phases**. Each phase is independently deployable and verifiable; nothing in a later phase reworks an earlier phase.
-
----
-
-## Phase 1 — Finish UAT-047 (segment integrity everywhere)
-
-Goal: no code path reads `bookings.room_id` for historical rendering, and no write path silently rewrites past segments.
-
-- Audit every remaining consumer and route through `getRoomOccupancySegments()` in `src/lib/room-occupancy.ts`:
-  - `src/routes/_authenticated/house-view.tsx` — remove the last legacy `booking.room_id` fallbacks in the placement engine.
-  - `src/lib/room-availability.ts`, `src/lib/rooms-api.ts::listOccupiedRoomIds` — segment window only.
-  - `src/lib/hk-generator.ts`, `src/lib/hk-checkout-hook.ts` — HK derives target room from the segment covering the business date.
-  - Owner dashboard + occupancy reports (`src/lib/owner-dashboard.functions.ts`, `src/lib/reporting/*`) — group room-nights by segment window.
-  - Guest Portal booking detail — show the segment covering today.
-- Harden `split_room_assignment` RPC:
-  - Reject `effective_date < old.start_date` (never rewrite history).
-  - Always stamp `ended_reason='room_change'` on the closed segment.
-  - Sync `bookings.room_id` to the segment covering **today's business date**, not `new Date()`.
-- Replace ad-hoc `syncLegacyBookingRoom` in `booking-room-assignments-api.ts` with the same server-side rule so client clock skew can't rewrite the "current" room.
-
-Verification (manual UAT script committed to `docs/`):
-
-1. 15–20 Jul stay, 101 → 105 on 18 Jul → House View, Booking Detail timeline, HK history and Owner Dashboard all show 101 for 15–17 and 105 for 18–19.
-2. Attempt to "move" with an effective date before the segment start → server rejects with a clear error.
-3. After move, cancel booking → both segments remain visible in history; only future occupancy clears.
-
-## Phase 2 — Per-room operational identity
-
-Goal: each room in a multi-room booking becomes an independently manageable operational record. The booking stays the commercial entity.
-
-Schema (one migration):
-
-- `public.booking_items` gets:
-  - `primary_occupant_name text` (nullable — inherits Booking Holder when null in reads)
-  - `primary_occupant_phone text` (nullable)
-  - `operational_status text NOT NULL DEFAULT 'Reserved'`  
-  (`Reserved | Checked-In | Checked-Out | Cancelled | No-Show`)
-  - `checked_in_at timestamptz`, `checked_out_at timestamptz`
-- `public.booking_room_assignments.booking_item_id uuid` — links a segment to the specific room within the booking (so moving room 3 of 10 doesn't touch rooms 1-2 or 4-10).
-- Backfill: every existing assignment maps to the item at the same `position`; existing bookings' `status` propagates to each item's `operational_status`.
-- Booking-level `bookings.status` becomes a **derived** state: `Checked-In` when ≥1 item is Checked-In and ≥1 still Reserved is treated as *In-House (Partial)*; `Checked-Out` only when every non-cancelled item is Checked-Out. Derivation runs in a trigger so downstream reports and the existing booking_status enum stay valid.
-
-Server functions (`src/lib/booking-rooms.functions.ts`, new):
-
-- `assignRoom({ booking_item_id, room_id })`
-- `checkInRoom({ booking_item_id })` — creates/extends its assignment segment.
-- `checkOutRoom({ booking_item_id })` — closes its assignment segment on business date.
-- `moveRoom({ booking_item_id, new_room_id })` — wraps `split_room_assignment`.
-- `setPrimaryOccupant({ booking_item_id, name, phone })`
-
-Each function is `requireSupabaseAuth`, validates the item belongs to a booking the caller can edit, and writes an entry to `activity_log` + a new `booking_activities` entry.
-
-Availability & HK:
-
-- Room-type availability engine already sums by item; no change required beyond making it read `operational_status <> 'Cancelled'`.
-- `hk-checkout-hook.ts` fires per **item** checkout, not per booking.
-- `hk-generator.ts` iterates over checked-in items rather than bookings.
-
-## Phase 3 — Booking Detail redesign: Room Management Grid
-
-Goal: reception operates room-by-room from Booking Detail.
-
-- New component `src/components/booking-rooms-grid.tsx` rendered inside `src/routes/_authenticated/bookings_.$id.tsx` (replaces the current single-room panel; keeps the timeline card).
-- One row per `booking_item` × room count (a `rooms=3` item explodes into three rows):
-
-  | #   | Assigned Room  | Primary Occupant | Status     | Actions                 |
-  | --- | -------------- | ---------------- | ---------- | ----------------------- |
-  | 1   | Oak-101        | Open State       | Checked-In | View · Move · Check-Out |
-  | 2   | *(unassigned)* | Ramesh           | Reserved   | Assign · Check-In       |
-
-- Each action opens the existing dialog scoped to the item (Assign → `RoomAssignmentDialog`, Move → `RoomAssignmentDialog` in `change` mode, Check-in/out → existing check-in flow, per item).
-- "Primary Occupant" cell is inline-editable with a save-on-blur mutation → `setPrimaryOccupant`.
-- The grid supports partial arrivals/departures by design — every action targets a single row.
-- The existing "Check-In" and "Check-Out" buttons at the top of Booking Detail become bulk shortcuts ("Check-in all Reserved rooms") wrapping the per-item mutations in a transaction.
-
-House View updates:
-
-- Chip label uses **Primary Occupant** when set, otherwise Booking Holder. Long-press menu offers per-room actions.
-- Housekeeping and Night Audit displays follow the same rule.
-
-## Phase 4 — Audit trail, regression coverage, docs
-
-- **Audit table**: `public.room_move_audit(id, booking_id, booking_item_id, from_room_id, to_room_id, effective_date, reason, actor_id, actor_name, actor_role, created_at)`. Written from the `moveRoom` server function; surfaced on Booking Detail timeline.
-- **Playwright regression suite** (`tests/e2e/room-occupancy/*.spec.py`):
-  1. Segment preservation on room move
-  2. Stay extension resizes only the trailing segment
-  3. Early checkout closes segment on business date
-  4. Late checkout renders 75% chip and next-day chip skips the lane
-  5. Cancellation clears future occupancy only
-  6. Booking edit that rebalances room types keeps existing segments' history
-  7. Multi-room booking with partial arrivals shows correct grid + House View states
-  8. Availability engine excludes cancelled items only, not checked-out ones
-  9. Night audit after mid-stay move generates HK task on the new room
-- **Docs**: `docs/room-occupancy.md` — canonical description of the segment model + the "read from `getRoomOccupancySegments` only" rule; link from `docs/architecture.md`.
-
----
-
-## Technical notes
-
-- All schema changes flow through single migrations with GRANTs for `authenticated` + `service_role`; RLS mirrors existing `bookings`/`booking_items` policies (owner + admin).
-- No parallel occupancy model: even the new grid queries segments via `getRoomOccupancySegments(booking_id)`; `booking_items.operational_status` is metadata for the row, not occupancy history.
-- `bookings.room_id` continues to exist as a compatibility shortcut only; every read that matters uses segments. We document this in `docs/room-occupancy.md` and add a lint note in `src/lib/booking-room-assignments-api.ts`.
-- Rollout order is strict: Phase 1 → 2 → 3 → 4. Each phase leaves the system usable if we pause.
-
----
-
-## What I need from you before I start Phase 1
-
-1. **Room-move retro-active window** — should we allow moves effective *later than* today's business date (schedule a future move), or restrict to "today only" as we do now? My default: today only, until we have a real use-case.
-2. **Booking-level status** when only some rooms have checked in — do you want a new visible status label (e.g. *In-House (Partial)*) on House View header chips, or should we keep showing just `Checked-In` once any room is in?
-3. **Primary Occupant vs Booking Holder** on invoices/receipts — invoices should keep the Booking Holder as the billed party, correct? Primary Occupant only appears in operational surfaces (House View, HK, Booking Detail)?
-
-Once you confirm those three, I'll start Phase 1 immediately.
+Booking = commercial reservation. Booking Item = operational room. Occupancy segments remain the source of truth. Each milestone ships independently testable, with regression coverage before moving on.
 
 &nbsp;
 
@@ -122,135 +10,11 @@ Once you confirm those three, I'll start Phase 1 immediately.
 
 &nbsp;
 
-Overall, I think this is an excellent plan (9.5/10). Lovable has understood the intent correctly and, importantly, is building on the occupancy-segment architecture rather than introducing another parallel model.
+Milestone 0 — Occupancy engine finalization (foundation)
 
 &nbsp;
 
-I would reply with the following refinements and confirmations before they begin.
-
-&nbsp;
-
-&nbsp;
-
----
-
-&nbsp;
-
-Thanks, this overall direction aligns with the intended HEOS architecture. I agree with the phased implementation and would like to confirm the following decisions and add a few clarifications.
-
-&nbsp;
-
-1. Room Move Effective Date
-
-&nbsp;
-
-Please keep room moves restricted to the current Business Date only.
-
-&nbsp;
-
-We do not currently have an operational requirement for scheduling future room moves, and allowing future-dated moves would add unnecessary complexity to occupancy management, House View and Night Audit.
-
-&nbsp;
-
-If a future requirement arises, we can introduce it as a separate enhancement.
-
-&nbsp;
-
-&nbsp;
-
----
-
-&nbsp;
-
-2. Booking Status for Partial Check-ins
-
-&nbsp;
-
-I agree with introducing a visible "In-House (Partial)" status.
-
-&nbsp;
-
-Suggested behaviour:
-
-&nbsp;
-
-Reserved → No rooms checked in.
-
-&nbsp;
-
-In-House (Partial) → At least one room checked in but not all.
-
-&nbsp;
-
-Checked-In / In-House → All operational rooms checked in.
-
-&nbsp;
-
-Checked-Out → All non-cancelled rooms checked out.
-
-&nbsp;
-
-Cancelled / No-Show remain unchanged.
-
-&nbsp;
-
-&nbsp;
-
-This gives Reception an immediate understanding of the booking's operational state.
-
-&nbsp;
-
-&nbsp;
-
----
-
-&nbsp;
-
-3. Booking Holder vs Primary Occupant
-
-&nbsp;
-
-Confirmed.
-
-&nbsp;
-
-The Booking Holder remains the commercial customer.
-
-&nbsp;
-
-The Primary Occupant belongs to the individual room and is used only for operational purposes.
-
-&nbsp;
-
-Invoices, payments, receipts, taxation, guest ledger and financial documents should continue to use the Booking Holder.
-
-&nbsp;
-
-Primary Occupant should appear only in operational surfaces such as:
-
-&nbsp;
-
-Booking Detail
-
-&nbsp;
-
-House View
-
-&nbsp;
-
-Housekeeping
-
-&nbsp;
-
-Room Move
-
-&nbsp;
-
-Check-in / Check-out
-
-&nbsp;
-
-Internal search (where appropriate)
+Consolidate every room-move entry point onto one server-side path and add regression coverage before feature work continues.
 
 &nbsp;
 
@@ -258,226 +22,738 @@ Internal search (where appropriate)
 
 &nbsp;
 
----
+&nbsp;
 
 &nbsp;
 
-Additional Clarifications
-
-&nbsp;
-
-A. Booking Holder must never be lost
-
-&nbsp;
-
-Even if every room has a different Primary Occupant, the Booking Holder must always remain available and visible because Reception often needs to contact the person who made the reservation.
+Single shared room-move API: moveBookingItemRoom({ item_id, new_room_id, effective_date }) in src/lib/booking-item-operations-api.ts, backed exclusively by the split_room_assignment RPC. Callers migrated:
 
 &nbsp;
 
 &nbsp;
 
----
-
 &nbsp;
-
-B. Occupant History
-
-&nbsp;
-
-If the Primary Occupant changes after check-in, please preserve the previous value in the activity log.
-
-&nbsp;
-
-Example:
-
-&nbsp;
-
-Open State → Rahul
-
-&nbsp;
-
-This should be auditable.
 
 &nbsp;
 
 &nbsp;
 
----
+House View drag-and-drop (src/routes/_authenticated/house-view.tsx)
 
 &nbsp;
 
-C. Search Behaviour
+&nbsp;
 
 &nbsp;
 
-Please allow search by both:
+Booking Detail → Room Management Grid (src/routes/_authenticated/bookings_.$id.tsx)
 
 &nbsp;
 
-Booking Holder
+&nbsp;
 
 &nbsp;
+
+RoomAssignmentDialog (src/components/room-assignment-dialog.tsx)
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Any future screen (Room Management Grid, HK, etc.)
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+No caller writes to booking_room_assignments directly for a move.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Regression tests (Playwright + a lightweight SQL harness under tests/e2e/):
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Repeated occupancy 102 → 104 → 102 — asserts 3 segments, no overlap, GiST constraint honored, historical rows unchanged (assert on id + start_date + ended_reason).
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Sibling rooms in a multi-room booking are not touched when one moves.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Availability engine returns correct counts across the move window.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+HK: vacated room becomes Dirty; arrival room gets check-out task on due date.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Night Audit run after moves closes cleanly; no orphaned segments.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Per-item check-in/out survives an unrelated booking edit (guards the finding we just fixed).
+
+&nbsp;
+
+Docs: update docs/room-occupancy.md with the unified move contract.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Milestone 1 — Operational Room fields & independent Check-In/Out
+
+&nbsp;
+
+Booking Item owns its operational identity.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Schema (already partially in place — confirm/extend):
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+booking_items: assigned_room_id, primary_occupant_name, primary_phone, item_status, checked_in_at, checked_out_at, operational_notes (new, nullable text).
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+booking_item_activities remains the per-item timeline table.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Server functions in booking-item-operations-api.ts:
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+assignBookingItemRoom, checkInBookingItem, checkOutBookingItem, updateBookingItemOccupant({name, phone}).
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Each writes to booking_item_activities and fires HK hooks via existing hk-checkout-hook.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+UI: Room Management Grid on Booking Detail exposes Assign / Check-In / Check-Out / Edit Occupant per row. Booking-level Check-In/Out becomes a convenience that fans out to items still in Confirmed.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Booking header status derived from item statuses (all Checked-In ⇒ Checked-In; all Checked-Out ⇒ Checked-Out; mixed ⇒ In-House).
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Milestone 2 — Add / Remove room during stay, partial arrivals & departures
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Add Room During Stay: addBookingItemDuringStay({ booking_id, room_type, effective_date, occupant }) — new booking_items row with position appended, new segment starting at chosen Business Date (default today), never rewrites history. Pricing recalculated from segment nights only.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Remove Individual Room: removeBookingItem(item_id) — if never checked in, cancel item + release future segment + free room; if checked in, route to existing check-out workflow. Other items untouched.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Partial arrivals: check-in acts per item; remaining items stay Reserved.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Partial departures: check-out acts per item; remaining items continue.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Availability engine already segment-based — verify it observes new/removed items correctly.
+
+&nbsp;
+
+Regression: add cases to Milestone 0 suite.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Milestone 3 — Room-specific charges & operational notes
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+booking_charges.item_id (already added) becomes first-class: charge form gets a "Attach to room" selector; defaults to booking-level (NULL) when unset.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Invoice/Payments/Taxes/Guest Credit continue to aggregate at booking level — no split invoices yet.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Views (in-house-charges-section.tsx, invoice dialog) group charges by item with a booking-level bucket for unattributed lines, laying the ground for future folios.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Operational Notes: per-item free-text, edited from Room Management Grid, appears in item timeline.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Milestone 4 — Search & activity timeline
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Search bar on /bookings and global search matches on bookings.guest_name, phone, reference AND booking_items.primary_occupant_name, booking_items.primary_phone. Backed by a Postgres tsvector/trigram index (gin_trgm_ops) on both columns for speed.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Per-item timeline component reused across Room Management Grid and Booking Detail — reads booking_item_activities + booking_charges scoped to item_id.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Booking-level activity timeline continues to reflect commercial events (payments, invoice, cancellation, header edits).
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Milestone 5 — Regression suite, docs, review
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Expand Playwright suite to cover: repeat occupancy, partial arrival/departure, add/remove room, availability, HK sync, Night Audit post-moves, Guest Portal parity (no per-item leakage to the guest view).
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Docs: refresh docs/room-occupancy.md, docs/booking-parity.md, docs/modules.md, add a Phase 2 section to docs/architecture.md.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Final review checklist against HEOS principles (single source of truth, shared engines, history preservation).
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Technical section
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Unified move contract: every caller uses moveBookingItemRoom(item_id, new_room_id, effective_date?). Internally: locate current active segment by item_id, invoke split_room_assignment(booking_id, old_assignment_id, new_room_id, effective_date). Response returns new segment id + updated item snapshot.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Segment invariants (enforced in RPC, verified in tests):
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+GiST exclusion prevents overlap on (booking_id, room_id, daterange[start,end)).
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Segments with start_date < business_date are immutable.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+booking_items.assigned_room_id mirrors the current-day segment; NULL when none.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Item status derivation: Confirmed → Checked-In → Checked-Out with Cancelled / No-Show terminal states. Booking status derived only when it changes, never overwriting a mixed state.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Backfill RPC (backfill_booking_item_segment_links_for_booking) already scoped to a single booking; keep as the only reconciliation call on save.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Charges attribution: booking_charges.item_id nullable → future folio work needs only a folio_id column, no restructure.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Future-ready columns/tables (deferred, but reserved by naming): booking_item_occupants (many-to-one to item) for multi-occupant, booking_item_documents for ID verification, booking_item_keycards, booking_item_preferences. Not created now — noted so the shape stays additive.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Test harness: Playwright drives the UI paths; a small Node script hits Supabase via service role for direct SQL assertions on booking_room_assignments / booking_items state after each scenario.
+
+&nbsp;
+
+Out of scope for this plan
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Split billing / per-room folios (schema-ready, UI later).
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Maintenance module rewrite.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Reporting changes beyond what is needed to keep existing reports correct.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Please confirm this milestone sequence (or point out reordering) and I'll start with Milestone 0 — unifying room-move callers and landing the repeat-occupancy regression suite.
+
+&nbsp;
+
+&nbsp;
+
+My comments - 
+
+Thank you. Overall, I agree with the proposed milestone sequence. The progression from stabilising the occupancy engine to introducing the operational room model is logical and should minimise regression risk.
+
+I have a few refinements and confirmations before we begin.
+
+Milestone Sequence
+
+The proposed order looks appropriate:
+
+Milestone 0 – Occupancy Engine Finalisation
+
+Milestone 1 – Operational Room Identity
+
+Milestone 2 – Add/Remove Room & Partial Operations
+
+Milestone 3 – Room-specific Charges & Notes
+
+Milestone 4 – Search & Activity Timeline
+
+Milestone 5 – Regression, Documentation & Final Review
+
+Please continue delivering these as independently verifiable milestones.
+
+Milestone 0
+
+I fully agree.
+
+This milestone is about stabilising the occupancy engine.
+
+Every room movement should continue flowing through the same shared server-side API.
+
+The automated regression suite around repeated occupancy (102 → 104 → 102) is especially important and should become a permanent part of HEOS.
+
+Please also include regression scenarios covering:
+
+102 → 104 → 105 → 102
+
+Multi-room booking where only one room moves
+
+Move back to previously occupied room
+
+Same booking edited after room move
+
+Night Audit after multiple room moves
+
+Milestone 1
+
+I agree with the operational room model.
+
+However, I would request one additional field.
+
+Each operational room should also have:
+
+Operational Notes
+
+Reception frequently records room-specific instructions which should not belong to the booking.
+
+Milestone 2
+
+I agree with Add Room / Remove Room.
+
+One clarification:
+
+When adding a room during a stay:
+
+Example
+
+21 Jul → 25 Jul
+
+2 Rooms
+
+On 23 Jul
+
+Reception adds another room.
+
+The pricing engine should charge only from the effective start date of the new Booking Item.
+
+Historical nights before the new room existed must never be billed.
+
+Likewise, when removing a future room before arrival, pricing should automatically recalculate only for that Booking Item without affecting the remaining rooms.
+
+Milestone 3
+
+I fully agree with room-specific charges.
+
+One small refinement:
+
+When posting a charge, Reception should be able to choose:
+
+Booking
+
+Specific Room
+
+This should default intelligently:
+
+If working from a room context → default to that room.
+
+If working from booking-level charges → default to booking.
+
+This will make the workflow much faster.
+
+Milestone 4
+
+Search by both Booking Holder and Primary Occupant is exactly what Reception needs.
+
+I also suggest allowing search by:
+
+Assigned Room Number
+
+This is useful when staff know only the room number.
+
+Milestone 5
+
+I agree.
+
+Please also include one final architecture review ensuring:
+
+No duplicate occupancy logic remains.
+
+No duplicate availability logic remains.
+
+No direct writes bypass the operational room APIs.
+
+No reports bypass occupancy segments.
+
+One Additional Architectural Recommendation
+
+As Phase 2 introduces Booking Items as operational entities, I recommend treating them as the only owner of room operations.
+
+Operational Room should become responsible for:
+
+Assignment
+
+Occupancy
 
 Primary Occupant
 
-&nbsp;
+Charges
 
-&nbsp;
+Housekeeping
 
-This will help Reception quickly locate guests regardless of whether they know the reservation holder or the actual occupant.
+Activity
 
-&nbsp;
+Notes
 
-&nbsp;
+The Booking should remain responsible only for:
 
----
+Reservation
 
-&nbsp;
+Commercial information
 
-D. Room Management Grid
+Payments
 
-&nbsp;
+Invoice
 
-Please make this the primary operational interface for multi-room bookings.
+Taxes
 
-&nbsp;
+Discounts
 
-Reception should never have to leave Booking Detail to manage individual rooms.
+Guest Credit
 
-&nbsp;
+Booking Holder
 
-&nbsp;
+This separation should remain strict going forward.
 
----
+One Future Enhancement (Not part of this milestone)
 
-&nbsp;
-
-E. Future Compatibility
-
-&nbsp;
-
-Please ensure this design naturally supports future additions without schema redesign, including:
-
-&nbsp;
-
-Multiple occupants per room (future)
-
-&nbsp;
-
-ID verification per room
-
-&nbsp;
-
-Key card assignment
-
-&nbsp;
-
-Room-specific charges
-
-&nbsp;
-
-Room-specific notes
-
-&nbsp;
-
-Room-specific guest preferences
-
-&nbsp;
-
-&nbsp;
-
-We are not implementing these now, but the architecture should not prevent them later.
-
-&nbsp;
-
-&nbsp;
-
----
-
-&nbsp;
-
-F. Audit Trail
-
-&nbsp;
-
-Please include all room operational actions in the audit trail, not only room moves.
-
-&nbsp;
+Please keep the design compatible with future room-level capabilities without implementing them now.
 
 Examples:
 
-&nbsp;
+Multiple occupants
 
-Room Assignment
+ID verification
 
-&nbsp;
+Key cards
 
-Check-in
+Guest preferences
 
-&nbsp;
+Split billing
 
-Check-out
+Room folios
 
-&nbsp;
+The schema already appears to be heading in this direction, which is appreciated.
 
-Primary Occupant changes
+Regression Requirement
 
-&nbsp;
+After every milestone, please pause for UAT before beginning the next milestone.
 
-Room Move
+We would prefer:
 
-&nbsp;
+Milestone → Verification → Milestone → Verification
 
-&nbsp;
+rather than implementing multiple milestones together.
 
-This will provide a complete operational history for each room.
+This will make regression detection much easier and allow us to validate each architectural layer independently.
 
-&nbsp;
+Final Confirmation
 
-&nbsp;
+Other than the refinements above, I agree with the proposed roadmap and recommend proceeding with Milestone 0 first.
 
----
-
-&nbsp;
-
-G. Regression Testing
+The occupancy engine is now one of the core foundations of HEOS, so taking a milestone-by-milestone approach with automated regression testing and UAT verification is the right balance between stability and continued development.
 
 &nbsp;
 
-In addition to the proposed Playwright tests, please verify:
+Also, From this point onward, I'd also ask you to include a brief "what changed" summary with each milestone. For every milestone completion, you should tell me:
 
-&nbsp;
+Database changes (tables, columns, constraints, migrations).
 
-Multi-room booking with different check-in dates.
+New or modified APIs/RPCs.
 
-&nbsp;
+Affected UI screens.
 
-Partial check-outs.
+Regression tests added.
 
-&nbsp;
+Manual test scenarios they executed.
 
-Mixed room moves and stay extensions.
+Known limitations or deferred items.
 
-&nbsp;
-
-Night Audit after partial arrivals.
-
-&nbsp;
-
-Guest Portal behaviour remains correct.
-
-&nbsp;
-
-Availability calculations remain accurate throughout.
-
-&nbsp;
-
-&nbsp;
-
-&nbsp;
-
----
-
-&nbsp;
-
-Other than these clarifications, I agree with the phased implementation. I also appreciate that the occupancy segments remain the single source of truth and that bookings.room_id is retained only as a compatibility field. That aligns with the long-term HEOS architecture and should give us a solid foundation for future modules like Maintenance, advanced Housekeeping, and richer guest operations.
+That will make each milestone much easier to review and will give you a clear implementation history as HEOS matures. I think it will save me considerable time during future UAT cycles.
