@@ -276,6 +276,23 @@ export function ChargeFormDialog({
               {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
+          {items.length > 0 && (
+            <Field label="Attribute to Room (optional)">
+              <select
+                value={itemId ?? ""}
+                onChange={(e) => setItemId(e.target.value || null)}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+              >
+                <option value="">Booking-level (no specific room)</option>
+                {items.map((it: any, idx: number) => {
+                  const room = rooms.find((r: any) => r.id === it.assigned_room_id);
+                  const label = room ? `Room ${room.room_number}` : `Room Item ${idx + 1}`;
+                  const occ = it.primary_occupant_name ? ` · ${it.primary_occupant_name}` : "";
+                  return <option key={it.id} value={it.id}>{label}{occ}</option>;
+                })}
+              </select>
+            </Field>
+          )}
           {category === "Other" && (
             <Field label="Description *">
               <input value={otherDesc} onChange={(e) => setOtherDesc(e.target.value)}
