@@ -141,7 +141,12 @@ export async function replaceBookingItems(booking_id: string, items: BookingItem
   await supabase.from("booking_items" as any).delete().eq("booking_id", booking_id);
   const created = await addBookingItems(booking_id, items);
   try {
-    await supabase.rpc("backfill_booking_item_segment_links" as any);
+    // Scoped to THIS booking only — the un-scoped variant rewrites item_status
+    // for every booking in the property, silently reverting per-room check-ins
+    // and check-outs made via the Room Management flows.
+    await supabase.rpc("backfill_booking_item_segment_links_for_booking" as any, {
+      p_booking_id: booking_id,
+    });
   } catch {
     /* older deployments may not have the helper yet; assignment flows still work */
   }
