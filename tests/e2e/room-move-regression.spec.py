@@ -21,6 +21,13 @@ Scenarios asserted:
      an unrelated booking save (guards the item-status finding).
   6. Night audit after multiple moves — the audit close reports no orphaned
      segments and business date advances cleanly.
+  7. Full operational lifecycle — Future Booking → Assign → Night Audit →
+     Check-In → Room Move → Booking Edit → Night Audit → Check-Out. Verifies
+     item↔segment linkage, occupancy correctness, availability, HK sync and
+     activity timeline completeness across the whole booking life.
+  8. Housekeeping integration under repeated moves — every move marks the
+     vacated room dirty and creates a checkout task on the new room; room
+     state is verified after each hop of a 102 → 104 → 102 → 105 sequence.
 
 Assertions verify:
   • Historical segments (start_date < business_date) are byte-for-byte unchanged.
@@ -28,6 +35,9 @@ Assertions verify:
   • booking_items.assigned_room_id mirrors the current-day segment.
   • No overlapping segments exist for the (booking_id, room_id) tuple.
   • Housekeeping tasks fire for the vacated room.
+  • No orphaned booking_room_assignments rows (every row has an item_id that
+    points at a live booking_items row of the same booking).
+
 
 Implementation notes:
   This file is intentionally structured as a runnable scenario script rather
