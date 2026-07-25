@@ -209,9 +209,11 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
 
 export function ChargeFormDialog({
   open, onOpenChange, bookingId, categories, editing,
+  items = [], rooms = [], defaultItemId = null,
 }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   bookingId: string; categories: string[]; editing: BookingChargeRow | null;
+  items?: any[]; rooms?: any[]; defaultItemId?: string | null;
 }) {
   const qc = useQueryClient();
   // Auto-attribution: the signed-in staff member is the source of truth for
@@ -221,6 +223,9 @@ export function ChargeFormDialog({
   const [otherDesc, setOtherDesc] = useState(editing?.other_description ?? "");
   const [quantity, setQuantity] = useState<number>(editing?.quantity ?? 1);
   const [unitPrice, setUnitPrice] = useState<number>(editing?.unit_price ?? 0);
+  // Milestone 3 — optional room attribution. Default to defaultItemId (from
+  // "+ add to this room") when creating; preserve existing when editing.
+  const [itemId, setItemId] = useState<string | null>(editing?.item_id ?? defaultItemId ?? null);
   // Preserve original attribution when editing; otherwise attribute to the
   // signed-in user. Never overwrite a historical row's added_by silently.
   const addedBy = editing?.added_by ?? currentStaff.name;
@@ -241,10 +246,12 @@ export function ChargeFormDialog({
         added_by: addedBy || null,
         occurred_at: new Date(occurredAt).toISOString(),
         notes: notes || null,
+        item_id: itemId,
       };
       if (editing) return updateBookingCharge(editing.id, payload);
       return createBookingCharge(payload);
     },
+
     onSuccess: async () => {
       toast.success(editing ? "Charge updated" : "Charge added");
       // UAT-034: shared recalc engine keeps booking.amount / Balance Due /
