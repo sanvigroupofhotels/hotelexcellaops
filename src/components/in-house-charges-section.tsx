@@ -1,17 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, Loader2, Receipt } from "lucide-react";
+import { Plus, Trash2, Pencil, Loader2, Receipt, DoorOpen } from "lucide-react";
 import {
   listBookingCharges, createBookingCharge, updateBookingCharge,
   deleteBookingCharge, chargesTotal, type BookingChargeRow,
 } from "@/lib/booking-charges-api";
+import { listBookingItems } from "@/lib/booking-items-api";
+import { listRooms } from "@/lib/rooms-api";
 import { useChargeCategories } from "@/hooks/use-charge-categories";
 import { useUserRole } from "@/hooks/use-role";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { NumField } from "@/components/num-field";
 import { refreshAfterBookingMutation } from "@/lib/booking-pricing-sync";
+
 
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 /**
@@ -29,11 +32,31 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
   const { values: categories } = useChargeCategories();
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState<BookingChargeRow | null>(null);
+  const [defaultItemId, setDefaultItemId] = useState<string | null>(null);
 
   const q = useQuery({
     queryKey: ["booking-charges", bookingId],
     queryFn: () => listBookingCharges(bookingId),
   });
+  // Milestone 3 — load booking items + rooms so charges can be attributed to
+  // a specific operational room. Attribution is stored on booking_charges.item_id
+  // (nullable). Financial totals still aggregate at booking level.
+  const itemsQ = useQuery({
+    queryKey: ["booking-items", bookingId],
+    queryFn: () => listBookingItems(bookingId),
+    enabled: !!bookingId,
+  });
+  const roomsQ = useQuery({ queryKey: ["rooms"], queryFn: () => listRooms() });
+  const items = itemsQ.data ?? [];
+  const rooms = roomsQ.data ?? [];
+  const itemLabel = (itemId: string | null): string => {
+    if (!itemId) return "Booking-level";
+    const it = items.find((i: any) => i.id === itemId);
+    if (!it) return "Booking-level";
+    const room = rooms.find((r: any) => r.id === (it as any).assigned_room_id);
+    const idx = items.findIndex((i: any) => i.id === itemId) + 1;
+    return room ? `Room ${room.room_number}` : `Room Item ${idx}`;
+  };
 
   const delMut = useMutation({
     mutationFn: (id: string) => deleteBookingCharge(id),
@@ -50,6 +73,35 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
   const rows = q.data ?? [];
   const total = chargesTotal(rows);
 
+  // Milestone 3 — group displayed charges by attributed operational room, with
+  // an "Unattributed / Booking-level" bucket at the top. Aggregation stays
+  // booking-level (Balance Due, invoice, taxes) — this is a presentation-only
+  // grouping to prepare for future per-room folios.
+  const grouped = useMemo(() => {
+    const groups = new Map<string, BookingChargeRow[]>();
+    for (const r of rows) {
+      const key = r.item_id ?? "__booking__";
+      const list = groups.get(key) ?? [];
+      list.push(r);
+      groups.set(key, list);
+    }
+    const ordered: Array<{ key: string; label: string; rows: BookingChargeRow[] }> = [];
+    if (groups.has("__booking__")) {
+      ordered.push({ key: "__booking__", label: "Booking-level", rows: groups.get("__booking__")! });
+    }
+    for (const it of items as any[]) {
+      if (groups.has(it.id)) {
+        ordered.push({ key: it.id, label: itemLabel(it.id), rows: groups.get(it.id)! });
+      }
+    }
+    // Any orphan item_ids (item deleted after charge posted) fall through last.
+    for (const [k, v] of groups.entries()) {
+      if (k === "__booking__") continue;
+      if (!ordered.some((g) => g.key === k)) ordered.push({ key: k, label: "Unlinked room", rows: v });
+    }
+    return ordered;
+  }, [rows, items, rooms]);
+
   return (
     <div className="luxe-card rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
@@ -58,7 +110,7 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
           <h3 className="font-display text-base">In-House Charges</h3>
         </div>
         <button
-          onClick={() => { setEditing(null); setOpenForm(true); }}
+          onClick={() => { setEditing(null); setDefaultItemId(null); setOpenForm(true); }}
           className="inline-flex items-center gap-1.5 rounded-md gold-gradient px-3 py-1.5 text-xs font-medium text-charcoal"
         >
           <Plus className="h-3.5 w-3.5" /> Add Charge
@@ -70,48 +122,69 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
       ) : rows.length === 0 ? (
         <div className="text-center text-xs text-muted-foreground py-3">No in-house charges yet.</div>
       ) : (
-        <div className="space-y-1.5">
-          {rows.map((r) => {
-            // UAT-025: system-generated charges (Razorpay convenience fee auto-split)
-            // must be visually distinct from staff-added charges.
-            const isSystem = (r.added_by ?? "").toLowerCase() === "system"
-              || (r.added_by ?? "").toLowerCase().startsWith("system ")
-              || String(r.notes ?? "").toLowerCase().includes("[system-generated]");
-            return (
-            <div key={r.id} className={`flex items-center justify-between py-2 px-3 rounded-md text-sm ${isSystem ? "bg-gold-soft/30 border border-gold/30" : "bg-secondary/40"}`}>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium truncate flex items-center gap-1.5">
-                  {r.category}{r.category === "Other" && r.other_description ? ` · ${r.other_description}` : ""}
-                  {isSystem && (
-                    <span className="inline-flex items-center rounded-sm border border-gold/50 bg-gold-soft px-1.5 py-0 text-[9px] uppercase tracking-wider text-gold-dark">
-                      Auto
-                    </span>
-                  )}
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  {Number(r.quantity)} × {inr(r.unit_price)} · {r.added_by ?? "—"} · {fmtDateTime(r.occurred_at)}
-                  {r.notes ? ` · ${r.notes}` : ""}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 ml-3">
-                <span className="font-medium text-sm">{inr(r.amount)}</span>
-                <button
-                  onClick={() => { setEditing(r); setOpenForm(true); }}
-                  className="p-1 rounded text-muted-foreground hover:text-gold" title="Edit"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                {isAdmin && (
+        <div className="space-y-3">
+          {grouped.map((g) => (
+            <div key={g.key} className="space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <DoorOpen className="h-3 w-3 text-gold" /> {g.label}
+                </span>
+                {items.length > 0 && g.key === "__booking__" && (
                   <button
-                    onClick={() => { if (confirm("Delete this charge?")) delMut.mutate(r.id); }}
-                    className="p-1 rounded text-muted-foreground hover:text-destructive" title="Delete (Admin)"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                    onClick={() => { setEditing(null); setDefaultItemId(null); setOpenForm(true); }}
+                    className="text-[10px] normal-case tracking-normal text-muted-foreground hover:text-gold"
+                  >+ add</button>
+                )}
+                {items.length > 0 && g.key !== "__booking__" && (
+                  <button
+                    onClick={() => { setEditing(null); setDefaultItemId(g.key); setOpenForm(true); }}
+                    className="text-[10px] normal-case tracking-normal text-muted-foreground hover:text-gold"
+                  >+ add to this room</button>
                 )}
               </div>
+              {g.rows.map((r) => {
+                // UAT-025: system-generated charges (Razorpay convenience fee auto-split)
+                // must be visually distinct from staff-added charges.
+                const isSystem = (r.added_by ?? "").toLowerCase() === "system"
+                  || (r.added_by ?? "").toLowerCase().startsWith("system ")
+                  || String(r.notes ?? "").toLowerCase().includes("[system-generated]");
+                return (
+                <div key={r.id} className={`flex items-center justify-between py-2 px-3 rounded-md text-sm ${isSystem ? "bg-gold-soft/30 border border-gold/30" : "bg-secondary/40"}`}>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium truncate flex items-center gap-1.5">
+                      {r.category}{r.category === "Other" && r.other_description ? ` · ${r.other_description}` : ""}
+                      {isSystem && (
+                        <span className="inline-flex items-center rounded-sm border border-gold/50 bg-gold-soft px-1.5 py-0 text-[9px] uppercase tracking-wider text-gold-dark">
+                          Auto
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {Number(r.quantity)} × {inr(r.unit_price)} · {r.added_by ?? "—"} · {fmtDateTime(r.occurred_at)}
+                      {r.notes ? ` · ${r.notes}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 ml-3">
+                    <span className="font-medium text-sm">{inr(r.amount)}</span>
+                    <button
+                      onClick={() => { setEditing(r); setDefaultItemId(r.item_id ?? null); setOpenForm(true); }}
+                      className="p-1 rounded text-muted-foreground hover:text-gold" title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => { if (confirm("Delete this charge?")) delMut.mutate(r.id); }}
+                        className="p-1 rounded text-muted-foreground hover:text-destructive" title="Delete (Admin)"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );})}
             </div>
-          );})}
+          ))}
           <div className="flex justify-end pt-2 border-t border-border/40 text-sm font-medium">
             Total Charges: <span className="ml-2 text-gold">{inr(total)}</span>
           </div>
@@ -119,22 +192,28 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
       )}
 
       <ChargeFormDialog
-        key={editing?.id ?? "new"}
+        key={editing?.id ?? `new-${defaultItemId ?? "booking"}`}
         open={openForm}
-        onOpenChange={(v) => { setOpenForm(v); if (!v) setEditing(null); }}
+        onOpenChange={(v) => { setOpenForm(v); if (!v) { setEditing(null); setDefaultItemId(null); } }}
         bookingId={bookingId}
         categories={categories}
         editing={editing}
+        items={items as any[]}
+        rooms={rooms as any[]}
+        defaultItemId={defaultItemId}
       />
     </div>
   );
 }
 
+
 export function ChargeFormDialog({
   open, onOpenChange, bookingId, categories, editing,
+  items = [], rooms = [], defaultItemId = null,
 }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   bookingId: string; categories: string[]; editing: BookingChargeRow | null;
+  items?: any[]; rooms?: any[]; defaultItemId?: string | null;
 }) {
   const qc = useQueryClient();
   // Auto-attribution: the signed-in staff member is the source of truth for
@@ -144,6 +223,9 @@ export function ChargeFormDialog({
   const [otherDesc, setOtherDesc] = useState(editing?.other_description ?? "");
   const [quantity, setQuantity] = useState<number>(editing?.quantity ?? 1);
   const [unitPrice, setUnitPrice] = useState<number>(editing?.unit_price ?? 0);
+  // Milestone 3 — optional room attribution. Default to defaultItemId (from
+  // "+ add to this room") when creating; preserve existing when editing.
+  const [itemId, setItemId] = useState<string | null>(editing?.item_id ?? defaultItemId ?? null);
   // Preserve original attribution when editing; otherwise attribute to the
   // signed-in user. Never overwrite a historical row's added_by silently.
   const addedBy = editing?.added_by ?? currentStaff.name;
@@ -164,10 +246,12 @@ export function ChargeFormDialog({
         added_by: addedBy || null,
         occurred_at: new Date(occurredAt).toISOString(),
         notes: notes || null,
+        item_id: itemId,
       };
       if (editing) return updateBookingCharge(editing.id, payload);
       return createBookingCharge(payload);
     },
+
     onSuccess: async () => {
       toast.success(editing ? "Charge updated" : "Charge added");
       // UAT-034: shared recalc engine keeps booking.amount / Balance Due /
@@ -192,6 +276,23 @@ export function ChargeFormDialog({
               {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
+          {items.length > 0 && (
+            <Field label="Attribute to Room (optional)">
+              <select
+                value={itemId ?? ""}
+                onChange={(e) => setItemId(e.target.value || null)}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+              >
+                <option value="">Booking-level (no specific room)</option>
+                {items.map((it: any, idx: number) => {
+                  const room = rooms.find((r: any) => r.id === it.assigned_room_id);
+                  const label = room ? `Room ${room.room_number}` : `Room Item ${idx + 1}`;
+                  const occ = it.primary_occupant_name ? ` · ${it.primary_occupant_name}` : "";
+                  return <option key={it.id} value={it.id}>{label}{occ}</option>;
+                })}
+              </select>
+            </Field>
+          )}
           {category === "Other" && (
             <Field label="Description *">
               <input value={otherDesc} onChange={(e) => setOtherDesc(e.target.value)}

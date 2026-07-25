@@ -297,6 +297,7 @@ export type Database = {
           late_check_out_slot: string | null
           nights: number | null
           notes: string | null
+          operational_notes: string | null
           pet_size: string
           position: number
           primary_occupant_name: string | null
@@ -329,6 +330,7 @@ export type Database = {
           late_check_out_slot?: string | null
           nights?: number | null
           notes?: string | null
+          operational_notes?: string | null
           pet_size?: string
           position?: number
           primary_occupant_name?: string | null
@@ -361,6 +363,7 @@ export type Database = {
           late_check_out_slot?: string | null
           nights?: number | null
           notes?: string | null
+          operational_notes?: string | null
           pet_size?: string
           position?: number
           primary_occupant_name?: string | null

@@ -4,6 +4,7 @@ export interface BookingChargeRow {
   id: string;
   user_id: string;
   booking_id: string;
+  item_id: string | null;
   category: string;
   other_description: string | null;
   quantity: number;
@@ -18,6 +19,7 @@ export interface BookingChargeRow {
 
 export interface BookingChargeInput {
   booking_id: string;
+  item_id?: string | null;
   category: string;
   other_description?: string | null;
   quantity: number;
