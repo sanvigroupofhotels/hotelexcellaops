@@ -46,7 +46,7 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
     queryFn: () => listBookingItems(bookingId),
     enabled: !!bookingId,
   });
-  const roomsQ = useQuery({ queryKey: ["rooms"], queryFn: listRooms });
+  const roomsQ = useQuery({ queryKey: ["rooms"], queryFn: () => listRooms() });
   const items = itemsQ.data ?? [];
   const rooms = roomsQ.data ?? [];
   const itemLabel = (itemId: string | null): string => {
