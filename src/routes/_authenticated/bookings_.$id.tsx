@@ -55,7 +55,10 @@ import {
   checkOutBookingItem,
   listBookingItemActivities,
   removeRoomFromBookingItem,
+  updateBookingItemOccupant,
+  updateBookingItemOperationalNotes,
 } from "@/lib/booking-item-operations-api";
+import { BookingItemTimeline } from "@/components/booking-item-timeline";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
@@ -541,7 +544,22 @@ function BookingDetail() {
               onRemove={(itemId, assignmentId) => itemRemoveRoom.mutate({ itemId, assignmentId })}
               onItemCheckIn={(itemId) => itemCheckIn.mutate(itemId)}
               onItemCheckOut={(itemId) => itemCheckOut.mutate(itemId)}
+              onSaveOccupant={async (itemId, name, phone) => {
+                await updateBookingItemOccupant({ itemId, name, phone });
+                await qc.invalidateQueries({ queryKey: ["booking-items", id] });
+                await qc.invalidateQueries({ queryKey: ["booking-item-activities", id] });
+                toast.success("Occupant updated");
+              }}
+              onSaveNotes={async (itemId, notes) => {
+                await updateBookingItemOperationalNotes({ itemId, notes });
+                await qc.invalidateQueries({ queryKey: ["booking-items", id] });
+                await qc.invalidateQueries({ queryKey: ["booking-item-activities", id] });
+                toast.success("Notes updated");
+              }}
             />
+
+            <BookingItemTimeline bookingId={id} items={items as any[]} rooms={rooms as any[]} />
+
 
             <div className="luxe-card rounded-xl p-5">
               <h4 className="font-display text-lg mb-3">Status</h4>
@@ -1021,6 +1039,8 @@ function RoomManagementGrid({
   onRemove,
   onItemCheckIn,
   onItemCheckOut,
+  onSaveOccupant,
+  onSaveNotes,
 }: {
   booking: any;
   items: any[];
@@ -1034,6 +1054,8 @@ function RoomManagementGrid({
   onRemove: (itemId: string, assignmentId: string) => void;
   onItemCheckIn: (itemId: string) => void;
   onItemCheckOut: (itemId: string) => void;
+  onSaveOccupant: (itemId: string, name: string | null, phone: string | null) => Promise<void> | void;
+  onSaveNotes: (itemId: string, notes: string | null) => Promise<void> | void;
 }) {
   const required = requiredRoomCount(items as any);
   const assigned = activeAssignments.length;
@@ -1109,6 +1131,15 @@ function RoomManagementGrid({
                 </div>
               )}
 
+              {canEditRooms && (
+                <ItemOccupantNotesEditor
+                  item={item}
+                  onSaveOccupant={onSaveOccupant}
+                  onSaveNotes={onSaveNotes}
+                />
+              )}
+
+
               {history.length > 1 && (
                 <div className="border-t border-border pt-1.5 text-[10.5px] text-muted-foreground space-y-0.5">
                   {history.map((seg) => {
@@ -1135,6 +1166,93 @@ function RoomManagementGrid({
               <span className="tabular-nums shrink-0">{new Date(a.created_at).toLocaleDateString("en-IN")}</span>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ItemOccupantNotesEditor({
+  item,
+  onSaveOccupant,
+  onSaveNotes,
+}: {
+  item: any;
+  onSaveOccupant: (itemId: string, name: string | null, phone: string | null) => Promise<void> | void;
+  onSaveNotes: (itemId: string, notes: string | null) => Promise<void> | void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState<string>(item.primary_occupant_name ?? "");
+  const [phone, setPhone] = useState<string>(item.primary_phone ?? "");
+  const [notes, setNotes] = useState<string>(item.operational_notes ?? "");
+  const [savingWho, setSavingWho] = useState<"occupant" | "notes" | null>(null);
+  const summary =
+    (item.primary_occupant_name || "No occupant recorded") +
+    (item.primary_phone ? ` · ${item.primary_phone}` : "");
+  return (
+    <div className="border-t border-border pt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left text-[10.5px] text-muted-foreground hover:text-foreground flex items-center justify-between"
+      >
+        <span>
+          <span className="uppercase tracking-wider">Occupant / Notes</span>
+          <span className="ml-2 normal-case">{summary}</span>
+        </span>
+        <span className="text-gold">{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Primary occupant"
+              className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 text-[12px]"
+            />
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Primary mobile"
+              className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 text-[12px]"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={savingWho !== null}
+              onClick={async () => {
+                setSavingWho("occupant");
+                try { await onSaveOccupant(item.id, name || null, phone || null); }
+                finally { setSavingWho(null); }
+              }}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              {savingWho === "occupant" ? "Saving…" : "Save occupant"}
+            </button>
+          </div>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Operational notes (e.g. no housekeeping before 11am)"
+            rows={2}
+            className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 text-[12px]"
+          />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={savingWho !== null}
+              onClick={async () => {
+                setSavingWho("notes");
+                try { await onSaveNotes(item.id, notes || null); }
+                finally { setSavingWho(null); }
+              }}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              {savingWho === "notes" ? "Saving…" : "Save notes"}
+            </button>
+          </div>
         </div>
       )}
     </div>
