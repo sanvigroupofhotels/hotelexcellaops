@@ -58,6 +58,8 @@ import {
   checkOutBookingItem,
   listBookingItemActivities,
   removeRoomFromBookingItem,
+  revertItemCheckIn,
+  revertItemCheckOut,
   updateBookingItemOccupant,
   updateBookingItemOperationalNotes,
 } from "@/lib/booking-item-operations-api";
