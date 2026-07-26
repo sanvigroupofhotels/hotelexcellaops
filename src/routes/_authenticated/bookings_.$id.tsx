@@ -545,7 +545,7 @@ function BookingDetail() {
               assignments={assignments as any[]}
               activeAssignments={activeAssignments as any[]}
               activities={itemActivities as any[]}
-              busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemCheckIn.isPending || itemCheckOut.isPending}
+              busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemCheckIn.isPending || itemCheckOut.isPending || itemRevertCheckIn.isPending || itemRevertCheckOut.isPending}
               onAssign={(itemId) => {
                 setTargetItemId(itemId);
                 setChangingAssignmentId(null);
@@ -559,6 +559,22 @@ function BookingDetail() {
               onRemove={(itemId, assignmentId) => itemRemoveRoom.mutate({ itemId, assignmentId })}
               onItemCheckIn={(itemId) => itemCheckIn.mutate(itemId)}
               onItemCheckOut={(itemId) => itemCheckOut.mutate(itemId)}
+              onRevertItemCheckIn={(itemId) => itemRevertCheckIn.mutate(itemId)}
+              onRevertItemCheckOut={(itemId) => itemRevertCheckOut.mutate(itemId)}
+              onRevertAllCheckIns={() => {
+                // Iterate items via the shared per-item API — one code path.
+                const targets = (items as any[]).filter((it) => (it.item_status ?? "") === "Checked-In");
+                if (targets.length === 0) { toast.info("No checked-in rooms to revert."); return; }
+                if (!confirm(`Revert Check-In for ${targets.length} room(s)?`)) return;
+                targets.forEach((it) => itemRevertCheckIn.mutate(it.id));
+                setRevertInOpen(true);
+              }}
+              onRevertAllCheckOuts={() => {
+                const targets = (items as any[]).filter((it) => (it.item_status ?? "") === "Checked-Out");
+                if (targets.length === 0) { toast.info("No checked-out rooms to revert."); return; }
+                if (!confirm(`Revert Check-Out for ${targets.length} room(s)?`)) return;
+                targets.forEach((it) => itemRevertCheckOut.mutate(it.id));
+              }}
               onSaveOccupant={async (itemId, name, phone) => {
                 await updateBookingItemOccupant({ itemId, name, phone });
                 await qc.invalidateQueries({ queryKey: ["booking-items", id] });
