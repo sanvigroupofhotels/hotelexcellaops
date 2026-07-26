@@ -1172,6 +1172,93 @@ function RoomManagementGrid({
   );
 }
 
+function ItemOccupantNotesEditor({
+  item,
+  onSaveOccupant,
+  onSaveNotes,
+}: {
+  item: any;
+  onSaveOccupant: (itemId: string, name: string | null, phone: string | null) => Promise<void> | void;
+  onSaveNotes: (itemId: string, notes: string | null) => Promise<void> | void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState<string>(item.primary_occupant_name ?? "");
+  const [phone, setPhone] = useState<string>(item.primary_phone ?? "");
+  const [notes, setNotes] = useState<string>(item.operational_notes ?? "");
+  const [savingWho, setSavingWho] = useState<"occupant" | "notes" | null>(null);
+  const summary =
+    (item.primary_occupant_name || "No occupant recorded") +
+    (item.primary_phone ? ` · ${item.primary_phone}` : "");
+  return (
+    <div className="border-t border-border pt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left text-[10.5px] text-muted-foreground hover:text-foreground flex items-center justify-between"
+      >
+        <span>
+          <span className="uppercase tracking-wider">Occupant / Notes</span>
+          <span className="ml-2 normal-case">{summary}</span>
+        </span>
+        <span className="text-gold">{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Primary occupant"
+              className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 text-[12px]"
+            />
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Primary mobile"
+              className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 text-[12px]"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={savingWho !== null}
+              onClick={async () => {
+                setSavingWho("occupant");
+                try { await onSaveOccupant(item.id, name || null, phone || null); }
+                finally { setSavingWho(null); }
+              }}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              {savingWho === "occupant" ? "Saving…" : "Save occupant"}
+            </button>
+          </div>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Operational notes (e.g. no housekeeping before 11am)"
+            rows={2}
+            className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 text-[12px]"
+          />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={savingWho !== null}
+              onClick={async () => {
+                setSavingWho("notes");
+                try { await onSaveNotes(item.id, notes || null); }
+                finally { setSavingWho(null); }
+              }}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              {savingWho === "notes" ? "Saving…" : "Save notes"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CheckoutOverrideForm({ balance, onCancel, onAddPayment, onProceed }: {
   balance: number;
   onCancel: () => void;
