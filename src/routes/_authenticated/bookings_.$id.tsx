@@ -359,6 +359,16 @@ function BookingDetail() {
     onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room removed from item"); },
     onError: (e: any) => toast.error(e?.message ?? "Could not remove room"),
   });
+  const itemRevertCheckIn = useMutation({
+    mutationFn: (itemId: string) => revertItemCheckIn(itemId),
+    onSuccess: () => { invalidateAll(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Item check-in reverted"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not revert check-in"),
+  });
+  const itemRevertCheckOut = useMutation({
+    mutationFn: (itemId: string) => revertItemCheckOut(itemId),
+    onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Item check-out reverted"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not revert check-out"),
+  });
 
   const { data: payments = [] } = useQuery({
     queryKey: ["booking-payments", id],
