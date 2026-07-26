@@ -1039,6 +1039,8 @@ function RoomManagementGrid({
   onRemove,
   onItemCheckIn,
   onItemCheckOut,
+  onSaveOccupant,
+  onSaveNotes,
 }: {
   booking: any;
   items: any[];
@@ -1052,6 +1054,8 @@ function RoomManagementGrid({
   onRemove: (itemId: string, assignmentId: string) => void;
   onItemCheckIn: (itemId: string) => void;
   onItemCheckOut: (itemId: string) => void;
+  onSaveOccupant: (itemId: string, name: string | null, phone: string | null) => Promise<void> | void;
+  onSaveNotes: (itemId: string, notes: string | null) => Promise<void> | void;
 }) {
   const required = requiredRoomCount(items as any);
   const assigned = activeAssignments.length;
