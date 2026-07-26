@@ -1131,6 +1131,15 @@ function RoomManagementGrid({
                 </div>
               )}
 
+              {canEditRooms && (
+                <ItemOccupantNotesEditor
+                  item={item}
+                  onSaveOccupant={onSaveOccupant}
+                  onSaveNotes={onSaveNotes}
+                />
+              )}
+
+
               {history.length > 1 && (
                 <div className="border-t border-border pt-1.5 text-[10.5px] text-muted-foreground space-y-0.5">
                   {history.map((seg) => {
