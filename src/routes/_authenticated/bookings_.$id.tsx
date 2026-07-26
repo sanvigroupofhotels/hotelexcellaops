@@ -55,7 +55,10 @@ import {
   checkOutBookingItem,
   listBookingItemActivities,
   removeRoomFromBookingItem,
+  updateBookingItemOccupant,
+  updateBookingItemOperationalNotes,
 } from "@/lib/booking-item-operations-api";
+import { BookingItemTimeline } from "@/components/booking-item-timeline";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
