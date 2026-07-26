@@ -223,11 +223,20 @@ export function ChargeFormDialog({
   const [otherDesc, setOtherDesc] = useState(editing?.other_description ?? "");
   const [quantity, setQuantity] = useState<number>(editing?.quantity ?? 1);
   const [unitPrice, setUnitPrice] = useState<number>(editing?.unit_price ?? 0);
-  // Milestone 3 — optional room attribution. Default to defaultItemId (from
-  // "+ add to this room") when creating; preserve existing when editing.
-  const [itemId, setItemId] = useState<string | null>(editing?.item_id ?? defaultItemId ?? null);
-  // Preserve original attribution when editing; otherwise attribute to the
-  // signed-in user. Never overwrite a historical row's added_by silently.
+
+  // Multi-room aware "Charge To" behaviour.
+  //   • Single-room booking → Charge-To is hidden and the sole item is
+  //     auto-attributed. Booking-level default is never used.
+  //   • Multi-room booking → "Charge To *" is mandatory; the receptionist
+  //     must explicitly pick the operational room being charged.
+  const isSingleRoom = items.length === 1;
+  const isMultiRoom = items.length > 1;
+  const [itemId, setItemId] = useState<string | null>(
+    editing?.item_id
+      ?? defaultItemId
+      ?? (isSingleRoom ? (items[0]?.id ?? null) : null),
+  );
+
   const addedBy = editing?.added_by ?? currentStaff.name;
   const [occurredAt, setOccurredAt] = useState<string>(
     editing?.occurred_at ? new Date(editing.occurred_at).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
@@ -235,9 +244,11 @@ export function ChargeFormDialog({
   const [notes, setNotes] = useState(editing?.notes ?? "");
 
   const amount = Number((quantity * unitPrice).toFixed(2));
+  const chargeToMissing = isMultiRoom && !itemId;
 
   const mut = useMutation({
     mutationFn: async () => {
+      if (chargeToMissing) throw new Error("Please select which room this charge is for.");
       const payload = {
         booking_id: bookingId,
         category,
@@ -263,6 +274,13 @@ export function ChargeFormDialog({
     onError: (e: any) => toast.error(e?.message ?? "Save failed"),
   });
 
+  const itemOptionLabel = (it: any, idx: number) => {
+    const room = rooms.find((r: any) => r.id === it.assigned_room_id);
+    const roomPart = room ? `Room ${room.room_number}` : "Unassigned";
+    const occ = it.primary_occupant_name ? it.primary_occupant_name : `Guest ${idx + 1}`;
+    return `${occ} · ${roomPart}`;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -270,29 +288,36 @@ export function ChargeFormDialog({
           <DialogTitle>{editing ? "Edit Charge" : "Add In-House Charge"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
+          {isMultiRoom && (
+            <Field label="Charge To *">
+              <select
+                value={itemId ?? ""}
+                onChange={(e) => setItemId(e.target.value || null)}
+                className={`w-full bg-input/60 border rounded-md px-3 py-2 text-sm ${chargeToMissing ? "border-destructive" : "border-border"}`}
+              >
+                <option value="">Select room…</option>
+                {items.map((it: any, idx: number) => (
+                  <option key={it.id} value={it.id}>{itemOptionLabel(it, idx)}</option>
+                ))}
+              </select>
+              {chargeToMissing && (
+                <span className="mt-1 block text-[10.5px] text-destructive">
+                  Required — pick which room is being charged.
+                </span>
+              )}
+            </Field>
+          )}
+          {isSingleRoom && (
+            <div className="rounded-md border border-border bg-secondary/30 px-3 py-2 text-[11px] text-muted-foreground">
+              Charging: <span className="text-foreground font-medium">{itemOptionLabel(items[0], 0)}</span>
+            </div>
+          )}
           <Field label="Category *">
             <select value={category} onChange={(e) => setCategory(e.target.value)}
               className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
               {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
-          {items.length > 0 && (
-            <Field label="Attribute to Room (optional)">
-              <select
-                value={itemId ?? ""}
-                onChange={(e) => setItemId(e.target.value || null)}
-                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-              >
-                <option value="">Booking-level (no specific room)</option>
-                {items.map((it: any, idx: number) => {
-                  const room = rooms.find((r: any) => r.id === it.assigned_room_id);
-                  const label = room ? `Room ${room.room_number}` : `Room Item ${idx + 1}`;
-                  const occ = it.primary_occupant_name ? ` · ${it.primary_occupant_name}` : "";
-                  return <option key={it.id} value={it.id}>{label}{occ}</option>;
-                })}
-              </select>
-            </Field>
-          )}
           {category === "Other" && (
             <Field label="Description *">
               <input value={otherDesc} onChange={(e) => setOtherDesc(e.target.value)}
@@ -326,7 +351,14 @@ export function ChargeFormDialog({
         <DialogFooter>
           <button onClick={() => onOpenChange(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
           <button
-            disabled={mut.isPending || !category || !(quantity > 0) || (category === "Other" && !otherDesc.trim()) || !addedBy.trim()}
+            disabled={
+              mut.isPending
+              || !category
+              || !(quantity > 0)
+              || (category === "Other" && !otherDesc.trim())
+              || !addedBy.trim()
+              || chargeToMissing
+            }
             onClick={() => mut.mutate()}
             className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal disabled:opacity-50"
           >
