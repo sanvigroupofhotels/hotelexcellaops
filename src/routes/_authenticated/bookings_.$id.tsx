@@ -544,7 +544,22 @@ function BookingDetail() {
               onRemove={(itemId, assignmentId) => itemRemoveRoom.mutate({ itemId, assignmentId })}
               onItemCheckIn={(itemId) => itemCheckIn.mutate(itemId)}
               onItemCheckOut={(itemId) => itemCheckOut.mutate(itemId)}
+              onSaveOccupant={async (itemId, name, phone) => {
+                await updateBookingItemOccupant({ itemId, name, phone });
+                await qc.invalidateQueries({ queryKey: ["booking-items", id] });
+                await qc.invalidateQueries({ queryKey: ["booking-item-activities", id] });
+                toast.success("Occupant updated");
+              }}
+              onSaveNotes={async (itemId, notes) => {
+                await updateBookingItemOperationalNotes({ itemId, notes });
+                await qc.invalidateQueries({ queryKey: ["booking-items", id] });
+                await qc.invalidateQueries({ queryKey: ["booking-item-activities", id] });
+                toast.success("Notes updated");
+              }}
             />
+
+            <BookingItemTimeline bookingId={id} items={items as any[]} rooms={rooms as any[]} />
+
 
             <div className="luxe-card rounded-xl p-5">
               <h4 className="font-display text-lg mb-3">Status</h4>
