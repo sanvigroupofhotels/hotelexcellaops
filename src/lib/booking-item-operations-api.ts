@@ -154,6 +154,102 @@ export async function checkOutBookingItem(itemId: string) {
   });
 }
 
+/**
+ * Revert an item's Check-In. Inverse of `checkInBookingItem`:
+ *   • status → Confirmed, `checked_in_at` cleared.
+ *   • Existing room assignment segment is preserved (no historical rewrite).
+ *   • Activity `item_check_in_reverted` logged.
+ * Routed through the same shared orchestration layer so booking-level
+ * "Revert All Check-Ins" simply iterates over items.
+ */
+export async function revertItemCheckIn(itemId: string) {
+  const item = await getItem(itemId);
+  const previous = item.item_status ?? "Confirmed";
+  if (previous !== "Checked-In") throw new Error("Only Checked-In items can be reverted.");
+  const { error } = await supabase
+    .from("booking_items" as any)
+    .update({ item_status: "Confirmed", checked_in_at: null } as any)
+    .eq("id", itemId);
+  if (error) throw error;
+  await logItemActivity({
+    item_id: itemId,
+    booking_id: item.booking_id,
+    action: "item_check_in_reverted",
+    field: "item_status",
+    old_value: previous,
+    new_value: "Confirmed",
+    summary: "Item check-in reverted",
+    metadata: { room_id: item.assigned_room_id },
+  });
+}
+
+/**
+ * Revert an item's Check-Out. Inverse of `checkOutBookingItem`:
+ *   • status → Checked-In, `checked_out_at` cleared.
+ *   • Re-opens the most recent segment that was closed by item_check_out
+ *     (or previously extends its end_date forward to the booking's check-out)
+ *     when it is safe to do so (no overlap conflict).
+ *   • Activity `item_check_out_reverted` logged.
+ */
+export async function revertItemCheckOut(itemId: string) {
+  const { data: cur, error: readErr } = await supabase
+    .from("booking_items" as any)
+    .select("id, booking_id, item_status, assigned_room_id, check_out")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (!cur) throw new Error("Room item not found");
+  const item = cur as any;
+  if ((item.item_status ?? "") !== "Checked-Out")
+    throw new Error("Only Checked-Out items can be reverted.");
+
+  // Find the most recently-closed segment for this item to re-open.
+  const { data: segs } = await supabase
+    .from("booking_room_assignments" as any)
+    .select("id, room_id, start_date, end_date, ended_reason")
+    .eq("item_id", itemId)
+    .order("end_date", { ascending: false })
+    .limit(1);
+  const seg = (segs ?? [])[0] as any | undefined;
+
+  let restoredRoomId: string | null = null;
+  if (seg && seg.ended_reason === "item_check_out") {
+    // Extend segment back to the booking's original check_out (exclusive).
+    const targetEnd = item.check_out as string;
+    if (targetEnd > seg.end_date) {
+      const { error: upErr } = await supabase
+        .from("booking_room_assignments" as any)
+        .update({ end_date: targetEnd, ended_reason: null } as any)
+        .eq("id", seg.id);
+      // Overlap-guarded by GiST exclusion; if it collides, leave segment closed.
+      if (!upErr) restoredRoomId = seg.room_id;
+    } else {
+      restoredRoomId = seg.room_id;
+    }
+  }
+
+  const { error } = await supabase
+    .from("booking_items" as any)
+    .update({
+      item_status: "Checked-In",
+      checked_out_at: null,
+      assigned_room_id: restoredRoomId ?? item.assigned_room_id,
+    } as any)
+    .eq("id", itemId);
+  if (error) throw error;
+
+  await logItemActivity({
+    item_id: itemId,
+    booking_id: item.booking_id,
+    action: "item_check_out_reverted",
+    field: "item_status",
+    old_value: "Checked-Out",
+    new_value: "Checked-In",
+    summary: restoredRoomId ? "Item check-out reverted (segment re-opened)" : "Item check-out reverted",
+    metadata: { room_id: restoredRoomId },
+  });
+}
+
 export async function removeRoomFromBookingItem(input: { itemId: string; assignmentId: string }) {
   const item = await getItem(input.itemId);
   const assignment = await getAssignment(input.assignmentId);

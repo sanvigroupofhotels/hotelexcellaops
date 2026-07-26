@@ -14,6 +14,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 
 import { Money } from "@/components/money";
 import { listBookingItems } from "@/lib/booking-items-api";
@@ -55,6 +58,8 @@ import {
   checkOutBookingItem,
   listBookingItemActivities,
   removeRoomFromBookingItem,
+  revertItemCheckIn,
+  revertItemCheckOut,
   updateBookingItemOccupant,
   updateBookingItemOperationalNotes,
 } from "@/lib/booking-item-operations-api";
@@ -354,6 +359,16 @@ function BookingDetail() {
     onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room removed from item"); },
     onError: (e: any) => toast.error(e?.message ?? "Could not remove room"),
   });
+  const itemRevertCheckIn = useMutation({
+    mutationFn: (itemId: string) => revertItemCheckIn(itemId),
+    onSuccess: () => { invalidateAll(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Item check-in reverted"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not revert check-in"),
+  });
+  const itemRevertCheckOut = useMutation({
+    mutationFn: (itemId: string) => revertItemCheckOut(itemId),
+    onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Item check-out reverted"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not revert check-out"),
+  });
 
   const { data: payments = [] } = useQuery({
     queryKey: ["booking-payments", id],
@@ -530,7 +545,7 @@ function BookingDetail() {
               assignments={assignments as any[]}
               activeAssignments={activeAssignments as any[]}
               activities={itemActivities as any[]}
-              busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemCheckIn.isPending || itemCheckOut.isPending}
+              busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemCheckIn.isPending || itemCheckOut.isPending || itemRevertCheckIn.isPending || itemRevertCheckOut.isPending}
               onAssign={(itemId) => {
                 setTargetItemId(itemId);
                 setChangingAssignmentId(null);
@@ -544,6 +559,22 @@ function BookingDetail() {
               onRemove={(itemId, assignmentId) => itemRemoveRoom.mutate({ itemId, assignmentId })}
               onItemCheckIn={(itemId) => itemCheckIn.mutate(itemId)}
               onItemCheckOut={(itemId) => itemCheckOut.mutate(itemId)}
+              onRevertItemCheckIn={(itemId) => itemRevertCheckIn.mutate(itemId)}
+              onRevertItemCheckOut={(itemId) => itemRevertCheckOut.mutate(itemId)}
+              onRevertAllCheckIns={() => {
+                // Iterate items via the shared per-item API — one code path.
+                const targets = (items as any[]).filter((it) => (it.item_status ?? "") === "Checked-In");
+                if (targets.length === 0) { toast.info("No checked-in rooms to revert."); return; }
+                if (!confirm(`Revert Check-In for ${targets.length} room(s)?`)) return;
+                targets.forEach((it) => itemRevertCheckIn.mutate(it.id));
+                setRevertInOpen(true);
+              }}
+              onRevertAllCheckOuts={() => {
+                const targets = (items as any[]).filter((it) => (it.item_status ?? "") === "Checked-Out");
+                if (targets.length === 0) { toast.info("No checked-out rooms to revert."); return; }
+                if (!confirm(`Revert Check-Out for ${targets.length} room(s)?`)) return;
+                targets.forEach((it) => itemRevertCheckOut.mutate(it.id));
+              }}
               onSaveOccupant={async (itemId, name, phone) => {
                 await updateBookingItemOccupant({ itemId, name, phone });
                 await qc.invalidateQueries({ queryKey: ["booking-items", id] });
@@ -1026,6 +1057,17 @@ function formatActivity(a: any): string {
   }
 }
 
+/**
+ * Reception-facing name for an operational room (Booking Item).
+ * NEVER exposes the internal "Room Item N" concept — falls back to
+ * "Guest {n}" (with " — not assigned" suffix when no room is linked).
+ */
+function displayNameForItem(item: any, index: number, hasRoom: boolean): string {
+  const name = (item?.primary_occupant_name ?? "").trim();
+  if (name) return name;
+  return hasRoom ? `Guest ${index + 1}` : `Guest ${index + 1} — not assigned`;
+}
+
 function RoomManagementGrid({
   booking,
   items,
@@ -1039,6 +1081,10 @@ function RoomManagementGrid({
   onRemove,
   onItemCheckIn,
   onItemCheckOut,
+  onRevertItemCheckIn,
+  onRevertItemCheckOut,
+  onRevertAllCheckIns,
+  onRevertAllCheckOuts,
   onSaveOccupant,
   onSaveNotes,
 }: {
@@ -1054,6 +1100,10 @@ function RoomManagementGrid({
   onRemove: (itemId: string, assignmentId: string) => void;
   onItemCheckIn: (itemId: string) => void;
   onItemCheckOut: (itemId: string) => void;
+  onRevertItemCheckIn: (itemId: string) => void;
+  onRevertItemCheckOut: (itemId: string) => void;
+  onRevertAllCheckIns: () => void;
+  onRevertAllCheckOuts: () => void;
   onSaveOccupant: (itemId: string, name: string | null, phone: string | null) => Promise<void> | void;
   onSaveNotes: (itemId: string, notes: string | null) => Promise<void> | void;
 }) {
@@ -1063,11 +1113,53 @@ function RoomManagementGrid({
   const latestActivities = activities.slice(0, 4);
   const canEditRooms = booking.status !== "Checked-Out" && booking.status !== "Cancelled" && booking.status !== "No-Show";
 
+  // Section-level expand/collapse governs the per-card "Occupancy History" block
+  // (segment list). All row-level actions live inside the row ⋮ menu.
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const toggleExpanded = (id: string) =>
+    setExpandedItems((prev) => ({ ...prev, [id]: !prev[id] }));
+  const expandAll = () =>
+    setExpandedItems(Object.fromEntries(items.map((i: any) => [i.id, true])));
+  const collapseAll = () => setExpandedItems({});
+
+  // Occupant/Notes modal state — one editor at a time.
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+
   return (
     <div className="luxe-card rounded-xl p-5">
-      <h4 className="font-display text-lg mb-2 flex items-center gap-2">
-        <DoorOpen className="h-4 w-4 text-gold" /> Room Management
-      </h4>
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="font-display text-lg flex items-center gap-2">
+          <DoorOpen className="h-4 w-4 text-gold" /> Room Management
+        </h4>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="inline-flex items-center justify-center rounded-md border border-border bg-card p-1.5 hover:border-gold/40"
+              aria-label="Room Management actions"
+            >
+              <MoreVertical className="h-4 w-4 text-gold" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[220px]">
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Room Management
+            </DropdownMenuLabel>
+            <DropdownMenuItem disabled className="cursor-not-allowed opacity-60">
+              Add Room (coming soon)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onRevertAllCheckIns} className="cursor-pointer">
+              <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert All Check-Ins
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onRevertAllCheckOuts} className="cursor-pointer">
+              <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert All Check-Outs
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={expandAll} className="cursor-pointer">Expand All</DropdownMenuItem>
+            <DropdownMenuItem onClick={collapseAll} className="cursor-pointer">Collapse All</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <div className={cn("text-xs font-medium mb-3", ready ? "text-emerald-500" : "text-warning")}>
         Assigned {assigned} / {required} {ready ? "✓ Ready for Check-In" : `· ${Math.max(0, required - assigned)} remaining`}
       </div>
@@ -1081,67 +1173,113 @@ function RoomManagementGrid({
           const status = item.item_status ?? (booking.status === "Checked-In" ? "Checked-In" : "Confirmed");
           const hasRoom = !!active?.id;
           const itemCanOperate = canEditRooms && status !== "Checked-Out" && status !== "Cancelled" && status !== "No-Show";
+          const isExpanded = !!expandedItems[item.id];
+          const guestTitle = displayNameForItem(item, index, hasRoom);
+          const dateLine = `${new Date(item.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(item.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`;
+
           return (
-            <div key={item.id} className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-2">
+            <div key={item.id} className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-1.5">
+              {/* Header: guest name (or fallback) + status pill + ⋮ menu */}
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 text-sm font-medium">
-                    <span>Room Item {index + 1}</span>
-                    <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">{status}</span>
+                    <span className="truncate">{guestTitle}</span>
+                    <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground shrink-0">{status}</span>
                   </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {item.room_type} · {new Date(item.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → {new Date(item.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                  </div>
-                  <div className="mt-1 text-sm">
-                    {room ? <>Assigned: <span className="font-medium">Room {room.room_number}</span> · {room.room_type}</> : <span className="text-warning">No room assigned</span>}
-                  </div>
-                </div>
-                {itemCanOperate && (
-                  <div className="flex flex-wrap justify-end gap-1.5 text-[11px] shrink-0">
-                    {!hasRoom ? (
-                      <button disabled={busy} onClick={() => onAssign(item.id)} className="rounded-md gold-gradient px-2.5 py-1.5 font-medium text-charcoal disabled:opacity-50">
-                        Assign
-                      </button>
+                  {/* Room hierarchy: single canonical line. */}
+                  <div className="text-[12px] text-muted-foreground">
+                    {room ? (
+                      <>Room <span className="font-medium text-foreground">{room.room_number}</span> · {room.room_type}</>
                     ) : (
-                      <>
-                        <button disabled={busy} onClick={() => onMove(item.id, active.id)} className="rounded-md border border-border bg-card px-2.5 py-1.5 hover:border-gold/40 disabled:opacity-50">
-                          Move
-                        </button>
-                        <button disabled={busy} onClick={() => onRemove(item.id, active.id)} className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-destructive hover:bg-destructive/20 disabled:opacity-50">
-                          Remove
-                        </button>
-                      </>
+                      <>{item.room_type}</>
                     )}
                   </div>
-                )}
+                  <div className="text-[11px] text-muted-foreground">{dateLine}</div>
+                  {!hasRoom && (
+                    <div className="text-[11px] text-warning mt-0.5">Unassigned</div>
+                  )}
+                  {item.primary_phone && (
+                    <div className="text-[11px] text-muted-foreground">📱 {item.primary_phone}</div>
+                  )}
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      disabled={busy}
+                      className="inline-flex items-center justify-center rounded-md border border-border bg-card p-1.5 hover:border-gold/40 disabled:opacity-50 shrink-0"
+                      aria-label="Room actions"
+                    >
+                      <MoreVertical className="h-4 w-4 text-gold" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[220px]">
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {guestTitle}
+                    </DropdownMenuLabel>
+                    {itemCanOperate && !hasRoom && (
+                      <DropdownMenuItem onClick={() => onAssign(item.id)} className="cursor-pointer">
+                        <DoorOpen className="h-3.5 w-3.5 mr-2" /> Assign Room
+                      </DropdownMenuItem>
+                    )}
+                    {itemCanOperate && hasRoom && (
+                      <>
+                        <DropdownMenuItem onClick={() => onMove(item.id, active!.id)} className="cursor-pointer">
+                          <DoorOpen className="h-3.5 w-3.5 mr-2" /> Move Room
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onRemove(item.id, active!.id)} className="cursor-pointer text-destructive focus:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Remove Room
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {itemCanOperate && hasRoom && status !== "Checked-In" && (
+                      <DropdownMenuItem onClick={() => onItemCheckIn(item.id)} className="cursor-pointer">
+                        <LogIn className="h-3.5 w-3.5 mr-2" /> Check-In
+                      </DropdownMenuItem>
+                    )}
+                    {itemCanOperate && hasRoom && status !== "Checked-Out" && status === "Checked-In" && (
+                      <DropdownMenuItem onClick={() => onItemCheckOut(item.id)} className="cursor-pointer">
+                        <LogOut className="h-3.5 w-3.5 mr-2" /> Check-Out
+                      </DropdownMenuItem>
+                    )}
+                    {status === "Checked-In" && (
+                      <DropdownMenuItem onClick={() => onRevertItemCheckIn(item.id)} className="cursor-pointer">
+                        <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert Check-In
+                      </DropdownMenuItem>
+                    )}
+                    {status === "Checked-Out" && (
+                      <DropdownMenuItem onClick={() => onRevertItemCheckOut(item.id)} className="cursor-pointer">
+                        <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert Check-Out
+                      </DropdownMenuItem>
+                    )}
+                    {canEditRooms && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setEditingItem(item)} className="cursor-pointer">
+                          <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Occupant &amp; Notes
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {history.length > 1 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => toggleExpanded(item.id)} className="cursor-pointer">
+                          <History className="h-3.5 w-3.5 mr-2" /> {isExpanded ? "Hide" : "View"} Occupancy History
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
-              {hasRoom && booking.status === "Checked-In" && (
-                <div className="flex gap-1.5 text-[11px]">
-                  {status !== "Checked-In" && (
-                    <button disabled={busy} onClick={() => onItemCheckIn(item.id)} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1.5 hover:border-gold/40 disabled:opacity-50">
-                      <LogIn className="h-3 w-3" /> Item Check-In
-                    </button>
-                  )}
-                  {status !== "Checked-Out" && (
-                    <button disabled={busy} onClick={() => onItemCheckOut(item.id)} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1.5 hover:border-gold/40 disabled:opacity-50">
-                      <LogOut className="h-3 w-3" /> Item Check-Out
-                    </button>
-                  )}
+              {item.operational_notes && (
+                <div className="text-[11px] text-muted-foreground italic border-l-2 border-gold/40 pl-2">
+                  {item.operational_notes}
                 </div>
               )}
 
-              {canEditRooms && (
-                <ItemOccupantNotesEditor
-                  item={item}
-                  onSaveOccupant={onSaveOccupant}
-                  onSaveNotes={onSaveNotes}
-                />
-              )}
-
-
-              {history.length > 1 && (
+              {isExpanded && history.length > 1 && (
                 <div className="border-t border-border pt-1.5 text-[10.5px] text-muted-foreground space-y-0.5">
+                  <div className="uppercase tracking-wider">Occupancy History</div>
                   {history.map((seg) => {
                     const segRoom = rooms.find((r) => r.id === seg.room_id);
                     return (
@@ -1168,94 +1306,96 @@ function RoomManagementGrid({
           ))}
         </div>
       )}
+
+      <ItemOccupantNotesDialog
+        item={editingItem}
+        open={!!editingItem}
+        onOpenChange={(v) => { if (!v) setEditingItem(null); }}
+        onSaveOccupant={onSaveOccupant}
+        onSaveNotes={onSaveNotes}
+      />
     </div>
   );
 }
 
-function ItemOccupantNotesEditor({
-  item,
-  onSaveOccupant,
-  onSaveNotes,
+/**
+ * Modal editor for a Booking Item's Primary Occupant + Operational Notes.
+ * Opened from the row ⋮ menu ("Edit Occupant & Notes"). Both save paths flow
+ * through the shared `updateBookingItemOccupant` / `updateBookingItemOperationalNotes`
+ * orchestration APIs so the activity timeline stays consistent.
+ */
+function ItemOccupantNotesDialog({
+  item, open, onOpenChange, onSaveOccupant, onSaveNotes,
 }: {
-  item: any;
+  item: any | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
   onSaveOccupant: (itemId: string, name: string | null, phone: string | null) => Promise<void> | void;
   onSaveNotes: (itemId: string, notes: string | null) => Promise<void> | void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState<string>(item.primary_occupant_name ?? "");
-  const [phone, setPhone] = useState<string>(item.primary_phone ?? "");
-  const [notes, setNotes] = useState<string>(item.operational_notes ?? "");
-  const [savingWho, setSavingWho] = useState<"occupant" | "notes" | null>(null);
-  const summary =
-    (item.primary_occupant_name || "No occupant recorded") +
-    (item.primary_phone ? ` · ${item.primary_phone}` : "");
+  const [name, setName] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  // Reseed local state whenever a new item is opened.
+  const openedItemId = item?.id ?? null;
+  const seededRef = useRef<string | null>(null);
+  if (open && openedItemId && seededRef.current !== openedItemId) {
+    seededRef.current = openedItemId;
+    setName(item.primary_occupant_name ?? "");
+    setPhone(item.primary_phone ?? "");
+    setNotes(item.operational_notes ?? "");
+  }
+  if (!open && seededRef.current !== null) seededRef.current = null;
+
+  if (!item) return null;
+  const save = async () => {
+    setSaving(true);
+    try {
+      await onSaveOccupant(item.id, name.trim() || null, phone.trim() || null);
+      await onSaveNotes(item.id, notes.trim() || null);
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
-    <div className="border-t border-border pt-1.5">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full text-left text-[10.5px] text-muted-foreground hover:text-foreground flex items-center justify-between"
-      >
-        <span>
-          <span className="uppercase tracking-wider">Occupant / Notes</span>
-          <span className="ml-2 normal-case">{summary}</span>
-        </span>
-        <span className="text-gold">{open ? "−" : "+"}</span>
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Primary occupant"
-              className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 text-[12px]"
-            />
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Primary mobile"
-              className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 text-[12px]"
-            />
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              disabled={savingWho !== null}
-              onClick={async () => {
-                setSavingWho("occupant");
-                try { await onSaveOccupant(item.id, name || null, phone || null); }
-                finally { setSavingWho(null); }
-              }}
-              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
-            >
-              {savingWho === "occupant" ? "Saving…" : "Save occupant"}
-            </button>
-          </div>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Operational notes (e.g. no housekeeping before 11am)"
-            rows={2}
-            className="w-full bg-input/60 border border-border rounded-md px-2 py-1.5 text-[12px]"
-          />
-          <div className="flex justify-end">
-            <button
-              type="button"
-              disabled={savingWho !== null}
-              onClick={async () => {
-                setSavingWho("notes");
-                try { await onSaveNotes(item.id, notes || null); }
-                finally { setSavingWho(null); }
-              }}
-              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
-            >
-              {savingWho === "notes" ? "Saving…" : "Save notes"}
-            </button>
-          </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Occupant &amp; Notes</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Primary Occupant</span>
+            <input value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="Guest name" className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+          </label>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Primary Mobile</span>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)}
+              placeholder="+91 …" className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+          </label>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Operational Notes</span>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
+              placeholder="e.g. no housekeeping before 11am"
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+          </label>
         </div>
-      )}
-    </div>
+        <DialogFooter>
+          <button onClick={() => onOpenChange(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
+          <button
+            disabled={saving}
+            onClick={save}
+            className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal disabled:opacity-50"
+          >
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Save
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
