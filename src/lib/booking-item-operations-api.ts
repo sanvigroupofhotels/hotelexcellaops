@@ -221,11 +221,22 @@ export async function revertItemCheckOut(itemId: string) {
         .from("booking_room_assignments" as any)
         .update({ end_date: targetEnd, ended_reason: null } as any)
         .eq("id", seg.id);
-      // Overlap-guarded by GiST exclusion; if it collides, leave segment closed.
+      // Overlap-guarded by GiST exclusion; if it collides, cannot restore.
       if (!upErr) restoredRoomId = seg.room_id;
     } else {
       restoredRoomId = seg.room_id;
     }
+  }
+
+  // Refuse to leave the item in an invalid Checked-In-without-room state.
+  // checkOutBookingItem clears assigned_room_id, so if we cannot re-open the
+  // prior segment (another booking now occupies the room, or the segment was
+  // closed for a different reason like room_removed), the revert is unsafe.
+  const finalRoomId = restoredRoomId ?? item.assigned_room_id;
+  if (!finalRoomId) {
+    throw new Error(
+      "Cannot revert check-out: the previous room is no longer available. Assign a room to this item instead.",
+    );
   }
 
   const { error } = await supabase
@@ -233,7 +244,7 @@ export async function revertItemCheckOut(itemId: string) {
     .update({
       item_status: "Checked-In",
       checked_out_at: null,
-      assigned_room_id: restoredRoomId ?? item.assigned_room_id,
+      assigned_room_id: finalRoomId,
     } as any)
     .eq("id", itemId);
   if (error) throw error;
