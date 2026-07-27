@@ -567,7 +567,6 @@ function BookingDetail() {
                 if (targets.length === 0) { toast.info("No checked-in rooms to revert."); return; }
                 if (!confirm(`Revert Check-In for ${targets.length} room(s)?`)) return;
                 targets.forEach((it) => itemRevertCheckIn.mutate(it.id));
-                setRevertInOpen(true);
               }}
               onRevertAllCheckOuts={() => {
                 const targets = (items as any[]).filter((it) => (it.item_status ?? "") === "Checked-Out");
