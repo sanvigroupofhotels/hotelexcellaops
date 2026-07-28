@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { removeAssignment } from "@/lib/booking-room-assignments-api";
 import { getBusinessDate } from "@/lib/night-audit-api";
 
-export type BookingItemStatus = "Confirmed" | "Checked-In" | "Checked-Out" | "Cancelled" | "No-Show";
+export type BookingItemStatus = "Confirmed" | "Checked-In" | "Checked-Out" | "Cancelled" | "No-Show" | "Removed";
 
 export interface BookingItemActivityRow {
   id: string;
