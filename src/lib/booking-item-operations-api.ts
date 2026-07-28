@@ -113,9 +113,14 @@ export async function checkInBookingItem(itemId: string) {
   });
 }
 
-export async function checkOutBookingItem(itemId: string) {
+export async function checkOutBookingItem(itemId: string, opts: { allowOverride?: boolean } = {}) {
   const item = await getItem(itemId);
   if (!item.assigned_room_id) throw new Error("No room assigned to check out.");
+  // Shared checkout validation — same gate used by booking-level, item-level
+  // and (future) bulk checkout. Balance-due blocks unless caller passes an
+  // admin override. Overpayment always blocks (refund the excess first).
+  const { assertCheckoutAllowed } = await import("@/lib/checkout-validation");
+  await assertCheckoutAllowed(item.booking_id, { allowOverride: opts.allowOverride });
   const previous = item.item_status ?? "Confirmed";
   const businessDate = await getBusinessDate();
   const { data: activeAssignment, error: activeErr } = await supabase
