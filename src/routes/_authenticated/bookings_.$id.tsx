@@ -1186,13 +1186,18 @@ function RoomManagementGrid({
             <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
               Room Management
             </DropdownMenuLabel>
-            <DropdownMenuItem disabled className="cursor-not-allowed opacity-60">
-              Add Room (coming soon)
+            <DropdownMenuItem
+              onClick={() => setAddOpen(true)}
+              disabled={!canEditRooms}
+              className="cursor-pointer"
+            >
+              <DoorOpen className="h-3.5 w-3.5 mr-2" /> Add Room
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onRevertAllCheckIns} className="cursor-pointer">
               <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert All Check-Ins
             </DropdownMenuItem>
+
             <DropdownMenuItem onClick={onRevertAllCheckOuts} className="cursor-pointer">
               <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert All Check-Outs
             </DropdownMenuItem>
