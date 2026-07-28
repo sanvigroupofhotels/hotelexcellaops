@@ -565,7 +565,8 @@ function BookingDetail() {
               assignments={assignments as any[]}
               activeAssignments={activeAssignments as any[]}
               activities={itemActivities as any[]}
-              busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemCheckIn.isPending || itemCheckOut.isPending || itemRevertCheckIn.isPending || itemRevertCheckOut.isPending}
+              businessDate={businessDate ?? null}
+              busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemRemove.isPending || itemAdd.isPending || itemCheckIn.isPending || itemCheckOut.isPending || itemRevertCheckIn.isPending || itemRevertCheckOut.isPending}
               onAssign={(itemId) => {
                 setTargetItemId(itemId);
                 setChangingAssignmentId(null);
@@ -576,7 +577,9 @@ function BookingDetail() {
                 setChangingAssignmentId(assignmentId);
                 setAssignRoomOpen(true);
               }}
-              onRemove={(itemId, assignmentId) => itemRemoveRoom.mutate({ itemId, assignmentId })}
+              onUnassign={(itemId, assignmentId) => itemRemoveRoom.mutate({ itemId, assignmentId })}
+              onRemoveItem={(itemId, reason) => itemRemove.mutate({ itemId, reason })}
+              onAddRoom={(payload) => itemAdd.mutate({ bookingId: id, ...payload })}
               onItemCheckIn={(itemId) => itemCheckIn.mutate(itemId)}
               onItemCheckOut={(itemId) => itemCheckOut.mutate(itemId)}
               onRevertItemCheckIn={(itemId) => itemRevertCheckIn.mutate(itemId)}
@@ -607,6 +610,7 @@ function BookingDetail() {
                 toast.success("Notes updated");
               }}
             />
+
 
             <BookingItemTimeline bookingId={id} items={items as any[]} rooms={rooms as any[]} />
 
