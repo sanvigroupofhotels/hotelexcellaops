@@ -1098,10 +1098,13 @@ function RoomManagementGrid({
   assignments,
   activeAssignments,
   activities,
+  businessDate,
   busy,
   onAssign,
   onMove,
-  onRemove,
+  onUnassign,
+  onRemoveItem,
+  onAddRoom,
   onItemCheckIn,
   onItemCheckOut,
   onRevertItemCheckIn,
@@ -1117,10 +1120,20 @@ function RoomManagementGrid({
   assignments: any[];
   activeAssignments: any[];
   activities: any[];
+  businessDate: string | null;
   busy: boolean;
   onAssign: (itemId: string) => void;
   onMove: (itemId: string, assignmentId: string) => void;
-  onRemove: (itemId: string, assignmentId: string) => void;
+  onUnassign: (itemId: string, assignmentId: string) => void;
+  onRemoveItem: (itemId: string, reason: string | null) => void;
+  onAddRoom: (payload: {
+    room_type: string;
+    roomId?: string | null;
+    effectiveDate: string;
+    nightlyRate: number;
+    occupantName?: string | null;
+    occupantPhone?: string | null;
+  }) => void;
   onItemCheckIn: (itemId: string) => void;
   onItemCheckOut: (itemId: string) => void;
   onRevertItemCheckIn: (itemId: string) => void;
@@ -1130,7 +1143,11 @@ function RoomManagementGrid({
   onSaveOccupant: (itemId: string, name: string | null, phone: string | null) => Promise<void> | void;
   onSaveNotes: (itemId: string, notes: string | null) => Promise<void> | void;
 }) {
-  const required = requiredRoomCount(items as any);
+  // Slice B: Removed items are retained for audit but excluded from
+  // operational counts, revert-all iterators, and the "Ready" tally.
+  const activeItems = items.filter((it: any) => (it.item_status ?? "") !== "Removed");
+  const removedItems = items.filter((it: any) => (it.item_status ?? "") === "Removed");
+  const required = requiredRoomCount(activeItems as any);
   const assigned = activeAssignments.length;
   const ready = assigned >= required;
   const latestActivities = activities.slice(0, 4);
@@ -1147,6 +1164,8 @@ function RoomManagementGrid({
 
   // Occupant/Notes modal state — one editor at a time.
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+
 
   return (
     <div className="luxe-card rounded-xl p-5">
