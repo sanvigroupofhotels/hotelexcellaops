@@ -54,9 +54,11 @@ import {
   listAssignments, removeAssignment, requiredRoomCount,
 } from "@/lib/booking-room-assignments-api";
 import {
+  addBookingItemDuringStay,
   checkInBookingItem,
   checkOutBookingItem,
   listBookingItemActivities,
+  removeBookingItem,
   removeRoomFromBookingItem,
   revertItemCheckIn,
   revertItemCheckOut,
