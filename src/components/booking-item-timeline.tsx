@@ -22,7 +22,9 @@ import { listBookingItemActivities, type BookingItemActivityRow } from "@/lib/bo
 const ACTION_LABEL: Record<string, string> = {
   item_room_assigned: "Room assigned",
   item_room_move: "Room moved",
-  item_room_removed: "Room removed",
+  item_room_removed: "Room unassigned",
+  item_added_during_stay: "Room added mid-stay",
+  item_removed: "Room removed",
   item_check_in: "Item checked in",
   item_check_out: "Item checked out",
   item_check_in_reverted: "Item check-in reverted",

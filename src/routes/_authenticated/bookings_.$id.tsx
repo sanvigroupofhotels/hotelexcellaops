@@ -54,9 +54,11 @@ import {
   listAssignments, removeAssignment, requiredRoomCount,
 } from "@/lib/booking-room-assignments-api";
 import {
+  addBookingItemDuringStay,
   checkInBookingItem,
   checkOutBookingItem,
   listBookingItemActivities,
+  removeBookingItem,
   removeRoomFromBookingItem,
   revertItemCheckIn,
   revertItemCheckOut,
@@ -363,8 +365,19 @@ function BookingDetail() {
   });
   const itemRemoveRoom = useMutation({
     mutationFn: (input: { itemId: string; assignmentId: string }) => removeRoomFromBookingItem(input),
-    onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room removed from item"); },
+    onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room unassigned from item"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not unassign room"),
+  });
+  // Slice B: retire an operational room (item) — closes segment + marks Removed.
+  const itemRemove = useMutation({
+    mutationFn: (input: { itemId: string; reason?: string | null }) => removeBookingItem(input),
+    onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room removed from booking"); },
     onError: (e: any) => toast.error(e?.message ?? "Could not remove room"),
+  });
+  const itemAdd = useMutation({
+    mutationFn: (input: Parameters<typeof addBookingItemDuringStay>[0]) => addBookingItemDuringStay(input),
+    onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room added to booking"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not add room"),
   });
   const itemRevertCheckIn = useMutation({
     mutationFn: (itemId: string) => revertItemCheckIn(itemId),
@@ -552,7 +565,8 @@ function BookingDetail() {
               assignments={assignments as any[]}
               activeAssignments={activeAssignments as any[]}
               activities={itemActivities as any[]}
-              busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemCheckIn.isPending || itemCheckOut.isPending || itemRevertCheckIn.isPending || itemRevertCheckOut.isPending}
+              businessDate={businessDate ?? null}
+              busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemRemove.isPending || itemAdd.isPending || itemCheckIn.isPending || itemCheckOut.isPending || itemRevertCheckIn.isPending || itemRevertCheckOut.isPending}
               onAssign={(itemId) => {
                 setTargetItemId(itemId);
                 setChangingAssignmentId(null);
@@ -563,7 +577,9 @@ function BookingDetail() {
                 setChangingAssignmentId(assignmentId);
                 setAssignRoomOpen(true);
               }}
-              onRemove={(itemId, assignmentId) => itemRemoveRoom.mutate({ itemId, assignmentId })}
+              onUnassign={(itemId, assignmentId) => itemRemoveRoom.mutate({ itemId, assignmentId })}
+              onRemoveItem={(itemId, reason) => itemRemove.mutate({ itemId, reason })}
+              onAddRoom={(payload) => itemAdd.mutate({ bookingId: id, ...payload })}
               onItemCheckIn={(itemId) => itemCheckIn.mutate(itemId)}
               onItemCheckOut={(itemId) => itemCheckOut.mutate(itemId)}
               onRevertItemCheckIn={(itemId) => itemRevertCheckIn.mutate(itemId)}
@@ -594,6 +610,7 @@ function BookingDetail() {
                 toast.success("Notes updated");
               }}
             />
+
 
             <BookingItemTimeline bookingId={id} items={items as any[]} rooms={rooms as any[]} />
 
@@ -1081,10 +1098,13 @@ function RoomManagementGrid({
   assignments,
   activeAssignments,
   activities,
+  businessDate,
   busy,
   onAssign,
   onMove,
-  onRemove,
+  onUnassign,
+  onRemoveItem,
+  onAddRoom,
   onItemCheckIn,
   onItemCheckOut,
   onRevertItemCheckIn,
@@ -1100,10 +1120,20 @@ function RoomManagementGrid({
   assignments: any[];
   activeAssignments: any[];
   activities: any[];
+  businessDate: string | null;
   busy: boolean;
   onAssign: (itemId: string) => void;
   onMove: (itemId: string, assignmentId: string) => void;
-  onRemove: (itemId: string, assignmentId: string) => void;
+  onUnassign: (itemId: string, assignmentId: string) => void;
+  onRemoveItem: (itemId: string, reason: string | null) => void;
+  onAddRoom: (payload: {
+    room_type: string;
+    roomId?: string | null;
+    effectiveDate: string;
+    nightlyRate: number;
+    occupantName?: string | null;
+    occupantPhone?: string | null;
+  }) => void;
   onItemCheckIn: (itemId: string) => void;
   onItemCheckOut: (itemId: string) => void;
   onRevertItemCheckIn: (itemId: string) => void;
@@ -1113,7 +1143,11 @@ function RoomManagementGrid({
   onSaveOccupant: (itemId: string, name: string | null, phone: string | null) => Promise<void> | void;
   onSaveNotes: (itemId: string, notes: string | null) => Promise<void> | void;
 }) {
-  const required = requiredRoomCount(items as any);
+  // Slice B: Removed items are retained for audit but excluded from
+  // operational counts, revert-all iterators, and the "Ready" tally.
+  const activeItems = items.filter((it: any) => (it.item_status ?? "") !== "Removed");
+  const removedItems = items.filter((it: any) => (it.item_status ?? "") === "Removed");
+  const required = requiredRoomCount(activeItems as any);
   const assigned = activeAssignments.length;
   const ready = assigned >= required;
   const latestActivities = activities.slice(0, 4);
@@ -1130,6 +1164,8 @@ function RoomManagementGrid({
 
   // Occupant/Notes modal state — one editor at a time.
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+
 
   return (
     <div className="luxe-card rounded-xl p-5">
@@ -1150,13 +1186,18 @@ function RoomManagementGrid({
             <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
               Room Management
             </DropdownMenuLabel>
-            <DropdownMenuItem disabled className="cursor-not-allowed opacity-60">
-              Add Room (coming soon)
+            <DropdownMenuItem
+              onClick={() => setAddOpen(true)}
+              disabled={!canEditRooms}
+              className="cursor-pointer"
+            >
+              <DoorOpen className="h-3.5 w-3.5 mr-2" /> Add Room
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onRevertAllCheckIns} className="cursor-pointer">
               <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert All Check-Ins
             </DropdownMenuItem>
+
             <DropdownMenuItem onClick={onRevertAllCheckOuts} className="cursor-pointer">
               <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert All Check-Outs
             </DropdownMenuItem>
@@ -1171,7 +1212,7 @@ function RoomManagementGrid({
       </div>
 
       <div className="space-y-2">
-        {items.map((item, index) => {
+        {activeItems.map((item, index) => {
           const active = activeAssignments.find((a) => a.item_id === item.id)
             ?? activeAssignments.find((a) => a.room_id === item.assigned_room_id);
           const room = rooms.find((r) => r.id === (active?.room_id ?? item.assigned_room_id));
@@ -1185,6 +1226,7 @@ function RoomManagementGrid({
 
           return (
             <div key={item.id} className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-1.5">
+
               {/* Header: guest name (or fallback) + status pill + ⋮ menu */}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -1232,11 +1274,28 @@ function RoomManagementGrid({
                         <DropdownMenuItem onClick={() => onMove(item.id, active!.id)} className="cursor-pointer">
                           <DoorOpen className="h-3.5 w-3.5 mr-2" /> Move Room
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onRemove(item.id, active!.id)} className="cursor-pointer text-destructive focus:text-destructive">
-                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Remove Room
+                        <DropdownMenuItem onClick={() => onUnassign(item.id, active!.id)} className="cursor-pointer">
+                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Unassign Room
                         </DropdownMenuItem>
                       </>
                     )}
+                    {itemCanOperate && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          const reason = window.prompt(
+                            `Remove this room from the booking?\n\nHistorical occupancy is preserved and this room's remaining nights will be dropped from the booking total.\n\nReason (optional):`,
+                            "",
+                          );
+                          // Cancel = null; empty string = confirmed with no reason
+                          if (reason === null) return;
+                          onRemoveItem(item.id, reason.trim() || null);
+                        }}
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Remove Room from Booking
+                      </DropdownMenuItem>
+                    )}
+
                     {itemCanOperate && hasRoom && status !== "Checked-In" && (
                       <DropdownMenuItem onClick={() => onItemCheckIn(item.id)} className="cursor-pointer">
                         <LogIn className="h-3.5 w-3.5 mr-2" /> Check-In
@@ -1301,6 +1360,33 @@ function RoomManagementGrid({
         })}
       </div>
 
+      {removedItems.length > 0 && (
+        <div className="mt-3 border-t border-border pt-2 space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Removed Rooms</div>
+          {removedItems.map((item: any, idx: number) => {
+            const guestTitle = displayNameForItem(item, idx, false);
+            const removedOn = item.removed_at ? new Date(item.removed_at).toLocaleDateString("en-IN") : null;
+            return (
+              <div key={item.id} className="rounded-md border border-dashed border-border/60 bg-muted/10 px-3 py-2 opacity-70">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {guestTitle}
+                      <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">Removed</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">{item.room_type}</div>
+                    {item.removed_reason && (
+                      <div className="text-[11px] text-muted-foreground italic">Reason: {item.removed_reason}</div>
+                    )}
+                  </div>
+                  {removedOn && <div className="text-[10.5px] text-muted-foreground shrink-0">{removedOn}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {latestActivities.length > 0 && (
         <div className="mt-3 border-t border-border pt-2 space-y-1">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Room Operations Audit</div>
@@ -1320,9 +1406,158 @@ function RoomManagementGrid({
         onSaveOccupant={onSaveOccupant}
         onSaveNotes={onSaveNotes}
       />
+
+      <AddRoomDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        booking={booking}
+        businessDate={businessDate}
+        onConfirm={(payload) => { onAddRoom(payload); setAddOpen(false); }}
+      />
     </div>
   );
 }
+
+/**
+ * Slice B — Add Room dialog. Creates an independent operational room on an
+ * existing booking, effective from a business date through booking check_out.
+ * Optionally accepts a specific physical room; otherwise the new item is
+ * created as Unassigned and Reception can assign a room via the row menu.
+ */
+function AddRoomDialog({
+  open,
+  onOpenChange,
+  booking,
+  businessDate,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  booking: any;
+  businessDate: string | null;
+  onConfirm: (payload: {
+    room_type: string;
+    roomId?: string | null;
+    effectiveDate: string;
+    nightlyRate: number;
+    occupantName?: string | null;
+    occupantPhone?: string | null;
+  }) => void;
+}) {
+  const defaultDate = (() => {
+    const bd = businessDate ?? toLocalYMD();
+    // Clamp between check_in and (check_out - 1 day).
+    if (bd < booking.check_in) return booking.check_in;
+    if (bd >= booking.check_out) return booking.check_in;
+    return bd;
+  })();
+  const [roomType, setRoomType] = useState<string>("Oak Room");
+  const [effectiveDate, setEffectiveDate] = useState<string>(defaultDate);
+  const [rate, setRate] = useState<string>("");
+  const [occupantName, setOccupantName] = useState("");
+  const [occupantPhone, setOccupantPhone] = useState("");
+  const seededRef = useRef<boolean>(false);
+  if (open && !seededRef.current) {
+    seededRef.current = true;
+    setRoomType("Oak Room");
+    setEffectiveDate(defaultDate);
+    setRate("");
+    setOccupantName("");
+    setOccupantPhone("");
+  }
+  if (!open && seededRef.current) seededRef.current = false;
+
+  const submit = () => {
+    const nightly = Number(rate);
+    if (!Number.isFinite(nightly) || nightly <= 0) {
+      toast.error("Enter a nightly rate.");
+      return;
+    }
+    if (effectiveDate < booking.check_in) {
+      toast.error("Effective date is before check-in.");
+      return;
+    }
+    if (effectiveDate >= booking.check_out) {
+      toast.error("Effective date must be before check-out.");
+      return;
+    }
+    onConfirm({
+      room_type: roomType,
+      effectiveDate,
+      nightlyRate: nightly,
+      occupantName: occupantName.trim() || null,
+      occupantPhone: occupantPhone.trim() || null,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Room to Booking</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Room Type</span>
+            <input
+              value={roomType} onChange={(e) => setRoomType(e.target.value)}
+              placeholder="Oak Room"
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Effective Date</span>
+              <input
+                type="date" value={effectiveDate}
+                min={booking.check_in} max={booking.check_out}
+                onChange={(e) => setEffectiveDate(e.target.value)}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Nightly Rate (₹)</span>
+              <input
+                type="number" inputMode="decimal" value={rate}
+                onChange={(e) => setRate(e.target.value)}
+                placeholder="0"
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Occupant Name (optional)</span>
+            <input
+              value={occupantName} onChange={(e) => setOccupantName(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Occupant Phone (optional)</span>
+            <input
+              value={occupantPhone} onChange={(e) => setOccupantPhone(e.target.value)}
+              placeholder="+91 …"
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="text-[11px] text-muted-foreground">
+            The room will be added as Unassigned. Assign a physical room from the row menu after saving.
+          </div>
+        </div>
+        <DialogFooter>
+          <button onClick={() => onOpenChange(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
+          <button
+            onClick={submit}
+            className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal"
+          >
+            Add Room
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 /**
  * Modal editor for a Booking Item's Primary Occupant + Operational Notes.

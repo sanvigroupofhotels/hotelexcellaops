@@ -276,6 +276,7 @@ export type Database = {
       }
       booking_items: {
         Row: {
+          added_during_stay: boolean
           adults: number
           assigned_room_id: string | null
           booking_id: string
@@ -303,12 +304,15 @@ export type Database = {
           primary_occupant_name: string | null
           primary_phone: string | null
           rate: number
+          removed_at: string | null
+          removed_reason: string | null
           room_type: string
           rooms: number
           subtotal: number
           updated_at: string
         }
         Insert: {
+          added_during_stay?: boolean
           adults?: number
           assigned_room_id?: string | null
           booking_id: string
@@ -336,12 +340,15 @@ export type Database = {
           primary_occupant_name?: string | null
           primary_phone?: string | null
           rate?: number
+          removed_at?: string | null
+          removed_reason?: string | null
           room_type?: string
           rooms?: number
           subtotal?: number
           updated_at?: string
         }
         Update: {
+          added_during_stay?: boolean
           adults?: number
           assigned_room_id?: string | null
           booking_id?: string
@@ -369,6 +376,8 @@ export type Database = {
           primary_occupant_name?: string | null
           primary_phone?: string | null
           rate?: number
+          removed_at?: string | null
+          removed_reason?: string | null
           room_type?: string
           rooms?: number
           subtotal?: number
@@ -4328,6 +4337,7 @@ export type Database = {
         | "Checked-Out"
         | "Cancelled"
         | "No-Show"
+        | "Removed"
       booking_status:
         | "Draft"
         | "Confirmed"
@@ -4533,6 +4543,7 @@ export const Constants = {
         "Checked-Out",
         "Cancelled",
         "No-Show",
+        "Removed",
       ],
       booking_status: [
         "Draft",

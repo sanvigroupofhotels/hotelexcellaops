@@ -30,7 +30,10 @@ export interface BookingItemRow {
   assigned_room_id?: string | null;
   primary_occupant_name?: string | null;
   primary_phone?: string | null;
-  item_status?: "Confirmed" | "Checked-In" | "Checked-Out" | "Cancelled" | "No-Show";
+  item_status?: "Confirmed" | "Checked-In" | "Checked-Out" | "Cancelled" | "No-Show" | "Removed";
+  removed_at?: string | null;
+  removed_reason?: string | null;
+  added_during_stay?: boolean;
   checked_in_at?: string | null;
   checked_out_at?: string | null;
   created_at: string;
