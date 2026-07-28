@@ -1360,6 +1360,33 @@ function RoomManagementGrid({
         })}
       </div>
 
+      {removedItems.length > 0 && (
+        <div className="mt-3 border-t border-border pt-2 space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Removed Rooms</div>
+          {removedItems.map((item: any, idx: number) => {
+            const guestTitle = displayNameForItem(item, idx, false);
+            const removedOn = item.removed_at ? new Date(item.removed_at).toLocaleDateString("en-IN") : null;
+            return (
+              <div key={item.id} className="rounded-md border border-dashed border-border/60 bg-muted/10 px-3 py-2 opacity-70">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {guestTitle}
+                      <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">Removed</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">{item.room_type}</div>
+                    {item.removed_reason && (
+                      <div className="text-[11px] text-muted-foreground italic">Reason: {item.removed_reason}</div>
+                    )}
+                  </div>
+                  {removedOn && <div className="text-[10.5px] text-muted-foreground shrink-0">{removedOn}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {latestActivities.length > 0 && (
         <div className="mt-3 border-t border-border pt-2 space-y-1">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Room Operations Audit</div>
@@ -1379,9 +1406,158 @@ function RoomManagementGrid({
         onSaveOccupant={onSaveOccupant}
         onSaveNotes={onSaveNotes}
       />
+
+      <AddRoomDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        booking={booking}
+        businessDate={businessDate}
+        onConfirm={(payload) => { onAddRoom(payload); setAddOpen(false); }}
+      />
     </div>
   );
 }
+
+/**
+ * Slice B — Add Room dialog. Creates an independent operational room on an
+ * existing booking, effective from a business date through booking check_out.
+ * Optionally accepts a specific physical room; otherwise the new item is
+ * created as Unassigned and Reception can assign a room via the row menu.
+ */
+function AddRoomDialog({
+  open,
+  onOpenChange,
+  booking,
+  businessDate,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  booking: any;
+  businessDate: string | null;
+  onConfirm: (payload: {
+    room_type: string;
+    roomId?: string | null;
+    effectiveDate: string;
+    nightlyRate: number;
+    occupantName?: string | null;
+    occupantPhone?: string | null;
+  }) => void;
+}) {
+  const defaultDate = (() => {
+    const bd = businessDate ?? toLocalYMD();
+    // Clamp between check_in and (check_out - 1 day).
+    if (bd < booking.check_in) return booking.check_in;
+    if (bd >= booking.check_out) return booking.check_in;
+    return bd;
+  })();
+  const [roomType, setRoomType] = useState<string>("Oak Room");
+  const [effectiveDate, setEffectiveDate] = useState<string>(defaultDate);
+  const [rate, setRate] = useState<string>("");
+  const [occupantName, setOccupantName] = useState("");
+  const [occupantPhone, setOccupantPhone] = useState("");
+  const seededRef = useRef<boolean>(false);
+  if (open && !seededRef.current) {
+    seededRef.current = true;
+    setRoomType("Oak Room");
+    setEffectiveDate(defaultDate);
+    setRate("");
+    setOccupantName("");
+    setOccupantPhone("");
+  }
+  if (!open && seededRef.current) seededRef.current = false;
+
+  const submit = () => {
+    const nightly = Number(rate);
+    if (!Number.isFinite(nightly) || nightly <= 0) {
+      toast.error("Enter a nightly rate.");
+      return;
+    }
+    if (effectiveDate < booking.check_in) {
+      toast.error("Effective date is before check-in.");
+      return;
+    }
+    if (effectiveDate >= booking.check_out) {
+      toast.error("Effective date must be before check-out.");
+      return;
+    }
+    onConfirm({
+      room_type: roomType,
+      effectiveDate,
+      nightlyRate: nightly,
+      occupantName: occupantName.trim() || null,
+      occupantPhone: occupantPhone.trim() || null,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Room to Booking</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Room Type</span>
+            <input
+              value={roomType} onChange={(e) => setRoomType(e.target.value)}
+              placeholder="Oak Room"
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Effective Date</span>
+              <input
+                type="date" value={effectiveDate}
+                min={booking.check_in} max={booking.check_out}
+                onChange={(e) => setEffectiveDate(e.target.value)}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Nightly Rate (₹)</span>
+              <input
+                type="number" inputMode="decimal" value={rate}
+                onChange={(e) => setRate(e.target.value)}
+                placeholder="0"
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Occupant Name (optional)</span>
+            <input
+              value={occupantName} onChange={(e) => setOccupantName(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Occupant Phone (optional)</span>
+            <input
+              value={occupantPhone} onChange={(e) => setOccupantPhone(e.target.value)}
+              placeholder="+91 …"
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="text-[11px] text-muted-foreground">
+            The room will be added as Unassigned. Assign a physical room from the row menu after saving.
+          </div>
+        </div>
+        <DialogFooter>
+          <button onClick={() => onOpenChange(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
+          <button
+            onClick={submit}
+            className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal"
+          >
+            Add Room
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 /**
  * Modal editor for a Booking Item's Primary Occupant + Operational Notes.
