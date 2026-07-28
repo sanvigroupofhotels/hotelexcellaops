@@ -1207,7 +1207,7 @@ function RoomManagementGrid({
       </div>
 
       <div className="space-y-2">
-        {items.map((item, index) => {
+        {activeItems.map((item, index) => {
           const active = activeAssignments.find((a) => a.item_id === item.id)
             ?? activeAssignments.find((a) => a.room_id === item.assigned_room_id);
           const room = rooms.find((r) => r.id === (active?.room_id ?? item.assigned_room_id));
@@ -1221,6 +1221,7 @@ function RoomManagementGrid({
 
           return (
             <div key={item.id} className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-1.5">
+
               {/* Header: guest name (or fallback) + status pill + ⋮ menu */}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
