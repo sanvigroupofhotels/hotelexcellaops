@@ -365,8 +365,19 @@ function BookingDetail() {
   });
   const itemRemoveRoom = useMutation({
     mutationFn: (input: { itemId: string; assignmentId: string }) => removeRoomFromBookingItem(input),
-    onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room removed from item"); },
+    onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room unassigned from item"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not unassign room"),
+  });
+  // Slice B: retire an operational room (item) — closes segment + marks Removed.
+  const itemRemove = useMutation({
+    mutationFn: (input: { itemId: string; reason?: string | null }) => removeBookingItem(input),
+    onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room removed from booking"); },
     onError: (e: any) => toast.error(e?.message ?? "Could not remove room"),
+  });
+  const itemAdd = useMutation({
+    mutationFn: (input: Parameters<typeof addBookingItemDuringStay>[0]) => addBookingItemDuringStay(input),
+    onSuccess: () => { invalidateAll(); refetchAssignments(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room added to booking"); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not add room"),
   });
   const itemRevertCheckIn = useMutation({
     mutationFn: (itemId: string) => revertItemCheckIn(itemId),
