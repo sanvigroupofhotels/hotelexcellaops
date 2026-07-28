@@ -35,9 +35,11 @@ export async function recomputeBookingAmount(bookingId: string): Promise<{
     if (!b) return null;
 
     const rows = await listBookingItems(bookingId);
-    if (!rows || rows.length === 0) return null;
+    // Slice B: Removed items retain history but contribute no revenue.
+    const activeRows = (rows ?? []).filter((r) => (r.item_status ?? "") !== "Removed");
+    if (activeRows.length === 0) return null;
 
-    const items = rows.map(rowToLineItem);
+    const items = activeRows.map(rowToLineItem);
     const taxRate = Number((b as any).tax_rate ?? DEFAULT_TAX_RATE) || DEFAULT_TAX_RATE;
     const discount = Number((b as any).discount ?? 0) || 0;
     const totalOverride =
