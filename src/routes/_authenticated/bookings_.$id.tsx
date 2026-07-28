@@ -350,7 +350,14 @@ function BookingDetail() {
     onError: (e: any) => toast.error(e?.message ?? "Could not check in room item"),
   });
   const itemCheckOut = useMutation({
-    mutationFn: (itemId: string) => checkOutBookingItem(itemId),
+    // Shared Checkout Validation Service enforces balance-due gate. Admins can
+    // still bypass via the booking-level override dialog for now; per-item
+    // override UI can layer on later without touching the API surface.
+    mutationFn: (input: string | { itemId: string; allowOverride?: boolean }) => {
+      const itemId = typeof input === "string" ? input : input.itemId;
+      const allowOverride = typeof input === "string" ? false : !!input.allowOverride;
+      return checkOutBookingItem(itemId, { allowOverride });
+    },
     onSuccess: () => { invalidateAll(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room item checked out"); },
     onError: (e: any) => toast.error(e?.message ?? "Could not check out room item"),
   });

@@ -21,7 +21,8 @@ import { useChargeCategories } from "@/hooks/use-charge-categories";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { useUserRole } from "@/hooks/use-role";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { groupStayAssignments, groupStayItems, pairStaySlotsToRooms, segmentCoversDate } from "@/lib/stay-segments";
+import { groupStayAssignments, groupStayItems } from "@/lib/stay-segments";
+import { useInHouseItems } from "@/lib/in-house";
 import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
 
 import {
@@ -105,24 +106,29 @@ function HomePage() {
   const todayKey = today;
   const itemsByBooking = useMemo(() => groupStayItems(allItems as any[]), [allItems]);
   const assignmentsByBooking = useMemo(() => groupStayAssignments(allAssignments as any[]), [allAssignments]);
+  // Shared "Currently In-House" query — single source of truth used by every
+  // in-house consumer (Add Charge / Add Payment / Check-Out pickers here,
+  // House View filters, and future modules). Do NOT reintroduce a bespoke
+  // filter in this file.
+  const { data: inHouseItems = [] } = useInHouseItems();
   const inHouseRooms = useMemo<InHouseRoomOption[]>(() => {
-    return bookings
-      .filter((b) => b.status === "Checked-In")
-      .flatMap((booking) => {
-        const { paired } = pairStaySlotsToRooms(booking as any, itemsByBooking, assignmentsByBooking, rooms as any[]);
-        return paired
-          .filter(({ slot }) => segmentCoversDate(slot, todayKey))
-          .map(({ room_id }) => {
-            const room = (rooms as any[]).find((r) => r.id === room_id);
-            const charges = Number((chargeTotals as any)[booking.id] ?? 0);
-            const total = Number(booking.amount) + charges;
-            const paid = Number(booking.advance_paid ?? 0);
-            const due = Math.max(0, total - paid);
-            return { roomId: room_id, roomNumber: room?.room_number ?? "—", booking, total, paid, due };
-          });
+    return inHouseItems
+      .map((h) => {
+        const booking = bookings.find((b) => b.id === h.bookingId) ?? h.booking;
+        const charges = Number((chargeTotals as any)[h.bookingId] ?? 0);
+        const total = Number(booking?.amount ?? 0) + charges;
+        const paid = Number(booking?.advance_paid ?? 0);
+        const due = Math.max(0, total - paid);
+        return {
+          roomId: h.roomId ?? "",
+          roomNumber: h.roomNumber ?? "—",
+          booking,
+          total, paid, due,
+        };
       })
+      .filter((r) => !!r.booking)
       .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true }));
-  }, [bookings, itemsByBooking, assignmentsByBooking, rooms, chargeTotals, todayKey]);
+  }, [inHouseItems, bookings, chargeTotals]);
 
   const active = bookings.filter((b) => b.status !== "Cancelled" && b.status !== "No-Show");
   // Occupied rooms: shared helper — distinct PHYSICAL rooms covered today by
