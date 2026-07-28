@@ -445,3 +445,188 @@ export async function moveBookingItemRoom(input: {
 
   await splitAssignment(item.booking_id, active.id, input.newRoomId, input.effectiveDate ?? null);
 }
+
+/**
+ * Slice B — Add Room during stay.
+ *
+ * Creates a completely independent operational room (Booking Item) on an
+ * existing booking, effective from a given business date through the
+ * booking's check_out. Historical items/segments are never touched; pricing
+ * for existing rooms is preserved (only the new item contributes revenue).
+ * Optionally assigns a physical room in the same call.
+ */
+export async function addBookingItemDuringStay(input: {
+  bookingId: string;
+  room_type: string;
+  roomId?: string | null;
+  effectiveDate: string;         // YYYY-MM-DD, inclusive
+  nightlyRate: number;
+  occupantName?: string | null;
+  occupantPhone?: string | null;
+  adults?: number;
+  children?: number;
+  breakfast_included?: boolean;
+}): Promise<{ itemId: string }> {
+  const { data: b, error: bErr } = await supabase
+    .from("bookings" as any)
+    .select("id, check_in, check_out")
+    .eq("id", input.bookingId)
+    .maybeSingle();
+  if (bErr) throw bErr;
+  if (!b) throw new Error("Booking not found");
+  const bk = b as any;
+  if (input.effectiveDate < bk.check_in) throw new Error("Effective date cannot be before check-in.");
+  if (input.effectiveDate >= bk.check_out) throw new Error("Effective date must be before check-out.");
+
+  // Nights from effectiveDate → booking.check_out
+  const nights = Math.max(
+    1,
+    Math.round(
+      (new Date(bk.check_out + "T00:00:00").getTime() -
+        new Date(input.effectiveDate + "T00:00:00").getTime()) /
+        86400000,
+    ),
+  );
+  const rate = Number(input.nightlyRate);
+  const subtotal = rate * nights;
+
+  const { data: maxRow } = await supabase
+    .from("booking_items" as any)
+    .select("position")
+    .eq("booking_id", input.bookingId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const position = ((maxRow as any)?.position ?? -1) + 1;
+
+  const { data: inserted, error: insErr } = await supabase
+    .from("booking_items" as any)
+    .insert({
+      booking_id: input.bookingId,
+      position,
+      room_type: input.room_type,
+      rooms: 1,
+      adults: input.adults ?? 1,
+      children: input.children ?? 0,
+      check_in: input.effectiveDate,
+      check_out: bk.check_out,
+      breakfast_included: input.breakfast_included ?? false,
+      extra_bed: 0,
+      rate,
+      subtotal,
+      early_check_in: false,
+      late_check_out: false,
+      pet_size: "none",
+      extra_adults: 0,
+      drivers: 0,
+      item_status: "Confirmed",
+      added_during_stay: true,
+      primary_occupant_name: input.occupantName?.trim() || null,
+      primary_phone: input.occupantPhone?.trim() || null,
+    } as any)
+    .select("id")
+    .single();
+  if (insErr) throw insErr;
+  const itemId = (inserted as any).id as string;
+
+  // Optionally assign a physical room right away.
+  if (input.roomId) {
+    const { addAssignment } = await import("@/lib/booking-room-assignments-api");
+    await addAssignment(input.bookingId, input.roomId, {
+      start_date: input.effectiveDate,
+      end_date: bk.check_out,
+      item_id: itemId,
+    });
+  }
+
+  // Recompute booking totals so the new item's revenue is reflected.
+  try {
+    const { recomputeBookingAmount } = await import("@/lib/booking-pricing-sync");
+    await recomputeBookingAmount(input.bookingId);
+  } catch { /* non-blocking */ }
+
+  await logItemActivity({
+    item_id: itemId,
+    booking_id: input.bookingId,
+    action: "item_added_during_stay",
+    field: "item_status",
+    old_value: null,
+    new_value: "Confirmed",
+    summary: `Room added mid-stay (${input.room_type}, ${nights} night${nights === 1 ? "" : "s"})`,
+    metadata: {
+      effective_date: input.effectiveDate,
+      nightly_rate: rate,
+      room_id: input.roomId ?? null,
+    },
+  });
+
+  return { itemId };
+}
+
+/**
+ * Slice B — Remove Room from booking (retire operational room).
+ *
+ * Marks the Booking Item as `Removed`, closes any active occupancy segment
+ * on the business date (never rewrites history), fires the HK release hook,
+ * and recomputes booking totals so the removed room contributes no revenue
+ * for remaining nights. Historical segments and the item row are preserved
+ * for audit — the item simply becomes inactive.
+ */
+export async function removeBookingItem(input: { itemId: string; reason?: string | null }) {
+  const item = await getItem(input.itemId);
+  if ((item.item_status ?? "") === "Removed") return;
+
+  const businessDate = await getBusinessDate();
+
+  // Close any active segment for this item on the business date.
+  const { data: activeSegs } = await supabase
+    .from("booking_room_assignments" as any)
+    .select("id, room_id, start_date, end_date")
+    .eq("item_id", input.itemId)
+    .lte("start_date", businessDate)
+    .gt("end_date", businessDate);
+  const active = ((activeSegs ?? []) as any[])[0];
+  let vacatedRoomId: string | null = null;
+  if (active) {
+    await closeAssignmentSegment(active, "item_removed");
+    vacatedRoomId = active.room_id;
+  }
+
+  const previous = item.item_status ?? "Confirmed";
+  const { error } = await supabase
+    .from("booking_items" as any)
+    .update({
+      item_status: "Removed",
+      assigned_room_id: null,
+      removed_at: new Date().toISOString(),
+      removed_reason: (input.reason ?? "").trim() || null,
+    } as any)
+    .eq("id", input.itemId);
+  if (error) throw error;
+
+  // Housekeeping release for the vacated room.
+  if (vacatedRoomId) {
+    try {
+      const { onBookingItemCheckedOut } = await import("@/lib/hk-checkout-hook");
+      await onBookingItemCheckedOut(item.booking_id, input.itemId, vacatedRoomId);
+    } catch { /* non-blocking */ }
+  }
+
+  // Recompute booking totals so the remaining nights of the removed item are
+  // dropped from `bookings.amount` / subtotal / taxes.
+  try {
+    const { recomputeBookingAmount } = await import("@/lib/booking-pricing-sync");
+    await recomputeBookingAmount(item.booking_id);
+  } catch { /* non-blocking */ }
+
+  await logItemActivity({
+    item_id: input.itemId,
+    booking_id: item.booking_id,
+    action: "item_removed",
+    field: "item_status",
+    old_value: previous,
+    new_value: "Removed",
+    summary: input.reason ? `Room removed — ${input.reason}` : "Room removed",
+    metadata: { vacated_room_id: vacatedRoomId },
+  });
+}
