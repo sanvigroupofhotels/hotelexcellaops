@@ -1269,11 +1269,28 @@ function RoomManagementGrid({
                         <DropdownMenuItem onClick={() => onMove(item.id, active!.id)} className="cursor-pointer">
                           <DoorOpen className="h-3.5 w-3.5 mr-2" /> Move Room
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onRemove(item.id, active!.id)} className="cursor-pointer text-destructive focus:text-destructive">
-                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Remove Room
+                        <DropdownMenuItem onClick={() => onUnassign(item.id, active!.id)} className="cursor-pointer">
+                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Unassign Room
                         </DropdownMenuItem>
                       </>
                     )}
+                    {itemCanOperate && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          const reason = window.prompt(
+                            `Remove this room from the booking?\n\nHistorical occupancy is preserved and this room's remaining nights will be dropped from the booking total.\n\nReason (optional):`,
+                            "",
+                          );
+                          // Cancel = null; empty string = confirmed with no reason
+                          if (reason === null) return;
+                          onRemoveItem(item.id, reason.trim() || null);
+                        }}
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Remove Room from Booking
+                      </DropdownMenuItem>
+                    )}
+
                     {itemCanOperate && hasRoom && status !== "Checked-In" && (
                       <DropdownMenuItem onClick={() => onItemCheckIn(item.id)} className="cursor-pointer">
                         <LogIn className="h-3.5 w-3.5 mr-2" /> Check-In
