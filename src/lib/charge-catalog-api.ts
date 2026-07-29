@@ -1,5 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * `application_mode` — controls how the shared Add-Charge workflow behaves
+ * for multi-room bookings:
+ *   • per_room    → one charge is posted per selected operational room
+ *                   (Early Check-In, Extra Bed, Cleaning Fee, …).
+ *   • per_booking → a single booking-level charge, regardless of room count
+ *                   (Airport Transfer, Booking Fee, …).
+ */
+export type ChargeApplicationMode = "per_room" | "per_booking";
+
 export interface ChargeCatalogRow {
   id: string;
   key: string;
@@ -10,6 +20,7 @@ export interface ChargeCatalogRow {
   active: boolean;
   inventory_item_id: string | null;
   auto_consume_qty: number;
+  application_mode: ChargeApplicationMode;
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +34,7 @@ export interface ChargeCatalogInput {
   active?: boolean;
   inventory_item_id?: string | null;
   auto_consume_qty?: number;
+  application_mode?: ChargeApplicationMode;
 }
 
 function slugify(s: string) {

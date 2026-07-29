@@ -60,7 +60,12 @@ function Inner() {
                   {!r.active && <span className="text-[10px] text-muted-foreground ml-1">(inactive)</span>}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  key: {r.key} · sort {r.sort_order}{r.taxable && " · taxable"}
+                  key: {r.key} · sort {r.sort_order}
+                  {" · "}
+                  <span className={r.application_mode === "per_room" ? "text-gold" : ""}>
+                    {r.application_mode === "per_room" ? "per room" : "per booking"}
+                  </span>
+                  {r.taxable && " · taxable"}
                   {r.inventory_item_id && ` · deducts ${Number(r.auto_consume_qty || 1)} / unit`}
                 </div>
               </div>
@@ -88,6 +93,7 @@ function CatalogDialog({ row, onClose }: { row?: ChargeCatalogRow; onClose: () =
   const [sort, setSort] = useState(String(row?.sort_order ?? 100));
   const [taxable, setTaxable] = useState(row?.taxable ?? false);
   const [active, setActive] = useState(row?.active ?? true);
+  const [mode, setMode] = useState<"per_room" | "per_booking">(row?.application_mode ?? "per_booking");
   const [invItemId, setInvItemId] = useState<string>(row?.inventory_item_id ?? "");
   const [autoQty, setAutoQty] = useState(String(row?.auto_consume_qty ?? 1));
   const { data: items = [] } = useQuery({ queryKey: ["inventory-items", "active"], queryFn: () => listInventoryItems({ activeOnly: true }) });
@@ -98,6 +104,7 @@ function CatalogDialog({ row, onClose }: { row?: ChargeCatalogRow; onClose: () =
         key: key || label.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
         label, default_price: Number(price) || 0, sort_order: Number(sort) || 100,
         taxable, active,
+        application_mode: mode,
         inventory_item_id: invItemId || null,
         auto_consume_qty: invItemId ? Math.max(Number(autoQty) || 1, 0.0001) : 1,
       };
@@ -134,6 +141,16 @@ function CatalogDialog({ row, onClose }: { row?: ChargeCatalogRow; onClose: () =
               <input className={inputCls} type="number" value={price} onChange={(e) => setPrice(e.target.value)} /></div>
             <div><div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Sort</div>
               <input className={inputCls} type="number" value={sort} onChange={(e) => setSort(e.target.value)} /></div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Application Mode</div>
+            <select className={inputCls} value={mode} onChange={(e) => setMode(e.target.value as any)}>
+              <option value="per_booking">Per Booking — single charge regardless of room count</option>
+              <option value="per_room">Per Room — one charge per selected operational room</option>
+            </select>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Per-room charges (e.g. Early Check-In, Extra Bed) automatically fan out across all selected rooms in a multi-room booking, attributing one line to each room.
+            </p>
           </div>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Taxable</label>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active</label>

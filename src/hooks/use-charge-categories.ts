@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { listChargeCatalog, type ChargeCatalogRow } from "@/lib/charge-catalog-api";
+import { listChargeCatalog, type ChargeCatalogRow, type ChargeApplicationMode } from "@/lib/charge-catalog-api";
 
 const FALLBACK = [
   "Water Bottle", "Soft Drinks", "Food Order", "Laundry", "Extra Bed",
@@ -9,13 +9,23 @@ const FALLBACK = [
 ];
 
 /**
+ * Labels that default to `per_room` when the catalog row does not have an
+ * explicit application_mode configured (e.g. free-text "Other" or fallback
+ * seed entries used before an admin curates the catalog).
+ */
+const PER_ROOM_HEURISTIC = new Set(
+  ["early check-in", "early check in", "late check-out", "late check out",
+   "extra bed", "extra adult", "extra pet", "extra person", "cleaning fee"]
+);
+
+/**
  * Single source of truth for guest-chargeable item labels.
  * Reads from `charge_catalog` (Operations → Charge Catalog).
- * The free-text "Other" entry is preserved as the escape hatch and is
- * always appended last if not already present in the catalog.
  *
- * Returns string labels to remain backward-compatible with existing
- * `booking_charges.category` rows and reports.
+ * Returns:
+ *  • `values`   — display labels (backward-compatible with existing rows/reports).
+ *  • `modeFor`  — lookup that returns the configured application_mode for a
+ *                 given label; falls back to a heuristic then `per_booking`.
  */
 export function useChargeCategories(fallback: string[] = FALLBACK) {
   const q = useQuery({
@@ -29,5 +39,10 @@ export function useChargeCategories(fallback: string[] = FALLBACK) {
   if (!values.some((v) => v.toLowerCase() === "other")) {
     values = [...values, "Other"];
   }
-  return { values, rows, isLoading: q.isLoading };
+  const modeFor = (label: string): ChargeApplicationMode => {
+    const row = rows.find((r) => r.label.toLowerCase() === label.toLowerCase());
+    if (row?.application_mode) return row.application_mode;
+    return PER_ROOM_HEURISTIC.has(label.toLowerCase()) ? "per_room" : "per_booking";
+  };
+  return { values, rows, modeFor, isLoading: q.isLoading };
 }

@@ -219,6 +219,9 @@ export function ChargeFormDialog({
   // Auto-attribution: the signed-in staff member is the source of truth for
   // "Added By". No manual picker — one staff cannot post charges under another.
   const currentStaff = useCurrentStaff();
+  // Application-mode lookup drives per-room fan-out for the shared charge
+  // workflow (Early Check-In × N rooms vs single Airport Transfer).
+  const { modeFor } = useChargeCategories();
   const [category, setCategory] = useState(editing?.category ?? categories[0] ?? "Food Order");
   const [otherDesc, setOtherDesc] = useState(editing?.other_description ?? "");
   const [quantity, setQuantity] = useState<number>(editing?.quantity ?? 1);
@@ -226,16 +229,35 @@ export function ChargeFormDialog({
 
   // Multi-room aware "Charge To" behaviour.
   //   • Single-room booking → Charge-To is hidden and the sole item is
-  //     auto-attributed. Booking-level default is never used.
-  //   • Multi-room booking → "Charge To *" is mandatory; the receptionist
-  //     must explicitly pick the operational room being charged.
+  //     auto-attributed.
+  //   • Multi-room + per_booking category → hidden, stored booking-level.
+  //   • Multi-room + per_room category → checkbox list (default all rooms
+  //     selected). One charge line is created per selected room, attributed
+  //     to the corresponding booking_item.
   const isSingleRoom = items.length === 1;
   const isMultiRoom = items.length > 1;
+  const applicationMode = modeFor(category);
+  const isPerRoom = applicationMode === "per_room";
+  const isEditing = !!editing;
+
+  // Single-room "Charge To" (kept for per_booking & Other in multi-room).
   const [itemId, setItemId] = useState<string | null>(
     editing?.item_id
       ?? defaultItemId
       ?? (isSingleRoom ? (items[0]?.id ?? null) : null),
   );
+
+  // Per-room fan-out selection (multi-room + per_room, new charge only).
+  // Default: every room selected. Editing an existing charge stays scoped
+  // to the single line being edited.
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() => {
+    if (isEditing) return editing?.item_id ? [editing.item_id] : [];
+    if (defaultItemId) return [defaultItemId];
+    return items.map((it: any) => it.id);
+  });
+  const toggleItem = (id: string) =>
+    setSelectedItemIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
   const addedBy = editing?.added_by ?? currentStaff.name;
   const [occurredAt, setOccurredAt] = useState<string>(
@@ -243,13 +265,20 @@ export function ChargeFormDialog({
   );
   const [notes, setNotes] = useState(editing?.notes ?? "");
 
-  const amount = Number((quantity * unitPrice).toFixed(2));
-  const chargeToMissing = isMultiRoom && !itemId;
+  const lineAmount = Number((quantity * unitPrice).toFixed(2));
+  // Multi-room per-room fan-out multiplies the line by number of selected rooms
+  // in the preview total ONLY (each posted row still shows Qty × Unit).
+  const fanOutRooms = !isEditing && isMultiRoom && isPerRoom ? selectedItemIds.length : 1;
+  const previewTotal = Number((lineAmount * Math.max(fanOutRooms, 1)).toFixed(2));
+
+  const chargeToMissing =
+    isMultiRoom && !isPerRoom && !itemId; // per_booking still requires nothing (booking-level)
+  const perRoomMissing =
+    !isEditing && isMultiRoom && isPerRoom && selectedItemIds.length === 0;
 
   const mut = useMutation({
     mutationFn: async () => {
-      if (chargeToMissing) throw new Error("Please select which room this charge is for.");
-      const payload = {
+      const base = {
         booking_id: bookingId,
         category,
         other_description: category === "Other" ? otherDesc : null,
@@ -257,14 +286,33 @@ export function ChargeFormDialog({
         added_by: addedBy || null,
         occurred_at: new Date(occurredAt).toISOString(),
         notes: notes || null,
-        item_id: itemId,
       };
-      if (editing) return updateBookingCharge(editing.id, payload);
-      return createBookingCharge(payload);
+      if (isEditing) {
+        return updateBookingCharge(editing!.id, { ...base, item_id: itemId });
+      }
+      // Per-room fan-out: one row per selected operational room.
+      if (isMultiRoom && isPerRoom) {
+        if (selectedItemIds.length === 0)
+          throw new Error("Select at least one room for this per-room charge.");
+        const results = [];
+        for (const iid of selectedItemIds) {
+          results.push(await createBookingCharge({ ...base, item_id: iid }));
+        }
+        return results;
+      }
+      // Per-booking (multi-room) → booking-level attribution.
+      // Single-room → auto-attributed to the sole item.
+      const resolvedItemId = isSingleRoom
+        ? (items[0]?.id ?? null)
+        : (isPerRoom ? null : null); // per_booking = booking-level
+      return createBookingCharge({ ...base, item_id: resolvedItemId });
     },
 
     onSuccess: async () => {
-      toast.success(editing ? "Charge updated" : "Charge added");
+      const created = !isEditing && isMultiRoom && isPerRoom
+        ? `${selectedItemIds.length} charges added`
+        : (isEditing ? "Charge updated" : "Charge added");
+      toast.success(created);
       // UAT-034: shared recalc engine keeps booking.amount / Balance Due /
       // House View pills in sync across every surface — no manual Save.
       await refreshAfterBookingMutation(qc, bookingId);
@@ -288,35 +336,19 @@ export function ChargeFormDialog({
           <DialogTitle>{editing ? "Edit Charge" : "Add In-House Charge"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          {isMultiRoom && (
-            <Field label="Charge To *">
-              <select
-                value={itemId ?? ""}
-                onChange={(e) => setItemId(e.target.value || null)}
-                className={`w-full bg-input/60 border rounded-md px-3 py-2 text-sm ${chargeToMissing ? "border-destructive" : "border-border"}`}
-              >
-                <option value="">Select room…</option>
-                {items.map((it: any, idx: number) => (
-                  <option key={it.id} value={it.id}>{itemOptionLabel(it, idx)}</option>
-                ))}
-              </select>
-              {chargeToMissing && (
-                <span className="mt-1 block text-[10.5px] text-destructive">
-                  Required — pick which room is being charged.
-                </span>
-              )}
-            </Field>
-          )}
-          {isSingleRoom && (
-            <div className="rounded-md border border-border bg-secondary/30 px-3 py-2 text-[11px] text-muted-foreground">
-              Charging: <span className="text-foreground font-medium">{itemOptionLabel(items[0], 0)}</span>
-            </div>
-          )}
+          {/* Category is picked first so per-room fan-out UI knows which mode to render. */}
           <Field label="Category *">
             <select value={category} onChange={(e) => setCategory(e.target.value)}
               className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm">
               {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
+            {isMultiRoom && !isEditing && (
+              <span className="mt-1 block text-[10.5px] text-muted-foreground">
+                {isPerRoom
+                  ? "Per-room charge — one line will be posted for each selected room."
+                  : "Per-booking charge — a single booking-level line will be posted."}
+              </span>
+            )}
           </Field>
           {category === "Other" && (
             <Field label="Description *">
@@ -325,11 +357,73 @@ export function ChargeFormDialog({
                 className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
             </Field>
           )}
+
+          {/* Multi-room + per_room + new charge → checkbox fan-out. */}
+          {isMultiRoom && isPerRoom && !isEditing && (
+            <Field label="Apply To Rooms *">
+              <div className={`rounded-md border ${perRoomMissing ? "border-destructive" : "border-border"} bg-input/40 divide-y divide-border/40`}>
+                <div className="flex items-center justify-between px-3 py-1.5 text-[10.5px] text-muted-foreground">
+                  <span>{selectedItemIds.length} of {items.length} rooms selected</span>
+                  <button type="button" className="hover:text-gold"
+                    onClick={() => setSelectedItemIds(
+                      selectedItemIds.length === items.length ? [] : items.map((it: any) => it.id))}>
+                    {selectedItemIds.length === items.length ? "Clear all" : "Select all"}
+                  </button>
+                </div>
+                {items.map((it: any, idx: number) => {
+                  const checked = selectedItemIds.includes(it.id);
+                  return (
+                    <label key={it.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-secondary/30">
+                      <input type="checkbox" checked={checked} onChange={() => toggleItem(it.id)} />
+                      <span className="flex-1 truncate">{itemOptionLabel(it, idx)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {perRoomMissing && (
+                <span className="mt-1 block text-[10.5px] text-destructive">
+                  Select at least one room.
+                </span>
+              )}
+            </Field>
+          )}
+
+          {/* Multi-room + per_booking OR editing a multi-room line → single select. */}
+          {isMultiRoom && (!isPerRoom || isEditing) && (
+            <Field label={isPerRoom ? "Charge To" : "Charge To (booking-level allowed)"}>
+              <select
+                value={itemId ?? ""}
+                onChange={(e) => setItemId(e.target.value || null)}
+                className={`w-full bg-input/60 border rounded-md px-3 py-2 text-sm ${chargeToMissing ? "border-destructive" : "border-border"}`}
+              >
+                <option value="">{isPerRoom ? "Select room…" : "Booking-level (no specific room)"}</option>
+                {items.map((it: any, idx: number) => (
+                  <option key={it.id} value={it.id}>{itemOptionLabel(it, idx)}</option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {isSingleRoom && (
+            <div className="rounded-md border border-border bg-secondary/30 px-3 py-2 text-[11px] text-muted-foreground">
+              Charging: <span className="text-foreground font-medium">{itemOptionLabel(items[0], 0)}</span>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <NumField label="Quantity *" value={quantity} min={0} decimal onChange={setQuantity} />
             <NumField label="Unit Price * (tax incl.)" value={unitPrice} min={0} decimal onChange={setUnitPrice} prefix="₹" />
           </div>
-          <div className="text-sm">Amount: <span className="font-medium text-gold">{inr(amount)}</span></div>
+          <div className="text-sm">
+            {fanOutRooms > 1 ? (
+              <>
+                Line: <span className="font-medium">{inr(lineAmount)}</span>
+                <span className="text-muted-foreground"> × {fanOutRooms} rooms</span>
+                {" = "}
+                <span className="font-medium text-gold">{inr(previewTotal)}</span>
+              </>
+            ) : (
+              <>Amount: <span className="font-medium text-gold">{inr(lineAmount)}</span></>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Added By">
               <div className="w-full bg-input/40 border border-border rounded-md px-3 py-2 text-sm text-muted-foreground">
@@ -358,12 +452,15 @@ export function ChargeFormDialog({
               || (category === "Other" && !otherDesc.trim())
               || !addedBy.trim()
               || chargeToMissing
+              || perRoomMissing
             }
             onClick={() => mut.mutate()}
             className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal disabled:opacity-50"
           >
             {mut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {editing ? "Update" : "Add"}
+            {editing
+              ? "Update"
+              : (fanOutRooms > 1 ? `Add ${fanOutRooms} Charges` : "Add")}
           </button>
         </DialogFooter>
       </DialogContent>
