@@ -1109,6 +1109,7 @@ export type Database = {
       charge_catalog: {
         Row: {
           active: boolean
+          application_mode: string
           auto_consume_qty: number
           created_at: string
           default_price: number
@@ -1123,6 +1124,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          application_mode?: string
           auto_consume_qty?: number
           created_at?: string
           default_price?: number
@@ -1137,6 +1139,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          application_mode?: string
           auto_consume_qty?: number
           created_at?: string
           default_price?: number
