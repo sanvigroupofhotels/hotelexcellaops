@@ -1441,6 +1441,7 @@ function AddRoomDialog({
     room_type: string;
     roomId?: string | null;
     effectiveDate: string;
+    checkOutDate: string;
     nightlyRate: number;
     occupantName?: string | null;
     occupantPhone?: string | null;
@@ -1455,6 +1456,7 @@ function AddRoomDialog({
   })();
   const [roomType, setRoomType] = useState<string>("Oak Room");
   const [effectiveDate, setEffectiveDate] = useState<string>(defaultDate);
+  const [checkOutDate, setCheckOutDate] = useState<string>(booking.check_out);
   const [rate, setRate] = useState<string>("");
   const [occupantName, setOccupantName] = useState("");
   const [occupantPhone, setOccupantPhone] = useState("");
@@ -1463,11 +1465,17 @@ function AddRoomDialog({
     seededRef.current = true;
     setRoomType("Oak Room");
     setEffectiveDate(defaultDate);
+    setCheckOutDate(booking.check_out);
     setRate("");
     setOccupantName("");
     setOccupantPhone("");
   }
   if (!open && seededRef.current) seededRef.current = false;
+
+  // Preview only — the authoritative figure is computed by the shared pricing
+  // engine (computeBookingItemSubtotal) inside addBookingItemDuringStay.
+  const nights = checkOutDate > effectiveDate ? computeNights(effectiveDate, checkOutDate) : 0;
+  const roomTotal = nights * (Number(rate) || 0);
 
   const submit = () => {
     const nightly = Number(rate);
@@ -1476,21 +1484,23 @@ function AddRoomDialog({
       return;
     }
     if (effectiveDate < booking.check_in) {
-      toast.error("Effective date is before check-in.");
+      toast.error("Check-in date is before the booking check-in.");
       return;
     }
-    if (effectiveDate >= booking.check_out) {
-      toast.error("Effective date must be before check-out.");
+    if (checkOutDate <= effectiveDate) {
+      toast.error("Check-out must be after check-in.");
       return;
     }
     onConfirm({
       room_type: roomType,
       effectiveDate,
+      checkOutDate,
       nightlyRate: nightly,
       occupantName: occupantName.trim() || null,
       occupantPhone: occupantPhone.trim() || null,
     });
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
