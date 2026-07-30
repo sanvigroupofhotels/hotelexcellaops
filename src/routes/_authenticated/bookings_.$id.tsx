@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { Money } from "@/components/money";
-import { listBookingItems } from "@/lib/booking-items-api";
+import { listBookingItems, computeNights } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
 import { bookingStatusStyles, type BookingStatus } from "@/lib/mock-data";
