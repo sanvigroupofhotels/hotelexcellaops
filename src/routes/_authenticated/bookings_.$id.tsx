@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { Money } from "@/components/money";
-import { listBookingItems } from "@/lib/booking-items-api";
+import { listBookingItems, computeNights } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
 import { shareQuoteImage } from "@/lib/share-quote";
 import { bookingStatusStyles, type BookingStatus } from "@/lib/mock-data";
@@ -1130,6 +1130,8 @@ function RoomManagementGrid({
     room_type: string;
     roomId?: string | null;
     effectiveDate: string;
+    checkOutDate: string;
+
     nightlyRate: number;
     occupantName?: string | null;
     occupantPhone?: string | null;
@@ -1439,6 +1441,7 @@ function AddRoomDialog({
     room_type: string;
     roomId?: string | null;
     effectiveDate: string;
+    checkOutDate: string;
     nightlyRate: number;
     occupantName?: string | null;
     occupantPhone?: string | null;
@@ -1453,6 +1456,7 @@ function AddRoomDialog({
   })();
   const [roomType, setRoomType] = useState<string>("Oak Room");
   const [effectiveDate, setEffectiveDate] = useState<string>(defaultDate);
+  const [checkOutDate, setCheckOutDate] = useState<string>(booking.check_out);
   const [rate, setRate] = useState<string>("");
   const [occupantName, setOccupantName] = useState("");
   const [occupantPhone, setOccupantPhone] = useState("");
@@ -1461,11 +1465,17 @@ function AddRoomDialog({
     seededRef.current = true;
     setRoomType("Oak Room");
     setEffectiveDate(defaultDate);
+    setCheckOutDate(booking.check_out);
     setRate("");
     setOccupantName("");
     setOccupantPhone("");
   }
   if (!open && seededRef.current) seededRef.current = false;
+
+  // Preview only — the authoritative figure is computed by the shared pricing
+  // engine (computeBookingItemSubtotal) inside addBookingItemDuringStay.
+  const nights = checkOutDate > effectiveDate ? computeNights(effectiveDate, checkOutDate) : 0;
+  const roomTotal = nights * (Number(rate) || 0);
 
   const submit = () => {
     const nightly = Number(rate);
@@ -1474,21 +1484,23 @@ function AddRoomDialog({
       return;
     }
     if (effectiveDate < booking.check_in) {
-      toast.error("Effective date is before check-in.");
+      toast.error("Check-in date is before the booking check-in.");
       return;
     }
-    if (effectiveDate >= booking.check_out) {
-      toast.error("Effective date must be before check-out.");
+    if (checkOutDate <= effectiveDate) {
+      toast.error("Check-out must be after check-in.");
       return;
     }
     onConfirm({
       room_type: roomType,
       effectiveDate,
+      checkOutDate,
       nightlyRate: nightly,
       occupantName: occupantName.trim() || null,
       occupantPhone: occupantPhone.trim() || null,
     });
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1507,24 +1519,40 @@ function AddRoomDialog({
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Effective Date</span>
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Check-In Date</span>
               <input
                 type="date" value={effectiveDate}
-                min={booking.check_in} max={booking.check_out}
+                min={booking.check_in}
                 onChange={(e) => setEffectiveDate(e.target.value)}
                 className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
               />
             </label>
             <label className="block">
-              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Nightly Rate (₹)</span>
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Check-Out Date</span>
               <input
-                type="number" inputMode="decimal" value={rate}
-                onChange={(e) => setRate(e.target.value)}
-                placeholder="0"
+                type="date" value={checkOutDate}
+                min={effectiveDate}
+                onChange={(e) => setCheckOutDate(e.target.value)}
                 className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
               />
             </label>
           </div>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Nightly Rate (₹)</span>
+            <input
+              type="number" inputMode="decimal" value={rate}
+              onChange={(e) => setRate(e.target.value)}
+              placeholder="0"
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">
+              Room Total · {nights} night{nights === 1 ? "" : "s"} × ₹{(Number(rate) || 0).toLocaleString("en-IN")}
+            </span>
+            <span className="font-medium tabular-nums">₹{roomTotal.toLocaleString("en-IN")}</span>
+          </div>
+
           <label className="block">
             <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Occupant Name (optional)</span>
             <input

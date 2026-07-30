@@ -459,7 +459,9 @@ export async function addBookingItemDuringStay(input: {
   bookingId: string;
   room_type: string;
   roomId?: string | null;
-  effectiveDate: string;         // YYYY-MM-DD, inclusive
+  effectiveDate: string;         // YYYY-MM-DD, inclusive — the item's check-in
+  /** Optional item check-out. Defaults to the booking's check_out. */
+  checkOutDate?: string | null;
   nightlyRate: number;
   occupantName?: string | null;
   occupantPhone?: string | null;
@@ -475,20 +477,34 @@ export async function addBookingItemDuringStay(input: {
   if (bErr) throw bErr;
   if (!b) throw new Error("Booking not found");
   const bk = b as any;
-  if (input.effectiveDate < bk.check_in) throw new Error("Effective date cannot be before check-in.");
-  if (input.effectiveDate >= bk.check_out) throw new Error("Effective date must be before check-out.");
+  if (input.effectiveDate < bk.check_in) throw new Error("Check-in date cannot be before the booking check-in.");
 
-  // Nights from effectiveDate → booking.check_out
-  const nights = Math.max(
-    1,
-    Math.round(
-      (new Date(bk.check_out + "T00:00:00").getTime() -
-        new Date(input.effectiveDate + "T00:00:00").getTime()) /
-        86400000,
-    ),
-  );
+  const checkOut = input.checkOutDate || bk.check_out;
+  if (checkOut <= input.effectiveDate) throw new Error("Check-out must be after check-in.");
+
+  // Shared pricing engine — no duplicated math in the dialog or here.
+  const { computeBookingItemSubtotal, computeNights } = await import("@/lib/booking-items-api");
   const rate = Number(input.nightlyRate);
-  const subtotal = rate * nights;
+  const lineItem = {
+    room_type: input.room_type,
+    rooms: 1,
+    adults: input.adults ?? 1,
+    children: input.children ?? 0,
+    check_in: input.effectiveDate,
+    check_out: checkOut,
+    breakfast_included: input.breakfast_included ?? false,
+    extra_bed: 0,
+    rate,
+    early_check_in: false,
+    early_check_in_slot: null,
+    late_check_out: false,
+    late_check_out_slot: null,
+    pet_size: "none" as const,
+    extra_adults: 0,
+    drivers: 0,
+  };
+  const nights = computeNights(input.effectiveDate, checkOut);
+  const subtotal = computeBookingItemSubtotal(lineItem as any);
 
   const { data: maxRow } = await supabase
     .from("booking_items" as any)
@@ -509,7 +525,7 @@ export async function addBookingItemDuringStay(input: {
       adults: input.adults ?? 1,
       children: input.children ?? 0,
       check_in: input.effectiveDate,
-      check_out: bk.check_out,
+      check_out: checkOut,
       breakfast_included: input.breakfast_included ?? false,
       extra_bed: 0,
       rate,
@@ -534,10 +550,11 @@ export async function addBookingItemDuringStay(input: {
     const { addAssignment } = await import("@/lib/booking-room-assignments-api");
     await addAssignment(input.bookingId, input.roomId, {
       start_date: input.effectiveDate,
-      end_date: bk.check_out,
+      end_date: checkOut,
       item_id: itemId,
     });
   }
+
 
   // Recompute booking totals so the new item's revenue is reflected.
   try {
