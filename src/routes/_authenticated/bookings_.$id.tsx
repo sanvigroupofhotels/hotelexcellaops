@@ -1130,6 +1130,8 @@ function RoomManagementGrid({
     room_type: string;
     roomId?: string | null;
     effectiveDate: string;
+    checkOutDate: string;
+
     nightlyRate: number;
     occupantName?: string | null;
     occupantPhone?: string | null;
