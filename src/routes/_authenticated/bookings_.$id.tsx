@@ -1519,24 +1519,40 @@ function AddRoomDialog({
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Effective Date</span>
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Check-In Date</span>
               <input
                 type="date" value={effectiveDate}
-                min={booking.check_in} max={booking.check_out}
+                min={booking.check_in}
                 onChange={(e) => setEffectiveDate(e.target.value)}
                 className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
               />
             </label>
             <label className="block">
-              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Nightly Rate (₹)</span>
+              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Check-Out Date</span>
               <input
-                type="number" inputMode="decimal" value={rate}
-                onChange={(e) => setRate(e.target.value)}
-                placeholder="0"
+                type="date" value={checkOutDate}
+                min={effectiveDate}
+                onChange={(e) => setCheckOutDate(e.target.value)}
                 className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
               />
             </label>
           </div>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Nightly Rate (₹)</span>
+            <input
+              type="number" inputMode="decimal" value={rate}
+              onChange={(e) => setRate(e.target.value)}
+              placeholder="0"
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">
+              Room Total · {nights} night{nights === 1 ? "" : "s"} × ₹{(Number(rate) || 0).toLocaleString("en-IN")}
+            </span>
+            <span className="font-medium tabular-nums">₹{roomTotal.toLocaleString("en-IN")}</span>
+          </div>
+
           <label className="block">
             <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Occupant Name (optional)</span>
             <input
