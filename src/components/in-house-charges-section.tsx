@@ -271,8 +271,10 @@ export function ChargeFormDialog({
   const fanOutRooms = !isEditing && isMultiRoom && isPerRoom ? selectedItemIds.length : 1;
   const previewTotal = Number((lineAmount * Math.max(fanOutRooms, 1)).toFixed(2));
 
-  const chargeToMissing =
-    isMultiRoom && !isPerRoom && !itemId; // per_booking still requires nothing (booking-level)
+  // Per-room categories require an explicit room. Per-booking categories are
+  // allowed to be booking-level (item_id = null) but still honour an explicit
+  // selection when the user makes one.
+  const chargeToMissing = isMultiRoom && isPerRoom && isEditing && !itemId;
   const perRoomMissing =
     !isEditing && isMultiRoom && isPerRoom && selectedItemIds.length === 0;
 
@@ -300,13 +302,15 @@ export function ChargeFormDialog({
         }
         return results;
       }
-      // Per-booking (multi-room) → booking-level attribution.
       // Single-room → auto-attributed to the sole item.
+      // Multi-room + per_booking → honour the "Charge To" selection when the
+      // user picked a room; otherwise stay booking-level (item_id = null).
       const resolvedItemId = isSingleRoom
         ? (items[0]?.id ?? null)
-        : (isPerRoom ? null : null); // per_booking = booking-level
+        : (itemId ?? null);
       return createBookingCharge({ ...base, item_id: resolvedItemId });
     },
+
 
     onSuccess: async () => {
       const created = !isEditing && isMultiRoom && isPerRoom
