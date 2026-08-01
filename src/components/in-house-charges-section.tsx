@@ -394,7 +394,7 @@ export function ChargeFormDialog({
 
           {/* Multi-room + per_booking OR editing a multi-room line → single select. */}
           {isMultiRoom && (!isPerRoom || isEditing) && (
-            <Field label={isPerRoom ? "Charge To" : "Charge To (booking-level allowed)"}>
+            <Field label={isPerRoom ? "Charge To *" : "Charge To (booking-level allowed)"}>
               <select
                 value={itemId ?? ""}
                 onChange={(e) => setItemId(e.target.value || null)}
@@ -405,8 +405,19 @@ export function ChargeFormDialog({
                   <option key={it.id} value={it.id}>{itemOptionLabel(it, idx)}</option>
                 ))}
               </select>
+              {chargeToMissing && (
+                <span className="mt-1 block text-[10.5px] text-destructive">
+                  This is a per-room charge — please select the room it belongs to.
+                </span>
+              )}
+              {!isPerRoom && (
+                <span className="mt-1 block text-[10.5px] text-muted-foreground">
+                  Leave as booking-level, or pick a room to attribute this charge to it.
+                </span>
+              )}
             </Field>
           )}
+
           {isSingleRoom && (
             <div className="rounded-md border border-border bg-secondary/30 px-3 py-2 text-[11px] text-muted-foreground">
               Charging: <span className="text-foreground font-medium">{itemOptionLabel(items[0], 0)}</span>
