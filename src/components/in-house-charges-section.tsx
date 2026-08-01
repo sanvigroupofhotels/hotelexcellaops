@@ -271,8 +271,10 @@ export function ChargeFormDialog({
   const fanOutRooms = !isEditing && isMultiRoom && isPerRoom ? selectedItemIds.length : 1;
   const previewTotal = Number((lineAmount * Math.max(fanOutRooms, 1)).toFixed(2));
 
-  const chargeToMissing =
-    isMultiRoom && !isPerRoom && !itemId; // per_booking still requires nothing (booking-level)
+  // Per-room categories require an explicit room. Per-booking categories are
+  // allowed to be booking-level (item_id = null) but still honour an explicit
+  // selection when the user makes one.
+  const chargeToMissing = isMultiRoom && isPerRoom && isEditing && !itemId;
   const perRoomMissing =
     !isEditing && isMultiRoom && isPerRoom && selectedItemIds.length === 0;
 
@@ -300,13 +302,15 @@ export function ChargeFormDialog({
         }
         return results;
       }
-      // Per-booking (multi-room) → booking-level attribution.
       // Single-room → auto-attributed to the sole item.
+      // Multi-room + per_booking → honour the "Charge To" selection when the
+      // user picked a room; otherwise stay booking-level (item_id = null).
       const resolvedItemId = isSingleRoom
         ? (items[0]?.id ?? null)
-        : (isPerRoom ? null : null); // per_booking = booking-level
+        : (itemId ?? null);
       return createBookingCharge({ ...base, item_id: resolvedItemId });
     },
+
 
     onSuccess: async () => {
       const created = !isEditing && isMultiRoom && isPerRoom
@@ -390,7 +394,7 @@ export function ChargeFormDialog({
 
           {/* Multi-room + per_booking OR editing a multi-room line → single select. */}
           {isMultiRoom && (!isPerRoom || isEditing) && (
-            <Field label={isPerRoom ? "Charge To" : "Charge To (booking-level allowed)"}>
+            <Field label={isPerRoom ? "Charge To *" : "Charge To (booking-level allowed)"}>
               <select
                 value={itemId ?? ""}
                 onChange={(e) => setItemId(e.target.value || null)}
@@ -401,8 +405,19 @@ export function ChargeFormDialog({
                   <option key={it.id} value={it.id}>{itemOptionLabel(it, idx)}</option>
                 ))}
               </select>
+              {chargeToMissing && (
+                <span className="mt-1 block text-[10.5px] text-destructive">
+                  This is a per-room charge — please select the room it belongs to.
+                </span>
+              )}
+              {!isPerRoom && (
+                <span className="mt-1 block text-[10.5px] text-muted-foreground">
+                  Leave as booking-level, or pick a room to attribute this charge to it.
+                </span>
+              )}
             </Field>
           )}
+
           {isSingleRoom && (
             <div className="rounded-md border border-border bg-secondary/30 px-3 py-2 text-[11px] text-muted-foreground">
               Charging: <span className="text-foreground font-medium">{itemOptionLabel(items[0], 0)}</span>
