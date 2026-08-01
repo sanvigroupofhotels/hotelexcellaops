@@ -9,14 +9,17 @@ const FALLBACK = [
 ];
 
 /**
- * Labels that default to `per_room` when the catalog row does not have an
- * explicit application_mode configured (e.g. free-text "Other" or fallback
- * seed entries used before an admin curates the catalog).
+ * Labels that default to `per_booking` when the catalog row has no explicit
+ * application_mode (free-text "Other" or fallback seed entries). Everything
+ * else defaults to `per_room` — room-consumed services (Water Bottle, Food
+ * Order, Laundry, Extra Bed, Early Check-In …) must stay attributed to the
+ * room that consumed them.
  */
-const PER_ROOM_HEURISTIC = new Set(
-  ["early check-in", "early check in", "late check-out", "late check out",
-   "extra bed", "extra adult", "extra pet", "extra person", "cleaning fee"]
+const PER_BOOKING_HEURISTIC = new Set(
+  ["other", "past due", "razorpay charges", "booking fee", "airport pickup",
+   "airport transfer", "airport drop", "conference package", "package"]
 );
+
 
 /**
  * Single source of truth for guest-chargeable item labels.
