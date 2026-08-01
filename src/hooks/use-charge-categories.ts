@@ -45,7 +45,8 @@ export function useChargeCategories(fallback: string[] = FALLBACK) {
   const modeFor = (label: string): ChargeApplicationMode => {
     const row = rows.find((r) => r.label.toLowerCase() === label.toLowerCase());
     if (row?.application_mode) return row.application_mode;
-    return PER_ROOM_HEURISTIC.has(label.toLowerCase()) ? "per_room" : "per_booking";
+    return PER_BOOKING_HEURISTIC.has(label.toLowerCase()) ? "per_booking" : "per_room";
   };
+
   return { values, rows, modeFor, isLoading: q.isLoading };
 }
