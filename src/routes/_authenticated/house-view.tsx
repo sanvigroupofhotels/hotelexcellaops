@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { searchBookings, normDigits as searchNormDigits } from "@/lib/booking-search";
 import { useServerFn } from "@tanstack/react-start";
 import React, { useMemo, useState, memo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -771,40 +772,28 @@ function HouseView() {
   const breakfastRoomNumbers = breakfastBookings.flatMap(roomNumbersFor);
   const inHouseRoomNumbers = inHouseBookings.flatMap(roomNumbersFor);
 
-  // ---------- Search ----------
-  const normalized = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const normPhone = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "");
-  const searchMatches = useMemo(() => {
-    const q = searchQ.trim();
-    if (!q) return [] as any[];
-    const qNorm = normalized(q);
-    const qDigits = normPhone(q);
-    return (bookings as any[]).filter((b) => {
-      if (b.status === "Cancelled" || b.status === "No-Show") return false;
-      const nameHit = qNorm.length >= 2 && normalized(b.guest_name).includes(qNorm);
-      const refHit = qNorm.length >= 2 && normalized(b.booking_reference).includes(qNorm);
-      const phoneHit = qDigits.length >= 3 && normPhone(b.phone).includes(qDigits);
-      return nameHit || refHit || phoneHit;
-    }).slice(0, 20);
-  }, [searchQ, bookings]);
+  // ---------- Search (shared search service) ----------
+  // House View does not implement search semantics — it consumes the shared
+  // service (holder, primary occupant, mobile, reference, assigned room,
+  // company / group) and uses the result purely for navigation.
+  const navigate = useNavigate();
+  const normPhone = searchNormDigits;
+  const [debouncedQ, setDebouncedQ] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(searchQ.trim()), 200);
+    return () => clearTimeout(t);
+  }, [searchQ]);
+  const { data: searchMatches = [] } = useQuery({
+    queryKey: ["booking-search", debouncedQ],
+    queryFn: () => searchBookings(debouncedQ),
+    enabled: debouncedQ.length >= 2,
+    staleTime: 15_000,
+  });
 
-  function jumpToBooking(b: any) {
-    // Snap anchor to the booking start (clamped to today if in past) and highlight
-    const today = new Date(); today.setHours(0,0,0,0);
-    const ci = new Date(b.check_in);
-    const target = ci < today ? today : ci;
-    target.setHours(0,0,0,0);
-    setAnchor(target);
-    setHighlightId(b.id);
+  function openBooking(b: { id: string }) {
     setSearchQ("");
-    // Scroll into view shortly after rerender
-    setTimeout(() => {
-      const el = document.querySelector(`[data-booking-pill="${b.id}"]`) as HTMLElement | null;
-      if (el && typeof el.scrollIntoView === "function") {
-        el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-      }
-      setTimeout(() => setHighlightId(null), 2400);
-    }, 80);
+    setDebouncedQ("");
+    navigate({ to: "/bookings/$id", params: { id: b.id } });
   }
 
   const todayLabel = (businessDate ? new Date(businessDate + "T00:00:00") : new Date())
@@ -844,10 +833,10 @@ function HouseView() {
                 value={searchQ}
                 onChange={(e) => setSearchQ(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && searchMatches.length > 0) jumpToBooking(searchMatches[0]);
+                  if (e.key === "Enter" && searchMatches.length > 0) openBooking(searchMatches[0]);
                   if (e.key === "Escape") setSearchQ("");
                 }}
-                placeholder="Search…"
+                placeholder="Search guest, occupant, mobile, reference, room, company…"
                 className="w-full bg-input/60 border border-border rounded-md pl-8 pr-8 py-1.5 md:py-2.5 text-sm placeholder:text-muted-foreground/60"
               />
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
@@ -858,20 +847,23 @@ function HouseView() {
               )}
               {searchQ.trim() && searchMatches.length > 0 && (
                 <div className="absolute z-40 left-0 right-0 mt-1 luxe-card rounded-md max-h-80 overflow-auto shadow-xl">
-                  {searchMatches.map((m) => {
-                    const roomNums = pairStaySlotsToRooms(withoutLegacyRoomId(m), itemsByBooking, assignmentsByBooking, rooms as any[]).paired
-                      .map(({ room_id }) => (rooms as any[]).find((r) => r.id === room_id)?.room_number).filter(Boolean);
-                    return (
-                      <button key={m.id} onClick={() => jumpToBooking(m)}
-                        className="w-full text-left px-3 py-2 border-b border-border last:border-b-0 hover:bg-gold-soft/20">
-                        <div className="text-sm font-medium">{m.guest_name} <span className="text-[11px] text-muted-foreground">· {m.booking_reference}</span></div>
-                        <div className="text-[11px] text-muted-foreground tabular">
-                          {m.phone ? `+${normPhone(m.phone).replace(/^91/, "91 ")}` : "—"} · {fmtFull(m.check_in)} → {fmtFull(m.check_out)}
-                          {roomNums.length > 0 ? ` · Room ${roomNums.join(", ")}` : ""}
+                  {searchMatches.map((m) => (
+                    <button key={m.id} onClick={() => openBooking(m)}
+                      className="w-full text-left px-3 py-2 border-b border-border last:border-b-0 hover:bg-gold-soft/20">
+                      <div className="text-sm font-medium">{m.guest_name} <span className="text-[11px] text-muted-foreground">· {m.booking_reference}</span></div>
+                      <div className="text-[11px] text-muted-foreground tabular">
+                        {m.phone ? `+${normPhone(m.phone).replace(/^91/, "91 ")}` : "—"} · {fmtFull(m.check_in)} → {fmtFull(m.check_out)}
+                        {m.roomNumbers.length > 0 ? ` · Room ${m.roomNumbers.join(", ")}` : ""}
+                      </div>
+                      {(m.occupants.length > 0 || m.company) && (
+                        <div className="text-[10px] text-muted-foreground/80 truncate">
+                          {m.company ? `${m.company}` : ""}
+                          {m.company && m.occupants.length > 0 ? " · " : ""}
+                          {m.occupants.length > 0 ? `Occupants: ${m.occupants.join(", ")}` : ""}
                         </div>
-                      </button>
-                    );
-                  })}
+                      )}
+                    </button>
+                  ))}
                 </div>
               )}
               {searchQ.trim() && searchMatches.length === 0 && (
