@@ -8,6 +8,7 @@ import { useExistingCustomerByContact } from "@/lib/customer-resolution";
 import { getQuote } from "@/lib/quotes-api";
 import { type BookingInput } from "@/lib/bookings-api";
 import { submitNewBooking } from "@/lib/booking-create";
+import { applyClonedOccupants, buildBookingClonePrefill } from "@/lib/booking-clone";
 import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
 import { listQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
 import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
@@ -35,6 +36,7 @@ export const Route = createFileRoute("/_authenticated/bookings_/new")({
   validateSearch: (s: Record<string, unknown>) => ({
     customerId: typeof s.customerId === "string" ? s.customerId : undefined,
     fromQuoteId: typeof s.fromQuoteId === "string" ? s.fromQuoteId : undefined,
+    fromBookingId: typeof s.fromBookingId === "string" ? s.fromBookingId : undefined,
     roomType: typeof s.roomType === "string" ? s.roomType : undefined,
     checkIn: typeof s.checkIn === "string" ? s.checkIn : undefined,
     checkOut: typeof s.checkOut === "string" ? s.checkOut : undefined,
@@ -47,7 +49,7 @@ const inputCls =
 
 function NewBooking() {
   const navigate = useNavigate();
-  const { customerId, fromQuoteId, roomType: prefillRoomType, checkIn: prefillIn, checkOut: prefillOut } = Route.useSearch();
+  const { customerId, fromQuoteId, fromBookingId, roomType: prefillRoomType, checkIn: prefillIn, checkOut: prefillOut } = Route.useSearch();
 
   // Shared stay sections shape (same as Quote forms).
   const [stay, setStay] = useState<SharedStayValue>(() => {
@@ -186,6 +188,24 @@ function NewBooking() {
     }
   }, [fromQuoteId, qItems]);
 
+  // ---- Clone Booking (shared clone service) --------------------------------
+  // Copies only the commercial shape of the source booking. Payments, charges,
+  // status, occupancy, housekeeping and documents are never carried over.
+  const { data: clonePrefill } = useQuery({
+    queryKey: ["booking-clone-prefill", fromBookingId],
+    queryFn: () => buildBookingClonePrefill(fromBookingId!),
+    enabled: !!fromBookingId,
+  });
+  const [cloneOccupants, setCloneOccupants] = useState<(string | null)[]>([]);
+  useEffect(() => {
+    if (!clonePrefill) return;
+    setLinkedCustomerId((id) => id || clonePrefill.customerId);
+    setStay((s) => ({ ...s, ...clonePrefill.stay } as SharedStayValue));
+    setExtras(clonePrefill.extras);
+    setCloneOccupants(clonePrefill.occupants);
+    toast.info(`Cloned from ${clonePrefill.sourceReference} — review dates, rooms and rates before saving.`);
+  }, [clonePrefill]);
+
   // Live totals — shared pricing engine (mirrors Quotes 1:1).
   // Rate is now resolved from Rates & Inventory (override → weekend/weekday → default).
   const resolvedRate = useResolvedRate(stay.room_type, stay.check_in, stay.check_out, stay.breakfast_included);
@@ -261,6 +281,12 @@ function NewBooking() {
         advance: advancePaid > 0 ? { amount: advancePaid, payment_mode: paymentMethod } : undefined,
       });
       if (createdCustomerId) toast.success(`New customer created for ${b.guest_name}`);
+      // Clone: carry Primary Occupant names onto the new operational rooms.
+      if (fromBookingId && cloneOccupants.length > 0) {
+        try {
+          await applyClonedOccupants(b.id, cloneOccupants);
+        } catch { /* descriptive metadata only — never block the booking */ }
+      }
       return b;
     },
     onSuccess: (b) => {
@@ -307,7 +333,7 @@ function NewBooking() {
 
   return (
     <>
-      <Topbar title="New Booking" subtitle={fromQuoteId ? "Converting quote to booking" : "Create a direct booking"} />
+      <Topbar title={fromBookingId ? "Clone Booking" : "New Booking"} subtitle={fromQuoteId ? "Converting quote to booking" : fromBookingId ? `Cloned from ${clonePrefill?.sourceReference ?? "booking"} — nothing is copied except commercial details` : "Create a direct booking"} />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-56 lg:pb-8">
         <Link to="/bookings" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="h-4 w-4" /> All bookings

@@ -37,7 +37,7 @@ import { issueBookingToken } from "@/lib/portal.functions";
 import {
   ArrowLeft, Loader2, Trash2, Phone, Mail, User, Copy,
   Wallet, Share2, Printer, Pencil, CalendarDays, Star, LogIn, LogOut, DoorOpen,
-  FileText, History, RotateCcw, AlertTriangle, MoreVertical, MessageCircle, Link2,
+  CopyPlus, FileText, History, RotateCcw, AlertTriangle, MoreVertical, MessageCircle, Link2,
   Paperclip,
 } from "lucide-react";
 import {
@@ -520,6 +520,13 @@ function BookingDetail() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={sharePaymentLink} className="cursor-pointer">
                   <Link2 className="h-3.5 w-3.5 mr-2" /> Share Guest Portal
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => navigate({ to: "/bookings/new", search: { fromBookingId: id } as any })}
+                  className="cursor-pointer"
+                >
+                  <CopyPlus className="h-3.5 w-3.5 mr-2" /> Clone Booking
                 </DropdownMenuItem>
                 {b.status === "Checked-In" && (
                   <>
