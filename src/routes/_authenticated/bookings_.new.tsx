@@ -197,20 +197,28 @@ function NewBooking() {
     enabled: !!fromBookingId,
   });
   const [cloneOccupants, setCloneOccupants] = useState<(string | null)[]>([]);
+  // Negotiated nightly rate carried over from the source booking (sticky).
+  const [cloneRate, setCloneRate] = useState<number | null>(null);
   useEffect(() => {
     if (!clonePrefill) return;
     setLinkedCustomerId((id) => id || clonePrefill.customerId);
     setStay((s) => ({ ...s, ...clonePrefill.stay } as SharedStayValue));
     setExtras(clonePrefill.extras);
     setCloneOccupants(clonePrefill.occupants);
-    toast.info(`Cloned from ${clonePrefill.sourceReference} — review dates, rooms and rates before saving.`);
+    setCloneRate(clonePrefill.rateOverride);
+    setTotalOverride(clonePrefill.totalOverride);
+    setTaxesIncluded(clonePrefill.taxesIncluded);
+    toast.info(`Cloned from ${clonePrefill.sourceReference} — dates default to today → tomorrow; review rooms and rates before saving.`);
   }, [clonePrefill]);
 
   // Live totals — shared pricing engine (mirrors Quotes 1:1).
   // Rate is now resolved from Rates & Inventory (override → weekend/weekday → default).
-  const resolvedRate = useResolvedRate(stay.room_type, stay.check_in, stay.check_out, stay.breakfast_included);
+  const rateFromRules = useResolvedRate(stay.room_type, stay.check_in, stay.check_out, stay.breakfast_included);
+  // Clone keeps the negotiated rate; everything else resolves from Rates.
+  const resolvedRate = cloneRate ?? rateFromRules;
   const { pricing, roomCharges, extraCharges, nights } = useMemo(() => {
     const primary = primaryToLineItem(stay, resolvedRate);
+
     const all = [primary, ...extras];
     const p = computePricing(all, Number(stay.discount) || 0, DEFAULT_TAX_RATE, { totalOverride, taxesIncluded });
     return {
