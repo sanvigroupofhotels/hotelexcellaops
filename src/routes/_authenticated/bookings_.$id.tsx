@@ -1175,6 +1175,103 @@ function RoomManagementGrid({
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
+  // ---- Group Booking Productivity ------------------------------------------
+  // Status grouping keeps large group bookings scannable, and selection drives
+  // bulk operations. Every bulk action fans out through the shared per-item
+  // services in `src/lib/booking-item-bulk.ts` — no direct DB writes here.
+  const statusOfItem = (it: any) =>
+    it.item_status ?? (booking.status === "Checked-In" ? "Checked-In" : "Confirmed");
+  const STATUS_GROUPS = ["Checked-In", "Confirmed", "Checked-Out", "Cancelled", "No-Show"];
+  const groupedItems = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { item: any; group: string | null; groupCount: number }[] = [];
+    const push = (label: string, list: any[]) => {
+      list.forEach((item, i) => {
+        seen.add(item.id);
+        out.push({ item, group: i === 0 ? label : null, groupCount: list.length });
+      });
+    };
+    for (const g of STATUS_GROUPS) push(g, activeItems.filter((it: any) => statusOfItem(it) === g));
+    push("Other", activeItems.filter((it: any) => !seen.has(it.id)));
+    return out;
+  }, [activeItems, booking.status]);
+
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const selectedItems = activeItems.filter((it: any) => selected[it.id]);
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
+  const clearSelection = () => setSelected({});
+  const selectGroup = (label: string) =>
+    setSelected((prev) => {
+      const next = { ...prev };
+      for (const it of activeItems as any[]) {
+        if (statusOfItem(it) === label || (label === "Other" && !STATUS_GROUPS.includes(statusOfItem(it)))) {
+          next[it.id] = true;
+        }
+      }
+      return next;
+    });
+
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const runBulk = async (action: "assign" | "move" | "checkin" | "checkout") => {
+    if (selectedItems.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const res =
+        action === "checkin"
+          ? await bulkCheckIn(selectedItems)
+          : action === "checkout"
+            ? await bulkCheckOut(selectedItems)
+            : action === "assign"
+              ? await bulkAssignRooms({
+                  bookingId: booking.id,
+                  items: selectedItems.filter(
+                    (it: any) => !activeAssignments.some((a) => a.item_id === it.id),
+                  ),
+                  check_in: booking.check_in,
+                  check_out: booking.check_out,
+                })
+              : await bulkMoveRooms({
+                  bookingId: booking.id,
+                  items: selectedItems.filter((it: any) =>
+                    activeAssignments.some((a) => a.item_id === it.id),
+                  ),
+                  check_in: booking.check_in,
+                  check_out: booking.check_out,
+                  effectiveDate: businessDate,
+                });
+      if (res.succeeded.length > 0) toast.success(`${res.succeeded.length} room(s) updated`);
+      for (const f of res.failed.slice(0, 4)) toast.error(`${f.label}: ${f.error}`);
+      if (res.failed.length > 4) toast.error(`+${res.failed.length - 4} more room(s) failed`);
+      clearSelection();
+      onBulkDone();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Bulk operation failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  // Rooming list / Room Allocation export — shared service, shared rows.
+  const roomingRows = () =>
+    buildRoomingList({ items, rooms, activeAssignments });
+  const doPrintRooming = () => {
+    try {
+      printRoomingList(booking, roomingRows());
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not print rooming list");
+    }
+  };
+  const doExportAllocation = () => {
+    try {
+      exportRoomAllocation(booking, roomingRows());
+    } catch (e: any) {
+      toast.error(e?.message ?? "Nothing to export");
+    }
+  };
+
+
+
 
   return (
     <div className="luxe-card rounded-xl p-5">
