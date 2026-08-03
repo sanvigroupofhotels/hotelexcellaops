@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getBooking } from "@/lib/bookings-api";
 import { listBookingItems, rowToLineItem, type BookingItemRow } from "@/lib/booking-items-api";
 import { lineItemToPrimary, type SharedStayValue } from "@/components/shared/stay-form-sections";
+import { toLocalYMD, localYMDOffset } from "@/lib/utils";
 import type { LineItem } from "@/components/line-items-editor";
 
 /**
