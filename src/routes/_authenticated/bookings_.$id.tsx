@@ -1220,13 +1220,59 @@ function RoomManagementGrid({
         Assigned {assigned} / {required} {ready ? "✓ Ready for Check-In" : `· ${Math.max(0, required - assigned)} remaining`}
       </div>
 
+      {/* Group Productivity: bulk action bar (appears only with a selection). */}
+      {selectedItems.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-gold/30 bg-gold/5 px-3 py-2">
+          <span className="text-xs font-medium">{selectedItems.length} selected</span>
+          <button type="button" onClick={clearSelection} className="text-[11px] text-muted-foreground hover:underline">
+            Clear
+          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => runBulk("assign")}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              Assign Rooms
+            </button>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => runBulk("move")}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              Room Move
+            </button>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => runBulk("checkin")}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              Check-In
+            </button>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => runBulk("checkout")}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              Check-Out
+            </button>
+            {bulkBusy && <Loader2 className="h-3.5 w-3.5 animate-spin text-gold" />}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
-        {activeItems.map((item, index) => {
+        {groupedItems.map(({ item, group, groupCount }, index) => {
           const active = activeAssignments.find((a) => a.item_id === item.id)
             ?? activeAssignments.find((a) => a.room_id === item.assigned_room_id);
           const room = rooms.find((r) => r.id === (active?.room_id ?? item.assigned_room_id));
           const history = assignments.filter((a) => a.item_id === item.id || (item.assigned_room_id && a.room_id === item.assigned_room_id));
-          const status = item.item_status ?? (booking.status === "Checked-In" ? "Checked-In" : "Confirmed");
+          const status = statusOfItem(item);
+
           const hasRoom = !!active?.id;
           const itemCanOperate = canEditRooms && status !== "Checked-Out" && status !== "Cancelled" && status !== "No-Show";
           const isExpanded = !!expandedItems[item.id];
