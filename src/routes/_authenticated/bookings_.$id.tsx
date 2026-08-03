@@ -619,7 +619,11 @@ function BookingDetail() {
                 await qc.invalidateQueries({ queryKey: ["booking-item-activities", id] });
                 toast.success("Notes updated");
               }}
+              onBulkDone={() => {
+                qc.invalidateQueries();
+              }}
             />
+
 
 
             <BookingItemTimeline bookingId={id} items={items as any[]} rooms={rooms as any[]} />
