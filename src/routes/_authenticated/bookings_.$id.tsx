@@ -1234,15 +1234,37 @@ function RoomManagementGrid({
           const dateLine = `${new Date(item.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(item.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`;
 
           return (
-            <div key={item.id} className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-1.5">
+            <Fragment key={item.id}>
+            {group && (
+              <div className="flex items-center justify-between px-1 pt-2 first:pt-0">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {group} · {groupCount}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => selectGroup(group)}
+                  className="text-[10px] text-gold hover:underline"
+                >
+                  Select all
+                </button>
+              </div>
+            )}
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-1.5">
 
-              {/* Header: guest name (or fallback) + status pill + ⋮ menu */}
+              {/* Header: selection + guest name (or fallback) + status pill + ⋮ menu */}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 text-sm font-medium">
+                    <Checkbox
+                      checked={!!selected[item.id]}
+                      onCheckedChange={() => toggleSelected(item.id)}
+                      aria-label={`Select ${guestTitle}`}
+                      className="shrink-0"
+                    />
                     <span className="truncate">{guestTitle}</span>
                     <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground shrink-0">{status}</span>
                   </div>
+
                   {/* Room hierarchy: single canonical line. */}
                   <div className="text-[12px] text-muted-foreground">
                     {room ? (
