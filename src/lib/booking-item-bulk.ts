@@ -129,7 +129,12 @@ export async function bulkAssignRooms(input: {
       continue;
     }
     try {
-      await addAssignment(input.bookingId, room.id, item.check_in ?? input.check_in, item.check_out ?? input.check_out, item.id);
+      await addAssignment(input.bookingId, room.id, {
+        start_date: item.check_in ?? input.check_in,
+        end_date: item.check_out ?? input.check_out,
+        item_id: item.id,
+      });
+
       res.succeeded.push(item.id);
     } catch (e: any) {
       // Return the room to the pool so the next item can try it.
