@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, setBookingStatus, deleteBooking } from "@/lib/bookings-api";
@@ -18,6 +18,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 
+import { Checkbox } from "@/components/ui/checkbox";
+import { bulkAssignRooms, bulkCheckIn, bulkCheckOut, bulkMoveRooms } from "@/lib/booking-item-bulk";
+import { buildRoomingList, printRoomingList, exportRoomAllocation } from "@/lib/rooming-list";
 import { Money } from "@/components/money";
 import { listBookingItems, computeNights } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
@@ -616,7 +619,11 @@ function BookingDetail() {
                 await qc.invalidateQueries({ queryKey: ["booking-item-activities", id] });
                 toast.success("Notes updated");
               }}
+              onBulkDone={() => {
+                qc.invalidateQueries();
+              }}
             />
+
 
 
             <BookingItemTimeline bookingId={id} items={items as any[]} rooms={rooms as any[]} />
@@ -1120,6 +1127,7 @@ function RoomManagementGrid({
   onRevertAllCheckOuts,
   onSaveOccupant,
   onSaveNotes,
+  onBulkDone,
 }: {
   booking: any;
   items: any[];
@@ -1151,6 +1159,8 @@ function RoomManagementGrid({
   onRevertAllCheckOuts: () => void;
   onSaveOccupant: (itemId: string, name: string | null, phone: string | null) => Promise<void> | void;
   onSaveNotes: (itemId: string, notes: string | null) => Promise<void> | void;
+  /** Refresh hook after a bulk operation touches multiple rooms. */
+  onBulkDone: () => void;
 }) {
   // Slice B: Removed items are retained for audit but excluded from
   // operational counts, revert-all iterators, and the "Ready" tally.
@@ -1174,6 +1184,103 @@ function RoomManagementGrid({
   // Occupant/Notes modal state — one editor at a time.
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+
+  // ---- Group Booking Productivity ------------------------------------------
+  // Status grouping keeps large group bookings scannable, and selection drives
+  // bulk operations. Every bulk action fans out through the shared per-item
+  // services in `src/lib/booking-item-bulk.ts` — no direct DB writes here.
+  const statusOfItem = (it: any) =>
+    it.item_status ?? (booking.status === "Checked-In" ? "Checked-In" : "Confirmed");
+  const STATUS_GROUPS = ["Checked-In", "Confirmed", "Checked-Out", "Cancelled", "No-Show"];
+  const groupedItems = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { item: any; group: string | null; groupCount: number }[] = [];
+    const push = (label: string, list: any[]) => {
+      list.forEach((item, i) => {
+        seen.add(item.id);
+        out.push({ item, group: i === 0 ? label : null, groupCount: list.length });
+      });
+    };
+    for (const g of STATUS_GROUPS) push(g, activeItems.filter((it: any) => statusOfItem(it) === g));
+    push("Other", activeItems.filter((it: any) => !seen.has(it.id)));
+    return out;
+  }, [activeItems, booking.status]);
+
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const selectedItems = activeItems.filter((it: any) => selected[it.id]);
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
+  const clearSelection = () => setSelected({});
+  const selectGroup = (label: string) =>
+    setSelected((prev) => {
+      const next = { ...prev };
+      for (const it of activeItems as any[]) {
+        if (statusOfItem(it) === label || (label === "Other" && !STATUS_GROUPS.includes(statusOfItem(it)))) {
+          next[it.id] = true;
+        }
+      }
+      return next;
+    });
+
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const runBulk = async (action: "assign" | "move" | "checkin" | "checkout") => {
+    if (selectedItems.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const res =
+        action === "checkin"
+          ? await bulkCheckIn(selectedItems)
+          : action === "checkout"
+            ? await bulkCheckOut(selectedItems)
+            : action === "assign"
+              ? await bulkAssignRooms({
+                  bookingId: booking.id,
+                  items: selectedItems.filter(
+                    (it: any) => !activeAssignments.some((a) => a.item_id === it.id),
+                  ),
+                  check_in: booking.check_in,
+                  check_out: booking.check_out,
+                })
+              : await bulkMoveRooms({
+                  bookingId: booking.id,
+                  items: selectedItems.filter((it: any) =>
+                    activeAssignments.some((a) => a.item_id === it.id),
+                  ),
+                  check_in: booking.check_in,
+                  check_out: booking.check_out,
+                  effectiveDate: businessDate,
+                });
+      if (res.succeeded.length > 0) toast.success(`${res.succeeded.length} room(s) updated`);
+      for (const f of res.failed.slice(0, 4)) toast.error(`${f.label}: ${f.error}`);
+      if (res.failed.length > 4) toast.error(`+${res.failed.length - 4} more room(s) failed`);
+      clearSelection();
+      onBulkDone();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Bulk operation failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  // Rooming list / Room Allocation export — shared service, shared rows.
+  const roomingRows = () =>
+    buildRoomingList({ items, rooms, activeAssignments });
+  const doPrintRooming = () => {
+    try {
+      printRoomingList(booking, roomingRows());
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not print rooming list");
+    }
+  };
+  const doExportAllocation = () => {
+    try {
+      exportRoomAllocation(booking, roomingRows());
+    } catch (e: any) {
+      toast.error(e?.message ?? "Nothing to export");
+    }
+  };
+
+
 
 
   return (
@@ -1211,6 +1318,13 @@ function RoomManagementGrid({
               <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert All Check-Outs
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={doPrintRooming} className="cursor-pointer">
+              <Printer className="h-3.5 w-3.5 mr-2" /> Print Rooming List
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={doExportAllocation} className="cursor-pointer">
+              <FileText className="h-3.5 w-3.5 mr-2" /> Export Room Allocation (CSV)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={expandAll} className="cursor-pointer">Expand All</DropdownMenuItem>
             <DropdownMenuItem onClick={collapseAll} className="cursor-pointer">Collapse All</DropdownMenuItem>
           </DropdownMenuContent>
@@ -1220,13 +1334,59 @@ function RoomManagementGrid({
         Assigned {assigned} / {required} {ready ? "✓ Ready for Check-In" : `· ${Math.max(0, required - assigned)} remaining`}
       </div>
 
+      {/* Group Productivity: bulk action bar (appears only with a selection). */}
+      {selectedItems.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-gold/30 bg-gold/5 px-3 py-2">
+          <span className="text-xs font-medium">{selectedItems.length} selected</span>
+          <button type="button" onClick={clearSelection} className="text-[11px] text-muted-foreground hover:underline">
+            Clear
+          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => runBulk("assign")}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              Assign Rooms
+            </button>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => runBulk("move")}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              Room Move
+            </button>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => runBulk("checkin")}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              Check-In
+            </button>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => runBulk("checkout")}
+              className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] hover:border-gold/40 disabled:opacity-50"
+            >
+              Check-Out
+            </button>
+            {bulkBusy && <Loader2 className="h-3.5 w-3.5 animate-spin text-gold" />}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
-        {activeItems.map((item, index) => {
+        {groupedItems.map(({ item, group, groupCount }, index) => {
           const active = activeAssignments.find((a) => a.item_id === item.id)
             ?? activeAssignments.find((a) => a.room_id === item.assigned_room_id);
           const room = rooms.find((r) => r.id === (active?.room_id ?? item.assigned_room_id));
           const history = assignments.filter((a) => a.item_id === item.id || (item.assigned_room_id && a.room_id === item.assigned_room_id));
-          const status = item.item_status ?? (booking.status === "Checked-In" ? "Checked-In" : "Confirmed");
+          const status = statusOfItem(item);
+
           const hasRoom = !!active?.id;
           const itemCanOperate = canEditRooms && status !== "Checked-Out" && status !== "Cancelled" && status !== "No-Show";
           const isExpanded = !!expandedItems[item.id];
@@ -1234,15 +1394,37 @@ function RoomManagementGrid({
           const dateLine = `${new Date(item.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(item.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`;
 
           return (
-            <div key={item.id} className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-1.5">
+            <Fragment key={item.id}>
+            {group && (
+              <div className="flex items-center justify-between px-1 pt-2 first:pt-0">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {group} · {groupCount}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => selectGroup(group)}
+                  className="text-[10px] text-gold hover:underline"
+                >
+                  Select all
+                </button>
+              </div>
+            )}
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-1.5">
 
-              {/* Header: guest name (or fallback) + status pill + ⋮ menu */}
+              {/* Header: selection + guest name (or fallback) + status pill + ⋮ menu */}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 text-sm font-medium">
+                    <Checkbox
+                      checked={!!selected[item.id]}
+                      onCheckedChange={() => toggleSelected(item.id)}
+                      aria-label={`Select ${guestTitle}`}
+                      className="shrink-0"
+                    />
                     <span className="truncate">{guestTitle}</span>
                     <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground shrink-0">{status}</span>
                   </div>
+
                   {/* Room hierarchy: single canonical line. */}
                   <div className="text-[12px] text-muted-foreground">
                     {room ? (
@@ -1365,7 +1547,9 @@ function RoomManagementGrid({
                 </div>
               )}
             </div>
+            </Fragment>
           );
+
         })}
       </div>
 
