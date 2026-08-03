@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, setBookingStatus, deleteBooking } from "@/lib/bookings-api";
@@ -18,6 +18,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 
+import { Checkbox } from "@/components/ui/checkbox";
+import { bulkAssignRooms, bulkCheckIn, bulkCheckOut, bulkMoveRooms } from "@/lib/booking-item-bulk";
+import { buildRoomingList, printRoomingList, exportRoomAllocation } from "@/lib/rooming-list";
 import { Money } from "@/components/money";
 import { listBookingItems, computeNights } from "@/lib/booking-items-api";
 import { getCustomer } from "@/lib/customers-api";
@@ -1120,6 +1123,7 @@ function RoomManagementGrid({
   onRevertAllCheckOuts,
   onSaveOccupant,
   onSaveNotes,
+  onBulkDone,
 }: {
   booking: any;
   items: any[];
@@ -1151,6 +1155,8 @@ function RoomManagementGrid({
   onRevertAllCheckOuts: () => void;
   onSaveOccupant: (itemId: string, name: string | null, phone: string | null) => Promise<void> | void;
   onSaveNotes: (itemId: string, notes: string | null) => Promise<void> | void;
+  /** Refresh hook after a bulk operation touches multiple rooms. */
+  onBulkDone: () => void;
 }) {
   // Slice B: Removed items are retained for audit but excluded from
   // operational counts, revert-all iterators, and the "Ready" tally.
@@ -1306,6 +1312,13 @@ function RoomManagementGrid({
 
             <DropdownMenuItem onClick={onRevertAllCheckOuts} className="cursor-pointer">
               <RotateCcw className="h-3.5 w-3.5 mr-2" /> Revert All Check-Outs
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={doPrintRooming} className="cursor-pointer">
+              <Printer className="h-3.5 w-3.5 mr-2" /> Print Rooming List
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={doExportAllocation} className="cursor-pointer">
+              <FileText className="h-3.5 w-3.5 mr-2" /> Export Room Allocation (CSV)
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={expandAll} className="cursor-pointer">Expand All</DropdownMenuItem>
