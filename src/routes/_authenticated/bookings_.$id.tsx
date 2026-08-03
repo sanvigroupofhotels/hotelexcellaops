@@ -1365,7 +1365,9 @@ function RoomManagementGrid({
                 </div>
               )}
             </div>
+            </Fragment>
           );
+
         })}
       </div>
 
