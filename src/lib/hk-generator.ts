@@ -9,7 +9,7 @@
  * Idempotent — safe to re-run (partial unique index guarantees at most one
  * open task per room/day/type).
  */
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db";
 import { ensureContinueServiceTask } from "@/lib/hk-tasks";
 import { setRoomHousekeepingStatus } from "@/lib/hk-status";
 import { logActivity, newCorrelationId } from "@/lib/activity-log";
@@ -24,21 +24,38 @@ export async function generateContinueServiceTasks(businessDate: string): Promis
   //    must NOT receive continue-service tasks (design §2.3). Only stays that
   //    have actually been checked-in qualify — Pending / Confirmed arrivals
   //    that never checked in are not "occupied" rooms.
-  const { data: stays } = await supabase
+  //
+  //    UAT-047: room occupancy comes from `booking_room_assignments` segments
+  //    (start_date ≤ businessDate < end_date), NEVER from the legacy
+  //    `bookings.room_id` column.
+  const { data: stays } = await db()
     .from("bookings" as any)
-    .select("id, room_id, check_in, check_out, status")
+    .select("id, check_in, check_out, status")
     .lt("check_in", businessDate)
     .gt("check_out", businessDate)
     .eq("status", "Checked-In");
-  const staysList = ((stays ?? []) as any[]).filter((b) => b.room_id);
+  const bookingIds = ((stays ?? []) as any[]).map((b) => b.id as string);
+  if (bookingIds.length === 0) return { created: 0, skippedForException: 0 };
+
+  const { data: segments } = await db()
+    .from("booking_room_assignments" as any)
+    .select("booking_id, room_id, start_date, end_date")
+    .in("booking_id", bookingIds)
+    .lte("start_date", businessDate)
+    .gt("end_date", businessDate);
+
+  const staysList = ((segments ?? []) as any[])
+    .filter((s) => s.room_id)
+    .map((s) => ({ id: s.booking_id as string, room_id: s.room_id as string }));
   if (staysList.length === 0) return { created: 0, skippedForException: 0 };
 
   const roomIds = Array.from(new Set(staysList.map((s) => s.room_id))) as string[];
 
+
   // 2. Fetch rooms + exception rows in bulk.
   const [{ data: rooms }, { data: exceptions }] = await Promise.all([
-    supabase.from("rooms" as any).select("id, housekeeping_status").in("id", roomIds),
-    supabase.from("housekeeping_room_exceptions" as any)
+    db().from("rooms" as any).select("id, housekeeping_status").in("id", roomIds),
+    db().from("housekeeping_room_exceptions" as any)
       .select("room_id, reason").eq("business_date", businessDate).in("room_id", roomIds),
   ]);
   const roomStatus = new Map<string, string>();

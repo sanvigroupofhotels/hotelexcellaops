@@ -9,7 +9,7 @@
  * Failures NEVER throw — instrumentation must not break the business action.
  */
 
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db";
 
 export type ActivitySource =
   | "manual"
@@ -76,7 +76,7 @@ export interface LogActivityInput {
 
 export async function logActivity(input: LogActivityInput): Promise<void> {
   try {
-    await supabase.rpc("log_activity" as any, {
+    await db().rpc("log_activity" as any, {
       p_page: input.page,
       p_action: input.action,
       p_entity_type: input.entity_type ?? null,

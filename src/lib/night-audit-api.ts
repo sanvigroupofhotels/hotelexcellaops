@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db";
 import { toLocalYMD } from "@/lib/utils";
 
 /**
@@ -32,7 +32,7 @@ export interface PendingBooking {
 }
 
 export async function getBusinessDate(): Promise<string> {
-  const { data } = await supabase
+  const { data } = await db()
     .from("app_settings" as any)
     .select("value")
     .eq("key", "business_date")
@@ -42,7 +42,7 @@ export async function getBusinessDate(): Promise<string> {
 }
 
 export async function setBusinessDate(date: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await db()
     .from("app_settings" as any)
     .upsert({ key: "business_date", value: { date }, updated_at: new Date().toISOString() } as any);
   if (error) throw error;
@@ -60,7 +60,7 @@ export async function getPendingForAudit(businessDate?: string): Promise<{
     // hasn't been checked-in yet. Today's arrivals count as pending: Business
     // Date must never advance while any expected guest is still un-arrived.
     // Includes `Pending`, `Confirmed`, `Draft`, `Advance Paid`, etc.
-    supabase.from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
+    db().from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
       .lte("check_in", bd)
       .not("status", "in", "(Checked-In,Checked-Out,Cancelled,Stay Completed,No-Show)")
       .order("check_in", { ascending: true }),
@@ -69,11 +69,11 @@ export async function getPendingForAudit(businessDate?: string): Promise<{
     // allowed to remain Checked-In while the day is being closed — Reception
     // routinely processes them during Night Audit itself. Only overdue
     // departures (check_out < bd) block Business Date advancement.
-    supabase.from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
+    db().from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
       .lt("check_out", bd)
       .eq("status", "Checked-In" as any)
       .order("check_out", { ascending: true }),
-    supabase.from("rooms" as any).select("id,room_number"),
+    db().from("rooms" as any).select("id,room_number"),
   ]);
 
   const roomMap = new Map<string, string>((rooms ?? []).map((r: any) => [r.id, r.room_number]));
@@ -137,7 +137,7 @@ export interface NightAuditRun {
 }
 
 export async function listNightAuditRuns(limit = 200): Promise<NightAuditRun[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("night_audit_runs" as any)
     .select("*")
     .order("created_at", { ascending: false })
