@@ -7,6 +7,7 @@ import { listBookings, type BookingRow } from "@/lib/bookings-api";
 import { listAllChargeTotals } from "@/lib/booking-charges-api";
 import { listRooms } from "@/lib/rooms-api";
 import { getBusinessDate } from "@/lib/night-audit-api";
+import { getRoomOccupancySegments, segmentCoveringDate } from "@/lib/room-occupancy";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime";
 import { toLocalYMD } from "@/lib/utils";
 import { useOpsTimeLabels } from "@/lib/check-times";
@@ -73,6 +74,13 @@ function DuesPage() {
   const { data: rooms = [] } = useQuery({ queryKey: ["rooms-dues"], queryFn: () => listRooms() });
   const { data: businessDate } = useQuery({ queryKey: ["business-date"], queryFn: getBusinessDate, staleTime: 5 * 60_000 });
 
+  // UAT-047: room display comes from occupancy SEGMENTS, never `bookings.room_id`.
+  const { data: segments = [] } = useQuery({
+    queryKey: ["room-occupancy-segments", "dues"],
+    queryFn: () => getRoomOccupancySegments(null),
+    staleTime: 60_000,
+  });
+
   const roomById = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of rooms) m.set(r.id, r.room_number);
@@ -81,6 +89,26 @@ function DuesPage() {
 
   // Always work off the Business Date — never the calendar date.
   const bd = businessDate ?? toLocalYMD();
+
+  /** Effective room label for a booking on the business date (falls back to
+   *  the latest segment for future / past stays). Segments are the single
+   *  source of truth — `bookings.room_id` is never read here. */
+  const roomForBooking = useMemo(() => {
+    const byBooking = new Map<string, string>();
+    const latest = new Map<string, { start: string; room_id: string }>();
+    for (const s of segments) {
+      const prev = latest.get(s.booking_id);
+      if (!prev || s.start_date > prev.start) latest.set(s.booking_id, { start: s.start_date, room_id: s.room_id });
+    }
+    return (bookingId: string): string | null => {
+      if (byBooking.has(bookingId)) return byBooking.get(bookingId) ?? null;
+      const onBd = segmentCoveringDate(segments, bookingId, bd);
+      const roomId = onBd?.room_id ?? latest.get(bookingId)?.room_id ?? null;
+      const label = roomId ? (roomById.get(roomId) ?? null) : null;
+      if (label) byBooking.set(bookingId, label);
+      return label;
+    };
+  }, [segments, roomById, bd]);
 
   // Enrich with due + Due Date driven by Check-In.
   // NOTE: same calculation drives every section (Today / Overdue / Future / In-House / All).
@@ -111,7 +139,7 @@ function DuesPage() {
     const s = search.trim().toLowerCase();
     if (s) {
       rows = rows.filter((r) =>
-        [r.b.guest_name, r.b.phone, r.b.booking_reference, roomById.get(r.b.room_id ?? "")]
+        [r.b.guest_name, r.b.phone, r.b.booking_reference, roomForBooking(r.b.id)]
           .filter(Boolean).some((v) => String(v).toLowerCase().includes(s)),
       );
     }
@@ -120,7 +148,7 @@ function DuesPage() {
       if (a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
       return b.due - a.due;
     });
-  }, [enriched, filter, search, bd, roomById]);
+  }, [enriched, filter, search, bd, roomForBooking]);
 
   const summary = useMemo(() => {
     const dueToday = enriched.filter((r) => r.dueDate <= bd).reduce((s, r) => s + r.due, 0);
@@ -180,7 +208,7 @@ function DuesPage() {
               filterKey={filter}
               rows={filtered.map(({ b, due }) => ({
                 guest: b.guest_name,
-                room: roomById.get(b.room_id ?? "") ?? "—",
+                room: roomForBooking(b.id) ?? "—",
                 due,
               }))}
             />
@@ -208,7 +236,7 @@ function DuesPage() {
                     <div className="min-w-0">
                       <div className="font-medium truncate">{b.guest_name}</div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {b.booking_reference} · Room {roomById.get(b.room_id ?? "") ?? "—"}
+                        {b.booking_reference} · Room {roomForBooking(b.id) ?? "—"}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {fmtStay(b.check_in)} <span className="text-[10px]">{checkTimes.checkIn}</span>
@@ -258,7 +286,7 @@ function DuesPage() {
                         </Link>
                         <div className="text-[11px] text-muted-foreground">{b.booking_reference}</div>
                       </Td>
-                      <Td>{roomById.get(b.room_id ?? "") ?? "—"}</Td>
+                      <Td>{roomForBooking(b.id) ?? "—"}</Td>
                       <Td>
                         {fmtStay(dueDate)}
                         <div className={cn("text-[10px]", dueDate < bd ? "text-destructive font-medium" : "text-muted-foreground")}>
