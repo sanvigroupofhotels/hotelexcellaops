@@ -71,7 +71,7 @@ export interface CompleteTaskPayload {
 /* ------------------------------------------------------------ */
 
 export async function listTasksForDate(businessDate: string): Promise<HkTaskRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("housekeeping_tasks" as any)
     .select("*")
     .eq("business_date", businessDate)
@@ -81,7 +81,7 @@ export async function listTasksForDate(businessDate: string): Promise<HkTaskRow[
 }
 
 export async function getTask(id: string): Promise<HkTaskRow | null> {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("housekeeping_tasks" as any)
     .select("*")
     .eq("id", id)
@@ -101,7 +101,7 @@ export async function ensureCheckoutTask(input: {
   correlation_id?: string | null;
 }): Promise<HkTaskRow | null> {
   // Already have an open/in_progress checkout task for this room/day?
-  const { data: existing } = await supabase
+  const { data: existing } = await db()
     .from("housekeeping_tasks" as any)
     .select("*")
     .eq("room_id", input.room_id)
@@ -111,7 +111,7 @@ export async function ensureCheckoutTask(input: {
     .maybeSingle();
   if (existing) return existing as unknown as HkTaskRow;
 
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("housekeeping_tasks" as any)
     .insert({
       room_id: input.room_id,
@@ -143,7 +143,7 @@ export async function ensureContinueServiceTask(input: {
   booking_id: string | null;
   business_date: string;
 }): Promise<HkTaskRow | null> {
-  const { data: existing } = await supabase
+  const { data: existing } = await db()
     .from("housekeeping_tasks" as any)
     .select("*")
     .eq("room_id", input.room_id)
@@ -153,7 +153,7 @@ export async function ensureContinueServiceTask(input: {
     .maybeSingle();
   if (existing) return existing as unknown as HkTaskRow;
 
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("housekeeping_tasks" as any)
     .insert({
       room_id: input.room_id,
@@ -194,7 +194,7 @@ export async function createManualTask(input: {
 }): Promise<HkTaskRow> {
   // Reject if a live task already exists for this room/day/type — reuse it
   // instead of creating a duplicate, matching the ensure* helpers.
-  const { data: existing } = await supabase
+  const { data: existing } = await db()
     .from("housekeeping_tasks" as any)
     .select("*")
     .eq("room_id", input.room_id)
@@ -209,7 +209,7 @@ export async function createManualTask(input: {
   }
 
   const correlation_id = newCorrelationId();
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("housekeeping_tasks" as any)
     .insert({
       room_id: input.room_id,
@@ -250,7 +250,7 @@ export async function createManualTask(input: {
 export async function startTask(taskId: string, actor: { id: string; name: string }): Promise<void> {
   // Optimistic lock: only transition from open → in_progress; a second caller
   // gets zero rows updated and knows another user got there first.
-  const { data: rows, error } = await supabase
+  const { data: rows, error } = await db()
     .from("housekeeping_tasks" as any)
     .update({
       state: "in_progress",
@@ -297,7 +297,7 @@ export async function completeTask(taskId: string, payload: CompleteTaskPayload)
 
   // ── 1. Optimistic lock: flip state to done in a single UPDATE.
   const now = new Date().toISOString();
-  const { data: doneRows, error: doneErr } = await supabase
+  const { data: doneRows, error: doneErr } = await db()
     .from("housekeeping_tasks" as any)
     .update({
       state: "done",
@@ -454,7 +454,7 @@ async function filePotentialComplaints(input: {
 }
 
 export async function skipTask(taskId: string, reason: HkSkipReason, actor: { id: string; name: string }): Promise<void> {
-  const { data: rows, error } = await supabase
+  const { data: rows, error } = await db()
     .from("housekeeping_tasks" as any)
     .update({
       state: "skipped",

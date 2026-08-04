@@ -53,7 +53,7 @@ interface SetStatusInput {
 
 /** Write `rooms.housekeeping_status` and emit an activity_log row. */
 export async function setRoomHousekeepingStatus(input: SetStatusInput): Promise<void> {
-  const { data: current } = await supabase
+  const { data: current } = await db()
     .from("rooms" as any)
     .select("id, housekeeping_status, room_number")
     .eq("id", input.roomId)
@@ -65,7 +65,7 @@ export async function setRoomHousekeepingStatus(input: SetStatusInput): Promise<
   const { data: userRes } = await db().auth.getUser();
   const uid = input.actorId ?? userRes?.user?.id ?? null;
 
-  const { error } = await supabase
+  const { error } = await db()
     .from("rooms" as any)
     .update({
       housekeeping_status: input.next,

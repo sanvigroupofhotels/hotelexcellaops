@@ -32,7 +32,7 @@ export interface PendingBooking {
 }
 
 export async function getBusinessDate(): Promise<string> {
-  const { data } = await supabase
+  const { data } = await db()
     .from("app_settings" as any)
     .select("value")
     .eq("key", "business_date")
@@ -42,7 +42,7 @@ export async function getBusinessDate(): Promise<string> {
 }
 
 export async function setBusinessDate(date: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await db()
     .from("app_settings" as any)
     .upsert({ key: "business_date", value: { date }, updated_at: new Date().toISOString() } as any);
   if (error) throw error;
@@ -137,7 +137,7 @@ export interface NightAuditRun {
 }
 
 export async function listNightAuditRuns(limit = 200): Promise<NightAuditRun[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("night_audit_runs" as any)
     .select("*")
     .order("created_at", { ascending: false })

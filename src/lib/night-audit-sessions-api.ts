@@ -80,7 +80,7 @@ export async function getOpenSession(
   businessDate?: string,
 ): Promise<NightAuditSession | null> {
   const bd = businessDate ?? (await getBusinessDate());
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("night_audit_sessions" as any)
     .select("*")
     .eq("business_date", bd)
@@ -101,7 +101,7 @@ export async function openOrResumeSession(
   const { data: userRes } = await db().auth.getUser();
   const uid = userRes?.user?.id ?? null;
 
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("night_audit_sessions" as any)
     .insert({
       business_date: bd,
@@ -147,7 +147,7 @@ export async function closeSession(opts: {
   const { data: userRes } = await db().auth.getUser();
   const uid = userRes?.user?.id ?? null;
 
-  const { data: session, error: sErr } = await supabase
+  const { data: session, error: sErr } = await db()
     .from("night_audit_sessions" as any)
     .select("business_date,status")
     .eq("id", opts.sessionId)
@@ -200,7 +200,7 @@ export async function closeSession(opts: {
   // Concurrency guard: filter on status='open' so only the writer that
   // actually flipped open→closed proceeds to advance the business date.
   // A simultaneous second close gets an empty rowset and errors out cleanly.
-  const { data: closedRows, error: uErr } = await supabase
+  const { data: closedRows, error: uErr } = await db()
     .from("night_audit_sessions" as any)
     .update({
       status: "closed",
@@ -261,7 +261,7 @@ export async function saveSessionDraft(opts: {
   draft: Record<string, any>;
 }): Promise<void> {
   // Merge with existing totals so we don't blow away a final close payload.
-  const { data: existing, error: rErr } = await supabase
+  const { data: existing, error: rErr } = await db()
     .from("night_audit_sessions" as any)
     .select("totals,status")
     .eq("id", opts.sessionId)
@@ -275,7 +275,7 @@ export async function saveSessionDraft(opts: {
     draft: { ...opts.draft, updated_at: new Date().toISOString() },
   };
 
-  const { error } = await supabase
+  const { error } = await db()
     .from("night_audit_sessions" as any)
     .update({ totals: next } as any)
     .eq("id", opts.sessionId)
@@ -294,7 +294,7 @@ export async function reopenLastClosedSession(opts: {
   if (!opts.reason?.trim())
     throw new Error("A reason is required to reopen a closed session");
 
-  const { data: last, error } = await supabase
+  const { data: last, error } = await db()
     .from("night_audit_sessions" as any)
     .select("*")
     .eq("status", "closed")
@@ -312,7 +312,7 @@ export async function reopenLastClosedSession(opts: {
   // Concurrency guard — only the writer that actually flips closed→reopened
   // proceeds. Filter on status='closed' so a racing second reopen finds zero
   // rows and we throw without duplicating logs or rolling BD back twice.
-  const { data: updRows, error: uErr } = await supabase
+  const { data: updRows, error: uErr } = await db()
     .from("night_audit_sessions" as any)
     .update({
       status: "reopened",
@@ -375,7 +375,7 @@ export async function logDecision(opts: {
   // Best-effort role lookup
   let role: string | null = null;
   if (uid) {
-    const { data } = await supabase
+    const { data } = await db()
       .from("user_roles" as any)
       .select("role")
       .eq("user_id", uid)
@@ -384,7 +384,7 @@ export async function logDecision(opts: {
     role = (data as any)?.role ?? null;
   }
 
-  const { data: session } = await supabase
+  const { data: session } = await db()
     .from("night_audit_sessions" as any)
     .select("business_date")
     .eq("id", opts.sessionId)
@@ -411,7 +411,7 @@ export async function logDecision(opts: {
 export async function listDecisions(
   sessionId: string,
 ): Promise<NightAuditDecision[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("night_audit_decisions" as any)
     .select("*")
     .eq("session_id", sessionId)
