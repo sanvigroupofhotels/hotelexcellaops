@@ -51,3 +51,54 @@ Maintenance Module today, and every future extension point
 (notifications, integrations, AI) has a documented decoupled surface
 (see `docs/events.md`, `docs/notification-architecture.md`,
 `docs/integration-readiness.md`, `docs/ai-readiness.md`).
+
+---
+
+# v1.1 Production Hardening Milestone (Automatic Night Audit + Occupancy Engine)
+
+## 1. Automatic Night Audit scheduler — restored 🟢
+- `pg_cron` job `heos-night-audit-6am-ist` (`30 0 * * *` UTC = **06:00 IST**)
+  POSTs `/api/public/night-audit-run`.
+- The route delegates to `runScheduledNightAudit()`, which drives the **same**
+  `openOrResumeSession()` + `closeSession()` engine Reception uses. No second
+  audit implementation exists.
+- Business Date advances **only** on success, one day per session close, never
+  past today's Asia/Kolkata date, never while pending check-ins/check-outs
+  exist. Bounded 7-day catch-up.
+- Idempotent (`night_audit_runs` guard) and fully logged (`night_audit_runs`
+  row + `night_audit_scheduler_*` activity events, correlation id, duration).
+- Detail: `docs/night-audit-scheduler.md`.
+- Regression: `tests/night-audit-scheduler.test.ts` (8 cases).
+
+## 2. Shared-service single-implementation audit 🟢
+| Domain | Single implementation | Notes |
+|---|---|---|
+| Business Date advance | `night-audit-sessions-api.closeSession` | `performNightAudit()` remains hard-disabled; scheduler routes through `closeSession`. |
+| Room occupancy | `booking_room_assignments` segments + `room-occupancy.ts` | `split_room_assignment` RPC is the only move path. |
+| Room move | `moveBookingItemRoom` | House View DnD, Booking Detail, bulk ops all funnel here. |
+| Item lifecycle | `booking-item-operations-api.ts` | CI / CO / revert / add / remove. |
+| Pricing | `pricing.ts` + `booking-pricing-sync.ts` | Excludes `Removed` items. |
+| Payments / fees | `razorpay-completion.server.ts` | Portal + webhook share it. |
+| Housekeeping | `hk-generator` / `hk-tasks` / `hk-status` | One fan-out; idempotent. |
+| In-house definition | `in-house.ts` | One query for dashboard, charges, grids. |
+| Search | `booking-search.ts` | House View + global search. |
+| DB handle | `db.ts` (`db()` / `withDb`) | Lets server tasks reuse browser-side engines verbatim. |
+
+## 3. Technical-debt cleanup (legacy `bookings.room_id`) 🟢
+- `hk-generator.ts` — continue-service generation now reads occupancy segments.
+- `dues.tsx` — room column/search resolve via segments (BD-covering, else latest).
+- `room-counts.ts` — already segment-only; comments retained as guard rails.
+- Remaining `room_id` references in the codebase belong to `booking_room_assignments`,
+  `booking_items`, and `rooms` (legitimate), not to the retired booking-header column.
+
+## 4. Regression surface
+`bunx vitest run` → 26 passing across: booking clone, booking search,
+Razorpay completion (fee split, partial payments), night-audit scheduler.
+End-to-end Playwright coverage: `tests/e2e/room-move-regression.spec.py`
+(repeat occupancy 102→104→102, sibling preservation, full lifecycle, HK
+integration under repeated moves), `tests/e2e/house-view-long-press.spec.py`.
+
+## Final assessment (v1.1)
+HEOS Core v1.1 is **production ready**. Night Audit is autonomous with a manual
+override, occupancy history is segment-authoritative end to end, and every
+cross-cutting operation has exactly one implementation with regression cover.
