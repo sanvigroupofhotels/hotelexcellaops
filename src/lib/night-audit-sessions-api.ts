@@ -10,7 +10,7 @@
  * append-only decision row tied to the active session.
  */
 
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db";
 import { getBusinessDate, setBusinessDate, getPendingForAudit } from "@/lib/night-audit-api";
 import { logActivity } from "@/lib/activity-log";
 
@@ -98,7 +98,7 @@ export async function openOrResumeSession(
   const existing = await getOpenSession(bd);
   if (existing) return existing;
 
-  const { data: userRes } = await supabase.auth.getUser();
+  const { data: userRes } = await db().auth.getUser();
   const uid = userRes?.user?.id ?? null;
 
   const { data, error } = await supabase
@@ -144,7 +144,7 @@ export async function closeSession(opts: {
   overrideReason?: string | null;
   actorName?: string | null;
 }): Promise<{ newBusinessDate: string }> {
-  const { data: userRes } = await supabase.auth.getUser();
+  const { data: userRes } = await db().auth.getUser();
   const uid = userRes?.user?.id ?? null;
 
   const { data: session, error: sErr } = await supabase
@@ -304,7 +304,7 @@ export async function reopenLastClosedSession(opts: {
   if (error) throw error;
   if (!last) throw new Error("No closed session to reopen");
 
-  const { data: userRes } = await supabase.auth.getUser();
+  const { data: userRes } = await db().auth.getUser();
   const uid = userRes?.user?.id ?? null;
 
   const bd = (last as any).business_date as string;
@@ -369,7 +369,7 @@ export async function logDecision(opts: {
   reason?: string | null;
   payload?: Record<string, any>;
 }): Promise<void> {
-  const { data: userRes } = await supabase.auth.getUser();
+  const { data: userRes } = await db().auth.getUser();
   const uid = userRes?.user?.id ?? null;
 
   // Best-effort role lookup
@@ -390,7 +390,7 @@ export async function logDecision(opts: {
     .eq("id", opts.sessionId)
     .maybeSingle();
 
-  const { error } = await supabase.from("night_audit_decisions" as any).insert({
+  const { error } = await db().from("night_audit_decisions" as any).insert({
     session_id: opts.sessionId,
     business_date: (session as any)?.business_date ?? new Date().toISOString().slice(0, 10),
     step: opts.step,

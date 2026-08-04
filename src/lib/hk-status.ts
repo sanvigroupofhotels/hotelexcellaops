@@ -11,7 +11,7 @@
  * we log & no-op rather than throw, because the business flows (checkout,
  * night audit, exception actions) must never be blocked by a stale UI.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db";
 import { logActivity, type ActivityAction } from "@/lib/activity-log";
 
 export type HousekeepingStatus =
@@ -62,7 +62,7 @@ export async function setRoomHousekeepingStatus(input: SetStatusInput): Promise<
   const prev = (current as any).housekeeping_status as HousekeepingStatus | null;
   if (prev === input.next) return;   // idempotent
 
-  const { data: userRes } = await supabase.auth.getUser();
+  const { data: userRes } = await db().auth.getUser();
   const uid = input.actorId ?? userRes?.user?.id ?? null;
 
   const { error } = await supabase

@@ -16,7 +16,7 @@
  *
  * Design refs: §4 helpers, §4.2 fanout, §7 edge cases.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db";
 import { logActivity, newCorrelationId } from "@/lib/activity-log";
 import { recordMovement } from "@/lib/inventory-movements";
 import { setRoomHousekeepingStatus, type HousekeepingStatus } from "@/lib/hk-status";
@@ -127,7 +127,7 @@ export async function ensureCheckoutTask(input: {
   if (error) {
     // Unique-violation race → fetch what's there.
     if ((error as any).code === "23505") {
-      const { data: r } = await supabase.from("housekeeping_tasks" as any)
+      const { data: r } = await db().from("housekeeping_tasks" as any)
         .select("*")
         .eq("room_id", input.room_id).eq("business_date", input.business_date)
         .eq("type", "checkout_clean").in("state", ["open", "in_progress"]).maybeSingle();
@@ -407,12 +407,12 @@ async function filePotentialComplaints(input: {
   // Fallback category — the design mandates the seeded "Housekeeping Report".
   let fallbackCategory = "Housekeeping Report";
   try {
-    const { data: cat } = await supabase.from("complaint_categories" as any)
+    const { data: cat } = await db().from("complaint_categories" as any)
       .select("name").ilike("name", "housekeeping report").eq("active", true).maybeSingle();
     if (cat && (cat as any).name) fallbackCategory = (cat as any).name;
   } catch { /* keep default */ }
 
-  const { data: room } = await supabase.from("rooms" as any)
+  const { data: room } = await db().from("rooms" as any)
     .select("room_number").eq("id", input.task.room_id).maybeSingle();
   const roomNumber = (room as any)?.room_number ?? null;
 
@@ -420,7 +420,7 @@ async function filePotentialComplaints(input: {
     let categoryName = fallbackCategory;
     if (issue.default_complaint_category_id) {
       try {
-        const { data: cc } = await supabase.from("complaint_categories" as any)
+        const { data: cc } = await db().from("complaint_categories" as any)
           .select("name").eq("id", issue.default_complaint_category_id).maybeSingle();
         if (cc && (cc as any).name) categoryName = (cc as any).name;
       } catch { /* stick with fallback */ }

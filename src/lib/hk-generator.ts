@@ -9,7 +9,7 @@
  * Idempotent — safe to re-run (partial unique index guarantees at most one
  * open task per room/day/type).
  */
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db";
 import { ensureContinueServiceTask } from "@/lib/hk-tasks";
 import { setRoomHousekeepingStatus } from "@/lib/hk-status";
 import { logActivity, newCorrelationId } from "@/lib/activity-log";
@@ -37,8 +37,8 @@ export async function generateContinueServiceTasks(businessDate: string): Promis
 
   // 2. Fetch rooms + exception rows in bulk.
   const [{ data: rooms }, { data: exceptions }] = await Promise.all([
-    supabase.from("rooms" as any).select("id, housekeeping_status").in("id", roomIds),
-    supabase.from("housekeeping_room_exceptions" as any)
+    db().from("rooms" as any).select("id, housekeeping_status").in("id", roomIds),
+    db().from("housekeeping_room_exceptions" as any)
       .select("room_id, reason").eq("business_date", businessDate).in("room_id", roomIds),
   ]);
   const roomStatus = new Map<string, string>();
