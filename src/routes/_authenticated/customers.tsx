@@ -13,7 +13,7 @@ import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
 import { useMasterData } from "@/hooks/use-master-data";
 import {
   Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, Mail, Plus, X,
-  FilePlus, BedDouble, Sparkles, AlertCircle, CheckCircle2, RotateCcw,
+  BedDouble, Sparkles, AlertCircle, CheckCircle2, RotateCcw,
 } from "lucide-react";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";

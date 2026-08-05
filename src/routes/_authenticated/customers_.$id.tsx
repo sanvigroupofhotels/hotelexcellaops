@@ -13,7 +13,7 @@ import { StatusPill } from "@/components/status-pill";
 import { CustomerEditDialog } from "@/components/customer-edit-dialog";
 import {
   ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Calendar, Star,
-  FilePlus, MessageCircle, Pencil, BedDouble,
+  MessageCircle, Pencil, BedDouble,
 } from "lucide-react";
 import { CustomerDocumentsCard } from "@/components/customer-documents-card";
 import { CustomerPhonesPanel } from "@/components/customer-phones-panel";
