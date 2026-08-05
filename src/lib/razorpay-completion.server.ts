@@ -37,6 +37,8 @@ export interface RazorpayCaptureInput {
   method?: string | null;
   /** Free-form suffix appended to the primary payment note (e.g. token hint). */
   noteSuffix?: string;
+  /** Collection channel recorded on the payment rows. */
+  collectedBy?: string;
 }
 
 export interface RazorpayCaptureResult {
@@ -86,6 +88,7 @@ export async function completeRazorpayCapture(
   const {
     supabaseAdmin, bookingId, amountInr, razorpayOrderId, razorpayPaymentId,
     razorpaySignature = null, method = null, noteSuffix = "",
+    collectedBy = "Guest Portal",
   } = input;
 
   const { data: booking } = await supabaseAdmin
@@ -132,7 +135,7 @@ export async function completeRazorpayCapture(
     customer_id: (booking as any).customer_id,
     amount: primaryAmount,
     payment_mode: "Razorpay",
-    collected_by: "Guest Portal",
+    collected_by: collectedBy,
     occurred_at: new Date().toISOString(),
     notes: `Razorpay ${razorpayPaymentId}${noteSuffix}${feeAmount > 0 ? ` · fee split ₹${feeAmount.toFixed(2)}` : ""}`,
     user_id: (booking as any).user_id,
@@ -179,7 +182,7 @@ export async function completeRazorpayCapture(
         customer_id: (booking as any).customer_id,
         amount: feeAmount,
         payment_mode: "Razorpay",
-        collected_by: "Guest Portal",
+        collected_by: collectedBy,
         occurred_at: new Date().toISOString(),
         notes: `Razorpay convenience fee · settles gateway charge for ${razorpayPaymentId}`,
         utr: razorpayPaymentId,
