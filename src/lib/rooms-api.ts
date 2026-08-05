@@ -95,9 +95,14 @@ export interface RoomConflict {
 }
 
 /**
- * Returns bookings already assigned to `room_id` whose dates overlap [check_in, check_out).
+ * Returns bookings already occupying `room_id` whose dates overlap [check_in, check_out).
  * `excludeBookingId` skips the booking being edited.
- * Cancelled / Stay Completed / Checked-Out bookings are ignored.
+ * Cancelled / Stay Completed / Checked-Out / No-Show bookings are ignored.
+ *
+ * UAT-047 / production-hardening: occupancy comes from
+ * `booking_room_assignments` SEGMENTS only. The legacy `bookings.room_id`
+ * compatibility mirror is never read here — it cannot represent mid-stay room
+ * changes and would report conflicts for rooms that were already vacated.
  */
 export async function findRoomConflicts(
   room_id: string,
@@ -106,19 +111,34 @@ export async function findRoomConflicts(
   excludeBookingId?: string,
 ): Promise<RoomConflict[]> {
   const { data, error } = await supabase
-    .from("bookings" as any)
-    .select("id,booking_reference,guest_name,check_in,check_out,status")
-    .eq("room_id", room_id)
-    .not("status", "in", "(Cancelled,Stay Completed,Checked-Out)");
+    .from("booking_room_assignments" as any)
+    .select(
+      "room_id,start_date,end_date,bookings:bookings!inner(id,booking_reference,guest_name,check_in,check_out,status)",
+    )
+    .eq("room_id", room_id);
   if (error) throw error;
-  const rows = (data ?? []) as any[];
-  return rows
-    .filter((b) => b.id !== excludeBookingId && datesOverlap(check_in, check_out, b.check_in, b.check_out))
-    .map((b) => ({
-      booking_id: b.id, booking_reference: b.booking_reference,
-      guest_name: b.guest_name, check_in: b.check_in, check_out: b.check_out, status: b.status,
-    }));
+  const seen = new Set<string>();
+  const out: RoomConflict[] = [];
+  for (const a of ((data ?? []) as any[])) {
+    const b = a.bookings;
+    if (!b) continue;
+    if (b.id === excludeBookingId) continue;
+    if (["Cancelled", "Stay Completed", "Checked-Out", "No-Show"].includes(b.status)) continue;
+    if (!datesOverlap(check_in, check_out, a.start_date, a.end_date)) continue;
+    if (seen.has(b.id)) continue;
+    seen.add(b.id);
+    out.push({
+      booking_id: b.id,
+      booking_reference: b.booking_reference,
+      guest_name: b.guest_name,
+      check_in: b.check_in,
+      check_out: b.check_out,
+      status: b.status,
+    });
+  }
+  return out;
 }
+
 
 /**
  * Returns the set of room_ids that have ANY non-cancelled booking overlapping
