@@ -603,24 +603,22 @@ export const confirmBookingEnginePayment = createServerFn({ method: "POST" })
       .eq("id", data.booking_id).maybeSingle();
     if (!b) throw new Error("Booking not found");
 
-    // Idempotency
-    const { data: existingPay } = await supabaseAdmin
-      .from("booking_payments").select("id").eq("booking_id", (b as any).id)
-      .ilike("notes", `%${data.razorpay_payment_id}%`).maybeSingle();
+    // Production hardening: payment crediting has exactly ONE implementation.
+    // The booking engine, the guest portal and the Razorpay webhook all call
+    // `completeRazorpayCapture`, so idempotency and the convenience-fee split
+    // behave identically on every channel (previously the engine inserted the
+    // payment itself and silently skipped the fee split).
+    const { completeRazorpayCapture } = await import("@/lib/razorpay-completion.server");
+    await completeRazorpayCapture({
+      supabaseAdmin,
+      bookingId: (b as any).id,
+      amountInr,
+      razorpayOrderId: data.razorpay_order_id,
+      razorpayPaymentId: data.razorpay_payment_id,
+      razorpaySignature: data.razorpay_signature,
+      collectedBy: "Booking Engine",
+    });
 
-    if (!existingPay) {
-      const { error: pe } = await supabaseAdmin.from("booking_payments").insert({
-        booking_id: (b as any).id,
-        customer_id: (b as any).customer_id,
-        amount: amountInr,
-        payment_mode: "Razorpay",
-        collected_by: "Booking Engine",
-        occurred_at: new Date().toISOString(),
-        notes: `Razorpay ${data.razorpay_payment_id}`,
-        user_id: (b as any).user_id,
-      } as any);
-      if (pe) throw pe;
-    }
 
     // Promote Draft → derived status (trigger derives Advance Paid / Full Paid)
     // Move out of Draft first so the derive trigger runs.
