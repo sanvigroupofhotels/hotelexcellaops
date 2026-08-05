@@ -71,4 +71,4 @@ export async function shareQuoteImage(node: HTMLElement, q: QuoteRow) {
     toast.error(e?.message ?? "Failed to share image");
   }
 }
-}
+
