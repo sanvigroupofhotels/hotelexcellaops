@@ -1,15 +1,7 @@
-import { toPng, toBlob } from "html-to-image";
+import { toBlob } from "html-to-image";
 import { toast } from "sonner";
 import type { QuoteRow } from "@/lib/quotes-api";
 
-/** Render a DOM node to a PNG data URL at 2x for retina-crisp images. */
-export async function nodeToPng(node: HTMLElement): Promise<string> {
-  return toPng(node, {
-    pixelRatio: 2,
-    cacheBust: true,
-    backgroundColor: "#0b0b0f",
-  });
-}
 
 export async function nodeToBlob(node: HTMLElement): Promise<Blob | null> {
   return toBlob(node, {
