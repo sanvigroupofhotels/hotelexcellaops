@@ -13,7 +13,7 @@ import { StatusPill } from "@/components/status-pill";
 import { CustomerEditDialog } from "@/components/customer-edit-dialog";
 import {
   ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Calendar, Star,
-  FilePlus, MessageCircle, Pencil, BedDouble,
+  MessageCircle, Pencil, BedDouble,
 } from "lucide-react";
 import { CustomerDocumentsCard } from "@/components/customer-documents-card";
 import { CustomerPhonesPanel } from "@/components/customer-phones-panel";
@@ -154,14 +154,12 @@ function CustomerDetail() {
                     </a>
                   </>
                 )}
-                <Link to="/generate" search={{ customerId: c.id }}
-                  className="inline-flex items-center gap-1.5 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal hover:shadow-[0_0_18px_oklch(0.82_0.13_82/0.35)]">
-                  <FilePlus className="h-3.5 w-3.5" /> New Quote
-                </Link>
+                {/* Quotes retired in Shipment 3B — Booking is the only creation path. */}
                 <Link to="/bookings/new" search={{ customerId: c.id, fromQuoteId: undefined } as any}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-gold/40 bg-gold-soft text-gold px-3 py-2 text-xs font-medium hover:bg-gold/20">
+                  className="inline-flex items-center gap-1.5 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal hover:shadow-[0_0_18px_oklch(0.82_0.13_82/0.35)]">
                   <BedDouble className="h-3.5 w-3.5" /> New Booking
                 </Link>
+
               </div>
             </div>
 

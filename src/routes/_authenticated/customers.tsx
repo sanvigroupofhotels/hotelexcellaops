@@ -13,7 +13,7 @@ import { LEAD_SOURCES, DEFAULT_TAGS } from "@/lib/mock-data";
 import { useMasterData } from "@/hooks/use-master-data";
 import {
   Search, Loader2, Download, Trash2, ChevronRight, Star, Phone, MessageCircle, Mail, Plus, X,
-  FilePlus, BedDouble, Sparkles, AlertCircle, CheckCircle2, RotateCcw,
+  BedDouble, Sparkles, AlertCircle, CheckCircle2, RotateCcw,
 } from "lucide-react";
 import { cn, toLocalYMD } from "@/lib/utils";
 import { toast } from "sonner";
@@ -338,10 +338,8 @@ function CreateForCustomerPopover({ customerId }: { customerId: string }) {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-56 p-2" onClick={(e) => e.stopPropagation()}>
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 pb-1.5">Create For Customer</div>
-        <Link to="/generate" search={{ customerId } as any} onClick={() => setOpen(false)}
-          className="flex items-center gap-2 px-2 py-2 rounded-md text-sm hover:bg-gold-soft hover:text-gold transition">
-          <FilePlus className="h-4 w-4" /> Create Quote
-        </Link>
+        {/* Quotes retired in Shipment 3B — Booking is the only creation path. */}
+
         <Link to="/bookings/new" search={{ customerId, fromQuoteId: undefined } as any} onClick={() => setOpen(false)}
           className="flex items-center gap-2 px-2 py-2 rounded-md text-sm hover:bg-gold-soft hover:text-gold transition">
           <BedDouble className="h-4 w-4" /> Create Booking
