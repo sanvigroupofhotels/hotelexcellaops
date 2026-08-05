@@ -71,8 +71,4 @@ export async function shareQuoteImage(node: HTMLElement, q: QuoteRow) {
     toast.error(e?.message ?? "Failed to share image");
   }
 }
-
-/** Alias kept for any existing callers. */
-export async function downloadQuoteImage(node: HTMLElement, q: QuoteRow) {
-  return shareQuoteImage(node, q);
 }
