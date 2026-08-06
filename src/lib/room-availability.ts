@@ -24,6 +24,7 @@
  *   • `room-counts.ts`    → occupied / sold / room-night COUNTS (KPIs)
  */
 import { supabase } from "@/integrations/supabase/client";
+import { listBusyRoomIds } from "@/lib/occupancy-source";
 
 export interface AvailableRoomsInput {
   check_in: string; // YYYY-MM-DD
@@ -49,49 +50,20 @@ export async function listAvailableRoomsForStay(input: AvailableRoomsInput): Pro
   const { check_in, check_out, exclude_booking_id, room_type } = input;
   if (!check_in || !check_out || check_in >= check_out) return [];
 
-  const closedStatuses = ["Cancelled", "Checked-Out", "Stay Completed", "No-Show"];
-  const closedIn = `(${closedStatuses.map((s) => `"${s}"`).join(",")})`;
-
   const roomsQ = supabase
     .from("rooms")
     .select("id, room_number, room_type, floor")
     .eq("active", true);
   if (room_type) roomsQ.eq("room_type", room_type);
 
-  // UAT-047: `booking_room_assignments` is the SINGLE SOURCE OF TRUTH for
-  // physical room occupancy. `bookings.room_id` is a compatibility mirror
-  // only. Segment windows carry the authoritative dates; a mid-stay room
-  // change frees the old room from the effective date onward.
-  const [{ data: rooms, error: rErr }, { data: assigns, error: aErr }, { data: blocks, error: mErr }] =
-    await Promise.all([
-      roomsQ,
-      supabase
-        .from("booking_room_assignments" as any)
-        .select("booking_id, room_id, start_date, end_date, bookings!inner(status)")
-        .lt("start_date", check_out)
-        .gt("end_date", check_in)
-        .not("bookings.status", "in", closedIn),
-
-      supabase
-        .from("room_maintenance" as any)
-        .select("room_id, start_date, end_date, active")
-        .eq("active", true)
-        .lt("start_date", check_out)
-        .gt("end_date", check_in),
-    ]);
-
+  // UAT-047: physical occupancy + maintenance both come from the shared
+  // occupancy source (`src/lib/occupancy-source.ts`). No inline segment or
+  // maintenance queries live here, and `bookings.room_id` is never read.
+  const [{ data: rooms, error: rErr }, busy] = await Promise.all([
+    roomsQ,
+    listBusyRoomIds({ check_in, check_out, exclude_booking_id: exclude_booking_id ?? null }),
+  ]);
   if (rErr) throw rErr;
-  if (aErr) throw aErr;
-  if (mErr) throw mErr;
-
-  const busy = new Set<string>();
-  for (const a of (assigns ?? []) as any[]) {
-    if (exclude_booking_id && a.booking_id === exclude_booking_id) continue;
-    if (a.room_id) busy.add(a.room_id);
-  }
-  for (const m of (blocks ?? []) as any[]) {
-    if (m.room_id) busy.add(m.room_id);
-  }
 
   return ((rooms ?? []) as any[])
     .filter((r) => !busy.has(r.id))

@@ -11,7 +11,7 @@ function isSameOriginRelative(path: unknown): path is string {
 }
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { next?: string } => ({
     next: isSameOriginRelative(s.next) ? (s.next as string) : undefined,
   }),
   component: LoginPage,

@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_authenticated/laundry")({
   component: LaundryPage,
   // Allow deep-linking from reporting: /laundry?batch=<id> opens the
   // Batch Detail screen directly rather than the landing page.
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { batch?: string } => ({
     batch: typeof s.batch === "string" ? s.batch : undefined,
   }),
   head: () => ({

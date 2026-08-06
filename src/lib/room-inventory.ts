@@ -37,6 +37,11 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  NON_COMMITTED_DEMAND_STATUSES,
+  listMaintenanceBlocks,
+  pgStatusList,
+} from "@/lib/occupancy-source";
 
 
 export interface RoomTypeAvailabilityRow {
@@ -83,10 +88,9 @@ export async function getRoomTypeAvailability(
   const { check_in, check_out, exclude_booking_id } = input;
   if (!check_in || !check_out || check_in >= check_out) return { byType: {} };
 
-  const closedStatuses = ["Draft", "Cancelled", "Checked-Out", "Stay Completed", "No-Show"];
-  const closedIn = `(${closedStatuses.map((s) => `"${s}"`).join(",")})`;
+  const closedIn = pgStatusList(NON_COMMITTED_DEMAND_STATUSES);
 
-  const [{ data: rooms, error: rErr }, { data: items, error: iErr }, { data: blocks, error: mErr }] =
+  const [{ data: rooms, error: rErr }, { data: items, error: iErr }, blocks] =
     await Promise.all([
       supabase.from("rooms").select("id, room_type, active").eq("active", true),
       // Pull every booking_item belonging to a committed booking that overlaps
@@ -99,16 +103,12 @@ export async function getRoomTypeAvailability(
         .lt("bookings.check_in", check_out)
         .gt("bookings.check_out", check_in)
         .not("bookings.status", "in", closedIn),
-      supabase
-        .from("room_maintenance" as any)
-        .select("room_id, start_date, end_date, active, rooms!inner(room_type)")
-        .eq("active", true)
-        .lt("start_date", check_out)
-        .gt("end_date", check_in),
+      // Maintenance blocks come from the shared occupancy source — one
+      // implementation for every availability granularity.
+      listMaintenanceBlocks({ check_in, check_out }),
     ]);
   if (rErr) throw rErr;
   if (iErr) throw iErr;
-  if (mErr) throw mErr;
 
   // Total inventory per canonical type key.
   const totalByKey: Record<string, { label: string; total: number }> = {};
@@ -174,9 +174,9 @@ export async function getRoomTypeAvailability(
   // ONLY if that room is still active inventory (UAT-048). Apply the same
   // per-night peak so overlapping-but-non-concurrent blocks don't stack.
   const blockDemandByKeyNight: Record<string, Record<string, number>> = {};
-  for (const m of (blocks ?? []) as any[]) {
+  for (const m of blocks) {
     if (m.room_id && !activeRoomIds.has(m.room_id)) continue;
-    const label = m.rooms?.room_type ?? "";
+    const label = m.room_type ?? "";
     const key = normalizeRoomTypeKey(label);
     if (!key) continue;
     const mIn = m.start_date as string;

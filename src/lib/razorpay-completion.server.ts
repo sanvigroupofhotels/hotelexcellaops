@@ -24,6 +24,7 @@
  * Fallback: when the order row is missing (legacy / manually created orders),
  * we fall back to the outstanding-balance comparison so no fee is lost.
  */
+import { buildBookingChargeRow } from "@/lib/booking-charge-row";
 
 const DUST = 0.005; // half a paisa tolerance
 
@@ -161,20 +162,26 @@ export async function completeRazorpayCapture(
   if (feeAmount > 0) {
     // Non-blocking — the guest credit already landed.
     try {
-      const { error: chErr } = await supabaseAdmin.from("booking_charges").insert({
-        booking_id: bookingId,
-        user_id: (booking as any).user_id,
-        category: "Razorpay Charges",
-        quantity: 1,
-        unit_price: feeAmount,
-        amount: feeAmount,
-        // `[system-generated]` drives the "Auto" badge in the charges list.
-        notes: `[system-generated] Payment gateway fee · Razorpay ${razorpayPaymentId}`,
-        added_by: "System (Razorpay)",
-        occurred_at: new Date().toISOString(),
-        // Gateway fees are always booking-level (never room-attributed).
-        item_id: null,
-      } as any);
+      // Shared charge creation path: the row is shaped and validated by the
+      // canonical builder, so gateway fees are identical to staff-entered
+      // charges (amount arithmetic, defaults, `occurred_at`).
+      const feeRow = buildBookingChargeRow(
+        {
+          booking_id: bookingId,
+          category: "Razorpay Charges",
+          quantity: 1,
+          unit_price: feeAmount,
+          // `[system-generated]` drives the "Auto" badge in the charges list.
+          notes: `[system-generated] Payment gateway fee · Razorpay ${razorpayPaymentId}`,
+          added_by: "System (Razorpay)",
+          // Gateway fees are always booking-level (never room-attributed).
+          item_id: null,
+        },
+        (booking as any).user_id,
+      );
+      const { error: chErr } = await supabaseAdmin
+        .from("booking_charges")
+        .insert(feeRow as any);
       if (chErr) throw chErr;
 
       await supabaseAdmin.from("booking_payments").insert({

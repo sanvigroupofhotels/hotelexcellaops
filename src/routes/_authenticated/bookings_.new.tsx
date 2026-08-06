@@ -33,7 +33,16 @@ import { toast } from "sonner";
 import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/payment-settings-section";
 
 export const Route = createFileRoute("/_authenticated/bookings_/new")({
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (
+    s: Record<string, unknown>,
+  ): {
+    customerId?: string;
+    fromQuoteId?: string;
+    fromBookingId?: string;
+    roomType?: string;
+    checkIn?: string;
+    checkOut?: string;
+  } => ({
     customerId: typeof s.customerId === "string" ? s.customerId : undefined,
     fromQuoteId: typeof s.fromQuoteId === "string" ? s.fromQuoteId : undefined,
     fromBookingId: typeof s.fromBookingId === "string" ? s.fromBookingId : undefined,

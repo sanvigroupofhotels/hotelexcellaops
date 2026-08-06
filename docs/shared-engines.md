@@ -103,3 +103,44 @@ the engine rather than duplicating logic in the screen.**
   scattered event → effect rules once Maintenance adds the 5th rule.
 - **Booking-list filtering** (P3 tech-debt) — consolidate between
   `bookings.tsx` and `calendar.tsx` into `booking-status.ts`.
+
+## 2026-08-06 — Final engineering cleanup (pre-Maintenance freeze)
+
+**Availability is now one service with three adapters.**
+
+```
+src/lib/occupancy-source.ts   ← ONLY module that reads occupancy rows
+    listOccupancySegments()   booking_room_assignments (+ parent booking)
+    listMaintenanceBlocks()   room_maintenance (active, overlapping)
+    listBusyRoomIds()         union of both, as Set<room_id>
+    datesOverlap()            canonical day-use-aware overlap predicate
+    CLOSED_OCCUPANCY_STATUSES / NON_COMMITTED_DEMAND_STATUSES / pgStatusList()
+
+src/lib/availability.ts       ← SINGLE public entry point for feature code
+    1. getRoomTypeAvailability()   room-type sellable capacity (room-inventory.ts)
+    2. listAvailableRoomsForStay() physical assignable rooms (room-availability.ts)
+    3. findRoomConflicts() / listOccupiedRoomIds()  conflict checks (rooms-api.ts)
+```
+
+Rules: import availability from `src/lib/availability.ts`; never query
+`booking_room_assignments`, `room_maintenance`, or `bookings.room_id` inline.
+New granularities (including the Maintenance Module) become another adapter over
+`occupancy-source`, never a new query.
+
+**Pricing.** `applyTaxes(base, rate, taxesIncluded)` in `src/lib/pricing.ts` is
+now the only place subtotal → taxes → total is derived. `computePricing()` and
+the public Booking Engine (`booking-engine.functions.ts`, search + quote paths)
+both call it; the engine no longer does inline tax arithmetic.
+
+**Booking charges.** `buildBookingChargeRow()` in `src/lib/booking-charge-row.ts`
+(pure, client-free) shapes and validates every charge. `createBookingCharge()`
+wraps it for the browser; the server-side Razorpay convenience-fee split calls it
+directly before inserting with the service role. No path constructs a charge row
+by hand.
+
+**Security.** Leaked-password protection (HIBP) is enabled on auth.
+
+**Typecheck.** `bunx tsgo --noEmit` is clean — the TanStack search-param
+strictness warnings were fixed at the source by typing each `validateSearch`
+return with optional keys (`login`, `complaints`, `laundry`, `bookings/new`,
+`night-audit/critical-tasks`), so callers no longer need dummy `search` objects.

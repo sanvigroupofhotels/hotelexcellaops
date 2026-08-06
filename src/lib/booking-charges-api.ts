@@ -1,4 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
+import { buildBookingChargeRow, type BookingChargeInput } from "@/lib/booking-charge-row";
+
+// Canonical builder/validator lives in a pure module; re-exported so existing
+// imports of these symbols keep working.
+export { buildBookingChargeRow };
+export type { BookingChargeInput };
 
 export interface BookingChargeRow {
   id: string;
@@ -17,17 +23,6 @@ export interface BookingChargeRow {
   updated_at: string;
 }
 
-export interface BookingChargeInput {
-  booking_id: string;
-  item_id?: string | null;
-  category: string;
-  other_description?: string | null;
-  quantity: number;
-  unit_price: number;
-  added_by?: string | null;
-  occurred_at?: string;
-  notes?: string | null;
-}
 
 export async function listBookingCharges(booking_id: string) {
   const { data, error } = await supabase
@@ -42,20 +37,9 @@ export async function listBookingCharges(booking_id: string) {
 export async function createBookingCharge(input: BookingChargeInput) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
-  if (!input.category) throw new Error("Category is required");
-  if (input.category === "Other" && !input.other_description?.trim())
-    throw new Error("Description is required for 'Other'");
-  if (!(input.quantity > 0)) throw new Error("Quantity must be greater than zero");
-  if (input.unit_price < 0) throw new Error("Unit price cannot be negative");
-  const amount = Number((input.quantity * input.unit_price).toFixed(2));
-  const row: any = {
-    ...input,
-    amount,
-    user_id: user.id,
-    occurred_at: input.occurred_at ?? new Date().toISOString(),
-  };
+  const row = buildBookingChargeRow(input, user.id);
   const { data, error } = await supabase
-    .from("booking_charges" as any).insert(row).select().single();
+    .from("booking_charges" as any).insert(row as any).select().single();
   if (error) throw error;
   return data as unknown as BookingChargeRow;
 }

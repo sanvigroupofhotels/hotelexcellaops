@@ -10,6 +10,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { normalizeOrThrow } from "@/lib/phone";
+import { applyTaxes } from "@/lib/pricing";
 
 
 const DRAFT_TTL_MIN = 15;
@@ -232,8 +233,8 @@ export const getAvailability = createServerFn({ method: "POST" })
         nightly.push({ date: iso, rate });
         subtotal += rate;
       }
-      const taxes = Math.round(subtotal * tax_rate);
-      const total = subtotal + taxes;
+      // Shared pricing engine — no inline tax arithmetic (single source of truth).
+      const { taxes, total } = applyTaxes(subtotal, tax_rate);
       return {
         type: displayType,
         room_type_key: type,
@@ -376,8 +377,8 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       else rate = Number(r.weekday_rate ?? r.default_rate ?? 0);
       subtotal += rate;
     }
-    const taxes = Math.round(subtotal * tax_rate);
-    const total = subtotal + taxes;
+    // Shared pricing engine — no inline tax arithmetic (single source of truth).
+    const { taxes, total } = applyTaxes(subtotal, tax_rate);
 
     if (total <= 0) throw new Error("Pricing unavailable for the selected dates. Please contact the hotel.");
 
@@ -916,8 +917,8 @@ export const updateDraftStay = createServerFn({ method: "POST" })
       else rate = Number(r.weekday_rate ?? r.default_rate ?? 0);
       subtotal += rate;
     }
-    const taxes = Math.round(subtotal * tax_rate);
-    const total = subtotal + taxes;
+    // Shared pricing engine — no inline tax arithmetic (single source of truth).
+    const { taxes, total } = applyTaxes(subtotal, tax_rate);
     if (total <= 0) throw new Error("Pricing unavailable for the selected dates. Please contact the hotel.");
 
     // Extend hold by 15 more minutes when the guest is actively editing.

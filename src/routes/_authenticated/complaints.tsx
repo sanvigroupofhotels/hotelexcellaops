@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_authenticated/complaints")({
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { new?: "1" } => ({
     new: s.new === "1" || s.new === 1 ? "1" : undefined,
   }),
   component: ComplaintsPage,
