@@ -29,6 +29,34 @@ export interface BookingChargeInput {
   notes?: string | null;
 }
 
+/**
+ * Canonical booking-charge row builder + validator.
+ *
+ * EVERY charge in HEOS is shaped here — the in-house charge dialog, per-room
+ * fan-out, Past Due carry-forward, and the server-side Razorpay convenience-fee
+ * split. Server contexts that must write with the service role call this and
+ * insert the returned row; browser contexts use `createBookingCharge` below,
+ * which is a thin wrapper over it. There is no other place that computes
+ * `amount` or validates a charge.
+ */
+export function buildBookingChargeRow(
+  input: BookingChargeInput,
+  user_id: string,
+): Record<string, unknown> {
+  if (!input.booking_id) throw new Error("Booking is required");
+  if (!input.category) throw new Error("Category is required");
+  if (input.category === "Other" && !input.other_description?.trim())
+    throw new Error("Description is required for 'Other'");
+  if (!(input.quantity > 0)) throw new Error("Quantity must be greater than zero");
+  if (input.unit_price < 0) throw new Error("Unit price cannot be negative");
+  return {
+    ...input,
+    amount: Number((input.quantity * input.unit_price).toFixed(2)),
+    user_id,
+    occurred_at: input.occurred_at ?? new Date().toISOString(),
+  };
+}
+
 export async function listBookingCharges(booking_id: string) {
   const { data, error } = await supabase
     .from("booking_charges" as any)
@@ -42,20 +70,9 @@ export async function listBookingCharges(booking_id: string) {
 export async function createBookingCharge(input: BookingChargeInput) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
-  if (!input.category) throw new Error("Category is required");
-  if (input.category === "Other" && !input.other_description?.trim())
-    throw new Error("Description is required for 'Other'");
-  if (!(input.quantity > 0)) throw new Error("Quantity must be greater than zero");
-  if (input.unit_price < 0) throw new Error("Unit price cannot be negative");
-  const amount = Number((input.quantity * input.unit_price).toFixed(2));
-  const row: any = {
-    ...input,
-    amount,
-    user_id: user.id,
-    occurred_at: input.occurred_at ?? new Date().toISOString(),
-  };
+  const row = buildBookingChargeRow(input, user.id);
   const { data, error } = await supabase
-    .from("booking_charges" as any).insert(row).select().single();
+    .from("booking_charges" as any).insert(row as any).select().single();
   if (error) throw error;
   return data as unknown as BookingChargeRow;
 }
