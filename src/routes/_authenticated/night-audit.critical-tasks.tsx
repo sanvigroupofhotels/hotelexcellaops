@@ -22,7 +22,7 @@ import { performNightAuditNow } from "@/lib/perform-night-audit";
 type Tab = "checkins" | "checkouts";
 
 export const Route = createFileRoute("/_authenticated/night-audit/critical-tasks")({
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { tab?: "checkins" | "checkouts" } => ({
     tab: s.tab === "checkouts" ? "checkouts" : "checkins",
   }),
   component: CriticalTasksPage,
