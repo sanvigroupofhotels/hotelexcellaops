@@ -81,6 +81,36 @@ function lineExtraItems(item: LineItem): { label: string; value: number }[] {
   return out;
 }
 
+/**
+ * Canonical tax arithmetic for the whole platform.
+ *
+ * Every subtotal → taxes → total derivation in HEOS (bookings, quotes,
+ * invoices, guest portal, public Booking Engine) MUST go through this function
+ * so rounding behaviour is identical everywhere.
+ *
+ *   taxesIncluded = false → base is net:   taxes = round(base × rate); total = base + taxes
+ *   taxesIncluded = true  → base is gross: subtotal = round(base / (1 + rate)); total = base
+ */
+export function applyTaxes(
+  base: number,
+  taxRate: number = DEFAULT_TAX_RATE,
+  taxesIncluded = false,
+): { subtotal: number; taxRate: number; taxes: number; total: number } {
+  const safeBase = Math.max(0, Number(base) || 0);
+  const safeTaxRate = Math.max(0, Number(taxRate) || 0);
+  if (taxesIncluded) {
+    const subtotal = Math.round(safeBase / (1 + safeTaxRate));
+    return {
+      subtotal,
+      taxRate: safeTaxRate,
+      taxes: Math.max(0, safeBase - subtotal),
+      total: safeBase,
+    };
+  }
+  const taxes = Math.round(safeBase * safeTaxRate);
+  return { subtotal: safeBase, taxRate: safeTaxRate, taxes, total: safeBase + taxes };
+}
+
 export function computePricing(
   items: LineItem[],
   discount: number = 0,
@@ -125,20 +155,7 @@ export function computePricing(
   }
 
   const baseAfterDiscount = Math.max(0, effectiveItemsTotal - effectiveDiscount);
-  let subtotal: number;
-  let taxes: number;
-  let total: number;
-
-  if (taxesIncluded) {
-    // base is gross — back out the tax component
-    subtotal = Math.round(baseAfterDiscount / (1 + safeTaxRate));
-    taxes = Math.max(0, baseAfterDiscount - subtotal);
-    total = baseAfterDiscount;
-  } else {
-    subtotal = baseAfterDiscount;
-    taxes = Math.round(baseAfterDiscount * safeTaxRate);
-    total = baseAfterDiscount + taxes;
-  }
+  const { subtotal, taxes, total } = applyTaxes(baseAfterDiscount, safeTaxRate, taxesIncluded);
 
   return {
     itemsTotal: effectiveItemsTotal,
