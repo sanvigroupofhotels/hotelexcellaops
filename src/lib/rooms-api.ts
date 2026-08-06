@@ -99,29 +99,24 @@ export async function findRoomConflicts(
   check_out: string,
   excludeBookingId?: string,
 ): Promise<RoomConflict[]> {
-  const { data, error } = await supabase
-    .from("booking_room_assignments" as any)
-    .select(
-      "room_id,start_date,end_date,bookings:bookings!inner(id,booking_reference,guest_name,check_in,check_out,status)",
-    )
-    .eq("room_id", room_id);
-  if (error) throw error;
+  const segments = await listOccupancySegments({
+    check_in,
+    check_out,
+    exclude_booking_id: excludeBookingId ?? null,
+  });
   const seen = new Set<string>();
   const out: RoomConflict[] = [];
-  for (const a of ((data ?? []) as any[])) {
-    const b = a.bookings;
-    if (!b) continue;
-    if (b.id === excludeBookingId) continue;
-    if (["Cancelled", "Stay Completed", "Checked-Out", "No-Show"].includes(b.status)) continue;
-    if (!datesOverlap(check_in, check_out, a.start_date, a.end_date)) continue;
+  for (const s of segments) {
+    if (s.room_id !== room_id) continue;
+    const b = s.booking;
     if (seen.has(b.id)) continue;
     seen.add(b.id);
     out.push({
       booking_id: b.id,
-      booking_reference: b.booking_reference,
-      guest_name: b.guest_name,
-      check_in: b.check_in,
-      check_out: b.check_out,
+      booking_reference: b.booking_reference ?? "",
+      guest_name: b.guest_name ?? "",
+      check_in: b.check_in ?? "",
+      check_out: b.check_out ?? "",
       status: b.status,
     });
   }
@@ -139,30 +134,16 @@ export async function listOccupiedRoomIds(
   check_out: string,
   excludeBookingId?: string,
 ): Promise<Set<string>> {
-  if (!check_in || !check_out || check_out < check_in) return new Set();
-  // UAT-047: `booking_room_assignments` is the SINGLE SOURCE OF TRUTH for
-  // physical room occupancy. `bookings.room_id` is a compatibility mirror
-  // only — never used for availability checks. Each assignment carries its
-  // own [start_date, end_date) segment window so mid-stay room changes free
-  // the old room from the effective date onward.
-  const { data: asg, error } = await supabase
-    .from("booking_room_assignments" as any)
-    .select("room_id,booking_id,start_date,end_date,ended_reason,bookings:bookings!inner(id,status)");
-  if (error) throw error;
+  // UAT-047 / UAT-052: occupancy comes exclusively from segment windows via
+  // the shared occupancy source. `bookings.room_id` is never read.
+  const segments = await listOccupancySegments({
+    check_in,
+    check_out,
+    exclude_booking_id: excludeBookingId ?? null,
+  });
   const out = new Set<string>();
-  for (const a of (asg ?? []) as any[]) {
-    const b = a.bookings;
-    if (!b) continue;
-    if (excludeBookingId && b.id === excludeBookingId) continue;
-    if (!a.room_id) continue;
-    if (["Cancelled", "Stay Completed", "Checked-Out", "No-Show"].includes(b.status)) continue;
-    // UAT-052: availability is a pure date-overlap check on the segment's
-    // [start_date, end_date) window — regardless of whether the segment is
-    // still open or was closed by a mid-stay room change. The current
-    // operational status of the room today is irrelevant for a FUTURE
-    // booking whose window does not touch this segment's window.
-    if (datesOverlap(check_in, check_out, a.start_date, a.end_date)) out.add(a.room_id);
-  }
+  for (const s of segments) if (s.room_id) out.add(s.room_id);
   return out;
 }
+
 
