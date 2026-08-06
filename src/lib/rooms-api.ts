@@ -1,4 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
+import {
+  datesOverlap,
+  listOccupancySegments,
+} from "@/lib/occupancy-source";
+
+// Canonical overlap predicate lives in occupancy-source; re-exported for
+// existing consumers so there is exactly one implementation.
+export { datesOverlap };
 
 export interface RoomRow {
   id: string;
@@ -64,25 +72,6 @@ export async function createMaintenance(input: { room_id: string; start_date: st
 export async function deleteMaintenance(id: string) {
   const { error } = await supabase.from("room_maintenance" as any).delete().eq("id", id);
   if (error) throw error;
-}
-
-/**
- * Date overlap on the half-open interval [aIn, aOut).
- * Day-use stays (check_in === check_out) are treated as occupying that single
- * day, i.e. their effective end is check_in + 1 day. This keeps same-day
- * Check-In / Check-Out bookings visible to occupancy / conflict checks.
- */
-function effectiveEnd(d_in: string, d_out: string) {
-  if (d_in !== d_out) return d_out;
-  const d = new Date(d_in + "T00:00:00");
-  d.setDate(d.getDate() + 1);
-  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-export function datesOverlap(aIn: string, aOut: string, bIn: string, bOut: string) {
-  const aEnd = effectiveEnd(aIn, aOut);
-  const bEnd = effectiveEnd(bIn, bOut);
-  return aIn < bEnd && bIn < aEnd;
 }
 
 export interface RoomConflict {

@@ -36,9 +36,24 @@ export function pgStatusList(statuses: readonly string[]): string {
   return `(${statuses.map((s) => `"${s}"`).join(",")})`;
 }
 
-/** Half-open date-range overlap: a.in < b.out AND b.in < a.out. */
+/**
+ * Canonical date overlap on the half-open interval [in, out).
+ * Day-use stays (in === out) occupy that single day, i.e. their effective end
+ * is in + 1 day, so same-day Check-In / Check-Out bookings stay visible to
+ * occupancy and conflict checks.
+ */
+function effectiveEnd(d_in: string, d_out: string) {
+  if (d_in !== d_out) return d_out;
+  const d = new Date(d_in + "T00:00:00");
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function datesOverlap(aIn: string, aOut: string, bIn: string, bOut: string) {
-  return aIn < bOut && bIn < aOut;
+  return aIn < effectiveEnd(bIn, bOut) && bIn < effectiveEnd(aIn, aOut);
 }
 
 export interface OccupancyWindow {
@@ -80,7 +95,7 @@ export async function listOccupancySegments(
       "room_id,booking_id,start_date,end_date,ended_reason,bookings:bookings!inner(id,status,booking_reference,guest_name,check_in,check_out)",
     )
     .lt("start_date", check_out)
-    .gt("end_date", check_in)
+    .gte("end_date", check_in)
     .not("bookings.status", "in", pgStatusList(CLOSED_OCCUPANCY_STATUSES));
   if (error) throw error;
   const out: OccupancySegment[] = [];
