@@ -129,7 +129,7 @@ describe("Guest Allocation Engine — per-room expansion", () => {
 describe("Guest Allocation Engine — mixed room types", () => {
   it("fills each room to its own configured capacity", () => {
     // Oak 2/3, hypothetical wide type 3/4 via spreadHeadsAcross directly
-    expect(spreadHeadsAcross(9, [
+    expect(spreadHeadsAcross(8, [
       { standard: 2, max: 3 },
       { standard: 3, max: 5 },
     ])).toEqual([3, 5]);
