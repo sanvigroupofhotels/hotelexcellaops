@@ -36,7 +36,15 @@ export const DEFAULT_OCCUPANCY: OccupancyConfig = {
   extraChildRate: 0,
 };
 
-/** Occupancy rules per room type — configuration, never hard-coded per call site. */
+/**
+ * Occupancy rules per room type.
+ *
+ * SOURCE OF TRUTH: the room *category* owns occupancy; tariffs own pricing.
+ * Today both live on `ROOM_TARIFFS` because the room-type catalogue and the
+ * tariff table are the same record in this schema. When a dedicated Room Type
+ * Master lands, only this function changes — every consumer reads occupancy
+ * through `getOccupancyConfig`, never from a tariff row directly.
+ */
 export function getOccupancyConfig(roomType: string): OccupancyConfig {
   const tariff = ROOM_TARIFFS.find((r) => r.name === roomType) as
     | (typeof ROOM_TARIFFS)[number] & { occupancy?: Partial<OccupancyConfig> }
@@ -44,24 +52,29 @@ export function getOccupancyConfig(roomType: string): OccupancyConfig {
   return { ...DEFAULT_OCCUPANCY, ...(tariff?.occupancy ?? {}) };
 }
 
+/** Per-room capacity pair used by the capacity-aware spread. */
+export interface RoomCapacity {
+  standard: number;
+  max: number;
+}
+
 /**
- * Spread `total` heads across `rooms` rooms: fill every room up to `standard`
- * round-robin first, then up to `max`, then (only if the party still doesn't
- * fit) keep going round-robin so no guest is silently dropped.
- *
- *   5 adults / 2 rooms → [3, 2]      6 / 2 → [3, 3]
- *   7 adults / 3 rooms → [3, 2, 2]   5 / 3 → [2, 2, 1]
+ * Spread `total` heads across rooms that may each have DIFFERENT capacities
+ * (mixed room types in one booking). Fill every room up to ITS OWN standard
+ * round-robin first, then up to ITS OWN max, then keep going round-robin so no
+ * guest is silently dropped.
  */
-export function spreadHeads(total: number, rooms: number, standard: number, max: number): number[] {
-  const r = Math.max(1, Math.floor(rooms));
-  const alloc = new Array<number>(r).fill(0);
+export function spreadHeadsAcross(total: number, caps: RoomCapacity[]): number[] {
+  const r = caps.length;
+  const alloc = new Array<number>(Math.max(0, r)).fill(0);
+  if (r === 0) return alloc;
   let remaining = Math.max(0, Math.floor(total));
-  const capPass = (cap: number) => {
+  const pass = (capOf: (i: number) => number) => {
     let progressed = true;
     while (remaining > 0 && progressed) {
       progressed = false;
       for (let i = 0; i < r && remaining > 0; i++) {
-        if (alloc[i] < cap) {
+        if (alloc[i] < capOf(i)) {
           alloc[i] += 1;
           remaining -= 1;
           progressed = true;
@@ -69,8 +82,8 @@ export function spreadHeads(total: number, rooms: number, standard: number, max:
       }
     }
   };
-  capPass(Math.max(0, standard));
-  capPass(Math.max(standard, max));
+  pass((i) => Math.max(0, caps[i].standard));
+  pass((i) => Math.max(caps[i].standard, caps[i].max));
   // Over-capacity party — keep distributing so counts always reconcile.
   while (remaining > 0) {
     for (let i = 0; i < r && remaining > 0; i++) {
@@ -80,6 +93,21 @@ export function spreadHeads(total: number, rooms: number, standard: number, max:
   }
   return alloc;
 }
+
+/**
+ * Uniform-capacity convenience wrapper (single room type).
+ *
+ *   5 adults / 2 rooms → [3, 2]      6 / 2 → [3, 3]
+ *   7 adults / 3 rooms → [3, 2, 2]   5 / 3 → [2, 2, 1]
+ */
+export function spreadHeads(total: number, rooms: number, standard: number, max: number): number[] {
+  const r = Math.max(1, Math.floor(rooms));
+  return spreadHeadsAcross(
+    total,
+    Array.from({ length: r }, () => ({ standard, max })),
+  );
+}
+
 
 export interface RoomAllocation {
   adults: number;
