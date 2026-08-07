@@ -167,14 +167,15 @@ function QuickBookingPage() {
   }, [mappleInv.max]); // eslint-disable-line
 
   // ---- Line items (rooms only — Other Charges is persisted via booking_charges) ----
+  // Guest distribution + Extra Adult derivation is delegated to the shared
+  // Guest Allocation Engine so Quick Booking behaves exactly like every other
+  // booking creation path.
   const items = useMemo(() => {
-    const totalRooms = Math.max(1, oakRooms + mappleRooms);
-    const adultsPerRoom = Math.max(1, Math.ceil(adults / totalRooms));
-    const kidsPerRoom = Math.ceil(kids / totalRooms);
-    const out: LineItem[] = [];
-    if (oakRooms > 0) out.push(makeRoomLine("Oak Room", oakRooms, adultsPerRoom * oakRooms, kidsPerRoom * oakRooms, checkIn, checkOut, oakRate));
-    if (mappleRooms > 0) out.push(makeRoomLine("Mapple Room", mappleRooms, adultsPerRoom * mappleRooms, kidsPerRoom * mappleRooms, checkIn, checkOut, mappleRate));
-    return out;
+    const base: LineItem[] = [];
+    if (oakRooms > 0) base.push(makeRoomLine("Oak Room", oakRooms, 0, 0, checkIn, checkOut, oakRate));
+    if (mappleRooms > 0) base.push(makeRoomLine("Mapple Room", mappleRooms, 0, 0, checkIn, checkOut, mappleRate));
+    if (base.length === 0) return base;
+    return allocateGuestsToLines(base, { adults, children: kids });
   }, [oakRooms, mappleRooms, adults, kids, checkIn, checkOut, oakRate, mappleRate]);
 
   // ---- Other Charges modelled as a synthetic LineItem so it flows through the
