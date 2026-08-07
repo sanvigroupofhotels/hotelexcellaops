@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   spreadHeads,
+  spreadHeadsAcross,
+  previewAllocation,
   allocateRooms,
   allocateGuestsToLines,
   expandLineToRooms,
@@ -121,5 +123,46 @@ describe("Guest Allocation Engine — per-room expansion", () => {
     const rooms = expandLineToRooms(l);
     const sum = rooms.reduce((s, r) => s + lineSubtotal(r), 0);
     expect(sum).toBe(lineSubtotal(l));
+  });
+});
+
+describe("Guest Allocation Engine — mixed room types", () => {
+  it("fills each room to its own configured capacity", () => {
+    // Oak 2/3, hypothetical wide type 3/4 via spreadHeadsAcross directly
+    expect(spreadHeadsAcross(9, [
+      { standard: 2, max: 3 },
+      { standard: 3, max: 5 },
+    ])).toEqual([3, 5]);
+  });
+
+  it("distributes by capacity, not evenly, across mixed lines", () => {
+    const out = allocateGuestsToLines(
+      [line({ room_type: "Oak Room", rooms: 1 }), line({ room_type: "Mapple Room", rooms: 1 })],
+      { adults: 5, children: 0 },
+    );
+    expect(out.reduce((s, l) => s + l.adults, 0)).toBe(5);
+    expect(out.every((l) => l.adults <= 3)).toBe(true);
+  });
+});
+
+describe("Guest Allocation Engine — preview API", () => {
+  it("previews per-room allocation without persisting", () => {
+    const p = previewAllocation({
+      lines: [{ room_type: "Oak Room", rooms: 2 }, { room_type: "Mapple Room", rooms: 1 }],
+      adults: 7,
+      children: 2,
+    });
+    expect(p.totals.rooms).toBe(3);
+    expect(p.totals.adults).toBe(7);
+    expect(p.totals.children).toBe(2);
+    expect(p.lines[0].per_room).toHaveLength(2);
+    expect(p.totals.extra_adults).toBe(1);
+    expect(p.over_capacity).toBe(false);
+  });
+
+  it("flags over-capacity parties", () => {
+    const p = previewAllocation({ lines: [{ room_type: "Oak Room", rooms: 1 }], adults: 9, children: 0 });
+    expect(p.over_capacity).toBe(true);
+    expect(p.totals.adults).toBe(9);
   });
 });
