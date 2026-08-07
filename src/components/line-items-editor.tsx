@@ -16,6 +16,7 @@ import {
 import { NumField } from "@/components/num-field";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
+import { deriveLineExtraAdults } from "@/lib/guest-allocation";
 
 
 export interface LineItem {
@@ -89,6 +90,15 @@ export function lineSubtotal(item: LineItem) {
   total += (item.extra_adults || 0) * EXTRA_ADULT_RATE * n;
   total += (item.drivers || 0) * DRIVER_RATE * n;
   return total;
+}
+
+/**
+ * Extra Adults implied by the room-type occupancy rules — derived through the
+ * shared Guest Allocation Engine so the editor never re-implements the rule.
+ * Manual over-rides above the derived value are preserved.
+ */
+function deriveExtra(item: LineItem) {
+  return Math.max(deriveLineExtraAdults(item), 0);
 }
 
 export function lineItemsTotal(items: LineItem[]) {
