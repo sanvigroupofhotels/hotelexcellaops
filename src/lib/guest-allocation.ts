@@ -187,9 +187,10 @@ export function expandLineToRooms(line: LineItem): LineItem[] {
 }
 
 /**
- * Distribute booking-level guest counts across selected room-type lines,
- * proportionally to each line's room count, then normalise Extra Adults.
- * Lines with `rooms <= 0` are ignored.
+ * Distribute booking-level guest counts across selected room-type lines.
+ * Each physical room is filled according to ITS OWN room-type occupancy
+ * configuration, so mixed room types (e.g. Oak 2/3 + Mapple 2/4) are honoured
+ * instead of spreading guests evenly. Lines with `rooms <= 0` are ignored.
  */
 export function allocateGuestsToLines(
   lines: LineItem[],
@@ -206,17 +207,25 @@ export function allocateGuestsToLines(
     for (let i = 0; i < entry.count; i++) flatRooms.push(idx);
   });
 
-  // Use the first line's occupancy as the spread reference when mixing types;
-  // per-room extras are recomputed per line afterwards.
-  const cfg = getOccupancyConfig(active[0].room_type);
-  const adultsPerRoom = spreadHeads(party.adults, flatRooms.length, cfg.standardAdults, cfg.maxAdults);
-  const childrenPerRoom = spreadHeads(party.children, flatRooms.length, cfg.standardChildren, cfg.maxChildren);
+  // Capacity per physical room, taken from that room's own room-type config.
+  const cfgs = perRoomType.map((e) => getOccupancyConfig(e.line.room_type));
+  const adultCaps = flatRooms.map((idx) => ({
+    standard: cfgs[idx].standardAdults,
+    max: cfgs[idx].maxAdults,
+  }));
+  const childCaps = flatRooms.map((idx) => ({
+    standard: cfgs[idx].standardChildren,
+    max: cfgs[idx].maxChildren,
+  }));
+  const adultsPerRoom = spreadHeadsAcross(party.adults, adultCaps);
+  const childrenPerRoom = spreadHeadsAcross(party.children, childCaps);
 
   const sums = perRoomType.map(() => ({ adults: 0, children: 0 }));
   flatRooms.forEach((lineIdx, roomIdx) => {
     sums[lineIdx].adults += adultsPerRoom[roomIdx] ?? 0;
     sums[lineIdx].children += childrenPerRoom[roomIdx] ?? 0;
   });
+
 
   const allocated = perRoomType.map((entry, idx) =>
     normalizeLineGuests({
