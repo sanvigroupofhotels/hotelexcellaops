@@ -41,6 +41,7 @@ import { updateBooking, type BookingInput } from "@/lib/bookings-api";
 import { usePaymentModes } from "@/hooks/use-payment-modes";
 import { updateBookingStay } from "@/lib/booking-stay";
 import { replaceBookingItems } from "@/lib/booking-items-api";
+import { allocateGuestsToLines } from "@/lib/guest-allocation";
 import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
 import { toLocalYMD, localYMDOffset, cn } from "@/lib/utils";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
