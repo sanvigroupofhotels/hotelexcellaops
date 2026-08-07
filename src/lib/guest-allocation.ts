@@ -240,3 +240,110 @@ export function allocateGuestsToLines(
   let cursor = 0;
   return lines.map((l) => ((l.rooms ?? 0) > 0 ? allocated[cursor++] : l));
 }
+
+// ---------------------------------------------------------------------------
+// Allocation preview (no persistence)
+// ---------------------------------------------------------------------------
+
+export interface AllocationRequestLine {
+  room_type: string;
+  rooms: number;
+}
+
+export interface AllocationPreviewRoom {
+  room_type: string;
+  room_index: number;
+  adults: number;
+  children: number;
+  extra_adults: number;
+  extra_children: number;
+}
+
+export interface AllocationPreviewLine {
+  room_type: string;
+  rooms: number;
+  adults: number;
+  children: number;
+  extra_adults: number;
+  extra_children: number;
+  occupancy: OccupancyConfig;
+  per_room: AllocationPreviewRoom[];
+}
+
+export interface AllocationPreview {
+  lines: AllocationPreviewLine[];
+  totals: { adults: number; children: number; extra_adults: number; extra_children: number; rooms: number };
+  /** True when the party exceeds the combined maximum capacity of the rooms. */
+  over_capacity: boolean;
+}
+
+/**
+ * Pure, side-effect-free allocation preview for an arbitrary booking request.
+ * Shared by Quick Booking, Detailed Booking, Booking Engine, OTA imports and
+ * the `previewGuestAllocation` server function — no booking is persisted.
+ */
+export function previewAllocation(input: {
+  lines: AllocationRequestLine[];
+  adults: number;
+  children: number;
+}): AllocationPreview {
+  const active = input.lines.filter((l) => (l.rooms ?? 0) > 0);
+  const cfgs = active.map((l) => getOccupancyConfig(l.room_type));
+
+  const flat: number[] = [];
+  active.forEach((l, idx) => {
+    for (let i = 0; i < Math.floor(l.rooms); i++) flat.push(idx);
+  });
+
+  const adultsPerRoom = spreadHeadsAcross(
+    input.adults,
+    flat.map((i) => ({ standard: cfgs[i].standardAdults, max: cfgs[i].maxAdults })),
+  );
+  const childrenPerRoom = spreadHeadsAcross(
+    input.children,
+    flat.map((i) => ({ standard: cfgs[i].standardChildren, max: cfgs[i].maxChildren })),
+  );
+
+  const lines: AllocationPreviewLine[] = active.map((l, idx) => ({
+    room_type: l.room_type,
+    rooms: Math.floor(l.rooms),
+    adults: 0,
+    children: 0,
+    extra_adults: 0,
+    extra_children: 0,
+    occupancy: cfgs[idx],
+    per_room: [],
+  }));
+
+  flat.forEach((lineIdx, roomIdx) => {
+    const cfg = cfgs[lineIdx];
+    const a = adultsPerRoom[roomIdx] ?? 0;
+    const c = childrenPerRoom[roomIdx] ?? 0;
+    const room: AllocationPreviewRoom = {
+      room_type: active[lineIdx].room_type,
+      room_index: lines[lineIdx].per_room.length + 1,
+      adults: a,
+      children: c,
+      extra_adults: Math.max(0, a - cfg.standardAdults),
+      extra_children: Math.max(0, c - cfg.standardChildren),
+    };
+    lines[lineIdx].per_room.push(room);
+    lines[lineIdx].adults += a;
+    lines[lineIdx].children += c;
+    lines[lineIdx].extra_adults += room.extra_adults;
+    lines[lineIdx].extra_children += room.extra_children;
+  });
+
+  const maxCapacity = flat.reduce((s, i) => s + cfgs[i].maxAdults + cfgs[i].maxChildren, 0);
+  return {
+    lines,
+    totals: {
+      rooms: flat.length,
+      adults: lines.reduce((s, l) => s + l.adults, 0),
+      children: lines.reduce((s, l) => s + l.children, 0),
+      extra_adults: lines.reduce((s, l) => s + l.extra_adults, 0),
+      extra_children: lines.reduce((s, l) => s + l.extra_children, 0),
+    },
+    over_capacity: input.adults + input.children > maxCapacity,
+  };
+}
