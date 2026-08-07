@@ -54,11 +54,36 @@ export interface RoomTariff {
   bed: string;
   withBreakfast: number;
   withoutBreakfast: number;
+  /**
+   * Occupancy rules consumed by the Guest Allocation Engine
+   * (`src/lib/guest-allocation.ts`). Omitted keys fall back to
+   * `DEFAULT_OCCUPANCY`.
+   */
+  occupancy?: {
+    standardAdults?: number;
+    maxAdults?: number;
+    standardChildren?: number;
+    maxChildren?: number;
+    extraAdultRate?: number;
+    extraChildRate?: number;
+  };
 }
 
 export const ROOM_TARIFFS: RoomTariff[] = [
-  { name: "Oak Room", bed: "Queen Bed", withBreakfast: 2500, withoutBreakfast: 2250 },
-  { name: "Mapple Room", bed: "King Bed", withBreakfast: 3000, withoutBreakfast: 2750 },
+  {
+    name: "Oak Room",
+    bed: "Queen Bed",
+    withBreakfast: 2500,
+    withoutBreakfast: 2250,
+    occupancy: { standardAdults: 2, maxAdults: 3, standardChildren: 2, maxChildren: 2 },
+  },
+  {
+    name: "Mapple Room",
+    bed: "King Bed",
+    withBreakfast: 3000,
+    withoutBreakfast: 2750,
+    occupancy: { standardAdults: 2, maxAdults: 3, standardChildren: 2, maxChildren: 2 },
+  },
 ];
 
 // Backwards-compatible export (room selector uses .name)
