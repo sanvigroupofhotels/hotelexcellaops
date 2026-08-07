@@ -15,7 +15,7 @@
  * conversion and any future Booking Engine / OTA import. No creation path may
  * re-implement guest distribution — extend this engine instead.
  */
-import { ROOM_TARIFFS, EXTRA_ADULT_RATE, type LineItem as _Unused } from "@/lib/mock-data";
+import { ROOM_TARIFFS, EXTRA_ADULT_RATE } from "@/lib/mock-data";
 import type { LineItem } from "@/components/line-items-editor";
 
 export interface OccupancyConfig {
