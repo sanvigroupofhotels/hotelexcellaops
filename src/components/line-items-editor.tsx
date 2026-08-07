@@ -16,6 +16,7 @@ import {
 import { NumField } from "@/components/num-field";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
+import { deriveLineExtraAdults } from "@/lib/guest-allocation";
 
 
 export interface LineItem {
@@ -89,6 +90,15 @@ export function lineSubtotal(item: LineItem) {
   total += (item.extra_adults || 0) * EXTRA_ADULT_RATE * n;
   total += (item.drivers || 0) * DRIVER_RATE * n;
   return total;
+}
+
+/**
+ * Extra Adults implied by the room-type occupancy rules — derived through the
+ * shared Guest Allocation Engine so the editor never re-implements the rule.
+ * Manual over-rides above the derived value are preserved.
+ */
+function deriveExtra(item: LineItem) {
+  return Math.max(deriveLineExtraAdults(item), 0);
 }
 
 export function lineItemsTotal(items: LineItem[]) {
@@ -227,7 +237,7 @@ function LineItemRow({
             value={item.rooms}
             min={1}
             max={availability ? Math.max(1, cap.max) : undefined}
-            onChange={(v) => onChange({ rooms: v })}
+            onChange={(v) => onChange({ rooms: v, extra_adults: deriveExtra({ ...item, rooms: v }) })}
           />
           {availability && (
             <p className={cn(
@@ -238,7 +248,12 @@ function LineItemRow({
             </p>
           )}
         </div>
-        <NumField label="Adults" value={item.adults} min={1} onChange={(v) => onChange({ adults: v })} />
+        <NumField
+          label="Adults"
+          value={item.adults}
+          min={1}
+          onChange={(v) => onChange({ adults: v, extra_adults: deriveExtra({ ...item, adults: v }) })}
+        />
 
         <NumField label="Children" value={item.children} min={0} onChange={(v) => onChange({ children: v })} />
         <label className="block">

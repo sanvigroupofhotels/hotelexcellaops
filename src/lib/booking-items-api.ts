@@ -3,6 +3,7 @@ import { toLocalYMD, localYMDOffset } from "@/lib/utils";
 import { getRoomRate, type EarlyCheckInSlot, type LateCheckOutSlot, type PetSize } from "@/lib/mock-data";
 import { lineSubtotal, nightsOf, type LineItem } from "@/components/line-items-editor";
 import type { QuoteItemRow } from "@/lib/quote-items-api";
+import { expandLineToRooms } from "@/lib/guest-allocation";
 
 export interface BookingItemRow {
   id: string;
@@ -108,33 +109,34 @@ export async function listBookingItems(booking_id: string) {
 export async function addBookingItems(booking_id: string, items: BookingItemInput[]) {
   if (items.length === 0) return [];
   let position = 0;
-  const rows = items.flatMap((it) => {
-    const roomCount = Math.max(1, Number(it.rooms ?? 1));
-    const lineTotal = computeBookingItemSubtotal(it);
-    const perRoomSubtotal = lineTotal / roomCount;
-    return Array.from({ length: roomCount }, () => ({
+  // Guest distribution is owned by the Guest Allocation Engine — every
+  // creation path (Quick / Detailed / Clone / quote → booking / API) reaches
+  // `booking_items` through here, so per-room adults, children and derived
+  // Extra Adults are always consistent with the room-type occupancy rules.
+  const rows = items.flatMap((it) =>
+    expandLineToRooms(it).map((perRoom) => ({
       booking_id,
       position: position++,
-      room_type: it.room_type,
+      room_type: perRoom.room_type,
       rooms: 1,
-      adults: it.adults,
-      children: it.children,
-      check_in: it.check_in,
-      check_out: it.check_out,
-      breakfast_included: it.breakfast_included,
-      extra_bed: it.extra_bed,
-      rate: it.rate,
-      subtotal: perRoomSubtotal,
-      notes: it.notes ?? null,
-      early_check_in: it.early_check_in,
-      early_check_in_slot: it.early_check_in ? it.early_check_in_slot : null,
-      late_check_out: it.late_check_out,
-      late_check_out_slot: it.late_check_out ? it.late_check_out_slot : null,
-      pet_size: it.pet_size,
-      extra_adults: it.extra_adults,
-      drivers: it.drivers,
-    }));
-  });
+      adults: perRoom.adults,
+      children: perRoom.children,
+      check_in: perRoom.check_in,
+      check_out: perRoom.check_out,
+      breakfast_included: perRoom.breakfast_included,
+      extra_bed: perRoom.extra_bed,
+      rate: perRoom.rate,
+      subtotal: computeBookingItemSubtotal(perRoom),
+      notes: perRoom.notes ?? null,
+      early_check_in: perRoom.early_check_in,
+      early_check_in_slot: perRoom.early_check_in ? perRoom.early_check_in_slot : null,
+      late_check_out: perRoom.late_check_out,
+      late_check_out_slot: perRoom.late_check_out ? perRoom.late_check_out_slot : null,
+      pet_size: perRoom.pet_size,
+      extra_adults: perRoom.extra_adults,
+      drivers: perRoom.drivers,
+    })),
+  );
   const { data, error } = await supabase.from("booking_items" as any).insert(rows as any).select();
   if (error) throw error;
   return (data ?? []) as unknown as BookingItemRow[];
