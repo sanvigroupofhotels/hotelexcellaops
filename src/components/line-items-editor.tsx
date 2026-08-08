@@ -95,11 +95,17 @@ export function lineSubtotal(item: LineItem) {
 /**
  * Extra Adults implied by the room-type occupancy rules — derived through the
  * shared Guest Allocation Engine so the editor never re-implements the rule.
- * Manual over-rides above the derived value are preserved.
+ * Any manual surplus the user added above the previously derived value (e.g. a
+ * paid mattress) is carried over so editing Rooms / Adults never silently
+ * removes that charge.
  */
-function deriveExtra(item: LineItem) {
-  return Math.max(deriveLineExtraAdults(item), 0);
+function deriveExtra(item: LineItem, patch: Partial<LineItem>) {
+  const prevDerived = Math.max(deriveLineExtraAdults(item), 0);
+  const manualSurplus = Math.max(0, (item.extra_adults ?? 0) - prevDerived);
+  const nextDerived = Math.max(deriveLineExtraAdults({ ...item, ...patch }), 0);
+  return nextDerived + manualSurplus;
 }
+
 
 export function lineItemsTotal(items: LineItem[]) {
   return items.reduce((s, i) => s + lineSubtotal(i), 0);
