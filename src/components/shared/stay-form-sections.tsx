@@ -38,6 +38,7 @@ import {
 import { useMasterData } from "@/hooks/use-master-data";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
+import { normalizeLineGuests } from "@/lib/guest-allocation";
 
 
 const inputCls =
