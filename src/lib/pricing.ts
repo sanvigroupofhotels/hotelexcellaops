@@ -19,6 +19,7 @@
  *   raw computed values so the UI can show the override badge cleanly.
  */
 import { lineItemsTotal, lineSubtotal, nightsOf, type LineItem } from "@/components/line-items-editor";
+import { normalizeLineGuests } from "@/lib/guest-allocation";
 import { EARLY_CHECK_IN_SLOTS, LATE_CHECK_OUT_SLOTS, PET_RATES, EXTRA_ADULT_RATE, DRIVER_RATE } from "@/lib/mock-data";
 
 export const DEFAULT_TAX_RATE = 0.05;
@@ -112,11 +113,15 @@ export function applyTaxes(
 }
 
 export function computePricing(
-  items: LineItem[],
+  rawItems: LineItem[],
   discount: number = 0,
   taxRate: number = DEFAULT_TAX_RATE,
   options: PricingOptions = {},
 ): PricingBreakdown {
+  // Occupancy-derived Extra Adults are applied here too, so a quote shown at
+  // creation time equals what `booking_items` will persist (and what any later
+  // recompute reads back). Manual surplus above the derived value is kept.
+  const items = rawItems.map(normalizeLineGuests);
   const itemsTotal = lineItemsTotal(items);
   let mainStayCharges = 0;
   const aggregated: Record<string, number> = {};
