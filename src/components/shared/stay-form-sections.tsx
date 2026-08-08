@@ -38,6 +38,7 @@ import {
 import { useMasterData } from "@/hooks/use-master-data";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
+import { normalizeLineGuests } from "@/lib/guest-allocation";
 
 
 const inputCls =
@@ -104,7 +105,9 @@ export function emptyStayValue(): SharedStayValue {
 
 /** Convert SharedStayValue's primary-room fields into a LineItem (for booking_items[0]). */
 export function primaryToLineItem(v: SharedStayValue, rate: number): LineItem {
-  return {
+  // Normalised through the Guest Allocation Engine so the primary line's Extra
+  // Adults match what will be persisted per room — no post-save total jump.
+  return normalizeLineGuests({
     room_type: v.room_type,
     rooms: v.rooms,
     adults: v.adults,
@@ -121,7 +124,7 @@ export function primaryToLineItem(v: SharedStayValue, rate: number): LineItem {
     pet_size: v.pet_size,
     extra_adults: v.extra_adults,
     drivers: v.drivers,
-  };
+  });
 }
 
 /** Adopt a primary-room LineItem back into SharedStayValue (for editing a booking). */
