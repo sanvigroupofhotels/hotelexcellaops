@@ -243,7 +243,7 @@ function LineItemRow({
             value={item.rooms}
             min={1}
             max={availability ? Math.max(1, cap.max) : undefined}
-            onChange={(v) => onChange({ rooms: v, extra_adults: deriveExtra({ ...item, rooms: v }) })}
+            onChange={(v) => onChange({ rooms: v, extra_adults: deriveExtra(item, { rooms: v }) })}
           />
           {availability && (
             <p className={cn(
@@ -258,7 +258,7 @@ function LineItemRow({
           label="Adults"
           value={item.adults}
           min={1}
-          onChange={(v) => onChange({ adults: v, extra_adults: deriveExtra({ ...item, adults: v }) })}
+          onChange={(v) => onChange({ adults: v, extra_adults: deriveExtra(item, { adults: v }) })}
         />
 
         <NumField label="Children" value={item.children} min={0} onChange={(v) => onChange({ children: v })} />
