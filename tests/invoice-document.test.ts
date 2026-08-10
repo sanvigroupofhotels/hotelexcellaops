@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { jsPDF } from "jspdf";
 import {
   buildInvoiceDocument, buildRoomLines, buildChargeLines,
 } from "@/lib/invoice-document";
@@ -92,8 +93,9 @@ describe("invoice document engine — one engine, two documents", () => {
   });
 
   it("proforma and invoice share the same structure (single engine)", () => {
-    const p = buildInvoiceDocument({ booking: booking(), items: [item()], payments: [payment(5000)], charges: [charge()] });
-    const f = buildInvoiceDocument({ booking: booking({ status: "Checked-Out" }), items: [item()], payments: [payment(5000)], charges: [charge()] });
+    const it1 = item({ id: "fixed-1" });
+    const p = buildInvoiceDocument({ booking: booking(), items: [it1], payments: [payment(5000)], charges: [charge()] });
+    const f = buildInvoiceDocument({ booking: booking({ status: "Checked-Out" }), items: [it1], payments: [payment(5000)], charges: [charge()] });
     expect(Object.keys(p).sort()).toEqual(Object.keys(f).sort());
     expect(p.roomLines).toEqual(f.roomLines);
     expect(p.totals.total).toBe(f.totals.total);
@@ -203,7 +205,8 @@ describe("invoice PDF — single A4 page with signature", () => {
     const g = globalThis as any;
     const prevWindow = g.window;
     g.window = { print: printSpy };
-    vi.spyOn(require("jspdf").jsPDF.prototype as any, "save").mockImplementation(saveSpy as any);
+    const saveSpyFn = vi.spyOn(jsPDF.prototype, "save").mockImplementation(saveSpy as any);
+    void saveSpyFn;
     downloadInvoicePdf(m);
     expect(saveSpy).toHaveBeenCalledOnce();
     expect(printSpy).not.toHaveBeenCalled();
