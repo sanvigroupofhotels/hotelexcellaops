@@ -184,7 +184,7 @@ function drawHead(doc: jsPDF, m: InvoiceDocModel) {
   let ly = y + 11;
   line(m.guest.name, M, ly, true);
   line(
-    `${fmtDate(m.stay.checkIn)}  →  ${fmtDate(m.stay.checkOut)}   (${m.stay.nights}N)`,
+    `${fmtDate(m.stay.checkIn)}  to  ${fmtDate(m.stay.checkOut)}   (${m.stay.nights}N)`,
     colR, ly, true,
   );
   ly += 10;
@@ -288,7 +288,9 @@ export function renderInvoicePdf(m: InvoiceDocModel): jsPDF {
     { payments: "total", chargeKeep: 10 },
     { payments: "total", chargeKeep: 6 },
   ];
-  const leadings = [13, 12.2, 11.4, 10.6, 10];
+  // Largest leading first: short invoices breathe and fill the page naturally,
+  // dense ones step down to the tightest still-readable spacing.
+  const leadings = [17, 15.5, 14, 13, 12.2, 11.4, 10.6, 10];
 
   let chosen = { rows: buildRows(m, variants[0]!), leading: leadings[0]! };
   let fits = false;
