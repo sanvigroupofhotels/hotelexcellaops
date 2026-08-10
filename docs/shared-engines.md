@@ -145,3 +145,21 @@ by hand.
 strictness warnings were fixed at the source by typing each `validateSearch`
 return with optional keys (`login`, `complaints`, `laundry`, `bookings/new`,
 `night-audit/critical-tasks`), so callers no longer need dummy `search` objects.
+
+## Invoice / Proforma Document Engine
+
+- `src/lib/invoice-document.ts` — `buildInvoiceDocument()` builds the canonical
+  document model (hotel, guest, stay, room lines, charges, taxes, payments,
+  balance, signature, footer). Proforma vs final Invoice is the `isFinal` flag,
+  never a second implementation. Rooms of identical type/rate/dates fold into
+  compact `qty × Room Type` lines while keeping `booking_items` attribution;
+  room-specific charges keep their booking-item room label.
+- `src/lib/invoice-pdf.ts` — the only PDF renderer. `renderInvoicePdf()` fits the
+  document onto exactly one A4 page (layout density steps, payment summarising,
+  charge-tail folding) with a reserved bottom band for footer + Authorised
+  Signature. `downloadInvoicePdf()` saves a real PDF (never `window.print()`),
+  `printInvoicePdf()` prints that same PDF, and Share still exports the modal
+  image through the existing HEOS share flow.
+- Surfaces: Booking Detail, House View and the Guest Portal all use
+  `InvoiceDialog`, whose ⋮ menu exposes Share / Print / Download PDF.
+- Regression coverage: `tests/invoice-document.test.ts`.
