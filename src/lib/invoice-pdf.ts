@@ -65,8 +65,15 @@ export function foldChargeTail(lines: InvoiceChargeLine[], keep: number): Invoic
   return head;
 }
 
-/** Build the ordered body rows for a given density variant. */
-function buildRows(m: InvoiceDocModel, variant: { payments: "full" | "byMode" | "total"; chargeKeep: number }): Row[] {
+/**
+ * Build the ordered rows for a given density variant.
+ * `tail` (settlement block) is anchored to the bottom of the body area so short
+ * invoices read as a designed document rather than a top-heavy fragment.
+ */
+function buildRows(
+  m: InvoiceDocModel,
+  variant: { payments: "full" | "byMode" | "total"; chargeKeep: number },
+): { body: Row[]; tail: Row[] } {
   const rows: Row[] = [];
   rows.push({ t: "section", label: "Accommodation" });
   for (const r of m.roomLines) {
@@ -124,15 +131,18 @@ function buildRows(m: InvoiceDocModel, variant: { payments: "full" | "byMode" | 
     rows.push({ t: "row", label: "Total Paid", right: inr(m.paymentsTotal) });
   }
 
-  rows.push({ t: "rule" });
-  rows.push({ t: "row", label: "Amount Paid", right: inr(m.totals.paid) });
-  rows.push({
-    t: "row",
-    label: m.totals.isCredit ? "Guest Credit" : m.isFinal ? "Outstanding Balance" : "Balance Due",
-    right: inr(Math.abs(m.totals.balance)),
-    bold: true,
-  });
-  return rows;
+  const tail: Row[] = [
+    { t: "rule" },
+    { t: "row", label: "Total Amount", right: inr(m.totals.total) },
+    { t: "row", label: "Amount Paid", right: inr(m.totals.paid) },
+    {
+      t: "row",
+      label: m.totals.isCredit ? "Guest Credit" : m.isFinal ? "Outstanding Balance" : "Balance Due",
+      right: inr(Math.abs(m.totals.balance)),
+      bold: true,
+    },
+  ];
+  return { body: rows, tail };
 }
 
 function rowHeight(r: Row, leading: number) {
@@ -292,23 +302,49 @@ export function renderInvoicePdf(m: InvoiceDocModel): jsPDF {
   // dense ones step down to the tightest still-readable spacing.
   const leadings = [17, 15.5, 14, 13, 12.2, 11.4, 10.6, 10];
 
-  let chosen = { rows: buildRows(m, variants[0]!), leading: leadings[0]! };
+  const height = (rows: Row[], leading: number) => rows.reduce((s2, r) => s2 + rowHeight(r, leading), 0);
+  let chosen = { ...buildRows(m, variants[0]!), leading: leadings[0]! };
   let fits = false;
   outer: for (const v of variants) {
-    const rows = buildRows(m, v);
+    const built = buildRows(m, v);
     for (const leading of leadings) {
-      const h = rows.reduce((s, r) => s + rowHeight(r, leading), 0);
-      if (h <= available) { chosen = { rows, leading }; fits = true; break outer; }
+      if (height(built.body, leading) + height(built.tail, leading) <= available) {
+        chosen = { ...built, leading }; fits = true; break outer;
+      }
     }
   }
   if (!fits) {
-    // Last resort: tightest variant at the smallest leading — still one page.
-    chosen = { rows: buildRows(m, variants[variants.length - 1]!), leading: leadings[leadings.length - 1]! };
+    chosen = { ...buildRows(m, variants[variants.length - 1]!), leading: leadings[leadings.length - 1]! };
   }
 
-  drawRows(doc, chosen.rows, bodyTop + chosen.leading, chosen.leading);
+  const bodyEnd = drawRows(doc, chosen.body, bodyTop + chosen.leading, chosen.leading);
+  const tailH = height(chosen.tail, chosen.leading);
+  const tailTop = Math.max(bodyEnd, bodyBottom - tailH);
+
+  // Terms fill the space between the charges block and the settlement block, so
+  // a short invoice never leaves a large blank hole in the middle of the page.
+  if (tailTop - bodyEnd > 40) {
+    doc.setFont("helvetica", "bold").setFontSize(6.8).setTextColor(...GOLD);
+    doc.text("TERMS & NOTES", M, bodyEnd + 6);
+    doc.setFont("helvetica", "normal").setFontSize(7.4).setTextColor(...MUTED);
+    const terms = doc.splitTextToSize(INVOICE_TERMS(m), PAGE_W - 2 * M);
+    doc.text(terms.slice(0, Math.max(1, Math.floor((tailTop - bodyEnd - 20) / 10))), M, bodyEnd + 18, { lineHeightFactor: 1.35 });
+  }
+
+  drawRows(doc, chosen.tail, tailTop, chosen.leading);
   drawSignatureBand(doc, m);
   return doc;
+}
+
+/** Standard terms — proforma wording differs, engine does not. */
+function INVOICE_TERMS(m: InvoiceDocModel) {
+  const base = [
+    "All charges are in Indian Rupees (INR). Taxes are levied as per prevailing GST regulations.",
+    "In-house charges shown are inclusive of applicable taxes and are attributed to the respective room where applicable.",
+    "Please verify the details above; discrepancies must be reported to reception before departure.",
+  ];
+  const proforma = "This Proforma Invoice is an estimate of charges for the stay and is not a tax invoice. The final GST invoice is issued on checkout.";
+  return (m.isFinal ? base : [proforma, ...base]).join("  ");
 }
 
 export function invoiceFileName(m: InvoiceDocModel) {
