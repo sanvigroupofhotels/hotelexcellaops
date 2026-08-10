@@ -317,6 +317,11 @@ export function renderInvoicePdf(m: InvoiceDocModel): jsPDF {
     chosen = { ...buildRows(m, variants[variants.length - 1]!), leading: leadings[leadings.length - 1]! };
   }
 
+  // Frame the charge/settlement area so the invoice reads as a designed
+  // document at any density and residual whitespace looks intentional.
+  doc.setDrawColor(...RULE).setLineWidth(0.6);
+  doc.roundedRect(M - 10, bodyTop - 10, PAGE_W - 2 * M + 20, bodyBottom - bodyTop + 18, 6, 6, "S");
+
   const bodyEnd = drawRows(doc, chosen.body, bodyTop + chosen.leading, chosen.leading);
   const tailH = height(chosen.tail, chosen.leading);
   const tailTop = Math.max(bodyEnd, bodyBottom - tailH);
