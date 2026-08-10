@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from "vitest";
-import { jsPDF } from "jspdf";
 import {
   buildInvoiceDocument, buildRoomLines, buildChargeLines,
 } from "@/lib/invoice-document";
