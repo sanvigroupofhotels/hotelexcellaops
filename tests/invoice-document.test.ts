@@ -222,3 +222,73 @@ describe("invoice PDF — single A4 page with signature", () => {
     expect(folded[5]!.label).toContain("15 items");
   });
 });
+
+describe("invoice discount transparency (UAT — shared pricing source)", () => {
+  const oak = (over: Partial<any> = {}) =>
+    item({ id: "oak-1", room_type: "Oak Room", rate: 2250, nights: 1, subtotal: 2250, check_out: "2026-08-11", ...over });
+
+  it("hides the Discount row when there is no discount", () => {
+    const m = buildInvoiceDocument({ booking: booking({ discount: 0 }), items: [oak()] });
+    expect(m.totals.discount).toBe(0);
+  });
+
+  it("shows the discount and keeps Gross - Discount = Taxable, Taxable + Tax = Total", () => {
+    const b = booking({ discount: 819, amount: 1503, taxes: 72, advance_paid: 0 });
+    const m = buildInvoiceDocument({ booking: b, items: [oak()] });
+    expect(m.totals.itemsTotal).toBe(2250);
+    expect(m.totals.discount).toBe(819);
+    expect(m.totals.taxable).toBe(1431);
+    expect(m.totals.taxes).toBe(72);
+    expect(m.totals.taxable + m.totals.taxes).toBe(m.totals.total);
+    expect(m.totals.subtotal - m.totals.discount).toBe(m.totals.taxable);
+  });
+
+  it("derives the discount from a negotiated total override (no second calculation)", () => {
+    const b = booking({ discount: 0, total_override: 1431, taxes_included: false, amount: 1503, taxes: 72 });
+    const m = buildInvoiceDocument({ booking: b, items: [oak()] });
+    expect(m.totals.discount).toBe(2250 - 1431);
+    expect(m.totals.taxable).toBe(1431);
+    expect(m.totals.taxable + m.totals.taxes).toBe(m.totals.total);
+  });
+
+  it("shows identical financials on proforma and final invoice", () => {
+    const items = [oak()];
+    const p = buildInvoiceDocument({ booking: booking({ discount: 819, amount: 1503, taxes: 72 }), items });
+    const f = buildInvoiceDocument({ booking: booking({ discount: 819, amount: 1503, taxes: 72, status: "Checked-Out" }), items });
+    expect(p.totals).toEqual(f.totals);
+  });
+
+  it("handles multi-room bookings with room-specific and booking-level charges", () => {
+    const items = [
+      item({ id: "m1", room_type: "Maple Room" }), item({ id: "m2", room_type: "Maple Room" }),
+      item({ id: "m3", room_type: "Maple Room" }), item({ id: "o1", room_type: "Oak Room", rate: 6000, subtotal: 12000 }),
+    ];
+    const charges = [charge({ item_id: "o1", category: "Laundry", amount: 300 }), charge({ item_id: null, amount: 700 })];
+    const m = buildInvoiceDocument({
+      booking: booking({ discount: 5000, amount: 38850, taxes: 1850, advance_paid: 10000 }),
+      items, charges, payments: [payment(10000)],
+    });
+    expect(m.roomLines).toHaveLength(2);
+    expect(m.totals.itemsTotal).toBe(5000 * 2 * 3 + 6000 * 2);
+    expect(m.totals.discount).toBe(5000);
+    expect(m.totals.subtotal - m.totals.discount).toBe(m.totals.taxable);
+    expect(m.totals.taxable + m.totals.taxes).toBe(m.totals.total);
+    expect(m.chargeLines.filter((c) => c.room).length).toBe(1);
+    expect(m.totals.paid).toBe(10000);
+    expect(m.totals.balance).toBe(m.totals.total - 10000);
+    expect(invoicePdfPageCount(m)).toBe(1);
+    expect(renderInvoicePdf(m).getNumberOfPages()).toBe(1);
+  });
+
+  it("keeps a discounted invoice on a single page with the signature band", () => {
+    const m = buildInvoiceDocument({
+      booking: booking({ discount: 819, amount: 1503, taxes: 72, status: "Checked-Out" }),
+      items: [oak()], charges: [charge()], payments: [payment(1000)],
+      branding: { signatory_designation: "General Manager", signature_url: null, invoice_footer: null },
+    });
+    expect(invoicePdfPageCount(m)).toBe(1);
+    expect(renderInvoicePdf(m).getNumberOfPages()).toBe(1);
+    expect(invoiceFileName(m)).toBe("INV-HEXB-ABC123.pdf");
+    expect(renderInvoicePdf(m).output("blob").type).toBe("application/pdf");
+  });
+});

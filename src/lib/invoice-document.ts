@@ -207,8 +207,16 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
   const paid = num(booking.advance_paid);
   const balance = total - paid;
   const itemsTotal = pricing?.itemsTotal ?? Math.max(0, bookingAmount + discount - num((booking as any).taxes));
-  const taxable = pricing?.subtotal ?? Math.max(0, bookingAmount - num((booking as any).taxes));
   const taxes = pricing?.taxes ?? num((booking as any).taxes);
+  // Authoritative discount = whatever the shared pricing engine resolved. This
+  // covers the manual discount field AND an implicit discount derived from a
+  // negotiated total override (override < computed items total). Never inferred
+  // here — the PDF/document layer is presentation only.
+  const effectiveDiscount = pricing ? pricing.discount : discount;
+  // Taxable includes post-stay charges so that Taxable + Tax = Total on the
+  // document, matching the booking-level arithmetic exactly.
+  const taxable = (pricing?.subtotal ?? Math.max(0, bookingAmount - taxes)) + chargesTotal;
+
 
   const roomLines = buildRoomLines(items, roomLabels);
   // When there are no booking items (legacy bookings) fall back to a single
@@ -248,7 +256,7 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
       itemsTotal,
       chargesTotal,
       subtotal: itemsTotal + chargesTotal,
-      discount,
+      discount: effectiveDiscount,
       taxable,
       taxRate,
       taxes,

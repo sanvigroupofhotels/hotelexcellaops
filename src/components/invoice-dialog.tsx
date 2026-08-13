@@ -239,7 +239,7 @@ export function InvoiceDialog({
                   </tr>
                 ))}
                 <tr className="border-b border-border/40">
-                  <td className="py-1 font-medium">Subtotal</td>
+                  <td className="py-1 font-medium">Gross Charges</td>
                   <td className="py-1 text-right tabular-nums">{inr(totals.subtotal)}</td>
                 </tr>
                 {totals.discount > 0 && (
