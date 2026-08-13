@@ -265,7 +265,7 @@ describe("invoice discount transparency (UAT — shared pricing source)", () => 
     ];
     const charges = [charge({ item_id: "o1", category: "Laundry", amount: 300 }), charge({ item_id: null, amount: 700 })];
     const m = buildInvoiceDocument({
-      booking: booking({ discount: 5000, amount: 39900, taxes: 1900, advance_paid: 10000 }),
+      booking: booking({ discount: 5000, amount: 38850, taxes: 1850, advance_paid: 10000 }),
       items, charges, payments: [payment(10000)],
     });
     expect(m.roomLines).toHaveLength(2);
