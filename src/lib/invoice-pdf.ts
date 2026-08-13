@@ -102,7 +102,7 @@ function buildRows(
   }
 
   rows.push({ t: "rule" });
-  rows.push({ t: "row", label: "Subtotal", right: inr(m.totals.subtotal) });
+  rows.push({ t: "row", label: "Gross Charges", right: inr(m.totals.subtotal) });
   if (m.totals.discount > 0) rows.push({ t: "row", label: "Discount", right: `- ${inr(m.totals.discount)}` });
   rows.push({ t: "row", label: "Taxable Amount", right: inr(m.totals.taxable), muted: true });
   rows.push({
