@@ -256,7 +256,7 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
       itemsTotal,
       chargesTotal,
       subtotal: itemsTotal + chargesTotal,
-      discount,
+      discount: effectiveDiscount,
       taxable,
       taxRate,
       taxes,
