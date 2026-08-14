@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { phoneSearchVariants, splitPhone } from "@/lib/phone";
 
 /**
  * ============================================================================
@@ -79,7 +80,17 @@ export function matchesBookingSearch(
   const hits: BookingSearchField[] = [];
   if (t.length >= 2 && normText(candidate.guest_name).includes(t)) hits.push("holder");
   if (t.length >= 2 && normText(candidate.booking_reference).includes(t)) hits.push("reference");
-  if (d.length >= 3 && normDigits(candidate.phone).includes(d)) hits.push("phone");
+  const candDigits = normDigits(candidate.phone);
+  const candNational = normDigits(splitPhone(candidate.phone).national);
+  if (
+    d.length >= 3 &&
+    (candDigits.includes(d) ||
+      phoneSearchVariants(q).some((v) => {
+        const vd = normDigits(v);
+        return vd.length >= 3 && (candDigits.includes(vd) || (!!candNational && candNational.includes(vd)));
+      }))
+  )
+    hits.push("phone");
   if (t.length >= 2 && (candidate.occupants ?? []).some((o) => normText(o).includes(t)))
     hits.push("occupant");
   if ((candidate.roomNumbers ?? []).some((r) => normText(r) === t || normText(r).includes(t)))
@@ -104,7 +115,15 @@ export async function searchBookings(
 
   // 1) Booking Holder / Reference / Mobile — direct booking columns.
   const orParts = [`guest_name.ilike.${like(q)}`, `booking_reference.ilike.${like(q)}`];
-  if (digits.length >= 3) orParts.push(`phone.ilike.${like(digits)}`);
+  // International-safe phone matching: try every canonical variant (E.164,
+  // digits-only, national number) so the same guest resolves however typed.
+  const phoneVariants = new Set<string>();
+  if (digits.length >= 3) phoneVariants.add(digits);
+  for (const v of phoneSearchVariants(q)) {
+    const vd = normDigits(v);
+    if (vd.length >= 3) phoneVariants.add(vd);
+  }
+  for (const v of phoneVariants) orParts.push(`phone.ilike.${like(v)}`);
   const direct = await supabase
     .from("bookings" as any)
     .select("id")

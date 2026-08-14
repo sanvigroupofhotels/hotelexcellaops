@@ -38,7 +38,7 @@ export async function listCustomerPhones(customerId: string): Promise<CustomerPh
 
 function normalize(phone: string) {
   const n = normalizePhoneNumber(phone);
-  if (!validatePhoneNumber(n)) throw new Error("Please enter a valid mobile number.");
+  if (!validatePhoneNumber(n)) throw new Error("Please enter a valid phone number for the selected country.");
   return n;
 }
 

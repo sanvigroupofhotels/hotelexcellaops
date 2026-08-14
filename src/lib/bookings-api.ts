@@ -84,7 +84,7 @@ export function validateBookingInput(b: BookingInput) {
   if (!b.phone?.trim()) throw new Error("Mobile number is required");
   const normPhone = normalizePhoneNumber(b.phone);
   if (!validatePhoneNumber(normPhone))
-    throw new Error("Please enter a valid mobile number.");
+    throw new Error("Please enter a valid phone number for the selected country.");
   b.phone = normPhone;
   if (!b.check_in || !b.check_out) throw new Error("Stay dates are required");
   if (new Date(b.check_out) < new Date(b.check_in))

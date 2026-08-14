@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
+import { normalizePhoneNumber, validatePhoneNumber, phoneSearchVariants } from "@/lib/phone";
 import { logActivity } from "@/lib/activity-log";
 
 export interface CustomerRow {
@@ -71,12 +71,12 @@ function normalizeCustomerPhones<T extends Partial<CustomerInput>>(input: T): T 
   const out: any = { ...input };
   if (out.phone !== undefined && out.phone !== null && String(out.phone).trim() !== "") {
     const n = normalizePhoneNumber(out.phone);
-    if (!validatePhoneNumber(n)) throw new Error("Please enter a valid mobile number.");
+    if (!validatePhoneNumber(n)) throw new Error("Please enter a valid phone number for the selected country.");
     out.phone = n;
   }
   if (out.emergency_contact_phone && String(out.emergency_contact_phone).trim() !== "") {
     const n = normalizePhoneNumber(out.emergency_contact_phone);
-    if (!validatePhoneNumber(n)) throw new Error("Please enter a valid emergency contact number.");
+    if (!validatePhoneNumber(n)) throw new Error("Please enter a valid emergency contact phone number.");
     out.emergency_contact_phone = n;
   }
   return out;
@@ -219,16 +219,18 @@ export async function searchCustomers(query: string, limit = 6) {
   let req = supabase.from("customers" as any).select("*");
   if (isPhoneish) {
     // UAT-033: also match alternate numbers via customer_phones.
+    const variants = phoneSearchVariants(q);
+    const orPhone = (variants.length ? variants : [q]).map((v) => `phone.ilike.%${v}%`).join(",");
     const { data: phoneHits } = await supabase
       .from("customer_phones" as any)
       .select("customer_id")
-      .ilike("phone", `%${q}%`)
+      .or(orPhone)
       .limit(limit * 2);
     const ids = Array.from(new Set(((phoneHits ?? []) as any[]).map((r) => r.customer_id).filter(Boolean)));
     if (ids.length > 0) {
-      req = supabase.from("customers" as any).select("*").or(`phone.ilike.%${q}%,id.in.(${ids.join(",")})`);
+      req = supabase.from("customers" as any).select("*").or(`${orPhone},id.in.(${ids.join(",")})`);
     } else {
-      req = req.ilike("phone", `%${q}%`);
+      req = req.or(orPhone);
     }
   } else {
     req = req.or(`guest_name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`);

@@ -467,7 +467,7 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
 
   const save = async () => {
     if (!name.trim()) return toast.error("Name is required");
-    if (!phone.trim() || !validatePhoneNumber(phone)) return toast.error("Please enter a valid mobile number.");
+    if (!phone.trim() || !validatePhoneNumber(phone)) return toast.error("Please enter a valid phone number for the selected country.");
     if (!arrivalDate) return toast.error("Please provide your expected arrival date.");
     setSaving(true);
     try {
@@ -1111,7 +1111,7 @@ function PortalPhonesSubsection({ token }: { token: string }) {
   const rows = (phonesQ.data ?? []) as any[];
 
   const submit = async () => {
-    if (!phone.trim() || !validatePhoneNumber(phone)) return toast.error("Please enter a valid mobile number.");
+    if (!phone.trim() || !validatePhoneNumber(phone)) return toast.error("Please enter a valid phone number for the selected country.");
     setBusy(true);
     try {
       await add({ data: { token, phone: normalizePhoneNumber(phone), label: label.trim() || undefined } });
