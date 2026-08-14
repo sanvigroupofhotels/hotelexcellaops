@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { validatePhoneNumber, normalizePhoneNumber } from "@/lib/phone";
+import { PhoneField } from "@/components/phone-field";
 import {
   getPortalBooking,
   createRazorpayOrder,
@@ -497,7 +498,7 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
 
       <div className="grid grid-cols-1 gap-3">
         <Input label="Full Name *" icon={<User className="h-3.5 w-3.5" />} value={name} onChange={setName} />
-        <Input label="Mobile Number *" icon={<Phone className="h-3.5 w-3.5" />} value={phone} onChange={setPhone} />
+        <PhoneLabelField label="Mobile Number *" icon={<Phone className="h-3.5 w-3.5" />} value={phone} onChange={setPhone} />
         <Input id="portal-email" label="Email Address" icon={<Mail className="h-3.5 w-3.5" />} value={email} onChange={setEmail} type="email" />
       </div>
 
@@ -534,7 +535,7 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
               <h4 className="text-xs font-medium flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5 text-gold" /> Emergency Contact</h4>
               <div className="grid grid-cols-1 gap-2">
                 <Input label="Name" value={eName} onChange={setEName} />
-                <Input label="Mobile" value={ePhone} onChange={setEPhone} />
+                <PhoneLabelField label="Mobile" value={ePhone} onChange={setEPhone} />
               </div>
             </div>
             <div className="space-y-2">
@@ -571,6 +572,17 @@ function Input({ id, label, icon, value, onChange, type = "text" }: {
       <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">{icon}{label}</span>
       <input id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)}
         className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+    </label>
+  );
+}
+
+function PhoneLabelField({ label, icon, value, onChange }: {
+  label: string; icon?: React.ReactNode; value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <label className="block scroll-mt-24">
+      <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">{icon}{label}</span>
+      <PhoneField value={value} onChange={onChange} showError />
     </label>
   );
 }
@@ -1150,9 +1162,7 @@ function PortalPhonesSubsection({ token }: { token: string }) {
         </div>
       )}
       <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/40">
-        <input value={phone} onChange={(e) => setPhone(e.target.value)}
-          placeholder="+91 98xxxxxxxx"
-          className="flex-1 bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+        <PhoneField value={phone} onChange={setPhone} className="flex-1" placeholder="Mobile number" />
         <input value={label} onChange={(e) => setLabel(e.target.value)}
           placeholder="Label (e.g. Work)"
           className="sm:w-40 bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
