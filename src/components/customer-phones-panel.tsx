@@ -12,10 +12,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Trash2, Star, Loader2, Phone as PhoneIcon } from "lucide-react";
 import {
-import { PhoneField } from "@/components/phone-field";
   listCustomerPhones, addCustomerPhone, deleteCustomerPhone, promoteCustomerPhone,
   updateCustomerPhone, type CustomerPhoneRow,
 } from "@/lib/customer-phones-api";
+import { PhoneField } from "@/components/phone-field";
 
 export function CustomerPhonesPanel({ customerId }: { customerId: string }) {
   const qc = useQueryClient();
