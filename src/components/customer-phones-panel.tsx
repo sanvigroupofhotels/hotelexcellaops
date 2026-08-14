@@ -15,6 +15,7 @@ import {
   listCustomerPhones, addCustomerPhone, deleteCustomerPhone, promoteCustomerPhone,
   updateCustomerPhone, type CustomerPhoneRow,
 } from "@/lib/customer-phones-api";
+import { PhoneField } from "@/components/phone-field";
 
 export function CustomerPhonesPanel({ customerId }: { customerId: string }) {
   const qc = useQueryClient();
@@ -99,11 +100,7 @@ export function CustomerPhonesPanel({ customerId }: { customerId: string }) {
         </div>
       )}
       <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/40">
-        <input
-          value={phone} onChange={(e) => setPhone(e.target.value)}
-          placeholder="+91 98xxxxxxxx"
-          className="flex-1 bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-        />
+        <PhoneField value={phone} onChange={setPhone} className="flex-1" />
         <input
           value={label} onChange={(e) => setLabel(e.target.value)}
           placeholder="Label (optional)"

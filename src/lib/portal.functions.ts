@@ -378,11 +378,11 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
     z.object({
       token: z.string().min(8).max(128),
       guest_name: z.string().trim().min(1).max(120).optional(),
-      phone: z.string().trim().regex(/^\+91\d{10}$/, "Please enter a valid mobile number.").optional(),
+      phone: z.string().trim().regex(/^\+[1-9]\d{7,14}$/, "Please enter a valid phone number in international format.").optional(),
       email: z.string().trim().email().max(255).optional().or(z.literal("")),
       expected_arrival_at: z.string().datetime().optional().or(z.literal("")),
       emergency_contact_name: z.string().trim().max(120).optional().or(z.literal("")),
-      emergency_contact_phone: z.string().trim().regex(/^(\+91\d{10})?$/, "Please enter a valid mobile number.").optional().or(z.literal("")),
+      emergency_contact_phone: z.string().trim().regex(/^(\+[1-9]\d{7,14})?$/, "Please enter a valid phone number in international format.").optional().or(z.literal("")),
       special_requests: z.string().trim().max(2000).optional().or(z.literal("")),
     }).parse(input),
   )

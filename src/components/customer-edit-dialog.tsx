@@ -8,6 +8,7 @@ import { useMasterData } from "@/hooks/use-master-data";
 import { validatePhoneNumber } from "@/lib/phone";
 import { CustomerPhonesPanel } from "@/components/customer-phones-panel";
 import { cn } from "@/lib/utils";
+import { PhoneField } from "@/components/phone-field";
 
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
@@ -74,7 +75,7 @@ export function CustomerEditDialog({
     mutationFn: async () => {
       if (!form.guest_name.trim()) throw new Error("Name is required");
       if (!form.phone.trim()) throw new Error("Mobile number is required");
-      if (!validatePhoneNumber(form.phone)) throw new Error("Please enter a valid mobile number.");
+      if (!validatePhoneNumber(form.phone)) throw new Error("Please enter a valid phone number for the selected country.");
       if (customer) return updateCustomer(customer.id, form as any);
       return createCustomer(form as any);
     },
@@ -111,12 +112,11 @@ export function CustomerEditDialog({
                 <input className={inputCls} value={form.guest_name} onChange={(e) => set("guest_name", e.target.value)} />
               </Field>
               <Field label={isCreate ? "Phone" : "Primary Phone"} required>
-                <input
-                  className={cn(inputCls, !isCreate && "opacity-70 cursor-not-allowed")}
+                <PhoneField
                   value={form.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                  readOnly={!isCreate}
-                  title={isCreate ? undefined : "Manage numbers in the Mobile Numbers panel below · promote any number to Primary"}
+                  onChange={(v) => set("phone", v)}
+                  disabled={!isCreate}
+                  showError
                 />
               </Field>
               <Field label="Email">
@@ -163,7 +163,7 @@ export function CustomerEditDialog({
                 <input className={inputCls} value={form.emergency_contact_name} onChange={(e) => set("emergency_contact_name", e.target.value)} />
               </Field>
               <Field label="Contact Mobile">
-                <input className={inputCls} value={form.emergency_contact_phone} onChange={(e) => set("emergency_contact_phone", e.target.value)} />
+                <PhoneField value={form.emergency_contact_phone} onChange={(v) => set("emergency_contact_phone", v)} showError />
               </Field>
             </div>
           </Section>

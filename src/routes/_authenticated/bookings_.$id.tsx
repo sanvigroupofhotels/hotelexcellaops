@@ -77,6 +77,7 @@ import { getDocumentsRetention } from "@/lib/app-settings-api";
 import { toast } from "sonner";
 import { useOpsTimeLabels } from "@/lib/check-times";
 import { usePaymentModes } from "@/hooks/use-payment-modes";
+import { PhoneField } from "@/components/phone-field";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
   component: BookingDetail,
@@ -1753,11 +1754,7 @@ function AddRoomDialog({
           </label>
           <label className="block">
             <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Occupant Phone (optional)</span>
-            <input
-              value={occupantPhone} onChange={(e) => setOccupantPhone(e.target.value)}
-              placeholder="+91 …"
-              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-            />
+            <PhoneField value={occupantPhone} onChange={setOccupantPhone} showError />
           </label>
           <div className="text-[11px] text-muted-foreground">
             The room will be added as Unassigned. Assign a physical room from the row menu after saving.
@@ -1833,8 +1830,7 @@ function ItemOccupantNotesDialog({
           </label>
           <label className="block">
             <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Primary Mobile</span>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 …" className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+            <PhoneField value={phone} onChange={setPhone} showError />
           </label>
           <label className="block">
             <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Operational Notes</span>

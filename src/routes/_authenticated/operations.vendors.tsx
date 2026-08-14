@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
 import { listVendors, createVendor, updateVendor, deleteVendor, type VendorRow, type VendorInput } from "@/lib/vendors-api";
 import { phoneToWaDigits } from "@/lib/phone";
+import { PhoneField } from "@/components/phone-field";
 
 export const Route = createFileRoute("/_authenticated/operations/vendors")({ component: VendorsPage });
 
@@ -135,7 +136,7 @@ function VendorDialog({ vendor, onClose }: { vendor?: VendorRow; onClose: () => 
           <Field label="Vendor Name *"><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <Field label="Contact Person *"><input className={inputCls} value={contact} onChange={(e) => setContact(e.target.value)} /></Field>
           <Field label="Mobile Number *">
-            <input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" inputMode="tel" />
+            <PhoneField value={phone} onChange={setPhone} showError />
           </Field>
           <Field label="Alternate Mobile Numbers">
             <div className="space-y-2">
