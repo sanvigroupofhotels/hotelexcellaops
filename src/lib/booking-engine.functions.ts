@@ -274,7 +274,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       guests: z.number().int().min(1).max(10),
       guest_name: z.string().trim().min(2).max(120),
-      phone: z.string().trim().regex(/^\+?\d{10,14}$/i, "Please enter a valid mobile number"),
+      phone: z.string().trim().regex(/^\+?[1-9]\d{7,15}$/, "Please enter a valid phone number in international format"),
       email: z.string().trim().email().max(255).optional().or(z.literal("")),
       special_requests: z.string().trim().max(2000).optional().or(z.literal("")),
     }).parse(input),

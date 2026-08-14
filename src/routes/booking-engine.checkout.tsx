@@ -25,6 +25,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Loader2, BedDouble, CalendarDays, Users } from "lucide-react";
 import { PhoneField } from "@/components/phone-field";
+import { validatePhoneNumber } from "@/lib/phone";
 
 const Schema = z.object({
   check_in: z.string().optional(),
@@ -147,7 +148,7 @@ function CheckoutPage() {
 
   function validate(): boolean {
     if (name.trim().length < 2) { toast.error("Please enter your full name"); return false; }
-    if (!/^\+?\d{10,14}$/.test(phone.trim())) { toast.error("Please enter a valid mobile number with country code"); return false; }
+    if (!validatePhoneNumber(phone)) { toast.error("Please enter a valid phone number for the selected country"); return false; }
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { toast.error("Please enter a valid email"); return false; }
     if (!stay.check_in || !stay.check_out || !stay.room_type) { toast.error("Stay details missing. Please go back to search."); return false; }
     return true;

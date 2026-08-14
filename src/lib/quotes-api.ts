@@ -79,7 +79,7 @@ export function validateQuoteInput(input: QuoteInput) {
   if (!input.phone?.trim()) throw new Error("Phone is required");
   const normPhone = normalizePhoneNumber(input.phone);
   if (!validatePhoneNumber(normPhone))
-    throw new Error("Please enter a valid mobile number.");
+    throw new Error("Please enter a valid phone number for the selected country.");
   input.phone = normPhone;
   if (input.email && input.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email))
     throw new Error("Email looks invalid");
