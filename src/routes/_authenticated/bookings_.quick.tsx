@@ -47,6 +47,7 @@ import { toLocalYMD, localYMDOffset, cn } from "@/lib/utils";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { NumField } from "@/components/num-field";
+import { PhoneField } from "@/components/phone-field";
 import { RoomStepper } from "@/components/room-stepper";
 import { useChargeCategories } from "@/hooks/use-charge-categories";
 import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/payment-settings-section";
@@ -132,8 +133,6 @@ function QuickBookingPage() {
 
 
   // ---- Auto-focus mobile field on mount for speed ----
-  const phoneRef = useRef<HTMLInputElement | null>(null);
-  useEffect(() => { phoneRef.current?.focus(); }, []);
 
   // Shared customer-resolution hook — single source of truth for normalization,
   // validation, and existing-customer detection. Same hook is used by every
@@ -213,7 +212,7 @@ function QuickBookingPage() {
   const errors = useMemo(() => {
     const e: string[] = [];
     if (!guestName.trim()) e.push("Guest name is required");
-    if (!phoneValid) e.push("Enter a valid Indian mobile number");
+    if (!phoneValid) e.push("Enter a valid phone number for the selected country");
     if (!checkIn || !checkOut || checkOut <= checkIn) e.push("Check-out must be after Check-in");
     if (oakRooms + mappleRooms < 1) e.push("Select at least one room");
     if (oakRooms > oakInv.max || mappleRooms > mappleInv.max) e.push("Room count exceeds available inventory");
