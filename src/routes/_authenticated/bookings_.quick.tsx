@@ -461,18 +461,8 @@ function QuickBookingPage() {
         <section className="luxe-card rounded-xl p-4 space-y-3">
           <div className="text-xs uppercase tracking-wider text-gold">Guest</div>
           <Field label="Mobile *">
-            <input
-              ref={phoneRef}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 98765 43210"
-              inputMode="tel"
-              autoComplete="tel"
-              className="qb-input"
-            />
-            {phone.trim() && !phoneValid && (
-              <div className="text-[11px] text-destructive mt-1">Enter a valid Indian mobile number.</div>
-            )}
+            <PhoneField value={phone} onChange={setPhone} placeholder="98765 43210" showError />
+
           </Field>
           <Field label="Guest name *">
             <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Full name" className="qb-input" />
