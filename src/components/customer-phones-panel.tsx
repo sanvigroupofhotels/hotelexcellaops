@@ -12,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Trash2, Star, Loader2, Phone as PhoneIcon } from "lucide-react";
 import {
+import { PhoneField } from "@/components/phone-field";
   listCustomerPhones, addCustomerPhone, deleteCustomerPhone, promoteCustomerPhone,
   updateCustomerPhone, type CustomerPhoneRow,
 } from "@/lib/customer-phones-api";
@@ -99,11 +100,7 @@ export function CustomerPhonesPanel({ customerId }: { customerId: string }) {
         </div>
       )}
       <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/40">
-        <input
-          value={phone} onChange={(e) => setPhone(e.target.value)}
-          placeholder="+91 98xxxxxxxx"
-          className="flex-1 bg-input/60 border border-border rounded-md px-3 py-2 text-sm"
-        />
+        <PhoneField value={phone} onChange={setPhone} className="flex-1" />
         <input
           value={label} onChange={(e) => setLabel(e.target.value)}
           placeholder="Label (optional)"

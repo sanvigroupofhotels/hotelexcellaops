@@ -39,6 +39,7 @@ import { useMasterData } from "@/hooks/use-master-data";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
 import { normalizeLineGuests } from "@/lib/guest-allocation";
+import { PhoneField } from "@/components/phone-field";
 
 
 const inputCls =
@@ -205,7 +206,7 @@ export function StayFormSections({
             <input className={inputCls} value={value.guest_name} onChange={(e) => update("guest_name", e.target.value)} />
           </Field>
           <Field label="Phone" icon={Phone} required>
-            <input className={inputCls} placeholder="+91 ..." value={value.phone} onChange={(e) => update("phone", e.target.value)} />
+            <PhoneField value={value.phone} onChange={(v) => update("phone", v)} showError />
           </Field>
         </div>
 

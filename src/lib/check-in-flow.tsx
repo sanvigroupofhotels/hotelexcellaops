@@ -46,6 +46,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { FileWarning, ShieldAlert } from "lucide-react";
+import { PhoneField } from "@/components/phone-field";
+import { normalizeOrThrow } from "@/lib/phone";
 
 const OTA_SOURCES = [
   "Hotelzify",
@@ -369,15 +371,7 @@ export function useCheckInController(
               <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
                 Guest Mobile
               </label>
-              <input
-                autoFocus
-                type="tel"
-                inputMode="tel"
-                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40"
-                value={phoneValue}
-                onChange={(e) => setPhoneValue(e.target.value)}
-                placeholder="+91 98765 43210"
-              />
+              <PhoneField value={phoneValue} onChange={setPhoneValue} autoFocus showError />
             </div>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={phoneSaving}>Cancel</AlertDialogCancel>
@@ -385,9 +379,11 @@ export function useCheckInController(
                 disabled={phoneSaving}
                 onClick={async (e) => {
                   e.preventDefault();
-                  const cleaned = phoneValue.replace(/[^\d+]/g, "");
-                  if (!/\d{10}/.test(cleaned)) {
-                    toast.error("Enter a valid 10-digit mobile number");
+                  let cleaned: string;
+                  try {
+                    cleaned = normalizeOrThrow(phoneValue);
+                  } catch {
+                    toast.error("Enter a valid phone number for the selected country");
                     return;
                   }
                   if (!bookingId) return;

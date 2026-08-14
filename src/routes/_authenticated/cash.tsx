@@ -118,6 +118,7 @@ function exportCashCSV(tx: CashTxRow[], range: RangeKey) {
 }
 import { buildDailyCashReport, computeOpeningBalance, printCashReport } from "@/lib/cash-report";
 import { Printer } from "lucide-react";
+import { PhoneField } from "@/components/phone-field";
 
 
 function CashPage() {
@@ -848,7 +849,7 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
                 <input className={inputCls} value={guestName} onChange={e=>setGuestName(e.target.value)} />
               </Field>
               <Field label="Mobile Number" required>
-                <input className={inputCls} inputMode="tel" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
+                <PhoneField value={guestMobile} onChange={setGuestMobile} showError />
               </Field>
               <Field label="Room Number">
                 <input className={inputCls} value={roomNumber} onChange={e=>setRoomNumber(e.target.value)} />

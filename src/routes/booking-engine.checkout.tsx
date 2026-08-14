@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Loader2, BedDouble, CalendarDays, Users } from "lucide-react";
+import { PhoneField } from "@/components/phone-field";
 
 const Schema = z.object({
   check_in: z.string().optional(),
@@ -201,7 +202,7 @@ function CheckoutPage() {
               </div>
               <div>
                 <Label className="text-xs">Mobile *</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 9XXXXXXXXX" inputMode="tel" autoComplete="tel" />
+                <PhoneField value={phone} onChange={setPhone} showError />
               </div>
               <div>
                 <Label className="text-xs">Email</Label>
