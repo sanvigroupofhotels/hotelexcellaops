@@ -14,6 +14,11 @@ import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { NumField } from "@/components/num-field";
 import { refreshAfterBookingMutation } from "@/lib/booking-pricing-sync";
+import {
+  EARLY_CHECK_IN_CATEGORY, LATE_CHECK_OUT_CATEGORY,
+  resolveEarlyCheckInWindow, resolveLateCheckOutWindow, windowFee, to12h,
+} from "@/lib/expected-times";
+import { syncExpectedTimes } from "@/lib/expected-time-charges";
 
 
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
@@ -265,7 +270,29 @@ export function ChargeFormDialog({
   );
   const [notes, setNotes] = useState(editing?.notes ?? "");
 
-  const lineAmount = Number((quantity * unitPrice).toFixed(2));
+  // ---- Expected Arrival / Departure driven services -----------------------
+  // Early Check-In / Late Check-Out are priced by the shared expected-time
+  // engine: reception enters the actual expected time and the pricing window
+  // (and therefore the fee) is derived — never picked by hand.
+  const isEarlyCategory = category.toLowerCase() === EARLY_CHECK_IN_CATEGORY.toLowerCase();
+  const isLateCategory = category.toLowerCase() === LATE_CHECK_OUT_CATEGORY.toLowerCase();
+  const isExpectedTimeCategory = isEarlyCategory || isLateCategory;
+  const [expectedTime, setExpectedTime] = useState<string>("");
+  const targetItemIds = isEditing
+    ? (itemId ? [itemId] : [])
+    : (isMultiRoom && isPerRoom ? selectedItemIds : items.map((it: any) => it.id));
+  const fullDayRate = Number(
+    (items.find((it: any) => targetItemIds.includes(it.id)) ?? items[0])?.rate ?? 0,
+  );
+  const resolvedWindow = isEarlyCategory
+    ? resolveEarlyCheckInWindow(expectedTime)
+    : isLateCategory
+      ? resolveLateCheckOutWindow(expectedTime)
+      : null;
+  const derivedUnitPrice = resolvedWindow ? windowFee(resolvedWindow, fullDayRate) : 0;
+
+  const effectiveUnitPrice = isExpectedTimeCategory ? derivedUnitPrice : unitPrice;
+  const lineAmount = Number((quantity * effectiveUnitPrice).toFixed(2));
   // Multi-room per-room fan-out multiplies the line by number of selected rooms
   // in the preview total ONLY (each posted row still shows Qty × Unit).
   const fanOutRooms = !isEditing && isMultiRoom && isPerRoom ? selectedItemIds.length : 1;
@@ -280,6 +307,26 @@ export function ChargeFormDialog({
 
   const mut = useMutation({
     mutationFn: async () => {
+      // Expected-time services go through the shared engine so the charge is
+      // created OR reconciled in place (never duplicated) and fans out per room.
+      if (isExpectedTimeCategory) {
+        if (!expectedTime) throw new Error(
+          isEarlyCategory ? "Enter the guest's expected arrival time." : "Enter the guest's expected departure time.");
+        if (!resolvedWindow) throw new Error(
+          isEarlyCategory
+            ? "Expected arrival is at or after the standard check-in time — no early check-in applies."
+            : "Expected departure is at or before the standard check-out time — no late check-out applies.");
+        const stayItem = items.find((it: any) => targetItemIds.includes(it.id)) ?? items[0];
+        const dateBase = isEarlyCategory ? stayItem?.check_in : stayItem?.check_out;
+        const iso = new Date(`${dateBase}T${expectedTime}`).toISOString();
+        return syncExpectedTimes(bookingId, {
+          ...(isEarlyCategory ? { expectedArrivalAt: iso } : { expectedDepartureAt: iso }),
+          applyItemIds: targetItemIds.length > 0 ? targetItemIds : null,
+          syncEarly: isEarlyCategory,
+          syncLate: isLateCategory,
+          addedBy: addedBy || null,
+        });
+      }
       const base = {
         booking_id: bookingId,
         category,
@@ -354,6 +401,21 @@ export function ChargeFormDialog({
               </span>
             )}
           </Field>
+          {isExpectedTimeCategory && (
+            <Field label={isEarlyCategory ? "Expected Arrival Time *" : "Expected Departure Time *"}>
+              <input type="time" value={expectedTime} onChange={(e) => setExpectedTime(e.target.value)}
+                className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+              <span className="mt-1 block text-[10.5px] text-muted-foreground">
+                {expectedTime
+                  ? resolvedWindow
+                    ? `${to12h(expectedTime)} → ${resolvedWindow.label} · ${resolvedWindow.fee == null ? `Full day (${inr(fullDayRate)})` : inr(resolvedWindow.fee)}`
+                    : isEarlyCategory
+                      ? "At or after standard check-in (1:00 PM) — no early check-in charge."
+                      : "At or before standard check-out (11:00 AM) — no late check-out charge."
+                  : "Pricing window and fee are derived from this time."}
+              </span>
+            </Field>
+          )}
           {category === "Other" && (
             <Field label="Description *">
               <input value={otherDesc} onChange={(e) => setOtherDesc(e.target.value)}
@@ -423,10 +485,12 @@ export function ChargeFormDialog({
               Charging: <span className="text-foreground font-medium">{itemOptionLabel(items[0], 0)}</span>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            <NumField label="Quantity *" value={quantity} min={0} decimal onChange={setQuantity} />
-            <NumField label="Unit Price * (tax incl.)" value={unitPrice} min={0} decimal onChange={setUnitPrice} prefix="₹" />
-          </div>
+          {!isExpectedTimeCategory && (
+            <div className="grid grid-cols-2 gap-2">
+              <NumField label="Quantity *" value={quantity} min={0} decimal onChange={setQuantity} />
+              <NumField label="Unit Price * (tax incl.)" value={unitPrice} min={0} decimal onChange={setUnitPrice} prefix="₹" />
+            </div>
+          )}
           <div className="text-sm">
             {fanOutRooms > 1 ? (
               <>
@@ -465,6 +529,7 @@ export function ChargeFormDialog({
               || !category
               || !(quantity > 0)
               || (category === "Other" && !otherDesc.trim())
+              || (isExpectedTimeCategory && !resolvedWindow)
               || !addedBy.trim()
               || chargeToMissing
               || perRoomMissing

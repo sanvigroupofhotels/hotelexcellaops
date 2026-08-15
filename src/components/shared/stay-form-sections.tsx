@@ -40,6 +40,7 @@ import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventor
 import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
 import { normalizeLineGuests } from "@/lib/guest-allocation";
 import { PhoneField } from "@/components/phone-field";
+import { resolveEarlyCheckInWindow, resolveLateCheckOutWindow } from "@/lib/expected-times";
 
 
 const inputCls =
@@ -65,6 +66,13 @@ export interface SharedStayValue {
   // 2. Stay Details
   check_in: string;
   check_out: string;
+  /**
+   * ACTUAL expected times (HH:mm, local). Independent from the pricing
+   * windows below — the shared expected-time engine derives the Early
+   * Check-In / Late Check-Out window (and its fee) from these.
+   */
+  expected_arrival_time: string;
+  expected_departure_time: string;
 
   // 3. Room & Extras (primary room)
   room_type: string;
@@ -94,6 +102,7 @@ export function emptyStayValue(): SharedStayValue {
     lead_source: "Direct", special_requests: "",
     adults: 2, children: 0, guests: 2,
     check_in: today, check_out: tomorrow,
+    expected_arrival_time: "", expected_departure_time: "",
     room_type: roomTypes[0].name, rooms: 1, extra_bed: 0,
     breakfast_included: false, extra_breakfast_guests: 0,
     early_check_in: false, early_check_in_slot: null,
@@ -197,6 +206,17 @@ export function StayFormSections({
   const cap = maxSelectableRooms(availability, value.room_type, 0);
 
 
+  // Live preview of the derived Early/Late window (pricing itself is applied
+  // by the shared expected-time engine once the booking is saved).
+  const earlyWin = resolveEarlyCheckInWindow(value.expected_arrival_time);
+  const lateWin = resolveLateCheckOutWindow(value.expected_departure_time);
+  const earlyPreview = earlyWin
+    ? `Early Check-In · ${earlyWin.label}${earlyWin.fee != null ? ` · ₹${earlyWin.fee.toLocaleString("en-IN")}` : " · full day charge"}`
+    : null;
+  const latePreview = lateWin
+    ? `Late Check-Out · ${lateWin.label}${lateWin.fee != null ? ` · ₹${lateWin.fee.toLocaleString("en-IN")}` : " · full day charge"}`
+    : null;
+
   return (
     <div className="space-y-6">
       {/* 1. Guest Details */}
@@ -257,6 +277,22 @@ export function StayFormSections({
           </Field>
           <Field label="Check-out" icon={CalendarDays} required>
             <input type="date" className={inputCls} value={value.check_out} onChange={(e) => update("check_out", e.target.value)} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <Field label="Expected Arrival Time" icon={CalendarDays}>
+            <input type="time" className={inputCls} value={value.expected_arrival_time}
+              onChange={(e) => update("expected_arrival_time", e.target.value)} />
+            <p className="mt-1 text-[10.5px] text-muted-foreground">
+              {earlyPreview ?? "Standard check-in 1:00 PM"}
+            </p>
+          </Field>
+          <Field label="Expected Departure Time" icon={CalendarDays}>
+            <input type="time" className={inputCls} value={value.expected_departure_time}
+              onChange={(e) => update("expected_departure_time", e.target.value)} />
+            <p className="mt-1 text-[10.5px] text-muted-foreground">
+              {latePreview ?? "Standard check-out 11:00 AM"}
+            </p>
           </Field>
         </div>
         {nightsLabel && <div className="mt-2 text-right text-xs text-gold">{nightsLabel}</div>}

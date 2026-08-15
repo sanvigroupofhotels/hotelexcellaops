@@ -1941,6 +1941,18 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
             <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Check-In</div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)}, {checkTimes.checkIn}</div></div>
             <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Check-Out</div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_out)}, {checkTimes.checkOut}</div></div>
             <div className="col-span-2 text-xs text-muted-foreground">{b.guests} Guest{b.guests === 1 ? "" : "s"} · {b.nights} Night{b.nights === 1 ? "" : "s"}{b.room_details ? ` · ${b.room_details}` : ""}</div>
+            {((b as any).expected_arrival_at || (b as any).expected_departure_at) && (
+              <div className="col-span-2 rounded-md border border-gold/30 bg-gold-soft/30 px-2.5 py-1.5 text-[11px]">
+                <span className="uppercase tracking-wider text-gold text-[10px]">Expected</span>{" "}
+                {(b as any).expected_arrival_at && (
+                  <>Arrival {new Date((b as any).expected_arrival_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</>
+                )}
+                {(b as any).expected_arrival_at && (b as any).expected_departure_at ? " · " : ""}
+                {(b as any).expected_departure_at && (
+                  <>Departure {new Date((b as any).expected_departure_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
