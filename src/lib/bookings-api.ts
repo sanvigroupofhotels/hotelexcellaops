@@ -184,6 +184,18 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
   // Housekeeping fanout — centralized here so every path (booking detail,
   // Night Audit bulk, Critical Tasks, guest portal) triggers the correct
   // side-effect. Non-blocking — hooks own their error logging.
+  if ((status === "Checked-Out" || status === "Stay Completed") && previousStatus !== status) {
+    // UAT-053: release physical occupancy on the business date so the room is
+    // immediately reusable for a same-day arrival and the departed booking's
+    // historical segment stays intact (shared segment engine, no rewrites).
+    try {
+      const { closeOpenSegmentsForBooking } = await import("@/lib/booking-item-operations-api");
+      await closeOpenSegmentsForBooking(id);
+    } catch {
+      /* non-blocking — status change must never fail on segment trimming */
+    }
+  }
+
   if (status === "Checked-Out" && previousStatus !== "Checked-Out") {
     try {
       const { onBookingCheckedOut } = await import("@/lib/hk-checkout-hook");
@@ -191,6 +203,7 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
     } catch {
       /* hook already logs its own failures; never block the status change */
     }
+
   } else if (status === "Checked-In" && previousStatus !== "Checked-In") {
     try {
       const { onBookingCheckedIn } = await import("@/lib/hk-checkout-hook");

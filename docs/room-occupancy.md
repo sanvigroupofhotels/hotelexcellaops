@@ -110,3 +110,26 @@ survives every booking header save.
 4. Move-back to a previously occupied room — GiST exclusion allows it.
 5. Edit-after-move — unrelated booking saves do not flip per-item status.
 6. Night audit after multiple moves closes cleanly.
+
+## Same-Day Turnover (UAT-053)
+
+Segments are half-open, so `A [13 Aug, 15 Aug)` and `B [15 Aug, 17 Aug)` on the
+same room are **not** a conflict — that is a same-day turnover, not an overlap.
+
+- Booking-level Check-Out now closes the booking's open segments on the business
+  date (`closeOpenSegmentsForBooking`, `ended_reason='booking_check_out'`), the
+  same trimming item-level check-out already did. History is never rewritten.
+- `src/lib/house-view-placement.ts` is the pure House View *representation*
+  engine. It renders both chips on the room row, tagging them
+  `_turnoverDeparture` / `_turnoverArrival`. A departed booking is only hidden
+  when a live booking genuinely overlaps the days it still occupies.
+- `vacateDate()` clamps a departed booking to the business date so legacy
+  untrimmed segments cannot fake a conflict.
+- Unassigned stay slots with no clean lane are returned as `pendingArrivals`
+  and rendered in the **Room Pending** section with the rooms expected to free
+  up through checkout. This is display-only: `booking_items.assigned_room_id`
+  stays NULL until Reception assigns a room.
+- Availability is untouched — House View has no private availability math; it
+  still reads segments through the shared engine.
+
+Regression coverage: `tests/house-view-placement.test.ts`.
