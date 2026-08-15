@@ -160,6 +160,32 @@ export async function checkOutBookingItem(itemId: string, opts: { allowOverride?
 }
 
 /**
+ * UAT-053 — Booking-level checkout closure.
+ *
+ * Booking-level Check-Out (`setBookingStatus`) used to leave occupancy segments
+ * open until the original check-out date. The room then still looked occupied
+ * for the rest of the stay window, so a same-day arrival assigned to that room
+ * collided with the departed booking on House View (making it appear replaced).
+ *
+ * This closes every still-open segment of the booking on the business date via
+ * the SAME shared segment engine used by item check-out. History is never
+ * rewritten: only the open tail is trimmed and stamped with `ended_reason`.
+ */
+export async function closeOpenSegmentsForBooking(bookingId: string, reason = "booking_check_out") {
+  const businessDate = await getBusinessDate();
+  const { data, error } = await supabase
+    .from("booking_room_assignments" as any)
+    .select("id, booking_id, room_id, item_id, start_date, end_date")
+    .eq("booking_id", bookingId)
+    .gt("end_date", businessDate);
+  if (error) throw error;
+  for (const seg of ((data ?? []) as any[])) {
+    await closeAssignmentSegment(seg, reason);
+  }
+}
+
+
+/**
  * Revert an item's Check-In. Inverse of `checkInBookingItem`:
  *   • status → Confirmed, `checked_in_at` cleared.
  *   • Existing room assignment segment is preserved (no historical rewrite).

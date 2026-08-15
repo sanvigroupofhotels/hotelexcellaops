@@ -40,6 +40,8 @@ import {
   segmentCoversDate, segmentOverlapsRange, segmentsOverlap, stayRoomTypesMatch, slotEndExclusive,
 } from "@/lib/stay-segments";
 import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
+import { placeHouseViewChips } from "@/lib/house-view-placement";
+
 
 
 export const Route = createFileRoute("/_authenticated/house-view")({
@@ -387,135 +389,31 @@ function HouseView() {
    *     room when no type match is available).
    *   - Bookings with no items default to 1 virtual placeholder (any vacant room).
    */
-  const byRoomAndOutgoing = useMemo(() => {
-    const m = new Map<string, any[]>();
-    // Start from the paired-only map and grow it as virtual chips are placed
-    // so subsequent placements can skip lanes with an incoming-late fraction
-    // AND so chip rendering (which reads the final map) shifts arriving chips
-    // even when the outgoing late-checkout stay is unassigned.
-    const outMap = new Map(outgoingLateByRoomDayFromPaired);
-    const bumpOutgoing = (b: any, rid: string, slot: any) => {
-      const f = lateFractionByBooking.get(b.id) ?? 0;
-      if (f <= 0) return;
-      const key = `${rid}|${slotEndExclusive(slot)}`;
-      const prev = outMap.get(key) ?? 0;
-      if (f > prev) outMap.set(key, f);
-    };
-    const conflictsAt = (rid: string, slot: any) =>
-      (m.get(rid) ?? []).some((x) => segmentsOverlap(slot, x));
-    const blockedAt = (rid: string, slot: any) =>
-      visibleBlocks.some((x: any) => x.room_id === rid && slot.check_in < x.end_date && x.start_date < slotEndExclusive(slot));
-
-    // 1) Render each booking only on rooms paired to active stay segments.
-    for (const b of visibleBookings) {
-      const { paired } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]);
-      for (const { room_id: rid, slot } of paired) {
-        if (!segmentOverlapsRange(slot, rangeStart, rangeEnd)) continue;
-        const arr = m.get(rid) ?? [];
-        arr.push({
-          ...b,
-          room_id: rid,
-          check_in: slot.check_in,
-          check_out: slot.check_out,
-          _slotKey: slot.key,
-          _bookingCheckIn: b.check_in,
-          _bookingCheckOut: b.check_out,
-          // Phase 1 polish: closed historical segments (guest already moved
-          // out of this room via split_room_assignment) render greyed on the
-          // House View so the timeline shows real occupancy history.
-          _historical: !!slot.ended_reason,
-        });
-        m.set(rid, arr);
-      }
-    }
-
-    // 2) Place virtual placeholders only for unpaired stay segments overlapping this date range.
-    // Build the work list first and sort by stay date so an earlier unassigned
-    // stay can register its late-checkout residual before a next-day arrival is
-    // packed. This removes any dependency on bookings query/create order.
-    const virtualSlots: Array<{ b: any; slot: any; assignedRoomIds: string[] }> = [];
-    for (const b of visibleBookings) {
-      const { paired, unpaired } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]);
-      const assignedRoomIds = paired.map((p) => p.room_id);
-      for (const slot of unpaired) {
-        if (!segmentOverlapsRange(slot, rangeStart, rangeEnd)) continue;
-        virtualSlots.push({ b, slot, assignedRoomIds });
-      }
-    }
-    virtualSlots.sort((a, b) =>
-      String(a.slot.check_in).localeCompare(String(b.slot.check_in)) ||
-      String(slotEndExclusive(a.slot)).localeCompare(String(slotEndExclusive(b.slot))) ||
-      String(a.b.created_at ?? a.b.booking_reference ?? a.b.id).localeCompare(String(b.b.created_at ?? b.b.booking_reference ?? b.b.id))
-    );
-    for (const { b, slot, assignedRoomIds } of virtualSlots) {
-      // Candidate rooms: matching type first, then any room as fallback.
-      const matching = (rooms as any[]).filter((r) =>
-        slot.room_type ? stayRoomTypesMatch(r.room_type, slot.room_type) : true,
-      );
-      const fallback = (rooms as any[]);
-      const candidates = matching.length > 0 ? matching : fallback;
-
-      // UAT-046B: unassigned placeholders are packed from scratch into the
-      // first fully clean visual lane. They must not inherit/stick to a
-      // previous `bookings.room_id`, and they must not consume residual space
-      // left by late check-out / extension representations. Only an explicit
-      // booking_room_assignments row is treated as a hard staff assignment.
-      const hasIncomingLate = (rid: string) =>
-        (outMap.get(`${rid}|${slot.check_in}`) ?? 0) > 0;
-
-      for (const r of candidates) {
-        if (assignedRoomIds.includes(r.id)) continue;
-        if (conflictsAt(r.id, slot)) continue;
-        if (blockedAt(r.id, slot)) continue;
-        if (hasIncomingLate(r.id)) continue;
-        const arr = m.get(r.id) ?? [];
-        arr.push({
-          ...b,
-          room_id: r.id,
-          check_in: slot.check_in,
-          check_out: slot.check_out,
-          _slotKey: slot.key,
-          _bookingCheckIn: b.check_in,
-          _bookingCheckOut: b.check_out,
-          _virtual: true,
-        });
-        m.set(r.id, arr);
-        bumpOutgoing(b, r.id, slot);
-        break;
-      }
-    }
-
-    // Also account for late-checkouts contributed by PAIRED assignments so
-    // arriving chips in step 1 that share a lane with an outgoing late chip
-    // get the same visual shift. (Paired base map already covers this; keep
-    // in sync in case both paired + virtual segments touch the same room.)
-    for (const b of visibleBookings) {
-      const f = lateFractionByBooking.get(b.id) ?? 0;
-      if (f <= 0) continue;
-      const { paired } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]);
-      for (const { room_id: rid, slot } of paired) bumpOutgoing(b, rid, slot);
-    }
-
-    // 3) Hide Checked-Out / Stay Completed bookings on a room once another
-    //    booking has been assigned to that same room with overlapping dates.
-    for (const [rid, arr] of m) {
-      const filtered = arr.filter((b) => {
-        const isPast = b.status === "Checked-Out" || b.status === "Stay Completed";
-        if (!isPast) return true;
-        return !arr.some((other) =>
-          other !== b
-          && other.status !== "Checked-Out"
-          && other.status !== "Stay Completed"
-          && segmentsOverlap(b, other)
-        );
-      });
-      m.set(rid, filtered);
-    }
-    return { byRoom: m, outgoingLateByRoomDay: outMap };
-  }, [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd, visibleBlocks, outgoingLateByRoomDayFromPaired, lateFractionByBooking]);
+  const byRoomAndOutgoing = useMemo(() => placeHouseViewChips({
+    bookings: visibleBookings,
+    itemsByBooking,
+    assignmentsByBooking,
+    rooms: rooms as any[],
+    blocks: visibleBlocks as any[],
+    rangeStart,
+    rangeEndExclusive: rangeEnd,
+    lateFractionByBooking,
+    outgoingLateSeed: outgoingLateByRoomDayFromPaired,
+    businessDate: businessDate ?? null,
+  }), [visibleBookings, rooms, itemsByBooking, assignmentsByBooking, rangeStart, rangeEnd, visibleBlocks, outgoingLateByRoomDayFromPaired, lateFractionByBooking, businessDate]);
 
   const byRoom = byRoomAndOutgoing.byRoom;
   const outgoingLateByRoomDay = byRoomAndOutgoing.outgoingLateByRoomDay;
+  /**
+   * UAT-053 — Room Pending arrivals. Unassigned stay slots that had no clean
+   * visual lane (e.g. every room of the type is occupied overnight and only
+   * frees up through today's checkouts). They are rendered in a dedicated
+   * "Room Pending" section so the arrival never disappears from the board.
+   * These are display-only: `booking_items.assigned_room_id` stays NULL until
+   * Reception assigns a room.
+   */
+  const pendingArrivals = byRoomAndOutgoing.pendingArrivals;
+
 
 
   const blocksByRoom = useMemo(() => {
@@ -942,6 +840,75 @@ function HouseView() {
                   })}
                 </tr>
               </thead>
+              {/* UAT-053 — Room Pending: unassigned arrivals with no free lane
+                  (rooms free up through today's checkouts). Display-only; the
+                  booking stays operationally unassigned until Reception acts. */}
+              {pendingArrivals.length > 0 && (
+                <tbody>
+                  <tr>
+                    <td
+                      colSpan={days.length + 1}
+                      className="sticky left-0 z-[31] bg-card border-b border-amber-500/40 p-0"
+                      style={{ top: DATE_HEADER_H, height: GROUP_HEADER_H }}
+                    >
+                      <div
+                        className="inline-flex h-full items-center gap-2 pl-3 pr-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-amber-600 dark:text-amber-400 bg-card"
+                        style={{ position: "sticky", left: ROOM_COL_W }}
+                      >
+                        <BedDouble className="h-3.5 w-3.5" />
+                        <span>Room Pending</span>
+                        <span className="text-muted-foreground font-normal normal-case tracking-normal">({pendingArrivals.length})</span>
+                      </div>
+                    </td>
+                  </tr>
+                  {pendingArrivals.map((p) => {
+                    const startCol = p.check_in < rangeStart ? 0 : dayKeys.indexOf(p.check_in);
+                    const endIdx = dayKeys.indexOf(slotEndExclusive(p));
+                    const endCol = endIdx < 0 ? DAY_COUNT : endIdx;
+                    const span = Math.max(1, endCol - Math.max(0, startCol));
+                    const cellW = isMobile ? CELL_W_MOB : CELL_W;
+                    const turnoverLabel = p.turnoverRooms.length
+                      ? `Expected turnover rooms: ${p.turnoverRooms.map((t) => t.room_number ?? "—").join(", ")}`
+                      : "No turnover room identified yet";
+                    return (
+                      <tr key={`pending-${p.key}`}>
+                        <td
+                          className="sticky left-0 z-[30] bg-card border-b border-r-2 border-border px-2 py-1.5 text-[10px] align-middle text-center text-amber-600 dark:text-amber-400 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.4)]"
+                          style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W }}
+                        >
+                          TBA
+                        </td>
+                        {days.map((_d, i) => (
+                          <td key={i}
+                            className={cn("relative border-b border-r border-border/40 align-top h-[44px] p-0",
+                              i === days.length - 1 && "border-r-0")}
+                            style={{ minWidth: cellW, width: cellW, contain: "style" } as React.CSSProperties}
+                          >
+                            {i === Math.max(0, startCol) && (
+                              <button
+                                type="button"
+                                onClick={() => handleChipSelect({ ...p.booking, room_id: null, check_in: p.check_in, check_out: p.check_out, _virtual: true, _pending: true })}
+                                className="absolute top-0.5 bottom-0.5 rounded-xl border-2 border-dashed border-amber-500/70 bg-amber-500/10 text-foreground px-2.5 text-[11px] text-left flex items-center gap-1 overflow-hidden hover:ring-2 hover:ring-gold/50 transition"
+                                style={{ left: 2, width: `calc(${span} * ${cellW}px - 4px)`, zIndex: 20 }}
+                                title={`Room Pending · ${p.booking.guest_name ?? "Guest"}${p.room_type ? ` · ${p.room_type}` : ""} · Check-in ${fmtFull(p.check_in)} · ${turnoverLabel}`}
+                              >
+                                <BedDouble className="h-3 w-3 shrink-0 opacity-80" />
+                                <span className="truncate font-medium">{p.booking.guest_name ?? "Guest"} *</span>
+                                {p.turnoverRooms.length > 0 && (
+                                  <span className="ml-auto shrink-0 text-[10px] opacity-80 tabular-nums">
+                                    ⇄ {p.turnoverRooms.slice(0, 3).map((t) => t.room_number ?? "—").join(",")}
+                                  </span>
+                                )}
+                              </button>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              )}
+
               {roomGroups.map((group) => {
                   const isCollapsed = collapsedGroups.has(group.key);
                   return (
@@ -1938,14 +1905,19 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         } as React.CSSProperties;
       })()}
 
-      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveReason}`}`}
+      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${b._turnoverDeparture ? " · Departing (same-day turnover)" : ""}${b._turnoverArrival ? " · Arriving after today's checkout" : ""}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveReason}`}`}
     >
       {continuesLeft && <span aria-hidden className="shrink-0 opacity-70 -ml-0.5">‹</span>}
+      {/* UAT-053: same-day turnover markers — departure and arrival stay
+          visually distinguishable on the same room row. */}
+      {b._turnoverDeparture && <span className="shrink-0 opacity-90" aria-label="Departing">↑</span>}
+      {b._turnoverArrival && <span className="shrink-0 opacity-90" aria-label="Arriving">↓</span>}
       {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
       {hasPet && <span className="shrink-0" aria-label="Pet">🐾</span>}
       {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
       <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
       {continuesRight && <span aria-hidden className="ml-auto shrink-0 opacity-70 -mr-0.5">›</span>}
+
     </button>
   );
 });
