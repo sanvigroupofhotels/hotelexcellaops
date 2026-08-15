@@ -444,6 +444,12 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
     : "";
   const [arrivalDate, setArrivalDate] = useState<string>(initialArrivalDate);
   const [arrivalTime, setArrivalTime] = useState<string>(initialArrivalTime);
+  // Expected Departure — same shared source of truth as Expected Arrival.
+  const [departureTime, setDepartureTime] = useState<string>(
+    initial.expectedDepartureAt
+      ? new Date(initial.expectedDepartureAt).toISOString().slice(11, 16)
+      : "",
+  );
   const [eName, setEName] = useState(initial.emergencyContactName ?? "");
   const [ePhone, setEPhone] = useState(initial.emergencyContactPhone ?? "");
   const [requests, setRequests] = useState(initial.specialRequests ?? "");
@@ -459,6 +465,9 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
       : initial.checkIn);
     setArrivalTime(initial.expectedArrivalAt
       ? new Date(initial.expectedArrivalAt).toISOString().slice(11, 16)
+      : "");
+    setDepartureTime(initial.expectedDepartureAt
+      ? new Date(initial.expectedDepartureAt).toISOString().slice(11, 16)
       : "");
     setEName(initial.emergencyContactName ?? "");
     setEPhone(initial.emergencyContactPhone ?? "");
@@ -480,6 +489,9 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
           phone: normalizePhoneNumber(phone),
           email: email.trim() || "",
           expected_arrival_at: arrivalIso,
+          expected_departure_at: departureTime
+            ? new Date(`${initial.checkOut}T${departureTime}`).toISOString()
+            : "",
           emergency_contact_name: eName.trim(),
           emergency_contact_phone: ePhone.trim() ? normalizePhoneNumber(ePhone) : "",
           special_requests: requests.trim(),
@@ -515,6 +527,18 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
             <input type="time" value={arrivalTime} onChange={(e) => setArrivalTime(e.target.value)}
               className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
             <span className="block text-[10px] text-muted-foreground mt-1">(Approximate time is sufficient)</span>
+          </label>
+        </div>
+        <div>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+              Expected Departure Time (optional)
+            </span>
+            <input type="time" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)}
+              className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
+            <span className="block text-[10px] text-muted-foreground mt-1">
+              Standard check-out is 11:00 AM · later departures may attract a late check-out charge
+            </span>
           </label>
         </div>
       </div>

@@ -5,6 +5,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/topbar";
 import { getBooking, updateBooking } from "@/lib/bookings-api";
 import { updateBookingStay } from "@/lib/booking-stay";
+import { syncExpectedTimes } from "@/lib/expected-time-charges";
+
+/** Local HH:mm from a stored timestamp (empty when unset). */
+const hhmmLocal = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toTimeString().slice(0, 5) : "";
 import { listBookingItems, replaceBookingItems, rowToLineItem } from "@/lib/booking-items-api";
 import { type LineItem, lineSubtotal, nightsOf } from "@/components/line-items-editor";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
@@ -75,6 +80,8 @@ function EditBooking() {
       check_in: b.check_in, check_out: b.check_out,
       discount: Number((b as any).discount ?? 0),
       special_requests: b.notes ?? "",
+      expected_arrival_time: hhmmLocal((b as any).expected_arrival_at),
+      expected_departure_time: hhmmLocal((b as any).expected_departure_at),
       internal_notes: b.internal_notes ?? "",
     }));
     setAdvancePaid(Number(b.advance_paid ?? 0));
@@ -180,10 +187,21 @@ function EditBooking() {
       });
       const primary = primaryToLineItem(stay, effectivePrimaryRate);
       await replaceBookingItems(id, [primary, ...extras]);
+      // Expected Arrival / Departure → Early Check-In / Late Check-Out
+      // services, reconciled idempotently by the shared engine.
+      await syncExpectedTimes(id, {
+        expectedArrivalAt: stay.expected_arrival_time
+          ? new Date(`${stay.check_in}T${stay.expected_arrival_time}`).toISOString() : null,
+        expectedDepartureAt: stay.expected_departure_time
+          ? new Date(`${stay.check_out}T${stay.expected_departure_time}`).toISOString() : null,
+        syncEarly: true,
+        syncLate: true,
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["booking", id] });
       qc.invalidateQueries({ queryKey: ["booking-items", id] });
+      qc.invalidateQueries({ queryKey: ["booking-charges", id] });
       toast.success("Booking updated");
       navigate({ to: "/bookings/$id", params: { id } });
     },

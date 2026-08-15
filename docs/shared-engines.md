@@ -163,3 +163,24 @@ return with optional keys (`login`, `complaints`, `laundry`, `bookings/new`,
 - Surfaces: Booking Detail, House View and the Guest Portal all use
   `InvoiceDialog`, whose ⋮ menu exposes Share / Print / Download PDF.
 - Regression coverage: `tests/invoice-document.test.ts`.
+
+## Expected Arrival / Departure Engine
+
+Files: `src/lib/expected-times.ts` (pure), `src/lib/expected-time-charges.ts`
+(browser applier), `src/lib/expected-time-charges.server.ts` (portal/service-role
+applier).
+
+- `bookings.expected_arrival_at` / `bookings.expected_departure_at` hold the
+  ACTUAL expected times. They are independent from the pricing windows
+  (`EARLY_CHECK_IN_SLOTS` / `LATE_CHECK_OUT_SLOTS` in `mock-data.ts`), which
+  remain the single source of truth for fees.
+- `resolveEarlyCheckInWindow` / `resolveLateCheckOutWindow` map a time to its
+  window; `windowFee` resolves full-day windows (before 6 AM, after 4 PM) to the
+  room rate.
+- `planExpectedTimeSync` produces an idempotent reconciliation plan
+  (create / re-price / delete) for `booking_charges`, fanned out per
+  `booking_items` row, skipping `Removed` rooms and never double-charging a
+  room whose quote already carries the extra.
+- Surfaces wired: New Booking, Edit Booking, In-House Add Charge (Early
+  Check-in / Late Check-out categories derive price from the time), Guest Portal
+  (`updateGuestPortalDetails`), House View drawer + Booking Detail display.

@@ -1478,6 +1478,12 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
             const arr = smartArrival((b as any).expected_arrival_at);
             return arr ? <Field label="Expected Arrival" value={arr.label.replace(/^Arr: /, "")} /> : null;
           })()}
+          {(b as any).expected_departure_at && b.status !== "Checked-Out" && b.status !== "Stay Completed" && (
+            <Field
+              label="Expected Departure"
+              value={new Date((b as any).expected_departure_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+            />
+          )}
           {b.phone && (
             <div>
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Mobile</div>

@@ -671,6 +671,7 @@ export type Database = {
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           expected_arrival_at: string | null
+          expected_departure_at: string | null
           external_ref: string | null
           gateway_order_id: string | null
           gateway_payment_id: string | null
@@ -729,6 +730,7 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           expected_arrival_at?: string | null
+          expected_departure_at?: string | null
           external_ref?: string | null
           gateway_order_id?: string | null
           gateway_payment_id?: string | null
@@ -787,6 +789,7 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           expected_arrival_at?: string | null
+          expected_departure_at?: string | null
           external_ref?: string | null
           gateway_order_id?: string | null
           gateway_payment_id?: string | null

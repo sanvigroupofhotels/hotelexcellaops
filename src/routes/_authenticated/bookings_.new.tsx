@@ -298,6 +298,21 @@ function NewBooking() {
         advance: advancePaid > 0 ? { amount: advancePaid, payment_mode: paymentMethod } : undefined,
       });
       if (createdCustomerId) toast.success(`New customer created for ${b.guest_name}`);
+      // Expected Arrival / Departure → auto Early Check-In / Late Check-Out
+      // services via the shared engine (idempotent, per-room fan-out).
+      if (stay.expected_arrival_time || stay.expected_departure_time) {
+        try {
+          const { syncExpectedTimes } = await import("@/lib/expected-time-charges");
+          await syncExpectedTimes(b.id, {
+            expectedArrivalAt: stay.expected_arrival_time
+              ? new Date(`${stay.check_in}T${stay.expected_arrival_time}`).toISOString() : undefined,
+            expectedDepartureAt: stay.expected_departure_time
+              ? new Date(`${stay.check_out}T${stay.expected_departure_time}`).toISOString() : undefined,
+            syncEarly: !!stay.expected_arrival_time,
+            syncLate: !!stay.expected_departure_time,
+          });
+        } catch { /* never block booking creation on the charge reconciliation */ }
+      }
       // Clone: carry Primary Occupant names onto the new operational rooms.
       if (fromBookingId && cloneOccupants.length > 0) {
         try {

@@ -198,7 +198,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     const { data: b, error: bErr } = await supabaseAdmin
       .from("bookings")
       .select(
-        "id, customer_id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, subtotal, taxes, tax_rate, taxes_included, total_override, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel, expected_arrival_at, emergency_contact_name, emergency_contact_phone, special_requests",
+        "id, customer_id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, subtotal, taxes, tax_rate, taxes_included, total_override, part_payment_type, part_payment_value, status, allow_full_payment, allow_part_payment, allow_pay_at_hotel, expected_arrival_at, expected_departure_at, emergency_contact_name, emergency_contact_phone, special_requests",
       )
       .eq("id", (bookingLite as any).id)
       .maybeSingle();
@@ -364,6 +364,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       allowPayAtHotel: (b as any).allow_pay_at_hotel !== false,
       defaultPartPercent: ptype === "percent" ? pval : 0,
       expectedArrivalAt: (b as any).expected_arrival_at ?? null,
+      expectedDepartureAt: (b as any).expected_departure_at ?? null,
       emergencyContactName: ecName,
       emergencyContactPhone: ecPhone,
       specialRequests: (b as any).special_requests ?? "",
@@ -381,6 +382,7 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
       phone: z.string().trim().regex(/^\+[1-9]\d{7,14}$/, "Please enter a valid phone number in international format.").optional(),
       email: z.string().trim().email().max(255).optional().or(z.literal("")),
       expected_arrival_at: z.string().datetime().optional().or(z.literal("")),
+      expected_departure_at: z.string().datetime().optional().or(z.literal("")),
       emergency_contact_name: z.string().trim().max(120).optional().or(z.literal("")),
       emergency_contact_phone: z.string().trim().regex(/^(\+[1-9]\d{7,14})?$/, "Please enter a valid phone number in international format.").optional().or(z.literal("")),
       special_requests: z.string().trim().max(2000).optional().or(z.literal("")),
@@ -401,6 +403,10 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
     if (data.expected_arrival_at !== undefined) {
       patch.expected_arrival_at = data.expected_arrival_at || null;
       changes.push("Expected Arrival");
+    }
+    if (data.expected_departure_at !== undefined) {
+      patch.expected_departure_at = data.expected_departure_at || null;
+      changes.push("Expected Departure");
     }
     if (data.emergency_contact_name !== undefined) {
       // Source of truth is customers; keep booking column in sync for backward compatibility.
@@ -426,6 +432,18 @@ export const updateGuestPortalDetails = createServerFn({ method: "POST" })
         .eq("id", bookingId);
       if (upErr) throw upErr;
     }
+
+    // Expected Arrival / Departure → Early Check-In / Late Check-Out services.
+    // Shared engine; idempotent (never duplicates an existing charge).
+    if (data.expected_arrival_at !== undefined || data.expected_departure_at !== undefined) {
+      const { syncExpectedTimesAdmin } = await import("@/lib/expected-time-charges.server");
+      await syncExpectedTimesAdmin(supabaseAdmin, bookingId, {
+        syncEarly: data.expected_arrival_at !== undefined,
+        syncLate: data.expected_departure_at !== undefined,
+        addedBy: "Guest Portal",
+      });
+    }
+
 
     if (customerId && Object.keys(customerPatch).length > 0) {
       // Don't overwrite customer name/phone/email if they're empty strings (already covered) — patch only sent fields.
