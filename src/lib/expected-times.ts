@@ -400,9 +400,9 @@ export function planExpectedTimeSync(input: ExpectedTimeSyncInput): ExpectedTime
 
 
   if (syncEarly)
-    reconcile(EARLY_CHECK_IN_CATEGORY, early, input.expectedArrival, "early_check_in", "early_check_in_slot");
+    reconcile(EARLY_CHECK_IN_CATEGORY, early, input.expectedArrival, "early_check_in", "early_check_in_slot", "early_check_in_override");
   if (syncLate)
-    reconcile(LATE_CHECK_OUT_CATEGORY, late, input.expectedDeparture, "late_check_out", "late_check_out_slot");
+    reconcile(LATE_CHECK_OUT_CATEGORY, late, input.expectedDeparture, "late_check_out", "late_check_out_slot", "late_check_out_override");
 
   for (const [id, p] of patches) plan.itemUpdates.push({ id, patch: p });
   return plan;
