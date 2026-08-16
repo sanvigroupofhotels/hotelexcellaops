@@ -336,7 +336,7 @@ export function StayFormSections({
           </Field>
         </div>
         <div className="mt-4">
-          <PolicyFields form={value as any} update={update as any} apply={apply as any} />
+          <PolicyFields form={value as any} update={update as any} apply={apply as any} allowNegotiatedExtras />
         </div>
       </Card>
 
