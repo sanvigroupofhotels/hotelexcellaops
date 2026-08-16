@@ -33,6 +33,13 @@ export interface LineItem {
   early_check_in_slot: EarlyCheckInSlot | null;
   late_check_out: boolean;
   late_check_out_slot: LateCheckOutSlot | null;
+  /**
+   * Reception-negotiated per-room amount replacing the standard slot fee for
+   * Early Check-In / Late Check-Out. null = automatic (standard) pricing.
+   * Standard → Discount → Final is derived through `chargeFinancials`.
+   */
+  early_check_in_override?: number | null;
+  late_check_out_override?: number | null;
   pet_size: PetSize;
   extra_adults: number;
   drivers: number;
@@ -56,6 +63,8 @@ export function emptyLine(): LineItem {
     early_check_in_slot: null,
     late_check_out: false,
     late_check_out_slot: null,
+    early_check_in_override: null,
+    late_check_out_override: null,
     pet_size: "none",
     extra_adults: 0,
     drivers: 0,
@@ -80,11 +89,18 @@ export function lineSubtotal(item: LineItem) {
   if (item.early_check_in && item.early_check_in_slot) {
     const s = EARLY_CHECK_IN_SLOTS.find((x) => x.value === item.early_check_in_slot);
     // Early check-in is charged per room. `null` fee = full day room charge (already per-room).
-    total += s?.fee != null ? s.fee * rooms : rate * rooms;
+    // A negotiated override replaces the standard per-room amount.
+    const unit = item.early_check_in_override != null
+      ? Math.max(0, Number(item.early_check_in_override) || 0)
+      : (s?.fee != null ? s.fee : rate);
+    total += unit * rooms;
   }
   if (item.late_check_out && item.late_check_out_slot) {
     const s = LATE_CHECK_OUT_SLOTS.find((x) => x.value === item.late_check_out_slot);
-    total += s?.fee != null ? s.fee * rooms : rate * rooms;
+    const unit = item.late_check_out_override != null
+      ? Math.max(0, Number(item.late_check_out_override) || 0)
+      : (s?.fee != null ? s.fee : rate);
+    total += unit * rooms;
   }
   total += (PET_RATES[item.pet_size] ?? 0) * n;
   total += (item.extra_adults || 0) * EXTRA_ADULT_RATE * n;
