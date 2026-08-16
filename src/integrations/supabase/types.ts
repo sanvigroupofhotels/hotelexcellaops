@@ -157,7 +157,9 @@ export type Database = {
           notes: string | null
           occurred_at: string
           other_description: string | null
+          price_overridden: boolean
           quantity: number
+          standard_unit_price: number | null
           unit_price: number
           updated_at: string
           user_id: string
@@ -173,7 +175,9 @@ export type Database = {
           notes?: string | null
           occurred_at?: string
           other_description?: string | null
+          price_overridden?: boolean
           quantity?: number
+          standard_unit_price?: number | null
           unit_price?: number
           updated_at?: string
           user_id: string
@@ -189,7 +193,9 @@ export type Database = {
           notes?: string | null
           occurred_at?: string
           other_description?: string | null
+          price_overridden?: boolean
           quantity?: number
+          standard_unit_price?: number | null
           unit_price?: number
           updated_at?: string
           user_id?: string
@@ -289,12 +295,14 @@ export type Database = {
           created_at: string
           drivers: number
           early_check_in: boolean
+          early_check_in_override: number | null
           early_check_in_slot: string | null
           extra_adults: number
           extra_bed: number
           id: string
           item_status: Database["public"]["Enums"]["booking_item_status"]
           late_check_out: boolean
+          late_check_out_override: number | null
           late_check_out_slot: string | null
           nights: number | null
           notes: string | null
@@ -325,12 +333,14 @@ export type Database = {
           created_at?: string
           drivers?: number
           early_check_in?: boolean
+          early_check_in_override?: number | null
           early_check_in_slot?: string | null
           extra_adults?: number
           extra_bed?: number
           id?: string
           item_status?: Database["public"]["Enums"]["booking_item_status"]
           late_check_out?: boolean
+          late_check_out_override?: number | null
           late_check_out_slot?: string | null
           nights?: number | null
           notes?: string | null
@@ -361,12 +371,14 @@ export type Database = {
           created_at?: string
           drivers?: number
           early_check_in?: boolean
+          early_check_in_override?: number | null
           early_check_in_slot?: string | null
           extra_adults?: number
           extra_bed?: number
           id?: string
           item_status?: Database["public"]["Enums"]["booking_item_status"]
           late_check_out?: boolean
+          late_check_out_override?: number | null
           late_check_out_slot?: string | null
           nights?: number | null
           notes?: string | null
