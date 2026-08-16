@@ -152,12 +152,12 @@ describe("negotiated Early/Late amount (override)", () => {
       charges: [],
       expectedArrival: "09:00",
       syncLate: false,
-      overrides: [{ itemId: "i1", category: EARLY_CHECK_IN_CATEGORY, unitPrice: 750 }],
+      overrides: [{ itemId: "i1", category: EARLY_CHECK_IN_CATEGORY, unitPrice: 400 }],
     });
     expect(plan.chargeCreates).toHaveLength(1);
-    expect(plan.chargeCreates[0].unit_price).toBe(750);
+    expect(plan.chargeCreates[0].unit_price).toBe(400);
     expect(plan.chargeCreates[0].price_overridden).toBe(true);
-    expect(plan.chargeCreates[0].standard_unit_price).toBeGreaterThan(750);
+    expect(plan.chargeCreates[0].standard_unit_price).toBeGreaterThan(400);
   });
 
   it("preserves the override when the expected time changes later", () => {
