@@ -291,6 +291,7 @@ export function planExpectedTimeSync(input: ExpectedTimeSyncInput): ExpectedTime
     chargeCreates: [],
     chargeUpdates: [],
     chargeDeletes: [],
+    overrideWarnings: [],
   };
 
   const patches = new Map<string, Record<string, unknown>>();
@@ -303,36 +304,85 @@ export function planExpectedTimeSync(input: ExpectedTimeSyncInput): ExpectedTime
       (c) => c.item_id === itemId && c.category.toLowerCase() === category.toLowerCase(),
     );
 
+  /** Reception-supplied override for this item + category, if any. */
+  const suppliedOverride = (itemId: string, category: string) =>
+    (input.overrides ?? []).find(
+      (o) => o.itemId === itemId && o.category.toLowerCase() === category.toLowerCase(),
+    );
+
   const reconcile = (
     category: string,
     win: ResolvedWindow<EarlyCheckInSlot | LateCheckOutSlot> | null,
     expected: string | null | undefined,
     flagKey: "early_check_in" | "late_check_out",
     slotKey: "early_check_in_slot" | "late_check_out_slot",
+    overrideKey: "early_check_in_override" | "late_check_out_override",
   ) => {
     for (const it of scoped) {
       const existing = findCharge(it.id, category);
       const carriesExtra = !!it[flagKey];
+      const supplied = suppliedOverride(it.id, category);
       if (!win) {
-        // Service no longer applies → clear the item extra and drop the charge.
-        if (carriesExtra) patch(it.id, { [flagKey]: false, [slotKey]: null });
+        // Service no longer applies → clear the item extra (and its override)
+        // and drop the charge.
+        if (carriesExtra) patch(it.id, { [flagKey]: false, [slotKey]: null, [overrideKey]: null });
         if (existing) plan.chargeDeletes.push(existing.id);
         continue;
       }
+      const standard = windowFee(win, it.rate);
       if (carriesExtra) {
-        // The quote-level extra stays authoritative; just re-price the window.
-        if (it[slotKey] !== win.slot) patch(it.id, { [flagKey]: true, [slotKey]: win.slot });
+        // The quote-level extra stays authoritative; re-price the window and
+        // keep (or apply) the negotiated per-room override.
+        const itemPatch: Record<string, unknown> = {};
+        if (it[slotKey] !== win.slot) {
+          itemPatch[flagKey] = true;
+          itemPatch[slotKey] = win.slot;
+        }
+        if (supplied) itemPatch[overrideKey] = supplied.unitPrice;
+        if (Object.keys(itemPatch).length > 0) patch(it.id, itemPatch);
+        const keptOverride = supplied ? supplied.unitPrice : (it[overrideKey] ?? null);
+        if (keptOverride != null && Number(keptOverride) > standard) {
+          plan.overrideWarnings.push({
+            itemId: it.id, category, standard, final: Number(keptOverride),
+          });
+        }
         if (existing) plan.chargeDeletes.push(existing.id);
         continue;
       }
-      const unit = windowFee(win, it.rate);
+      // In-house charge path. A deliberate override survives re-pricing: only
+      // the standard/base amount is recalculated from the new expected time.
+      let overridden = !!existing?.price_overridden;
+      let unit = standard;
+      if (supplied) {
+        if (supplied.unitPrice == null) {
+          overridden = false;
+          unit = standard;
+        } else {
+          overridden = true;
+          unit = Math.max(0, Number(supplied.unitPrice) || 0);
+        }
+      } else if (overridden && existing) {
+        unit = Math.max(0, Number(existing.unit_price) || 0);
+      }
+      if (overridden && unit > standard) {
+        plan.overrideWarnings.push({ itemId: it.id, category, standard, final: unit });
+      }
       const notes = noteFor(win.label, expected ?? "");
       if (existing) {
         if (
           Number(existing.unit_price) !== unit ||
-          Number(existing.quantity) !== 1
+          Number(existing.quantity) !== 1 ||
+          Number(existing.standard_unit_price ?? NaN) !== standard ||
+          !!existing.price_overridden !== overridden
         ) {
-          plan.chargeUpdates.push({ id: existing.id, quantity: 1, unit_price: unit, notes });
+          plan.chargeUpdates.push({
+            id: existing.id,
+            quantity: 1,
+            unit_price: unit,
+            standard_unit_price: standard,
+            price_overridden: overridden,
+            notes,
+          });
         }
       } else {
         plan.chargeCreates.push({
@@ -340,11 +390,14 @@ export function planExpectedTimeSync(input: ExpectedTimeSyncInput): ExpectedTime
           category,
           quantity: 1,
           unit_price: unit,
+          standard_unit_price: standard,
+          price_overridden: overridden,
           notes,
         });
       }
     }
   };
+
 
   if (syncEarly)
     reconcile(EARLY_CHECK_IN_CATEGORY, early, input.expectedArrival, "early_check_in", "early_check_in_slot");
