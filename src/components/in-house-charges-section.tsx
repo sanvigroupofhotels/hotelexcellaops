@@ -17,6 +17,7 @@ import { refreshAfterBookingMutation } from "@/lib/booking-pricing-sync";
 import {
   EARLY_CHECK_IN_CATEGORY, LATE_CHECK_OUT_CATEGORY,
   resolveEarlyCheckInWindow, resolveLateCheckOutWindow, windowFee, to12h,
+  chargeFinancials, parseExpectedFromNotes,
 } from "@/lib/expected-times";
 import { syncExpectedTimes } from "@/lib/expected-time-charges";
 
@@ -277,7 +278,15 @@ export function ChargeFormDialog({
   const isEarlyCategory = category.toLowerCase() === EARLY_CHECK_IN_CATEGORY.toLowerCase();
   const isLateCategory = category.toLowerCase() === LATE_CHECK_OUT_CATEGORY.toLowerCase();
   const isExpectedTimeCategory = isEarlyCategory || isLateCategory;
-  const [expectedTime, setExpectedTime] = useState<string>("");
+  const [expectedTime, setExpectedTime] = useState<string>(
+    () => parseExpectedFromNotes(editing?.notes) ?? "",
+  );
+  // Reception-negotiated final amount for this service. `null` = automatic
+  // (system-calculated) pricing. Editing an already-overridden charge starts
+  // from its stored final amount.
+  const [negotiated, setNegotiated] = useState<number | null>(
+    editing?.price_overridden ? Number(editing.unit_price) : null,
+  );
   const targetItemIds = isEditing
     ? (itemId ? [itemId] : [])
     : (isMultiRoom && isPerRoom ? selectedItemIds : items.map((it: any) => it.id));
@@ -289,9 +298,14 @@ export function ChargeFormDialog({
     : isLateCategory
       ? resolveLateCheckOutWindow(expectedTime)
       : null;
-  const derivedUnitPrice = resolvedWindow ? windowFee(resolvedWindow, fullDayRate) : 0;
+  const derivedUnitPrice = resolvedWindow
+    ? windowFee(resolvedWindow, fullDayRate)
+    : Number(editing?.standard_unit_price ?? 0);
+  // Standard → Discount → Final through the shared engine (same arithmetic as
+  // the Booking Extras editor and the invoice).
+  const expectedFin = chargeFinancials(derivedUnitPrice, negotiated);
 
-  const effectiveUnitPrice = isExpectedTimeCategory ? derivedUnitPrice : unitPrice;
+  const effectiveUnitPrice = isExpectedTimeCategory ? expectedFin.final : unitPrice;
   const lineAmount = Number((quantity * effectiveUnitPrice).toFixed(2));
   // Multi-room per-room fan-out multiplies the line by number of selected rooms
   // in the preview total ONLY (each posted row still shows Qty × Unit).
@@ -325,6 +339,11 @@ export function ChargeFormDialog({
           syncEarly: isEarlyCategory,
           syncLate: isLateCategory,
           addedBy: addedBy || null,
+          overrides: targetItemIds.map((id) => ({
+            itemId: id,
+            category,
+            unitPrice: negotiated,
+          })),
         });
       }
       const base = {
@@ -359,7 +378,14 @@ export function ChargeFormDialog({
     },
 
 
-    onSuccess: async () => {
+    onSuccess: async (result: any) => {
+      // Surface the engine's warning when a re-derived standard price is now
+      // BELOW a deliberate override (the override is kept, never overwritten).
+      for (const w of (result?.overrideWarnings ?? [])) {
+        toast.warning(
+          `Negotiated ${w.category} amount ${inr(w.final)} is above the standard ${inr(w.standard)} for the selected time.`,
+        );
+      }
       const created = !isEditing && isMultiRoom && isPerRoom
         ? `${selectedItemIds.length} charges added`
         : (isEditing ? "Charge updated" : "Charge added");
@@ -415,6 +441,48 @@ export function ChargeFormDialog({
                   : "Pricing window and fee are derived from this time."}
               </span>
             </Field>
+          )}
+          {isExpectedTimeCategory && (
+            <div className="rounded-md border border-border bg-secondary/30 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Amount (per room)
+                </span>
+                <label className="inline-flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={negotiated != null}
+                    onChange={(e) => setNegotiated(e.target.checked ? derivedUnitPrice : null)}
+                  />
+                  <span>Negotiate amount</span>
+                </label>
+              </div>
+              {negotiated != null ? (
+                <NumField
+                  value={negotiated}
+                  min={0}
+                  decimal
+                  prefix="₹"
+                  onChange={(n) => setNegotiated(Number.isFinite(n) ? n : 0)}
+                  hint="Editable. ₹0 is allowed; negative amounts are not."
+                />
+              ) : (
+                <div className="text-[11px] text-muted-foreground">
+                  Automatic pricing from the expected time. Tick “Negotiate amount” to override.
+                </div>
+              )}
+              <div className="text-[11px] text-muted-foreground tabular-nums">
+                Standard {inr(expectedFin.standard)}
+                {expectedFin.discount > 0 ? ` · Discount −${inr(expectedFin.discount)}` : ""}
+                {" · "}
+                <span className="text-gold font-medium">Final {inr(expectedFin.final)}</span>
+              </div>
+              {expectedFin.overridden && expectedFin.final > expectedFin.standard && (
+                <div className="text-[11px] text-destructive">
+                  The standard amount for this time is {inr(expectedFin.standard)} — the negotiated amount is higher.
+                </div>
+              )}
+            </div>
           )}
           {category === "Other" && (
             <Field label="Description *">

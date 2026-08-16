@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Coffee, UserPlus, Car, PawPrint, ChevronDown, ChevronUp } from "lucide-react";
 import { useOpsTimeLabels } from "@/lib/check-times";
+import { NumField } from "@/components/num-field";
+import { chargeFinancials } from "@/lib/expected-times";
 
 const inputCls =
   "w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition";
@@ -24,11 +26,18 @@ export function PolicyFields({
   form,
   update,
   apply,
+  allowNegotiatedExtras = false,
 }: {
   form: QuoteInput;
   update: <K extends keyof QuoteInput>(k: K, v: QuoteInput[K]) => void;
   /** Atomic multi-field write. Falls back to sequential `update` calls if absent. */
   apply?: (patch: Partial<QuoteInput>) => void;
+  /**
+   * Bookings only: lets Reception negotiate the Early Check-In / Late Check-Out
+   * amount away from the standard slot price. Standard → Discount → Final is
+   * derived by the shared `chargeFinancials` engine.
+   */
+  allowNegotiatedExtras?: boolean;
 }) {
   // Paired-field commits MUST go through `apply` so React's single render uses
   // the merged patch — sequential `update(k,v)` calls share a stale closure and
@@ -47,6 +56,13 @@ export function PolicyFields({
   // Auto-open if any extra is already selected so existing data isn't hidden.
   const [extrasOpen, setExtrasOpen] = useState<boolean>(!!anyExtra);
   const checkTimes = useOpsTimeLabels();
+  // Standard (system) amounts for the currently selected windows. `null` fee =
+  // full-day, priced at the room rate.
+  const earlySlotDef = EARLY_CHECK_IN_SLOTS.find((s) => s.value === form.early_check_in_slot);
+  const lateSlotDef = LATE_CHECK_OUT_SLOTS.find((s) => s.value === form.late_check_out_slot);
+  const roomRate = Number((form as any).rate) || 0;
+  const standardEarly = earlySlotDef ? (earlySlotDef.fee ?? roomRate) : 0;
+  const standardLate = lateSlotDef ? (lateSlotDef.fee ?? roomRate) : 0;
 
   return (
     <div className="space-y-4">
@@ -97,6 +113,14 @@ export function PolicyFields({
               }
             }}
           />
+          {allowNegotiatedExtras && form.early_check_in && (
+            <NegotiatedExtraAmount
+              label="Early Check-In Amount (per room)"
+              standard={standardEarly}
+              value={(form as any).early_check_in_override ?? null}
+              onChange={(v) => applyMany({ early_check_in_override: v } as any)}
+            />
+          )}
 
           <SlotPicker
             icon="🌙"
@@ -113,6 +137,14 @@ export function PolicyFields({
               }
             }}
           />
+          {allowNegotiatedExtras && form.late_check_out && (
+            <NegotiatedExtraAmount
+              label="Late Check-Out Amount (per room)"
+              standard={standardLate}
+              value={(form as any).late_check_out_override ?? null}
+              onChange={(v) => applyMany({ late_check_out_override: v } as any)}
+            />
+          )}
 
           <div className="rounded-md bg-secondary/40 border border-border p-3">
             <div className="flex items-center gap-2 mb-2">
@@ -296,6 +328,62 @@ function Row({ label, value }: { label: string; value: number }) {
     <div className="flex items-center justify-between py-1.5 text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className="tabular-nums">₹{value.toLocaleString("en-IN")}</span>
+    </div>
+  );
+}
+
+/**
+ * Negotiated amount for an Early/Late extra — Standard → Discount → Final.
+ * Reuses the canonical `chargeFinancials` arithmetic; there is no second
+ * pricing model for these services.
+ */
+function NegotiatedExtraAmount({
+  label, standard, value, onChange,
+}: {
+  label: string;
+  standard: number;
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  const fin = chargeFinancials(standard, value);
+  return (
+    <div className="rounded-md bg-secondary/40 border border-border p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</span>
+        <label className="inline-flex items-center gap-2 text-[11px] text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={value != null}
+            onChange={(e) => onChange(e.target.checked ? standard : null)}
+          />
+          <span>Negotiate</span>
+        </label>
+      </div>
+      {value != null ? (
+        <>
+          <NumField
+            value={value}
+            min={0}
+            decimal
+            prefix="₹"
+            onChange={(n) => onChange(Number.isFinite(n) ? n : 0)}
+          />
+          <div className="text-[11px] text-muted-foreground tabular-nums">
+            Standard ₹{Math.round(fin.standard).toLocaleString("en-IN")}
+            {fin.discount > 0 ? ` · Discount −₹${Math.round(fin.discount).toLocaleString("en-IN")}` : ""}
+            {" · "}<span className="text-gold">Final ₹{Math.round(fin.final).toLocaleString("en-IN")}</span>
+          </div>
+          {fin.final > fin.standard && (
+            <div className="text-[11px] text-destructive">
+              Entered amount is above the standard price of ₹{Math.round(fin.standard).toLocaleString("en-IN")}.
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-[11px] text-muted-foreground tabular-nums">
+          Standard ₹{Math.round(standard).toLocaleString("en-IN")} — automatic pricing.
+        </div>
+      )}
     </div>
   );
 }

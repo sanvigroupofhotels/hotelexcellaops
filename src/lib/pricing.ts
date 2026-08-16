@@ -20,6 +20,7 @@
  */
 import { lineItemsTotal, lineSubtotal, nightsOf, type LineItem } from "@/components/line-items-editor";
 import { normalizeLineGuests } from "@/lib/guest-allocation";
+import { chargeFinancials } from "@/lib/expected-times";
 import { EARLY_CHECK_IN_SLOTS, LATE_CHECK_OUT_SLOTS, PET_RATES, EXTRA_ADULT_RATE, DRIVER_RATE } from "@/lib/mock-data";
 
 export const DEFAULT_TAX_RATE = 0.05;
@@ -37,8 +38,15 @@ export interface PricingBreakdown {
   mainStayCharges: number;
   /** Extras portion (early/late/pet/extra adults/drivers) summed across all items. */
   additionalStayCharges: number;
-  /** Itemized breakdown of additional charges (for detailed display). */
-  additionalLineItems: { label: string; value: number }[];
+  /**
+   * Itemized breakdown of additional charges (for detailed display).
+   * `standardValue` / `discount` are populated for Early Check-In / Late
+   * Check-Out lines that Reception negotiated below the standard price, so
+   * every surface can present Standard → Discount → Net.
+   */
+  additionalLineItems: { label: string; value: number; standardValue?: number; discount?: number }[];
+  /** Total negotiated discount on Early/Late services (already inside `value`s). */
+  extrasDiscount: number;
   /** True when staff has manually overridden the Final Amount. */
   overrideApplied: boolean;
   /** True when override was entered as tax-inclusive (gross). */
@@ -60,20 +68,32 @@ function lineRoomCharges(item: LineItem): number {
 }
 
 /** Per-line itemised extras (Early CI / Late CO / Pet / Extra Adults / Drivers). */
-function lineExtraItems(item: LineItem): { label: string; value: number }[] {
-  const out: { label: string; value: number }[] = [];
+function lineExtraItems(item: LineItem): { label: string; value: number; standardValue?: number; discount?: number }[] {
+  const out: { label: string; value: number; standardValue?: number; discount?: number }[] = [];
   const n = nightsOf(item);
   const rooms = Math.max(1, item.rooms || 1);
   const rate = Number(item.rate) || 0;
   if (item.early_check_in && item.early_check_in_slot) {
     const s = EARLY_CHECK_IN_SLOTS.find((x) => x.value === item.early_check_in_slot);
-    const value = s?.fee != null ? s.fee * rooms : rate * rooms;
-    out.push({ label: `Early Check-In (${s?.label ?? item.early_check_in_slot}) × ${rooms} room${rooms > 1 ? "s" : ""}`, value });
+    const standardUnit = s?.fee != null ? s.fee : rate;
+    const fin = chargeFinancials(standardUnit, item.early_check_in_override ?? null);
+    out.push({
+      label: `Early Check-In (${s?.label ?? item.early_check_in_slot}) × ${rooms} room${rooms > 1 ? "s" : ""}`,
+      value: fin.final * rooms,
+      standardValue: fin.standard * rooms,
+      discount: fin.discount * rooms,
+    });
   }
   if (item.late_check_out && item.late_check_out_slot) {
     const s = LATE_CHECK_OUT_SLOTS.find((x) => x.value === item.late_check_out_slot);
-    const value = s?.fee != null ? s.fee * rooms : rate * rooms;
-    out.push({ label: `Late Check-Out (${s?.label ?? item.late_check_out_slot}) × ${rooms} room${rooms > 1 ? "s" : ""}`, value });
+    const standardUnit = s?.fee != null ? s.fee : rate;
+    const fin = chargeFinancials(standardUnit, item.late_check_out_override ?? null);
+    out.push({
+      label: `Late Check-Out (${s?.label ?? item.late_check_out_slot}) × ${rooms} room${rooms > 1 ? "s" : ""}`,
+      value: fin.final * rooms,
+      standardValue: fin.standard * rooms,
+      discount: fin.discount * rooms,
+    });
   }
   const pet = PET_RATES[item.pet_size] ?? 0;
   if (pet > 0) out.push({ label: `Pet Stay (${item.pet_size}) · ${n}N`, value: pet * n });
@@ -124,15 +144,24 @@ export function computePricing(
   const items = rawItems.map(normalizeLineGuests);
   const itemsTotal = lineItemsTotal(items);
   let mainStayCharges = 0;
-  const aggregated: Record<string, number> = {};
+  const aggregated = new Map<string, { label: string; value: number; standardValue: number; discount: number }>();
   for (const it of items) {
     mainStayCharges += lineRoomCharges(it);
     for (const x of lineExtraItems(it)) {
-      aggregated[x.label] = (aggregated[x.label] || 0) + x.value;
+      const cur = aggregated.get(x.label) ?? { label: x.label, value: 0, standardValue: 0, discount: 0 };
+      cur.value += x.value;
+      cur.standardValue += x.standardValue ?? x.value;
+      cur.discount += x.discount ?? 0;
+      aggregated.set(x.label, cur);
     }
   }
-  const additionalLineItems = Object.entries(aggregated).map(([label, value]) => ({ label, value }));
+  const additionalLineItems = [...aggregated.values()].map((x) =>
+    x.discount > 0
+      ? { label: x.label, value: x.value, standardValue: x.standardValue, discount: x.discount }
+      : { label: x.label, value: x.value },
+  );
   const additionalStayCharges = additionalLineItems.reduce((s, x) => s + x.value, 0);
+  const extrasDiscount = [...aggregated.values()].reduce((s, x) => s + x.discount, 0);
 
   const safeDiscount = Math.max(0, Number(discount) || 0);
   const safeTaxRate = Math.max(0, Number(taxRate) || 0);
@@ -172,6 +201,7 @@ export function computePricing(
     mainStayCharges: effectiveMainStay,
     additionalStayCharges,
     additionalLineItems,
+    extrasDiscount,
     overrideApplied: hasOverride,
     taxesIncluded,
   };

@@ -16,7 +16,11 @@ import {
   updateBookingCharge,
   deleteBookingCharge,
 } from "@/lib/booking-charges-api";
-import { planExpectedTimeSync, type ExpectedTimeSyncPlan } from "@/lib/expected-times";
+import {
+  planExpectedTimeSync,
+  type ExpectedTimeSyncPlan,
+  type ExpectedTimeOverride,
+} from "@/lib/expected-times";
 
 export interface SyncExpectedTimesOptions {
   /** ISO timestamp or null to clear. `undefined` = leave the column untouched. */
@@ -28,6 +32,12 @@ export interface SyncExpectedTimesOptions {
   syncLate?: boolean;
   /** Who posted the resulting charge(s). */
   addedBy?: string | null;
+  /**
+   * Reception-negotiated amounts per booking item + category. `unitPrice: null`
+   * clears an override and restores automatic pricing. Overrides survive later
+   * expected-time changes — only the standard/base amount is recalculated.
+   */
+  overrides?: ExpectedTimeOverride[];
 }
 
 /**
@@ -67,6 +77,7 @@ export async function syncExpectedTimes(
     applyItemIds: opts.applyItemIds ?? null,
     syncEarly: opts.syncEarly,
     syncLate: opts.syncLate,
+    overrides: opts.overrides ?? [],
   });
 
   for (const u of plan.itemUpdates) {
@@ -80,6 +91,8 @@ export async function syncExpectedTimes(
       category: c.category,
       quantity: c.quantity,
       unit_price: c.unit_price,
+      standard_unit_price: c.standard_unit_price,
+      price_overridden: c.price_overridden,
       notes: c.notes,
       added_by: opts.addedBy ?? null,
     });
@@ -88,6 +101,8 @@ export async function syncExpectedTimes(
     await updateBookingCharge(c.id, {
       quantity: c.quantity,
       unit_price: c.unit_price,
+      standard_unit_price: c.standard_unit_price,
+      price_overridden: c.price_overridden,
       notes: c.notes,
     });
   }

@@ -184,3 +184,23 @@ applier).
 - Surfaces wired: New Booking, Edit Booking, In-House Add Charge (Early
   Check-in / Late Check-out categories derive price from the time), Guest Portal
   (`updateGuestPortalDetails`), House View drawer + Booking Detail display.
+
+## Negotiated Early Check-In / Late Check-Out amounts
+
+The expected-time engine (`src/lib/expected-times.ts`) prices Early Check-In /
+Late Check-Out automatically from the expected arrival/departure time. Reception
+may negotiate the final amount, using the same Standard → Discount → Final
+arithmetic everywhere via `chargeFinancials(standard, final)`:
+
+- `booking_charges.standard_unit_price` + `price_overridden` retain the
+  system-calculated base alongside the charged amount.
+- `booking_items.early_check_in_override` / `late_check_out_override` hold the
+  negotiated per-room amount when the service came from Booking Extras
+  (New/Edit Booking, Additional Rooms editor), and feed `computePricing`, which
+  reports `extrasDiscount` plus per-line `standardValue` / `discount`.
+- Overrides survive later expected-time changes: only the standard amount is
+  re-derived. When the new standard falls below the override, the planner emits
+  `overrideWarnings` and the UI toasts it instead of silently repricing.
+- Multi-room bookings keep per Booking Item attribution; overrides are supplied
+  per item + category.
+- Invoice/Proforma prints negotiated lines with the existing discount pattern.

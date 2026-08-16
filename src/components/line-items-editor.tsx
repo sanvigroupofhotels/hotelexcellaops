@@ -17,6 +17,7 @@ import { NumField } from "@/components/num-field";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
 import { deriveLineExtraAdults } from "@/lib/guest-allocation";
+import { chargeFinancials } from "@/lib/expected-times";
 
 
 export interface LineItem {
@@ -33,6 +34,13 @@ export interface LineItem {
   early_check_in_slot: EarlyCheckInSlot | null;
   late_check_out: boolean;
   late_check_out_slot: LateCheckOutSlot | null;
+  /**
+   * Reception-negotiated per-room amount replacing the standard slot fee for
+   * Early Check-In / Late Check-Out. null = automatic (standard) pricing.
+   * Standard → Discount → Final is derived through `chargeFinancials`.
+   */
+  early_check_in_override?: number | null;
+  late_check_out_override?: number | null;
   pet_size: PetSize;
   extra_adults: number;
   drivers: number;
@@ -56,6 +64,8 @@ export function emptyLine(): LineItem {
     early_check_in_slot: null,
     late_check_out: false,
     late_check_out_slot: null,
+    early_check_in_override: null,
+    late_check_out_override: null,
     pet_size: "none",
     extra_adults: 0,
     drivers: 0,
@@ -80,11 +90,18 @@ export function lineSubtotal(item: LineItem) {
   if (item.early_check_in && item.early_check_in_slot) {
     const s = EARLY_CHECK_IN_SLOTS.find((x) => x.value === item.early_check_in_slot);
     // Early check-in is charged per room. `null` fee = full day room charge (already per-room).
-    total += s?.fee != null ? s.fee * rooms : rate * rooms;
+    // A negotiated override replaces the standard per-room amount.
+    const unit = item.early_check_in_override != null
+      ? Math.max(0, Number(item.early_check_in_override) || 0)
+      : (s?.fee != null ? s.fee : rate);
+    total += unit * rooms;
   }
   if (item.late_check_out && item.late_check_out_slot) {
     const s = LATE_CHECK_OUT_SLOTS.find((x) => x.value === item.late_check_out_slot);
-    total += s?.fee != null ? s.fee * rooms : rate * rooms;
+    const unit = item.late_check_out_override != null
+      ? Math.max(0, Number(item.late_check_out_override) || 0)
+      : (s?.fee != null ? s.fee : rate);
+    total += unit * rooms;
   }
   total += (PET_RATES[item.pet_size] ?? 0) * n;
   total += (item.extra_adults || 0) * EXTRA_ADULT_RATE * n;
@@ -301,6 +318,17 @@ function LineItemRow({
               else onChange({ early_check_in: true, early_check_in_slot: v as EarlyCheckInSlot });
             }}
           />
+          {item.early_check_in && (
+            <NegotiatedMini
+              label="Early Check-In Amount (per room)"
+              standard={
+                (EARLY_CHECK_IN_SLOTS.find((x) => x.value === item.early_check_in_slot)?.fee)
+                ?? (Number(item.rate) || 0)
+              }
+              value={item.early_check_in_override ?? null}
+              onChange={(v) => onChange({ early_check_in_override: v })}
+            />
+          )}
           <SlotMini
             title="Late Check-out"
             options={LATE_CHECK_OUT_SLOTS}
@@ -311,6 +339,17 @@ function LineItemRow({
               else onChange({ late_check_out: true, late_check_out_slot: v as LateCheckOutSlot });
             }}
           />
+          {item.late_check_out && (
+            <NegotiatedMini
+              label="Late Check-Out Amount (per room)"
+              standard={
+                (LATE_CHECK_OUT_SLOTS.find((x) => x.value === item.late_check_out_slot)?.fee)
+                ?? (Number(item.rate) || 0)
+              }
+              value={item.late_check_out_override ?? null}
+              onChange={(v) => onChange({ late_check_out_override: v })}
+            />
+          )}
           <div className="rounded-md bg-card/40 border border-border p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Pet</div>
             <div className="grid grid-cols-4 gap-2">
@@ -401,6 +440,46 @@ export function LineItemsReadOnly({ items }: { items: LineItem[] }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Per-room negotiated Early/Late amount for the Additional Rooms editor.
+ * Same Standard → Discount → Final arithmetic as the primary room card.
+ */
+function NegotiatedMini({
+  label, standard, value, onChange,
+}: {
+  label: string;
+  standard: number;
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  const fin = chargeFinancials(standard, value);
+  return (
+    <div className="rounded-md bg-card/40 border border-border p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
+        <label className="inline-flex items-center gap-2 text-[10px] text-muted-foreground">
+          <input type="checkbox" checked={value != null} onChange={(e) => onChange(e.target.checked ? standard : null)} />
+          <span>Negotiate</span>
+        </label>
+      </div>
+      {value != null ? (
+        <>
+          <NumField value={value} min={0} decimal prefix="₹" onChange={(n) => onChange(Number.isFinite(n) ? n : 0)} />
+          <div className="text-[10px] text-muted-foreground tabular-nums">
+            Standard ₹{Math.round(fin.standard).toLocaleString("en-IN")}
+            {fin.discount > 0 ? ` · Discount −₹${Math.round(fin.discount).toLocaleString("en-IN")}` : ""}
+            {" · "}<span className="text-gold">Final ₹{Math.round(fin.final).toLocaleString("en-IN")}</span>
+          </div>
+        </>
+      ) : (
+        <div className="text-[10px] text-muted-foreground tabular-nums">
+          Standard ₹{Math.round(standard).toLocaleString("en-IN")} — automatic pricing.
+        </div>
+      )}
     </div>
   );
 }

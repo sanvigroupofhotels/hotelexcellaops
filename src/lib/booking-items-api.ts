@@ -25,6 +25,8 @@ export interface BookingItemRow {
   early_check_in_slot: EarlyCheckInSlot | null;
   late_check_out: boolean;
   late_check_out_slot: LateCheckOutSlot | null;
+  early_check_in_override?: number | null;
+  late_check_out_override?: number | null;
   pet_size: PetSize;
   extra_adults: number;
   drivers: number;
@@ -89,6 +91,8 @@ export function rowToLineItem(it: BookingItemRow): LineItem {
     early_check_in_slot: (it.early_check_in_slot ?? null) as EarlyCheckInSlot | null,
     late_check_out: it.late_check_out ?? false,
     late_check_out_slot: (it.late_check_out_slot ?? null) as LateCheckOutSlot | null,
+    early_check_in_override: it.early_check_in_override ?? null,
+    late_check_out_override: it.late_check_out_override ?? null,
     pet_size: (it.pet_size ?? "none") as PetSize,
     extra_adults: it.extra_adults ?? 0,
     drivers: it.drivers ?? 0,
@@ -132,6 +136,8 @@ export async function addBookingItems(booking_id: string, items: BookingItemInpu
       early_check_in_slot: perRoom.early_check_in ? perRoom.early_check_in_slot : null,
       late_check_out: perRoom.late_check_out,
       late_check_out_slot: perRoom.late_check_out ? perRoom.late_check_out_slot : null,
+      early_check_in_override: perRoom.early_check_in ? (perRoom.early_check_in_override ?? null) : null,
+      late_check_out_override: perRoom.late_check_out ? (perRoom.late_check_out_override ?? null) : null,
       pet_size: perRoom.pet_size,
       extra_adults: perRoom.extra_adults,
       drivers: perRoom.drivers,

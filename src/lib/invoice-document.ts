@@ -47,6 +47,10 @@ export interface InvoiceRoomLine {
 
 export interface InvoiceChargeLine {
   label: string;
+  /** System-calculated amount before a Reception override (audit trail). */
+  standardAmount?: number;
+  /** Negotiated reduction = standardAmount − amount. */
+  discount?: number;
   /** Room attribution ("Maple Room 2") or "" for booking-level charges. */
   room: string;
   qty: number;
@@ -169,13 +173,22 @@ export function buildChargeLines(
   const byItem = new Map(items.map((i) => [i.id, i]));
   return charges.map((c) => {
     const it = c.item_id ? byItem.get(c.item_id) : undefined;
-    const label =
+    const baseLabel =
       c.category === "Other" && c.other_description ? `${c.category} · ${c.other_description}` : c.category;
+    // Negotiated Early/Late services print the existing discount pattern:
+    // Standard → Discount → Net, on the same line (presentation only).
+    const qty = num(c.quantity) || 1;
+    const amount = num(c.amount);
+    const standardAmount = c.price_overridden
+      ? Number((num(c.standard_unit_price) * qty).toFixed(2))
+      : amount;
+    const discount = Math.max(0, Number((standardAmount - amount).toFixed(2)));
     return {
-      label,
+      label: discount > 0 ? `${baseLabel} (Negotiated)` : baseLabel,
+      ...(discount > 0 ? { standardAmount, discount } : {}),
       room: it ? itemRoomLabel(it, roomLabels) : "",
-      qty: num(c.quantity) || 1,
-      amount: num(c.amount),
+      qty,
+      amount,
       itemId: c.item_id ?? null,
     };
   });
@@ -250,7 +263,12 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
       checkOutTime: input.checkOutTime,
     },
     roomLines,
-    extraLines: pricing?.additionalLineItems ?? [],
+    // Negotiated extras keep the same Standard → Discount → Net presentation.
+    extraLines: (pricing?.additionalLineItems ?? []).map((x) =>
+      (x as any).discount > 0
+        ? { label: `${x.label} · Negotiated (Std ₹${Math.round((x as any).standardValue).toLocaleString("en-IN")}, Disc −₹${Math.round((x as any).discount).toLocaleString("en-IN")})`, value: x.value }
+        : { label: x.label, value: x.value },
+    ),
     chargeLines: buildChargeLines(charges, items, roomLabels),
     totals: {
       itemsTotal,

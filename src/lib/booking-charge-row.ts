@@ -13,6 +13,10 @@ export interface BookingChargeInput {
   other_description?: string | null;
   quantity: number;
   unit_price: number;
+  /** System-calculated price before any Reception override (audit trail). */
+  standard_unit_price?: number | null;
+  /** TRUE when Reception deliberately overrode the calculated amount. */
+  price_overridden?: boolean | null;
   added_by?: string | null;
   occurred_at?: string;
   notes?: string | null;
