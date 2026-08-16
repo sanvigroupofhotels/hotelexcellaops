@@ -16,6 +16,9 @@ export interface BookingChargeRow {
   quantity: number;
   unit_price: number;
   amount: number;
+  /** System-calculated unit price before override. null = never auto-priced. */
+  standard_unit_price: number | null;
+  price_overridden: boolean;
   added_by: string | null;
   occurred_at: string;
   notes: string | null;
