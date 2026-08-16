@@ -9,6 +9,7 @@ import {
   planExpectedTimeSync,
   hhmmFromISO,
   type ExpectedTimeSyncPlan,
+  type ExpectedTimeOverride,
 } from "@/lib/expected-times";
 import { buildBookingChargeRow } from "@/lib/booking-charge-row";
 
@@ -22,6 +23,8 @@ export async function syncExpectedTimesAdmin(
     syncEarly?: boolean;
     syncLate?: boolean;
     addedBy?: string | null;
+    /** Reception-negotiated amounts per item + category. */
+    overrides?: ExpectedTimeOverride[];
   } = {},
 ): Promise<ExpectedTimeSyncPlan> {
   const patch: Record<string, unknown> = {};
@@ -39,6 +42,7 @@ export async function syncExpectedTimesAdmin(
     .maybeSingle();
   if (!booking) return {
     early: null, late: null, itemUpdates: [], chargeCreates: [], chargeUpdates: [], chargeDeletes: [],
+    overrideWarnings: [],
   };
 
   const [{ data: items }, { data: charges }] = await Promise.all([
@@ -54,6 +58,7 @@ export async function syncExpectedTimesAdmin(
     applyItemIds: opts.applyItemIds ?? null,
     syncEarly: opts.syncEarly,
     syncLate: opts.syncLate,
+    overrides: opts.overrides ?? [],
   });
 
   for (const u of plan.itemUpdates) {
@@ -68,6 +73,8 @@ export async function syncExpectedTimesAdmin(
         category: c.category,
         quantity: c.quantity,
         unit_price: c.unit_price,
+        standard_unit_price: c.standard_unit_price,
+        price_overridden: c.price_overridden,
         notes: c.notes,
         added_by: opts.addedBy ?? "Guest Portal",
       },
@@ -82,6 +89,8 @@ export async function syncExpectedTimesAdmin(
       .update({
         quantity: c.quantity,
         unit_price: c.unit_price,
+        standard_unit_price: c.standard_unit_price,
+        price_overridden: c.price_overridden,
         amount: Number((c.quantity * c.unit_price).toFixed(2)),
         notes: c.notes,
       })
