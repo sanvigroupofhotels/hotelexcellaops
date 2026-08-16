@@ -68,6 +68,8 @@ describe("planExpectedTimeSync", () => {
       category: c.category,
       quantity: c.quantity,
       unit_price: c.unit_price,
+      standard_unit_price: c.standard_unit_price,
+      price_overridden: c.price_overridden,
     }));
     const second = planExpectedTimeSync({
       items: [item("i1")],
@@ -127,5 +129,123 @@ describe("planExpectedTimeSync", () => {
       syncLate: false,
     });
     expect(plan.chargeCreates.map((c) => c.item_id)).toEqual(["i2"]);
+  });
+});
+
+describe("negotiated Early/Late amount (override)", () => {
+  it("chargeFinancials derives Standard → Discount → Final", () => {
+    expect(chargeFinancials(1000, 750)).toEqual({
+      standard: 1000, final: 750, discount: 250, overridden: true,
+    });
+    expect(chargeFinancials(1000, null)).toEqual({
+      standard: 1000, final: 1000, discount: 0, overridden: false,
+    });
+    // ₹0 is a valid negotiated amount; negatives are clamped.
+    expect(chargeFinancials(1000, 0).final).toBe(0);
+    expect(chargeFinancials(1000, -50).final).toBe(0);
+  });
+
+  it("applies a supplied override and records the standard amount", () => {
+    const plan = planExpectedTimeSync({
+      items: [item("i1")],
+      charges: [],
+      expectedArrival: "09:00",
+      syncLate: false,
+      overrides: [{ itemId: "i1", category: EARLY_CHECK_IN_CATEGORY, unitPrice: 750 }],
+    });
+    expect(plan.chargeCreates).toHaveLength(1);
+    expect(plan.chargeCreates[0].unit_price).toBe(750);
+    expect(plan.chargeCreates[0].price_overridden).toBe(true);
+    expect(plan.chargeCreates[0].standard_unit_price).toBeGreaterThan(750);
+  });
+
+  it("preserves the override when the expected time changes later", () => {
+    const first = planExpectedTimeSync({
+      items: [item("i1")],
+      charges: [],
+      expectedArrival: "09:00",
+      syncLate: false,
+      overrides: [{ itemId: "i1", category: EARLY_CHECK_IN_CATEGORY, unitPrice: 750 }],
+    });
+    const std = first.chargeCreates[0].standard_unit_price;
+    const charges = [{
+      id: "c1",
+      item_id: "i1",
+      category: EARLY_CHECK_IN_CATEGORY,
+      quantity: 1,
+      unit_price: 750,
+      standard_unit_price: std,
+      price_overridden: true,
+    }];
+    const second = planExpectedTimeSync({
+      items: [item("i1")],
+      charges,
+      expectedArrival: "11:30",
+      syncLate: false,
+    });
+    // Final amount stays negotiated; only the standard/base is re-derived.
+    for (const u of second.chargeUpdates) {
+      expect(u.unit_price).toBe(750);
+      expect(u.price_overridden).toBe(true);
+    }
+    expect(second.chargeDeletes).toHaveLength(0);
+  });
+
+  it("warns when the new standard drops below the negotiated amount", () => {
+    const charges = [{
+      id: "c1",
+      item_id: "i1",
+      category: EARLY_CHECK_IN_CATEGORY,
+      quantity: 1,
+      unit_price: 5000,
+      standard_unit_price: 5000,
+      price_overridden: true,
+    }];
+    const plan = planExpectedTimeSync({
+      items: [item("i1")],
+      charges,
+      expectedArrival: "11:30",
+      syncLate: false,
+    });
+    expect(plan.overrideWarnings.length).toBeGreaterThan(0);
+    expect(plan.overrideWarnings[0].final).toBe(5000);
+  });
+
+  it("clearing the override restores automatic pricing", () => {
+    const charges = [{
+      id: "c1",
+      item_id: "i1",
+      category: EARLY_CHECK_IN_CATEGORY,
+      quantity: 1,
+      unit_price: 750,
+      standard_unit_price: 1000,
+      price_overridden: true,
+    }];
+    const plan = planExpectedTimeSync({
+      items: [item("i1")],
+      charges,
+      expectedArrival: "09:00",
+      syncLate: false,
+      overrides: [{ itemId: "i1", category: EARLY_CHECK_IN_CATEGORY, unitPrice: null }],
+    });
+    expect(plan.chargeUpdates).toHaveLength(1);
+    expect(plan.chargeUpdates[0].price_overridden).toBe(false);
+    expect(plan.chargeUpdates[0].unit_price).toBe(plan.chargeUpdates[0].standard_unit_price);
+  });
+
+  it("keeps per-room attribution for negotiated multi-room charges", () => {
+    const plan = planExpectedTimeSync({
+      items: [item("i1"), item("i2")],
+      charges: [],
+      expectedArrival: "09:00",
+      syncLate: false,
+      overrides: [
+        { itemId: "i1", category: EARLY_CHECK_IN_CATEGORY, unitPrice: 500 },
+        { itemId: "i2", category: EARLY_CHECK_IN_CATEGORY, unitPrice: 800 },
+      ],
+    });
+    expect(plan.chargeCreates.map((c) => [c.item_id, c.unit_price])).toEqual([
+      ["i1", 500], ["i2", 800],
+    ]);
   });
 });
