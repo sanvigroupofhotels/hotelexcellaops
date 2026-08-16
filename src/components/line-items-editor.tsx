@@ -17,6 +17,7 @@ import { NumField } from "@/components/num-field";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
 import { deriveLineExtraAdults } from "@/lib/guest-allocation";
+import { chargeFinancials } from "@/lib/expected-times";
 
 
 export interface LineItem {
