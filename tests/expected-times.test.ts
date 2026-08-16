@@ -5,6 +5,7 @@ import {
   planExpectedTimeSync,
   EARLY_CHECK_IN_CATEGORY,
   LATE_CHECK_OUT_CATEGORY,
+  chargeFinancials,
 } from "@/lib/expected-times";
 
 const item = (id: string, over: Record<string, unknown> = {}) =>
