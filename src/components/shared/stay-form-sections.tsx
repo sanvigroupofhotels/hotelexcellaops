@@ -84,6 +84,9 @@ export interface SharedStayValue {
   early_check_in_slot: EarlyCheckInSlot | null;
   late_check_out: boolean;
   late_check_out_slot: LateCheckOutSlot | null;
+  /** Negotiated per-room amounts overriding the standard Early/Late slot fee. */
+  early_check_in_override: number | null;
+  late_check_out_override: number | null;
   pet_size: PetSize;
   pet_charges: boolean;
   extra_adults: number;
@@ -107,6 +110,7 @@ export function emptyStayValue(): SharedStayValue {
     breakfast_included: false, extra_breakfast_guests: 0,
     early_check_in: false, early_check_in_slot: null,
     late_check_out: false, late_check_out_slot: null,
+    early_check_in_override: null, late_check_out_override: null,
     pet_size: "none", pet_charges: false,
     extra_adults: 0, drivers: 0,
     discount: 0, internal_notes: "",
@@ -131,6 +135,8 @@ export function primaryToLineItem(v: SharedStayValue, rate: number): LineItem {
     early_check_in_slot: v.early_check_in ? v.early_check_in_slot : null,
     late_check_out: v.late_check_out,
     late_check_out_slot: v.late_check_out ? v.late_check_out_slot : null,
+    early_check_in_override: v.early_check_in ? v.early_check_in_override : null,
+    late_check_out_override: v.late_check_out ? v.late_check_out_override : null,
     pet_size: v.pet_size,
     extra_adults: v.extra_adults,
     drivers: v.drivers,
@@ -152,6 +158,8 @@ export function lineItemToPrimary(it: LineItem): Partial<SharedStayValue> {
     early_check_in_slot: it.early_check_in_slot,
     late_check_out: it.late_check_out,
     late_check_out_slot: it.late_check_out_slot,
+    early_check_in_override: it.early_check_in_override ?? null,
+    late_check_out_override: it.late_check_out_override ?? null,
     pet_size: it.pet_size,
     pet_charges: it.pet_size !== "none",
     extra_adults: it.extra_adults,
