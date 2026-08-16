@@ -156,6 +156,9 @@ export interface PlanItem {
   early_check_in_slot?: EarlyCheckInSlot | null;
   late_check_out?: boolean | null;
   late_check_out_slot?: LateCheckOutSlot | null;
+  /** Negotiated per-room amount replacing the standard slot fee. */
+  early_check_in_override?: number | null;
+  late_check_out_override?: number | null;
   item_status?: string | null;
 }
 
@@ -165,6 +168,19 @@ export interface PlanCharge {
   category: string;
   quantity: number;
   unit_price: number;
+  /** System-calculated price before any reception override. */
+  standard_unit_price?: number | null;
+  price_overridden?: boolean | null;
+}
+
+/**
+ * Reception-entered override for one item + category.
+ * `unitPrice: null` clears the override and restores automatic pricing.
+ */
+export interface ExpectedTimeOverride {
+  itemId: string;
+  category: string;
+  unitPrice: number | null;
 }
 
 export interface ExpectedTimeSyncInput {
@@ -180,6 +196,25 @@ export interface ExpectedTimeSyncInput {
   /** Skip the arrival/departure half of the plan (e.g. Add Charge → one service). */
   syncEarly?: boolean;
   syncLate?: boolean;
+  /** Manual amounts negotiated by Reception, per item + category. */
+  overrides?: ExpectedTimeOverride[];
+}
+
+/**
+ * Canonical Standard → Discount → Final arithmetic for an overridable service.
+ * Used by the planner, the Add/Edit Charge dialog, the extras pricing engine and
+ * the invoice document so the audit trail is identical everywhere.
+ */
+export function chargeFinancials(
+  standard: number,
+  final?: number | null,
+): { standard: number; final: number; discount: number; overridden: boolean } {
+  const std = Math.max(0, Number(standard) || 0);
+  if (final == null || !Number.isFinite(Number(final))) {
+    return { standard: std, final: std, discount: 0, overridden: false };
+  }
+  const fin = Math.max(0, Number(final));
+  return { standard: std, final: fin, discount: Math.max(0, std - fin), overridden: true };
 }
 
 export interface ExpectedTimeSyncPlan {
@@ -191,14 +226,47 @@ export interface ExpectedTimeSyncPlan {
     category: string;
     quantity: number;
     unit_price: number;
+    standard_unit_price: number;
+    price_overridden: boolean;
     notes: string;
   }[];
-  chargeUpdates: { id: string; quantity: number; unit_price: number; notes: string }[];
+  chargeUpdates: {
+    id: string;
+    quantity: number;
+    unit_price: number;
+    standard_unit_price: number;
+    price_overridden: boolean;
+    notes: string;
+  }[];
   chargeDeletes: string[];
+  /**
+   * Raised when a re-priced standard amount dropped BELOW a deliberate
+   * Reception override — the override is kept, never silently overwritten,
+   * and callers surface this so staff can decide.
+   */
+  overrideWarnings: {
+    itemId: string;
+    category: string;
+    standard: number;
+    final: number;
+  }[];
 }
 
 const noteFor = (label: string, expected: string) =>
   `${label} · Expected ${to12h(expected)}`;
+
+/** Recover the expected time captured in an auto-generated charge note. */
+export function parseExpectedFromNotes(notes: string | null | undefined): string | null {
+  const m = /Expected\s+(\d{1,2}):(\d{2})\s*(AM|PM)?/i.exec(notes ?? "");
+  if (!m) return null;
+  let h = Number(m[1]);
+  const mm = m[2];
+  const ampm = (m[3] ?? "").toUpperCase();
+  if (ampm === "PM" && h < 12) h += 12;
+  if (ampm === "AM" && h === 12) h = 0;
+  return `${String(h).padStart(2, "0")}:${mm}`;
+}
+
 
 export function planExpectedTimeSync(input: ExpectedTimeSyncInput): ExpectedTimeSyncPlan {
   const syncEarly = input.syncEarly !== false;
