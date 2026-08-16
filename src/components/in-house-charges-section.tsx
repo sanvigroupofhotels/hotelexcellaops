@@ -378,7 +378,14 @@ export function ChargeFormDialog({
     },
 
 
-    onSuccess: async () => {
+    onSuccess: async (result: any) => {
+      // Surface the engine's warning when a re-derived standard price is now
+      // BELOW a deliberate override (the override is kept, never overwritten).
+      for (const w of (result?.overrideWarnings ?? [])) {
+        toast.warning(
+          `Negotiated ${w.category} amount ${inr(w.final)} is above the standard ${inr(w.standard)} for the selected time.`,
+        );
+      }
       const created = !isEditing && isMultiRoom && isPerRoom
         ? `${selectedItemIds.length} charges added`
         : (isEditing ? "Charge updated" : "Charge added");
