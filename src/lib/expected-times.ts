@@ -318,6 +318,10 @@ export function planExpectedTimeSync(input: ExpectedTimeSyncInput): ExpectedTime
     slotKey: "early_check_in_slot" | "late_check_out_slot",
     overrideKey: "early_check_in_override" | "late_check_out_override",
   ) => {
+    // "Not provided" is NOT the same as "outside the window": when no expected
+    // time exists we have no evidence about the service, so a staff-picked slot
+    // (or a pre-existing booking) must be left completely untouched.
+    if (minutesOf(expected) == null) return;
     for (const it of scoped) {
       const existing = findCharge(it.id, category);
       const carriesExtra = !!it[flagKey];
