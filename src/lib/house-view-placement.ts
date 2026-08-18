@@ -60,6 +60,9 @@ export interface PlacedChip {
   _slotKey?: string;
   _virtual?: boolean;
   _historical?: boolean;
+  /** Drawing shortened to avoid overlapping a live booking; data untouched. */
+  _displayClamped?: boolean;
+
   _turnoverDeparture?: boolean;
   _turnoverArrival?: boolean;
   [key: string]: any;
