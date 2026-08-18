@@ -154,3 +154,55 @@ describe("same-day turnover (UAT-053)", () => {
     expect((byRoom.get("r105") ?? []).map((c) => c.id)).toEqual(["C"]);
   });
 });
+
+describe("checked-out room reuse (same-day turnover regression)", () => {
+  const departedNoSegments = {
+    id: "OLD", guest_name: "Old Guest", status: "Checked-Out",
+    check_in: "2026-08-17", check_out: "2026-08-19",
+  };
+  const oldItems = [
+    { booking_id: "OLD", position: 0, room_type: "Oak", rooms: 2, check_in: "2026-08-17", check_out: "2026-08-19" },
+  ];
+  const arrival = {
+    id: "NEW", guest_name: "Mr Swaroop", status: "Advance Paid",
+    check_in: "2026-08-18", check_out: "2026-08-19",
+  };
+  const newItem = { booking_id: "NEW", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-18", check_out: "2026-08-19" };
+  const newSeg = { id: "sNEW", booking_id: "NEW", room_id: "r105", start_date: "2026-08-18", end_date: "2026-08-19" };
+
+  it("1+5+6. new booking assigned to the checked-out room renders on that room and leaves TBA", () => {
+    const res = place([departedNoSegments, arrival], [...oldItems, newItem], [newSeg], { businessDate: "2026-08-18" });
+    const chips = res.byRoom.get("r105") ?? [];
+    expect(chips.filter((c) => c.id === "NEW")).toHaveLength(1);
+    expect(chips.some((c) => c.id === "NEW" && !c._virtual)).toBe(true);
+    expect(res.pendingArrivals.map((p) => p.booking.id)).toEqual([]);
+  });
+
+  it("2+3. a departed booking without segments never fakes occupancy or a pending card", () => {
+    const res = place([departedNoSegments], oldItems, [], { businessDate: "2026-08-18" });
+    expect([...res.byRoom.values()].flat()).toHaveLength(0);
+    expect(res.pendingArrivals).toHaveLength(0);
+  });
+
+  it("2b. unassigned live arrival still shows while the checked-out room is free", () => {
+    const res = place([departedNoSegments, arrival], [...oldItems, newItem], [], { businessDate: "2026-08-18" });
+    const placedNew = [...res.byRoom.values()].flat().filter((c) => c.id === "NEW");
+    expect(placedNew).toHaveLength(1);
+    expect(placedNew[0]._virtual).toBe(true);
+    expect(res.pendingArrivals).toHaveLength(0);
+  });
+
+  it("4+7. old closed segment stays intact and never overlaps the new one; siblings unaffected", () => {
+    const closedOld = { id: "sOLD", booking_id: "OLD", room_id: "r105", start_date: "2026-08-17", end_date: "2026-08-18", ended_reason: "booking_check_out" };
+    const otherOld = { id: "sOLD2", booking_id: "OLD", room_id: "r106", start_date: "2026-08-17", end_date: "2026-08-19" };
+    const res = place([departedNoSegments, arrival], [...oldItems, newItem], [closedOld, otherOld, newSeg], { businessDate: "2026-08-18" });
+    const r105 = res.byRoom.get("r105") ?? [];
+    const old105 = r105.find((c) => c.id === "OLD")!;
+    expect([old105.check_in, old105.check_out]).toEqual(["2026-08-17", "2026-08-18"]);
+    const new105 = r105.find((c) => c.id === "NEW")!;
+    expect([new105.check_in, new105.check_out]).toEqual(["2026-08-18", "2026-08-19"]);
+    expect(chipsOverlap(old105, new105, "2026-08-18")).toBe(false);
+    const old106 = (res.byRoom.get("r106") ?? []).find((c) => c.id === "OLD")!;
+    expect([old106.check_in, old106.check_out]).toEqual(["2026-08-17", "2026-08-19"]);
+  });
+});
