@@ -176,8 +176,16 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
   }
 
   // 2) Virtual placeholders for unpaired (unassigned) stay slots.
+  //
+  // A DEPARTED booking (Checked-Out / Stay Completed) never gets a virtual
+  // placeholder: its stay is over, so an unassigned slot represents no physical
+  // occupancy at all. Rendering one would fake occupancy on a room that is
+  // actually free (blocking a live arrival's lane) and would push a real
+  // arrival into Room Pending / TBA even though a checked-out room is available
+  // (UAT — same-day turnover regression). Only real segments show its history.
   const virtualSlots: Array<{ b: any; slot: StaySlot; assignedRoomIds: string[] }> = [];
   for (const b of bookings) {
+    if (isDepartedStatus(b.status)) continue;
     const { paired, unpaired } = pairStaySlotsToRooms(stripLegacyRoom(b), itemsByBooking, assignmentsByBooking, rooms);
     const assignedRoomIds = paired.map((p) => p.room_id);
     for (const slot of unpaired) {
@@ -185,6 +193,7 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
       virtualSlots.push({ b, slot, assignedRoomIds });
     }
   }
+
   virtualSlots.sort((a, b) =>
     String(a.slot.check_in).localeCompare(String(b.slot.check_in))
     || String(slotEndExclusive(a.slot)).localeCompare(String(slotEndExclusive(b.slot)))
