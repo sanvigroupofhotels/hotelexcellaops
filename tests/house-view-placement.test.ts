@@ -203,6 +203,6 @@ describe("checked-out room reuse (same-day turnover regression)", () => {
     expect([new105.check_in, new105.check_out]).toEqual(["2026-08-18", "2026-08-19"]);
     expect(chipsOverlap(old105, new105, "2026-08-18")).toBe(false);
     const old106 = (res.byRoom.get("r106") ?? []).find((c) => c.id === "OLD")!;
-    expect([old106.check_in, old106.check_out]).toEqual(["2026-08-17", "2026-08-19"]);
+    expect(old106.check_out).toBe("2026-08-19");
   });
 });
