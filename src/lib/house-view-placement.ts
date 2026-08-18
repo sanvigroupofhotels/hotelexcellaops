@@ -60,6 +60,9 @@ export interface PlacedChip {
   _slotKey?: string;
   _virtual?: boolean;
   _historical?: boolean;
+  /** Drawing shortened to avoid overlapping a live booking; data untouched. */
+  _displayClamped?: boolean;
+
   _turnoverDeparture?: boolean;
   _turnoverArrival?: boolean;
   [key: string]: any;
@@ -263,22 +266,35 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
     for (const { room_id: rid, slot } of paired) bumpOutgoing(b.id, rid, slot);
   }
 
-  // 3) Turnover tagging + collision cleanup.
+  // 3) Turnover tagging + display-only de-collision.
+  //
+  // A departed booking is NEVER removed from its room row: its real segment is
+  // the room's occupancy history and must stay attached to that room (UAT-053).
+  // Same-day turnover is not an overlap at all (segments are half-open), so
+  // both chips simply co-exist on the lane.
+  //
+  // The only messy case is a legacy segment that was never closed at checkout
+  // and therefore still spans days a NEW live booking now owns. We do not
+  // delete it and we never mutate stored data — we only shorten what is DRAWN
+  // so the two chips sit side by side, flagged `_displayClamped`.
   for (const [rid, arr] of byRoom) {
-    // Hide a departed chip ONLY when a live booking genuinely overlaps the days
-    // it still occupies. Same-day turnover is not an overlap, so the departing
-    // booking is preserved (never replaced) alongside the arrival.
-    const filtered = arr.filter((chip) => {
-      if (!isDepartedStatus(chip.status)) return true;
-      return !arr.some((other) =>
-        other !== chip
-        && !isDepartedStatus(other.status)
-        && chipsOverlap(chip, other, businessDate),
-      );
-    });
+    for (const chip of arr) {
+      if (!isDepartedStatus(chip.status)) continue;
+      let clampTo: string | null = null;
+      for (const other of arr) {
+        if (other === chip || isDepartedStatus(other.status)) continue;
+        if (!chipsOverlap(chip, other, businessDate)) continue;
+        if (other.check_in <= chip.check_in) continue; // nothing left to draw
+        if (!clampTo || other.check_in < clampTo) clampTo = other.check_in;
+      }
+      if (clampTo && clampTo < slotEndExclusive(chip)) {
+        chip.check_out = clampTo;
+        chip._displayClamped = true;
+      }
+    }
 
-    for (const chip of filtered) {
-      for (const other of filtered) {
+    for (const chip of arr) {
+      for (const other of arr) {
         if (other === chip) continue;
         if (vacateDate(other, businessDate) === chip.check_in) {
           chip._turnoverArrival = true;
@@ -286,8 +302,9 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
         }
       }
     }
-    byRoom.set(rid, filtered);
+    byRoom.set(rid, arr);
   }
+
 
   return { byRoom, outgoingLateByRoomDay: outMap, pendingArrivals };
 }

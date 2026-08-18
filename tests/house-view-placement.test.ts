@@ -146,13 +146,19 @@ describe("same-day turnover (UAT-053)", () => {
     expect(pendingArrivals).toHaveLength(0);
   });
 
-  it("10. a live booking that genuinely overlaps a departed chip still hides the departed one", () => {
+  it("10. a live booking that genuinely overlaps a departed chip clamps the drawing, never deletes it", () => {
     const overlapping = { id: "C", guest_name: "Guest C", status: "Confirmed", check_in: "2026-08-14", check_out: "2026-08-17" };
     const itemC = { booking_id: "C", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-14", check_out: "2026-08-17" };
     const segC = { id: "sC", booking_id: "C", room_id: "r105", start_date: "2026-08-14", end_date: "2026-08-17" };
     const { byRoom } = place([guestA, overlapping], [itemA, itemC], [segA, segC], { businessDate: "2026-08-20" });
-    expect((byRoom.get("r105") ?? []).map((c) => c.id)).toEqual(["C"]);
+    const chips = byRoom.get("r105") ?? [];
+    expect(chips.map((c) => c.id).sort()).toEqual(["A", "C"]);
+    const a = chips.find((c) => c.id === "A")!;
+    expect([a.check_in, a.check_out]).toEqual(["2026-08-13", "2026-08-14"]);
+    expect(a._displayClamped).toBe(true);
+    expect(chipsOverlap(a, chips.find((c) => c.id === "C")!, "2026-08-20")).toBe(false);
   });
+
 });
 
 describe("checked-out room reuse (same-day turnover regression)", () => {
@@ -204,5 +210,58 @@ describe("checked-out room reuse (same-day turnover regression)", () => {
     expect(chipsOverlap(old105, new105, "2026-08-18")).toBe(false);
     const old106 = (res.byRoom.get("r106") ?? []).find((c) => c.id === "OLD")!;
     expect(old106.check_out).toBe("2026-08-19");
+  });
+});
+
+describe("Room 403 sequential occupancy — exact UAT case (HEXB-4379D4 / Swaroop)", () => {
+  // Old guest (Sree Deepthi) occupied 403 on 16 Aug and checked out on 17 Aug.
+  const oldGuest = { id: "OLD403", booking_reference: "HEXB-276FD1", guest_name: "Sree Deepthi", status: "Checked-Out", check_in: "2026-08-16", check_out: "2026-08-17" };
+  const oldItem = { booking_id: "OLD403", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-16", check_out: "2026-08-17" };
+  const oldSeg = { id: "sOLD403", booking_id: "OLD403", room_id: "r105", start_date: "2026-08-16", end_date: "2026-08-17", ended_reason: "booking_check_out" };
+
+  // New booking (Swaroop) takes the same physical room from 18 Aug.
+  const swaroop = { id: "SWA", booking_reference: "HEXB-4379D4", guest_name: "Mr Swaroop", status: "Advance Paid", check_in: "2026-08-18", check_out: "2026-08-19" };
+  const swaItem = { booking_id: "SWA", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-18", check_out: "2026-08-19" };
+  const swaSeg = { id: "sSWA", booking_id: "SWA", room_id: "r105", start_date: "2026-08-18", end_date: "2026-08-19" };
+
+  const res = () => place([oldGuest, swaroop], [oldItem, swaItem], [oldSeg, swaSeg], { businessDate: "2026-08-18" });
+
+  it("both bookings stay attached to the same room, sequentially", () => {
+    const chips = res().byRoom.get("r105") ?? [];
+    expect(chips.map((c) => c.id).sort()).toEqual(["OLD403", "SWA"]);
+  });
+
+  it("the checked-out booking's historical segment is untouched", () => {
+    const old = (res().byRoom.get("r105") ?? []).find((c) => c.id === "OLD403")!;
+    expect([old.check_in, old.check_out]).toEqual(["2026-08-16", "2026-08-17"]);
+    expect(old._historical).toBe(true);
+    expect(old._displayClamped).toBeUndefined();
+  });
+
+  it("segments do not overlap and the new booking is not TBA", () => {
+    const r = res();
+    const chips = r.byRoom.get("r105") ?? [];
+    const old = chips.find((c) => c.id === "OLD403")!;
+    const nw = chips.find((c) => c.id === "SWA")!;
+    expect(chipsOverlap(old, nw, "2026-08-18")).toBe(false);
+    expect(nw._virtual).toBeUndefined();
+    expect(r.pendingArrivals).toHaveLength(0);
+  });
+
+  it("a fully checked-out multi-room booking never consumes lanes via virtual chips", () => {
+    const bulk = { id: "BULK", guest_name: "BJP Aditya", status: "Checked-Out", check_in: "2026-08-17", check_out: "2026-08-19" };
+    const bulkItems = [0, 1].map((position) => ({ booking_id: "BULK", position, room_type: "Oak", rooms: 1, check_in: "2026-08-17", check_out: "2026-08-19" }));
+    const r = place([bulk, swaroop], [...bulkItems, swaItem], [swaSeg], { businessDate: "2026-08-18" });
+    expect([...r.byRoom.values()].flat().filter((c) => c.id === "BULK")).toHaveLength(0);
+    expect(r.pendingArrivals).toHaveLength(0);
+    expect((r.byRoom.get("r105") ?? []).map((c) => c.id)).toEqual(["SWA"]);
+  });
+
+  it("a genuinely live unassigned booking still surfaces (placed or pending)", () => {
+    const live = { id: "LIVE", guest_name: "Live Guest", status: "Confirmed", check_in: "2026-08-18", check_out: "2026-08-19" };
+    const liveItem = { booking_id: "LIVE", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-18", check_out: "2026-08-19" };
+    const r = place([oldGuest, swaroop, live], [oldItem, swaItem, liveItem], [oldSeg, swaSeg], { businessDate: "2026-08-18" });
+    const placedLive = [...r.byRoom.values()].flat().filter((c) => c.id === "LIVE");
+    expect(placedLive.length + r.pendingArrivals.filter((p) => p.booking.id === "LIVE").length).toBe(1);
   });
 });
