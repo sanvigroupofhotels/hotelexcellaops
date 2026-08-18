@@ -146,13 +146,19 @@ describe("same-day turnover (UAT-053)", () => {
     expect(pendingArrivals).toHaveLength(0);
   });
 
-  it("10. a live booking that genuinely overlaps a departed chip still hides the departed one", () => {
+  it("10. a live booking that genuinely overlaps a departed chip clamps the drawing, never deletes it", () => {
     const overlapping = { id: "C", guest_name: "Guest C", status: "Confirmed", check_in: "2026-08-14", check_out: "2026-08-17" };
     const itemC = { booking_id: "C", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-14", check_out: "2026-08-17" };
     const segC = { id: "sC", booking_id: "C", room_id: "r105", start_date: "2026-08-14", end_date: "2026-08-17" };
     const { byRoom } = place([guestA, overlapping], [itemA, itemC], [segA, segC], { businessDate: "2026-08-20" });
-    expect((byRoom.get("r105") ?? []).map((c) => c.id)).toEqual(["C"]);
+    const chips = byRoom.get("r105") ?? [];
+    expect(chips.map((c) => c.id).sort()).toEqual(["A", "C"]);
+    const a = chips.find((c) => c.id === "A")!;
+    expect([a.check_in, a.check_out]).toEqual(["2026-08-13", "2026-08-14"]);
+    expect(a._displayClamped).toBe(true);
+    expect(chipsOverlap(a, chips.find((c) => c.id === "C")!, "2026-08-20")).toBe(false);
   });
+
 });
 
 describe("checked-out room reuse (same-day turnover regression)", () => {
