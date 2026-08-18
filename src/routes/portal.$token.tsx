@@ -480,8 +480,11 @@ function GuestDetailsForm({ token, initial, onSaved }: { token: string; initial:
     if (!arrivalDate) return toast.error("Please provide your expected arrival date.");
     setSaving(true);
     try {
-      const timePart = arrivalTime || "14:00";
-      const arrivalIso = new Date(`${arrivalDate}T${timePart}`).toISOString();
+      // Only send an expected arrival when the guest actually gave a time —
+      // never fabricate one, or the Early Check-In service would be wiped.
+      const arrivalIso = arrivalTime
+        ? new Date(`${arrivalDate}T${arrivalTime}`).toISOString()
+        : "";
       await update({
         data: {
           token,
