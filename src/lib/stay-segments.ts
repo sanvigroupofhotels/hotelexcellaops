@@ -12,6 +12,10 @@ export type StayItemLike = {
   rooms?: number | null;
   check_in?: string | null;
   check_out?: string | null;
+  /** Per-item operational status (Confirmed / Checked-In / Checked-Out ...). */
+  item_status?: string | null;
+  /** Set when this specific room item was checked out. */
+  checked_out_at?: string | null;
 };
 
 export type StayAssignmentLike = {
@@ -42,6 +46,10 @@ export type StaySlot = {
   check_out: string;
   /** Set on paired slots when the underlying assignment is a closed historical segment. */
   ended_reason?: string | null;
+  /** Per-item operational status carried from booking_items (item-level state). */
+  item_status?: string | null;
+  /** Per-item checkout timestamp carried from booking_items. */
+  checked_out_at?: string | null;
 };
 
 export function normalizeStayRoomType(value?: string | null) {
@@ -114,6 +122,8 @@ export function expandStaySlots(booking: StayBookingLike, items: StayItemLike[])
       room_type: null,
       check_in: booking.check_in,
       check_out: booking.check_out,
+      item_status: null,
+      checked_out_at: null,
     }] satisfies StaySlot[];
   }
 
@@ -127,6 +137,8 @@ export function expandStaySlots(booking: StayBookingLike, items: StayItemLike[])
         room_type: item.room_type ?? null,
         check_in: item.check_in || booking.check_in,
         check_out: item.check_out || booking.check_out,
+        item_status: item.item_status ?? null,
+        checked_out_at: item.checked_out_at ?? null,
       }) satisfies StaySlot);
     });
 }
@@ -200,6 +212,8 @@ export function pairStaySlotsToRooms(
         // exclusive end date, which is already correct as check_out.
         check_out: range.b,
         ended_reason: assignment.ended_reason ?? null,
+        item_status: base.item_status ?? null,
+        checked_out_at: base.checked_out_at ?? null,
       },
     });
     cursors[slotIndex] = range.b;
@@ -218,6 +232,8 @@ export function pairStaySlotsToRooms(
         room_type: s.room_type,
         check_in: cursor,
         check_out: s.check_out === s.check_in && cursor === s.check_in ? s.check_out : slotEnd,
+        item_status: s.item_status ?? null,
+        checked_out_at: s.checked_out_at ?? null,
       });
     }
   }

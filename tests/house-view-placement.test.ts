@@ -265,3 +265,83 @@ describe("Room 403 sequential occupancy — exact UAT case (HEXB-4379D4 / Swaroo
     expect(placedLive.length + r.pendingArrivals.filter((p) => p.booking.id === "LIVE").length).toBe(1);
   });
 });
+
+describe("multi-room checked-out bookings keep their room history (item-level placement)", () => {
+  const ROOMS3 = [
+    { id: "r101", room_number: "101", room_type: "Oak" },
+    { id: "r102", room_number: "102", room_type: "Oak" },
+    { id: "r103", room_number: "103", room_type: "Oak" },
+  ];
+  const place3 = (bookings: any[], items: any[], assignments: any[], overrides: any = {}) =>
+    place(bookings, items, assignments, { rooms: ROOMS3, ...overrides });
+
+  const multi = { id: "M", booking_reference: "HEXB-310C65", guest_name: "BJP Aditya", status: "Checked-Out", check_in: "2026-08-16", check_out: "2026-08-18" };
+  const multiItems = [0, 1, 2].map((position) => ({
+    booking_id: "M", position, room_type: "Oak", rooms: 1,
+    check_in: "2026-08-16", check_out: "2026-08-18",
+    item_status: "Checked-Out", checked_out_at: "2026-08-18T06:00:00Z",
+  }));
+  const multiSegs = ["r101", "r102", "r103"].map((room_id, i) => ({
+    id: `sM${i}`, booking_id: "M", room_id, start_date: "2026-08-16", end_date: "2026-08-18", ended_reason: "booking_check_out",
+  }));
+
+  it("Test 1 — single-room checkout still renders its closed segment", () => {
+    const r = place([guestA], [itemA], [segA]);
+    expect((r.byRoom.get("r105") ?? []).map((c) => c.id)).toEqual(["A"]);
+  });
+
+  it("Test 2 — every room of a fully checked-out multi-room booking stays represented", () => {
+    const r = place3([multi], multiItems, multiSegs, { businessDate: "2026-08-18" });
+    for (const rid of ["r101", "r102", "r103"]) {
+      const chips = r.byRoom.get(rid) ?? [];
+      expect(chips.map((c) => c.id)).toEqual(["M"]);
+      expect(chips[0]!.check_in).toBe("2026-08-16");
+      expect(chips[0]!._historical).toBe(true);
+    }
+    expect(r.pendingArrivals).toHaveLength(0);
+  });
+
+  it("Test 3 — new booking reuses one of those rooms without overlap", () => {
+    const swa = { id: "SWA", guest_name: "Mr Swaroop", status: "Advance Paid", check_in: "2026-08-18", check_out: "2026-08-19" };
+    const swaItem = { booking_id: "SWA", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-18", check_out: "2026-08-19" };
+    const swaSeg = { id: "sSWA", booking_id: "SWA", room_id: "r103", start_date: "2026-08-18", end_date: "2026-08-19" };
+    const r = place3([multi, swa], [...multiItems, swaItem], [...multiSegs, swaSeg], { businessDate: "2026-08-18" });
+    const chips = r.byRoom.get("r103") ?? [];
+    expect(chips.map((c) => c.id).sort()).toEqual(["M", "SWA"]);
+    const oldChip = chips.find((c) => c.id === "M")!;
+    const newChip = chips.find((c) => c.id === "SWA")!;
+    expect([oldChip.check_in, oldChip.check_out]).toEqual(["2026-08-16", "2026-08-18"]);
+    expect(chipsOverlap(oldChip, newChip, "2026-08-18")).toBe(false);
+    expect(r.pendingArrivals).toHaveLength(0);
+  });
+
+  it("Test 4 — departed items create no TBA, but a live unassigned booking still does", () => {
+    const live = { id: "L", guest_name: "Live", status: "Confirmed", check_in: "2026-08-16", check_out: "2026-08-18" };
+    const liveItem = { booking_id: "L", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-16", check_out: "2026-08-18" };
+    // Departed multi-room booking with NO segments at all (the HEXB-310C65 data shape).
+    const noSegMulti = multiItems.map((i) => ({ ...i }));
+    const r = place3([multi, live], [...noSegMulti, liveItem], [], { businessDate: "2026-08-18" });
+    expect([...r.byRoom.values()].flat().filter((c) => c.id === "M")).toHaveLength(0);
+    const placedLive = [...r.byRoom.values()].flat().filter((c) => c.id === "L");
+    expect(placedLive.length + r.pendingArrivals.filter((p) => p.booking.id === "L").length).toBe(1);
+  });
+
+  it("Test 5 — mixed state: departed items keep history, the live item gets its own lane", () => {
+    const mixed = { id: "X", guest_name: "Mixed", status: "Checked-In", check_in: "2026-08-16", check_out: "2026-08-19" };
+    const items = [
+      { booking_id: "X", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-16", check_out: "2026-08-18", item_status: "Checked-Out", checked_out_at: "2026-08-18T06:00:00Z" },
+      { booking_id: "X", position: 1, room_type: "Oak", rooms: 1, check_in: "2026-08-16", check_out: "2026-08-19", item_status: "Checked-In" },
+      { booking_id: "X", position: 2, room_type: "Oak", rooms: 1, check_in: "2026-08-16", check_out: "2026-08-19", item_status: "Checked-Out", checked_out_at: "2026-08-17T06:00:00Z" },
+    ];
+    const segs = [
+      { id: "x0", booking_id: "X", room_id: "r101", start_date: "2026-08-16", end_date: "2026-08-18", ended_reason: "booking_check_out" },
+      { id: "x1", booking_id: "X", room_id: "r102", start_date: "2026-08-16", end_date: "2026-08-19" },
+      // position 2 was never assigned a room and is already checked out → no chip.
+    ];
+    const r = place3([mixed], items, segs, { businessDate: "2026-08-18" });
+    expect((r.byRoom.get("r101") ?? []).map((c) => c._itemStatus)).toEqual(["Checked-Out"]);
+    expect((r.byRoom.get("r102") ?? []).map((c) => c._itemStatus)).toEqual(["Checked-In"]);
+    expect(r.byRoom.get("r103") ?? []).toHaveLength(0);
+    expect(r.pendingArrivals).toHaveLength(0);
+  });
+});
