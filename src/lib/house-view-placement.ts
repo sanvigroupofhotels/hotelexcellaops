@@ -180,22 +180,31 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
 
   // 2) Virtual placeholders for unpaired (unassigned) stay slots.
   //
-  // A DEPARTED booking (Checked-Out / Stay Completed) never gets a virtual
-  // placeholder: its stay is over, so an unassigned slot represents no physical
-  // occupancy at all. Rendering one would fake occupancy on a room that is
-  // actually free (blocking a live arrival's lane) and would push a real
-  // arrival into Room Pending / TBA even though a checked-out room is available
-  // (UAT — same-day turnover regression). Only real segments show its history.
+  // Suppression is decided PER BOOKING ITEM (per stay slot), never for a whole
+  // booking. A multi-room booking is a collection of independent items:
+  //   • Real (paired) segments always render on their room — including for a
+  //     fully Checked-Out parent booking. That is the room's occupancy history
+  //     and step 1 above never filters on booking status.
+  //   • A DEPARTED item's *unassigned* slot gets no virtual placeholder: it
+  //     represents no physical occupancy at all, so rendering one would fake
+  //     occupancy on a free room, consume a lane and push live arrivals into
+  //     Room Pending / TBA (previous UAT regression).
+  // An item counts as departed when its own item_status / checked_out_at says
+  // so, or when the parent booking has departed (all items are then over).
+  const slotDeparted = (b: any, slot: StaySlot) =>
+    isDepartedStatus(slot.item_status) || !!slot.checked_out_at || isDepartedStatus(b.status);
+
   const virtualSlots: Array<{ b: any; slot: StaySlot; assignedRoomIds: string[] }> = [];
   for (const b of bookings) {
-    if (isDepartedStatus(b.status)) continue;
     const { paired, unpaired } = pairStaySlotsToRooms(stripLegacyRoom(b), itemsByBooking, assignmentsByBooking, rooms);
     const assignedRoomIds = paired.map((p) => p.room_id);
     for (const slot of unpaired) {
+      if (slotDeparted(b, slot)) continue;
       if (!segmentOverlapsRange(slot, rangeStart, rangeEndExclusive)) continue;
       virtualSlots.push({ b, slot, assignedRoomIds });
     }
   }
+
 
   virtualSlots.sort((a, b) =>
     String(a.slot.check_in).localeCompare(String(b.slot.check_in))
