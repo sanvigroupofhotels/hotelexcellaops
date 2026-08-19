@@ -92,6 +92,21 @@ async function closeAssignmentSegment(assignment: any, reason: string) {
   if (error) throw error;
 }
 
+
+/**
+ * Derive the parent booking status from its items after a per-item lifecycle
+ * action. Shared engine — see src/lib/booking-item-lifecycle.ts. Non-blocking:
+ * an item action must never fail because the parent could not be re-derived.
+ */
+async function syncParent(bookingId: string) {
+  try {
+    const { syncBookingStatusFromItems } = await import("@/lib/booking-item-lifecycle");
+    await syncBookingStatusFromItems(bookingId);
+  } catch {
+    /* non-blocking */
+  }
+}
+
 export async function checkInBookingItem(itemId: string) {
   const item = await getItem(itemId);
   if (!item.assigned_room_id) throw new Error("Assign a room before item check-in.");
@@ -110,7 +125,7 @@ export async function checkInBookingItem(itemId: string) {
     new_value: "Checked-In",
     summary: "Room item checked in",
     metadata: { room_id: item.assigned_room_id },
-  });
+  });  await syncParent(item.booking_id);
 }
 
 export async function checkOutBookingItem(itemId: string, opts: { allowOverride?: boolean } = {}) {
@@ -156,7 +171,7 @@ export async function checkOutBookingItem(itemId: string, opts: { allowOverride?
     new_value: "Checked-Out",
     summary: "Room item checked out",
     metadata: { room_id: item.assigned_room_id },
-  });
+  });  await syncParent(item.booking_id);
 }
 
 /**
@@ -211,7 +226,7 @@ export async function revertItemCheckIn(itemId: string) {
     new_value: "Confirmed",
     summary: "Item check-in reverted",
     metadata: { room_id: item.assigned_room_id },
-  });
+  });  await syncParent(item.booking_id);
 }
 
 /**
@@ -289,7 +304,7 @@ export async function revertItemCheckOut(itemId: string) {
     new_value: "Checked-In",
     summary: restoredRoomId ? "Item check-out reverted (segment re-opened)" : "Item check-out reverted",
     metadata: { room_id: restoredRoomId },
-  });
+  });  await syncParent(item.booking_id);
 }
 
 export async function removeRoomFromBookingItem(input: { itemId: string; assignmentId: string }) {
@@ -322,7 +337,7 @@ export async function removeRoomFromBookingItem(input: { itemId: string; assignm
     new_value: null,
     summary: "Room removed from item",
     metadata: { assignment_id: input.assignmentId },
-  });
+  });  await syncParent(item.booking_id);
 }
 
 export async function listBookingItemActivities(bookingId: string) {
