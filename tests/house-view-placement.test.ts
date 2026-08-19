@@ -345,3 +345,135 @@ describe("multi-room checked-out bookings keep their room history (item-level pl
     expect(r.pendingArrivals).toHaveLength(0);
   });
 });
+
+/**
+ * Multi-room partial turnover (UAT — Booking Item Lifecycle).
+ * Booking A holds 101/102 through 19 Aug and 103 only until 18 Aug.
+ * Booking B takes 103 from 18 Aug. Only room 103 turns over.
+ */
+describe("multi-room partial turnover", () => {
+  const ROOMS3 = [
+    { id: "r101", room_number: "101", room_type: "Oak" },
+    { id: "r102", room_number: "102", room_type: "Oak" },
+    { id: "r103", room_number: "103", room_type: "Oak" },
+  ];
+  const bkA = { id: "A3", guest_name: "A", status: "Checked-In", check_in: "2026-08-17", check_out: "2026-08-19" };
+  const bkB = { id: "B3", guest_name: "B", status: "Checked-In", check_in: "2026-08-18", check_out: "2026-08-20" };
+  const itemsA = [
+    { booking_id: "A3", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-17", check_out: "2026-08-19", item_status: "Checked-In" },
+    { booking_id: "A3", position: 1, room_type: "Oak", rooms: 1, check_in: "2026-08-17", check_out: "2026-08-19", item_status: "Checked-In" },
+    { booking_id: "A3", position: 2, room_type: "Oak", rooms: 1, check_in: "2026-08-17", check_out: "2026-08-18", item_status: "Checked-Out", checked_out_at: "2026-08-18T06:00:00Z" },
+  ];
+  const itemsB = [
+    { booking_id: "B3", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-18", check_out: "2026-08-20", item_status: "Checked-In" },
+  ];
+  const segsA = [
+    { id: "a1", booking_id: "A3", room_id: "r101", start_date: "2026-08-17", end_date: "2026-08-19" },
+    { id: "a2", booking_id: "A3", room_id: "r102", start_date: "2026-08-17", end_date: "2026-08-19" },
+    { id: "a3", booking_id: "A3", room_id: "r103", start_date: "2026-08-17", end_date: "2026-08-18", ended_reason: "item_check_out" },
+  ];
+  const segsB = [{ id: "b1", booking_id: "B3", room_id: "r103", start_date: "2026-08-18", end_date: "2026-08-20" }];
+
+  const run = () => placeHouseViewChips({
+    ...BASE,
+    rooms: ROOMS3,
+    rangeStart: "2026-08-16",
+    rangeEndExclusive: "2026-08-22",
+    businessDate: "2026-08-18",
+    bookings: [bkA, bkB],
+    itemsByBooking: groupStayItems([...itemsA, ...itemsB] as any),
+    assignmentsByBooking: groupStayAssignments([...segsA, ...segsB] as any),
+  });
+
+  it("7. only room 103 turns over; 101/102 keep booking A", () => {
+    const { byRoom } = run();
+    expect((byRoom.get("r101") ?? []).map((c) => c.id)).toEqual(["A3"]);
+    expect((byRoom.get("r102") ?? []).map((c) => c.id)).toEqual(["A3"]);
+    expect((byRoom.get("r103") ?? []).map((c) => c.id).sort()).toEqual(["A3", "B3"]);
+  });
+
+  it("10+11. room 103 historical segment stays intact and does not overlap booking B", () => {
+    const { byRoom } = run();
+    const chips = byRoom.get("r103") ?? [];
+    const a = chips.find((c) => c.id === "A3")!;
+    const b = chips.find((c) => c.id === "B3")!;
+    expect([a.check_in, a.check_out]).toEqual(["2026-08-17", "2026-08-18"]);
+    expect([b.check_in, b.check_out]).toEqual(["2026-08-18", "2026-08-20"]);
+    expect(segmentsOverlap(a as any, b as any)).toBe(false);
+  });
+
+  it("12. booking B leaves TBA once room 103 is assigned", () => {
+    const { pendingArrivals } = run();
+    expect(pendingArrivals.some((p) => p.booking.id === "B3")).toBe(false);
+  });
+
+  it("13. a departed item produces no fake TBA slot even with no segment", () => {
+    const departedNoSeg = { id: "D", guest_name: "D", status: "Checked-Out", check_in: "2026-08-17", check_out: "2026-08-19" };
+    const dItems = Array.from({ length: 5 }, (_, i) => ({
+      booking_id: "D", position: i, room_type: "Oak", rooms: 1,
+      check_in: "2026-08-17", check_out: "2026-08-19", item_status: "Checked-Out",
+    }));
+    const { byRoom, pendingArrivals } = placeHouseViewChips({
+      ...BASE, rooms: ROOMS3, businessDate: "2026-08-18",
+      rangeStart: "2026-08-16", rangeEndExclusive: "2026-08-22",
+      bookings: [departedNoSeg],
+      itemsByBooking: groupStayItems(dItems as any),
+      assignmentsByBooking: groupStayAssignments([]),
+    });
+    expect([...byRoom.values()].flat()).toHaveLength(0);
+    expect(pendingArrivals).toHaveLength(0);
+  });
+
+  it("14. a live unassigned booking still appears (lane or TBA)", () => {
+    const live = { id: "L", guest_name: "L", status: "Confirmed", check_in: "2026-08-18", check_out: "2026-08-20" };
+    const lItems = [{ booking_id: "L", position: 0, room_type: "Oak", rooms: 1, check_in: "2026-08-18", check_out: "2026-08-20", item_status: "Confirmed" }];
+    const { byRoom, pendingArrivals } = placeHouseViewChips({
+      ...BASE, rooms: ROOMS3, businessDate: "2026-08-18",
+      rangeStart: "2026-08-16", rangeEndExclusive: "2026-08-22",
+      bookings: [live],
+      itemsByBooking: groupStayItems(lItems as any),
+      assignmentsByBooking: groupStayAssignments([]),
+    });
+    const placed = [...byRoom.values()].flat().some((c) => c.id === "L");
+    expect(placed || pendingArrivals.some((p) => p.booking.id === "L")).toBe(true);
+  });
+
+  it("15. a fully departed multi-room booking keeps every real closed segment", () => {
+    const done = { id: "F", guest_name: "F", status: "Checked-Out", check_in: "2026-08-16", check_out: "2026-08-18" };
+    const fItems = [0, 1, 2].map((i) => ({
+      booking_id: "F", position: i, room_type: "Oak", rooms: 1,
+      check_in: "2026-08-16", check_out: "2026-08-18", item_status: "Checked-Out",
+    }));
+    const fSegs = ROOMS3.map((r, i) => ({
+      id: `f${i}`, booking_id: "F", room_id: r.id,
+      start_date: "2026-08-16", end_date: "2026-08-18", ended_reason: "booking_check_out",
+    }));
+    const { byRoom } = placeHouseViewChips({
+      ...BASE, rooms: ROOMS3, businessDate: "2026-08-18",
+      rangeStart: "2026-08-15", rangeEndExclusive: "2026-08-22",
+      bookings: [done],
+      itemsByBooking: groupStayItems(fItems as any),
+      assignmentsByBooking: groupStayAssignments(fSegs as any),
+    });
+    for (const r of ROOMS3) {
+      expect((byRoom.get(r.id) ?? []).map((c) => c.id)).toEqual(["F"]);
+    }
+  });
+
+  it("16+17. stay extension moves the drawn chip end for the extended room only", () => {
+    // Room 101 extended 19 → 21 Aug (segment + item resized by updateBookingStay).
+    const extendedItems = itemsA.map((it, i) => (i === 0 ? { ...it, check_out: "2026-08-21" } : it));
+    const extendedSegs = segsA.map((s) => (s.room_id === "r101" ? { ...s, end_date: "2026-08-21" } : s));
+    const { byRoom } = placeHouseViewChips({
+      ...BASE, rooms: ROOMS3, businessDate: "2026-08-18",
+      rangeStart: "2026-08-16", rangeEndExclusive: "2026-08-23",
+      bookings: [{ ...bkA, check_out: "2026-08-21" }],
+      itemsByBooking: groupStayItems(extendedItems as any),
+      assignmentsByBooking: groupStayAssignments(extendedSegs as any),
+    });
+    const c101 = (byRoom.get("r101") ?? [])[0]!;
+    const c102 = (byRoom.get("r102") ?? [])[0]!;
+    expect(c101.check_out).toBe("2026-08-21");
+    expect(c102.check_out).toBe("2026-08-19");
+  });
+});
