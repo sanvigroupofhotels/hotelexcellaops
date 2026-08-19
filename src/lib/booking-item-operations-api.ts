@@ -692,4 +692,6 @@ export async function removeBookingItem(input: { itemId: string; reason?: string
     summary: input.reason ? `Room removed — ${input.reason}` : "Room removed",
     metadata: { vacated_room_id: vacatedRoomId },
   });
+  await syncParent(item.booking_id);
 }
+
