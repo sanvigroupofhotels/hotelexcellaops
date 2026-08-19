@@ -133,3 +133,30 @@ same room are **not** a conflict — that is a same-day turnover, not an overlap
   still reads segments through the shared engine.
 
 Regression coverage: `tests/house-view-placement.test.ts`.
+
+## Booking Item Lifecycle (shared derivation)
+
+`src/lib/booking-item-lifecycle.ts` is the single source of truth for the
+relationship between item state and booking state.
+
+- **Item is authoritative.** Every physical room is an independent Booking Item
+  with its own `item_status`, `checked_in_at`, `checked_out_at`.
+- **Parent is derived.** `syncBookingStatusFromItems()` runs after every
+  per-item action (check-in, check-out, revert, room removed, item removed):
+  any item still `Checked-In` ⇒ booking `Checked-In` (partial departure keeps
+  the booking live); all operational items departed ⇒ `Checked-Out`; all items
+  Cancelled / No-Show ⇒ that terminal status; all `Confirmed` ⇒ pre-arrival
+  payment status untouched.
+- **Booking-level actions fan out.** `setBookingStatus()` calls
+  `fanOutBookingStatusToItems()`, so a booking-level Check-In / Check-Out can
+  never again leave items in `Confirmed` (root cause of the HEXB-310C65 case).
+
+### Conflict guards are segment-aware
+
+`bookings.room_id` is a mirror only. `bookings_prevent_room_conflict` and
+`bookings_prevent_block_conflict` now return early for any booking that has
+`booking_room_assignments` rows, and ignore other bookings that have segments.
+Real occupancy conflicts are enforced by `bra_prevent_conflict` on the segment
+table. This is what unblocked stay extensions: a stale mirror (after a room
+move or a partial checkout of a multi-room booking) used to veto date changes
+that the segment model considered perfectly valid.
