@@ -42,6 +42,17 @@ export function isDepartedStatus(status?: string | null) {
   return DEPARTED_STATUSES.has(String(status ?? ""));
 }
 
+/**
+ * Departure state of a single rendered chip — ITEM level first.
+ * A multi-room booking can have one room departed while others are in-house,
+ * so the item's own status wins; the parent status is only the fallback.
+ */
+export function isChipDeparted(
+  chip: { status?: string | null; _itemStatus?: string | null; _itemCheckedOutAt?: string | null },
+) {
+  return isDepartedStatus(chip._itemStatus) || !!chip._itemCheckedOutAt || isDepartedStatus(chip.status);
+}
+
 export function nextDay(ymd: string) {
   const d = new Date(ymd + "T00:00:00");
   d.setDate(d.getDate() + 1);
@@ -63,6 +74,10 @@ export interface PlacedChip {
   /** Drawing shortened to avoid overlapping a live booking; data untouched. */
   _displayClamped?: boolean;
 
+  /** Per-item operational status behind this chip (multi-room bookings). */
+  _itemStatus?: string | null;
+  _itemCheckedOutAt?: string | null;
+
   _turnoverDeparture?: boolean;
   _turnoverArrival?: boolean;
   [key: string]: any;
@@ -77,11 +92,11 @@ export interface PlacedChip {
  * a conflict and the departed chip would get hidden.
  */
 export function vacateDate(
-  chip: Pick<PlacedChip, "check_in" | "check_out" | "status">,
+  chip: Pick<PlacedChip, "check_in" | "check_out" | "status"> & { _itemStatus?: string | null; _itemCheckedOutAt?: string | null },
   businessDate?: string | null,
 ) {
   const end = slotEndExclusive(chip);
-  if (!businessDate || !isDepartedStatus(chip.status)) return end;
+  if (!businessDate || !isChipDeparted(chip)) return end;
   const floor = nextDay(chip.check_in) > chip.check_in ? nextDay(chip.check_in) : end;
   const clamped = businessDate > floor ? businessDate : floor;
   return clamped < end ? clamped : end;
@@ -89,8 +104,8 @@ export function vacateDate(
 
 /** Overlap test that respects an early/actual departure. */
 export function chipsOverlap(
-  a: Pick<PlacedChip, "check_in" | "check_out" | "status">,
-  b: Pick<PlacedChip, "check_in" | "check_out" | "status">,
+  a: Pick<PlacedChip, "check_in" | "check_out" | "status"> & { _itemStatus?: string | null; _itemCheckedOutAt?: string | null },
+  b: Pick<PlacedChip, "check_in" | "check_out" | "status"> & { _itemStatus?: string | null; _itemCheckedOutAt?: string | null },
   businessDate?: string | null,
 ) {
   return a.check_in < vacateDate(b, businessDate) && b.check_in < vacateDate(a, businessDate);
@@ -172,6 +187,8 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
         _slotKey: slot.key,
         _bookingCheckIn: b.check_in,
         _bookingCheckOut: b.check_out,
+        _itemStatus: slot.item_status ?? null,
+        _itemCheckedOutAt: slot.checked_out_at ?? null,
         _historical: !!slot.ended_reason,
       });
       byRoom.set(rid, arr);
@@ -234,6 +251,8 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
         _slotKey: slot.key,
         _bookingCheckIn: b.check_in,
         _bookingCheckOut: b.check_out,
+        _itemStatus: slot.item_status ?? null,
+        _itemCheckedOutAt: slot.checked_out_at ?? null,
         _virtual: true,
       });
       byRoom.set(r.id, arr);
@@ -288,10 +307,10 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
   // so the two chips sit side by side, flagged `_displayClamped`.
   for (const [rid, arr] of byRoom) {
     for (const chip of arr) {
-      if (!isDepartedStatus(chip.status)) continue;
+      if (!isChipDeparted(chip)) continue;
       let clampTo: string | null = null;
       for (const other of arr) {
-        if (other === chip || isDepartedStatus(other.status)) continue;
+        if (other === chip || isChipDeparted(other)) continue;
         if (!chipsOverlap(chip, other, businessDate)) continue;
         if (other.check_in <= chip.check_in) continue; // nothing left to draw
         if (!clampTo || other.check_in < clampTo) clampTo = other.check_in;
