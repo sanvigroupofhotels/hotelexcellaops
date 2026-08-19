@@ -181,6 +181,16 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
   const { error } = await supabase.from("bookings" as any).update({ status }).eq("id", id);
   if (error) throw error;
 
+  // Lifecycle fan-out — a booking-level status change must reach every room
+  // item, otherwise items stay 'Confirmed' on a departed booking (the BJP
+  // Aditya / HEXB-310C65 inconsistency). Shared engine: booking-item-lifecycle.
+  try {
+    const { fanOutBookingStatusToItems } = await import("@/lib/booking-item-lifecycle");
+    await fanOutBookingStatusToItems(id, status);
+  } catch {
+    /* non-blocking — never fail the status change on item fan-out */
+  }
+
   // Housekeeping fanout — centralized here so every path (booking detail,
   // Night Audit bulk, Critical Tasks, guest portal) triggers the correct
   // side-effect. Non-blocking — hooks own their error logging.
