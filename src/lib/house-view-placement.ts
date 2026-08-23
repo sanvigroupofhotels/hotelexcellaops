@@ -196,7 +196,10 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
         _itemStatus: slot.item_status ?? null,
         _itemCheckedOutAt: slot.checked_out_at ?? null,
         _zeroNight: !!slot.zero_night,
-        _historical: !!slot.ended_reason,
+        // "Historical" = superseded by a room change (dimmed, non-interactive).
+        // A checkout closure is NOT historical: it is the room's live departure
+        // for the day and must stay visible and clickable.
+        _historical: slot.ended_reason === "room_change",
       });
       byRoom.set(rid, arr);
     }
