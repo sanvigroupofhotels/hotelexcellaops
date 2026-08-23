@@ -188,6 +188,39 @@ export function pairStaySlotsToRooms(
     const segStart = String(assignment.start_date ?? booking.check_in);
     const segEnd = String(assignment.end_date ?? booking.check_out);
 
+    // ZERO-NIGHT closed segment (checked out on the arrival date). The date
+    // range is empty, so the generic intersection below can never match it —
+    // yet the room really was occupied that day. Emit a one-day departed chip
+    // and do NOT advance the slot cursor (no nights were consumed).
+    if (segEnd <= segStart) {
+      const idx = slots.findIndex((s, i) =>
+        cursors[i] <= segStart && segStart < slotEndExclusive(s)
+        && stayRoomTypesMatch(room?.room_type, s.room_type));
+      const zeroIdx = idx >= 0
+        ? idx
+        : slots.findIndex((s, i) => cursors[i] <= segStart && segStart < slotEndExclusive(s));
+      const base = slots[zeroIdx >= 0 ? zeroIdx : 0];
+      if (base) {
+        paired.push({
+          room_id: assignment.room_id,
+          slot: {
+            key: `${base.key}:${assignment.id ?? assignment.room_id}:${segStart}:zero`,
+            booking_id: booking.id,
+            room_type: base.room_type,
+            check_in: segStart,
+            check_out: segStart,
+            ended_reason: assignment.ended_reason ?? null,
+            item_status: base.item_status ?? null,
+            checked_out_at: base.checked_out_at ?? null,
+            zero_night: true,
+          },
+        });
+      }
+      continue;
+    }
+
+
+
     // Prefer a slot with matching room_type whose remaining window overlaps
     // the segment window; fall back to any slot with a remaining overlap.
     const overlaps = (slotIdx: number) => {
