@@ -50,7 +50,14 @@ export type StaySlot = {
   item_status?: string | null;
   /** Per-item checkout timestamp carried from booking_items. */
   checked_out_at?: string | null;
+  /**
+   * Closed segment covering zero nights (arrival and departure on the same
+   * day). It is real occupancy history and must stay visible, but it releases
+   * the room the same day so a turnover arrival can take it.
+   */
+  zero_night?: boolean;
 };
+
 
 export function normalizeStayRoomType(value?: string | null) {
   return (value || "")
