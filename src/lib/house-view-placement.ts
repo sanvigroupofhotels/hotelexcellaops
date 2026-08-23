@@ -78,6 +78,9 @@ export interface PlacedChip {
   _itemStatus?: string | null;
   _itemCheckedOutAt?: string | null;
 
+  /** Closed zero-night segment: visible for its day, frees the room same day. */
+  _zeroNight?: boolean;
+
   _turnoverDeparture?: boolean;
   _turnoverArrival?: boolean;
   [key: string]: any;
@@ -92,9 +95,12 @@ export interface PlacedChip {
  * a conflict and the departed chip would get hidden.
  */
 export function vacateDate(
-  chip: Pick<PlacedChip, "check_in" | "check_out" | "status"> & { _itemStatus?: string | null; _itemCheckedOutAt?: string | null },
+  chip: Pick<PlacedChip, "check_in" | "check_out" | "status"> & { _itemStatus?: string | null; _itemCheckedOutAt?: string | null; _zeroNight?: boolean },
   businessDate?: string | null,
 ) {
+  // A zero-night closed segment (arrive + depart same day) releases the room
+  // on that very date — it stays drawn, but never blocks a turnover arrival.
+  if (chip._zeroNight) return chip.check_in;
   const end = slotEndExclusive(chip);
   if (!businessDate || !isChipDeparted(chip)) return end;
   const floor = nextDay(chip.check_in) > chip.check_in ? nextDay(chip.check_in) : end;
@@ -104,8 +110,8 @@ export function vacateDate(
 
 /** Overlap test that respects an early/actual departure. */
 export function chipsOverlap(
-  a: Pick<PlacedChip, "check_in" | "check_out" | "status"> & { _itemStatus?: string | null; _itemCheckedOutAt?: string | null },
-  b: Pick<PlacedChip, "check_in" | "check_out" | "status"> & { _itemStatus?: string | null; _itemCheckedOutAt?: string | null },
+  a: Pick<PlacedChip, "check_in" | "check_out" | "status"> & { _itemStatus?: string | null; _itemCheckedOutAt?: string | null; _zeroNight?: boolean },
+  b: Pick<PlacedChip, "check_in" | "check_out" | "status"> & { _itemStatus?: string | null; _itemCheckedOutAt?: string | null; _zeroNight?: boolean },
   businessDate?: string | null,
 ) {
   return a.check_in < vacateDate(b, businessDate) && b.check_in < vacateDate(a, businessDate);
@@ -189,7 +195,11 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
         _bookingCheckOut: b.check_out,
         _itemStatus: slot.item_status ?? null,
         _itemCheckedOutAt: slot.checked_out_at ?? null,
-        _historical: !!slot.ended_reason,
+        _zeroNight: !!slot.zero_night,
+        // "Historical" = superseded by a room change (dimmed, non-interactive).
+        // A checkout closure is NOT historical: it is the room's live departure
+        // for the day and must stay visible and clickable.
+        _historical: slot.ended_reason === "room_change",
       });
       byRoom.set(rid, arr);
     }
@@ -308,6 +318,7 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
   for (const [rid, arr] of byRoom) {
     for (const chip of arr) {
       if (!isChipDeparted(chip)) continue;
+      if (chip._zeroNight) continue; // already a single-day historical chip
       let clampTo: string | null = null;
       for (const other of arr) {
         if (other === chip || isChipDeparted(other)) continue;

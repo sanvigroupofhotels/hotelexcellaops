@@ -234,7 +234,9 @@ describe("Room 403 sequential occupancy — exact UAT case (HEXB-4379D4 / Swaroo
   it("the checked-out booking's historical segment is untouched", () => {
     const old = (res().byRoom.get("r105") ?? []).find((c) => c.id === "OLD403")!;
     expect([old.check_in, old.check_out]).toEqual(["2026-08-16", "2026-08-17"]);
-    expect(old._historical).toBe(true);
+    // Closed by CHECKOUT — real departure history, still interactive.
+    // `_historical` (dimmed / non-interactive) is reserved for room changes.
+    expect(old._historical).toBe(false);
     expect(old._displayClamped).toBeUndefined();
   });
 
@@ -296,7 +298,7 @@ describe("multi-room checked-out bookings keep their room history (item-level pl
       const chips = r.byRoom.get(rid) ?? [];
       expect(chips.map((c) => c.id)).toEqual(["M"]);
       expect(chips[0]!.check_in).toBe("2026-08-16");
-      expect(chips[0]!._historical).toBe(true);
+      expect(chips[0]!._historical).toBe(false);
     }
     expect(r.pendingArrivals).toHaveLength(0);
   });

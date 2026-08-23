@@ -103,6 +103,10 @@ export async function listOccupancySegments(
     const b = a.bookings;
     if (!b) continue;
     if (exclude_booking_id && b.id === exclude_booking_id) continue;
+    // Zero-night CLOSED segment (arrive + depart same day): an empty
+    // [start, end) range. It is occupancy history, never live occupancy, so it
+    // must not block a same-day re-sale of the room.
+    if (a.end_date <= a.start_date) continue;
     if (!datesOverlap(check_in, check_out, a.start_date, a.end_date)) continue;
     out.push({
       room_id: a.room_id ?? null,

@@ -275,7 +275,7 @@ function HouseView() {
   const { data: allAssignments = [] } = useQuery({
     queryKey: ["booking-room-assignments-all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("booking_room_assignments" as any).select("id,booking_id,room_id,created_at,start_date,end_date");
+      const { data, error } = await supabase.from("booking_room_assignments" as any).select("id,booking_id,room_id,item_id,created_at,start_date,end_date,ended_reason");
       if (error) throw error;
       return (data ?? []) as any[];
     },
