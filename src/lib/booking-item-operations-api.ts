@@ -73,24 +73,31 @@ async function getAssignment(assignmentId: string) {
   return data as any;
 }
 
+/**
+ * Close an occupancy segment on the business date.
+ *
+ * REGRESSION FIX (checked-out room disappeared from House View): a same-day
+ * arrival + departure used to DELETE the segment row, which erased the room's
+ * only link to the departed booking. With no segment, the item is unassigned
+ * AND departed, so the placement engine (correctly) refuses to draw a virtual
+ * chip — and the room silently vanished from House View.
+ *
+ * We now keep the row as a ZERO-NIGHT closed segment (`end_date = start_date`,
+ * i.e. an empty `[start, end)` daterange). It is real history, renders as a
+ * one-day departed chip, and — because the range is empty — it never blocks
+ * the GiST exclusion constraint, the conflict trigger, or a same-day re-sale
+ * of the room.
+ */
 async function closeAssignmentSegment(assignment: any, reason: string) {
   const businessDate = await getBusinessDate();
   const effectiveDate = businessDate > assignment.start_date ? businessDate : assignment.start_date;
-  if (effectiveDate <= assignment.start_date) {
-    const { error } = await supabase
-      .from("booking_room_assignments" as any)
-      .delete()
-      .eq("id", assignment.id);
-    if (error) throw error;
-    return;
-  }
-
   const { error } = await supabase
     .from("booking_room_assignments" as any)
     .update({ end_date: effectiveDate, ended_reason: reason } as any)
     .eq("id", assignment.id);
   if (error) throw error;
 }
+
 
 
 /**
