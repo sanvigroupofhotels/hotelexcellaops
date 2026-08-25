@@ -181,7 +181,10 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
 
   // 1) Assigned occupancy — one chip per paired segment.
   for (const b of bookings) {
-    const { paired } = pairStaySlotsToRooms(stripLegacyRoom(b), itemsByBooking, assignmentsByBooking, rooms);
+    const { paired } = pairStaySlotsToRooms(stripLegacyRoom(b), itemsByBooking, assignmentsByBooking, rooms, {
+      businessDate,
+      includeItemAssignmentFallback: true,
+    });
     for (const { room_id: rid, slot } of paired) {
       if (!segmentOverlapsRange(slot, rangeStart, rangeEndExclusive)) continue;
       const arr = byRoom.get(rid) ?? [];
@@ -223,7 +226,10 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
 
   const virtualSlots: Array<{ b: any; slot: StaySlot; assignedRoomIds: string[] }> = [];
   for (const b of bookings) {
-    const { paired, unpaired } = pairStaySlotsToRooms(stripLegacyRoom(b), itemsByBooking, assignmentsByBooking, rooms);
+    const { paired, unpaired } = pairStaySlotsToRooms(stripLegacyRoom(b), itemsByBooking, assignmentsByBooking, rooms, {
+      businessDate,
+      includeItemAssignmentFallback: true,
+    });
     const assignedRoomIds = paired.map((p) => p.room_id);
     for (const slot of unpaired) {
       if (slotDeparted(b, slot)) continue;
@@ -300,7 +306,10 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
   // Keep the outgoing-late map in sync for paired segments too.
   for (const b of bookings) {
     if ((lateFractionByBooking.get(b.id) ?? 0) <= 0) continue;
-    const { paired } = pairStaySlotsToRooms(stripLegacyRoom(b), itemsByBooking, assignmentsByBooking, rooms);
+    const { paired } = pairStaySlotsToRooms(stripLegacyRoom(b), itemsByBooking, assignmentsByBooking, rooms, {
+      businessDate,
+      includeItemAssignmentFallback: true,
+    });
     for (const { room_id: rid, slot } of paired) bumpOutgoing(b.id, rid, slot);
   }
 

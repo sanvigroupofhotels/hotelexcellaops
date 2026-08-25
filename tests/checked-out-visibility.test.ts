@@ -166,4 +166,36 @@ describe("checked-out room stays visible in House View", () => {
     expect(placedB?.[0]).toBe("r403");
     expect(res.pendingArrivals).toHaveLength(0);
   });
+
+  it("11. real checked-out room pointer without segment still renders as a grey departure chip", () => {
+    const booking = { id: "L", guest_name: "Legacy Real Room", status: "Checked-Out", check_in: "2026-08-15", check_out: "2026-08-16" };
+    const item = {
+      id: "item-L", booking_id: "L", position: 0, assigned_room_id: "r403",
+      room_type: "Oak", rooms: 1, check_in: "2026-08-15", check_out: "2026-08-16",
+      item_status: "Checked-Out", checked_out_at: `${TODAY}T06:00:00Z`,
+    };
+    const res = place([booking], [item], []);
+    const chips = res.byRoom.get("r403") ?? [];
+    expect(chips.map((c) => c.id)).toEqual(["L"]);
+    expect(chips[0]?._virtual).toBeUndefined();
+    expect(chips[0]?._itemStatus).toBe("Checked-Out");
+  });
+
+  it("12. fallback checked-out room and same-day arrival render sequentially on same room", () => {
+    const departedBooking = { id: "L", guest_name: "Legacy Real Room", status: "Checked-Out", check_in: "2026-08-15", check_out: "2026-08-16" };
+    const departedItem = {
+      id: "item-L", booking_id: "L", position: 0, assigned_room_id: "r403",
+      room_type: "Oak", rooms: 1, check_in: "2026-08-15", check_out: "2026-08-16",
+      item_status: "Checked-Out", checked_out_at: `${TODAY}T06:00:00Z`,
+    };
+    const arrival = { id: "N", guest_name: "Next Guest", status: "Confirmed", check_in: TODAY, check_out: "2026-08-17" };
+    const arrivalItem = { id: "item-N", booking_id: "N", position: 0, room_type: "Oak", rooms: 1, check_in: TODAY, check_out: "2026-08-17" };
+    const arrivalSeg = { id: "seg-N", booking_id: "N", item_id: "item-N", room_id: "r403", start_date: TODAY, end_date: "2026-08-17" };
+    const res = place([departedBooking, arrival], [departedItem, arrivalItem], [arrivalSeg]);
+    const chips = res.byRoom.get("r403") ?? [];
+    expect(chips.map((c) => c.id).sort()).toEqual(["L", "N"]);
+    expect(chips.find((c) => c.id === "L")?._turnoverDeparture).toBe(true);
+    expect(chips.find((c) => c.id === "N")?._turnoverArrival).toBe(true);
+    expect(res.pendingArrivals).toHaveLength(0);
+  });
 });
