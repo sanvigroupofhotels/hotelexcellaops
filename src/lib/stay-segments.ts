@@ -6,8 +6,10 @@ export type StayBookingLike = {
 };
 
 export type StayItemLike = {
+  id?: string | null;
   booking_id: string;
   position?: number | null;
+  assigned_room_id?: string | null;
   room_type?: string | null;
   rooms?: number | null;
   check_in?: string | null;
@@ -22,6 +24,7 @@ export type StayAssignmentLike = {
   id?: string | null;
   room_id: string;
   booking_id?: string | null;
+  item_id?: string | null;
   created_at?: string | null;
   /** Segment start (inclusive YYYY-MM-DD). Optional for legacy callers. */
   start_date?: string | null;
@@ -41,6 +44,7 @@ export type StayRoomLike = {
 export type StaySlot = {
   key: string;
   booking_id: string;
+  item_id?: string | null;
   room_type: string | null;
   check_in: string;
   check_out: string;
@@ -57,6 +61,8 @@ export type StaySlot = {
    */
   zero_night?: boolean;
 };
+
+const DEPARTED_ITEM_STATUSES = new Set(["Checked-Out"]);
 
 
 export function normalizeStayRoomType(value?: string | null) {
@@ -126,6 +132,7 @@ export function expandStaySlots(booking: StayBookingLike, items: StayItemLike[])
     return [{
       key: `${booking.id}:legacy:0`,
       booking_id: booking.id,
+      item_id: null,
       room_type: null,
       check_in: booking.check_in,
       check_out: booking.check_out,
@@ -139,8 +146,9 @@ export function expandStaySlots(booking: StayBookingLike, items: StayItemLike[])
     .flatMap((item, itemIndex) => {
       const count = Math.max(1, Number(item.rooms ?? 1));
       return Array.from({ length: count }, (_, roomIndex) => ({
-        key: `${booking.id}:${item.position ?? itemIndex}:${roomIndex}`,
+        key: `${booking.id}:${item.id ?? item.position ?? itemIndex}:${roomIndex}`,
         booking_id: booking.id,
+        item_id: item.id ?? null,
         room_type: item.room_type ?? null,
         check_in: item.check_in || booking.check_in,
         check_out: item.check_out || booking.check_out,
@@ -155,9 +163,51 @@ export function pairStaySlotsToRooms(
   itemsByBooking: Map<string, StayItemLike[]>,
   assignmentsByBooking: Map<string, StayAssignmentLike[]>,
   rooms: StayRoomLike[],
+  opts?: { businessDate?: string | null; includeItemAssignmentFallback?: boolean },
 ) {
-  const slots = expandStaySlots(booking, itemsByBooking.get(booking.id) ?? []);
+  const items = itemsByBooking.get(booking.id) ?? [];
+  const slots = expandStaySlots(booking, items);
   const assigned = [...(assignmentsByBooking.get(booking.id) ?? [])];
+
+  // Compatibility fallback for bookings that have an item-level room pointer
+  // (`booking_items.assigned_room_id`) but no occupancy segment row. That state
+  // is legacy/broken data, but it is still a REAL room assignment made by
+  // reception. House View must render it as a grey departed chip after checkout,
+  // while still suppressing truly unassigned departed items.
+  if (opts?.includeItemAssignmentFallback) {
+    for (const [idx, item] of items.entries()) {
+      if (!item.assigned_room_id) continue;
+      const itemStart = item.check_in || booking.check_in;
+      const itemOut = item.check_out || booking.check_out;
+      const itemEnd = slotEndExclusive({ check_in: itemStart, check_out: itemOut });
+      const alreadySegmented = assigned.some((a) => {
+        if (item.id && a.item_id === item.id) return true;
+        const aStart = String(a.start_date ?? booking.check_in);
+        const aEnd = String(a.end_date ?? booking.check_out);
+        return a.room_id === item.assigned_room_id && itemStart < aEnd && aStart < itemEnd;
+      });
+      if (alreadySegmented) continue;
+
+      const departed = DEPARTED_ITEM_STATUSES.has(String(item.item_status ?? "")) || !!item.checked_out_at;
+      let fallbackEnd = itemOut === itemStart ? itemEnd : itemOut;
+      if (departed && opts.businessDate) {
+        const closeDate = opts.businessDate > itemStart ? opts.businessDate : itemStart;
+        fallbackEnd = closeDate < fallbackEnd ? closeDate : fallbackEnd;
+      }
+
+      assigned.push({
+        id: `item-fallback-${item.id ?? idx}`,
+        room_id: item.assigned_room_id,
+        booking_id: booking.id,
+        item_id: item.id ?? null,
+        start_date: itemStart,
+        end_date: fallbackEnd,
+        ended_reason: departed ? "item_check_out" : null,
+        created_at: null,
+      });
+    }
+  }
+
   if (assigned.length === 0 && booking.room_id) {
     assigned.push({
       room_id: booking.room_id,
@@ -193,9 +243,12 @@ export function pairStaySlotsToRooms(
     // yet the room really was occupied that day. Emit a one-day departed chip
     // and do NOT advance the slot cursor (no nights were consumed).
     if (segEnd <= segStart) {
-      const idx = slots.findIndex((s, i) =>
-        cursors[i] <= segStart && segStart < slotEndExclusive(s)
-        && stayRoomTypesMatch(room?.room_type, s.room_type));
+      let idx = assignment.item_id
+        ? slots.findIndex((s, i) => s.item_id === assignment.item_id && cursors[i] <= segStart && segStart < slotEndExclusive(s))
+        : -1;
+      if (idx < 0) idx = slots.findIndex((s, i) =>
+          cursors[i] <= segStart && segStart < slotEndExclusive(s)
+          && stayRoomTypesMatch(room?.room_type, s.room_type));
       const zeroIdx = idx >= 0
         ? idx
         : slots.findIndex((s, i) => cursors[i] <= segStart && segStart < slotEndExclusive(s));
@@ -206,6 +259,7 @@ export function pairStaySlotsToRooms(
           slot: {
             key: `${base.key}:${assignment.id ?? assignment.room_id}:${segStart}:zero`,
             booking_id: booking.id,
+            item_id: base.item_id ?? null,
             room_type: base.room_type,
             check_in: segStart,
             check_out: segStart,
@@ -232,7 +286,10 @@ export function pairStaySlotsToRooms(
       return a < b ? { a, b } : null;
     };
 
-    let slotIndex = slots.findIndex((slot, i) => overlaps(i) && stayRoomTypesMatch(room?.room_type, slot.room_type));
+    let slotIndex = assignment.item_id
+      ? slots.findIndex((slot, i) => slot.item_id === assignment.item_id && !!overlaps(i))
+      : -1;
+    if (slotIndex < 0) slotIndex = slots.findIndex((slot, i) => overlaps(i) && stayRoomTypesMatch(room?.room_type, slot.room_type));
     if (slotIndex < 0) slotIndex = slots.findIndex((_, i) => !!overlaps(i));
     if (slotIndex < 0) continue;
 
@@ -245,6 +302,7 @@ export function pairStaySlotsToRooms(
       slot: {
         key: `${base.key}:${assignment.id ?? assignment.room_id}:${range.a}`,
         booking_id: booking.id,
+        item_id: base.item_id ?? null,
         room_type: base.room_type,
         check_in: range.a,
         // Keep half-open semantics: chip's check_out is exclusive in day-use

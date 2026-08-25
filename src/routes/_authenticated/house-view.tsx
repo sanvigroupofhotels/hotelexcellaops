@@ -266,7 +266,7 @@ function HouseView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("booking_items" as any)
-        .select("booking_id,position,breakfast_included,room_type,rooms,check_in,check_out,pet_size,late_check_out,late_check_out_slot,item_status,checked_out_at");
+        .select("id,booking_id,position,assigned_room_id,breakfast_included,room_type,rooms,check_in,check_out,pet_size,late_check_out,late_check_out_slot,item_status,checked_out_at");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -344,10 +344,13 @@ function HouseView() {
   const visibleBookings = useMemo(
     () => (bookings as any[]).filter((b) => {
       if (b.status === "Cancelled" || b.status === "No-Show") return false;
-      const { slots } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]);
+      const { slots } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[], {
+        businessDate: businessDate ?? null,
+        includeItemAssignmentFallback: true,
+      });
       return slots.some((slot) => segmentOverlapsRange(slot, rangeStart, rangeEnd));
     }),
-    [bookings, itemsByBooking, assignmentsByBooking, rooms, rangeStart, rangeEnd],
+    [bookings, itemsByBooking, assignmentsByBooking, rooms, rangeStart, rangeEnd, businessDate],
   );
 
   // Blocks (maintenance) visible in range
@@ -369,7 +372,10 @@ function HouseView() {
     for (const b of visibleBookings) {
       const f = lateFractionByBooking.get(b.id) ?? 0;
       if (f <= 0) continue;
-      const { paired } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]);
+      const { paired } = pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[], {
+        businessDate: businessDate ?? null,
+        includeItemAssignmentFallback: true,
+      });
       for (const { room_id: rid, slot } of paired) {
         const endDay = slotEndExclusive(slot);
         const key = `${rid}|${endDay}`;
@@ -378,7 +384,7 @@ function HouseView() {
       }
     }
     return m;
-  }, [visibleBookings, lateFractionByBooking, itemsByBooking, assignmentsByBooking, rooms]);
+  }, [visibleBookings, lateFractionByBooking, itemsByBooking, assignmentsByBooking, rooms, businessDate]);
 
   /**
    * Place bookings into rooms. Multi-room aware with per-type placeholders:
@@ -664,7 +670,10 @@ function HouseView() {
     return r ? r.room_number : null;
   };
   const roomNumbersFor = (b: any): string[] =>
-    pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[]).paired
+    pairStaySlotsToRooms(withoutLegacyRoomId(b), itemsByBooking, assignmentsByBooking, rooms as any[], {
+      businessDate: businessDate ?? null,
+      includeItemAssignmentFallback: true,
+    }).paired
       .filter(({ slot }) => segmentCoversDate(slot, todayKey))
       .map(({ room_id }) => roomNumber(room_id)).filter(Boolean) as string[];
   const breakfastRoomNumbers = breakfastBookings.flatMap(roomNumbersFor);
