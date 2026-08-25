@@ -132,6 +132,7 @@ export function expandStaySlots(booking: StayBookingLike, items: StayItemLike[])
     return [{
       key: `${booking.id}:legacy:0`,
       booking_id: booking.id,
+      item_id: null,
       room_type: null,
       check_in: booking.check_in,
       check_out: booking.check_out,
