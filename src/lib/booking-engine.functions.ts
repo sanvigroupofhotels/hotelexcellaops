@@ -151,7 +151,7 @@ export const getAvailability = createServerFn({ method: "POST" })
           .gt("check_out", data.check_in),
         supabaseAdmin
           .from("room_maintenance")
-          .select("room_id,start_date,end_date,active,rooms(room_type)")
+          .select("room_id,start_date,end_date,active,rooms!inner(room_type)")
           .eq("active", true)
           .lt("start_date", data.check_out)
           .gt("end_date", data.check_in),
@@ -309,7 +309,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
           .gt("check_out", data.check_in),
         supabaseAdmin
           .from("room_maintenance")
-          .select("room_id,active,start_date,end_date,rooms(room_type)")
+          .select("room_id,active,start_date,end_date,rooms!inner(room_type)")
           .eq("active", true)
           .lt("start_date", data.check_out)
           .gt("end_date", data.check_in),
@@ -853,7 +853,7 @@ export const updateDraftStay = createServerFn({ method: "POST" })
           .not("booking_id", "eq", data.booking_id),
         supabaseAdmin
           .from("room_maintenance")
-          .select("room_id,active,start_date,end_date,rooms(room_type)")
+          .select("room_id,active,start_date,end_date,rooms!inner(room_type)")
           .eq("active", true)
           .lt("start_date", data.check_out)
           .gt("end_date", data.check_in),
