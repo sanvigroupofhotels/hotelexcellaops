@@ -11,6 +11,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { normalizeOrThrow } from "@/lib/phone";
 import { applyTaxes } from "@/lib/pricing";
+import { buildRoomTypeAvailability, normalizeRoomTypeKey } from "@/lib/room-type-availability-core";
 
 
 const DRAFT_TTL_MIN = 15;
@@ -132,7 +133,7 @@ export const getAvailability = createServerFn({ method: "POST" })
 
     const nights = nightsBetween(data.check_in, data.check_out);
 
-    const [{ data: rooms }, { data: rates }, { data: overrides }, { data: settingRows }, { data: bookingRows }, { data: maintRows }] =
+    const [{ data: rooms }, { data: rates }, { data: overrides }, { data: settingRows }, { data: bookingRows }, { data: itemRows }, { data: maintRows }] =
       await Promise.all([
         supabaseAdmin.from("rooms").select("id,room_type").eq("active", true),
         supabaseAdmin.from("room_rates").select("room_type,default_rate,weekday_rate,weekend_rate"),
@@ -144,8 +145,13 @@ export const getAvailability = createServerFn({ method: "POST" })
           .lt("check_in", data.check_out)
           .gt("check_out", data.check_in),
         supabaseAdmin
+          .from("booking_items" as any)
+          .select("booking_id, room_type, rooms, check_in, check_out, item_status, bookings!inner(id, status, draft_expires_at)")
+          .lt("check_in", data.check_out)
+          .gt("check_out", data.check_in),
+        supabaseAdmin
           .from("room_maintenance")
-          .select("room_id,start_date,end_date,active")
+          .select("room_id,start_date,end_date,active,rooms(room_type)")
           .eq("active", true)
           .lt("start_date", data.check_out)
           .gt("end_date", data.check_in),
@@ -153,49 +159,19 @@ export const getAvailability = createServerFn({ method: "POST" })
 
     const tax_rate = Number(((settingRows ?? [])[0]?.value as any)?.rate ?? 0.05);
 
-    // Group active rooms by type
-    const roomsByType: Record<string, number> = {};
     const totalRoomsByType: Record<string, number> = {};
     for (const r of (rooms ?? []) as any[]) {
       totalRoomsByType[r.room_type] = (totalRoomsByType[r.room_type] || 0) + 1;
     }
-
-    // Count blocked rooms per type (maintenance)
-    const blockedRoomIds = new Set<string>();
-    for (const m of (maintRows ?? []) as any[]) blockedRoomIds.add(m.room_id);
-
-    // Count occupied rooms per type
-    // "Occupied" = any booking whose status holds inventory and overlaps.
-    // Already-expired drafts are excluded.
-    const OCCUPIED_STATUSES = new Set([
-      "Pending", "Confirmed", "Advance Paid", "Full Paid", "Checked-In", "Draft",
-    ]);
-    const occupiedRoomIds = new Set<string>(); // by specific room id (legacy)
-    const occupiedByType: Record<string, number> = {};
-    const nowMs = Date.now();
-    for (const b of (bookingRows ?? []) as any[]) {
-      if (!OCCUPIED_STATUSES.has(b.status)) continue;
-      if (b.status === "Draft" && b.draft_expires_at && new Date(b.draft_expires_at).getTime() < nowMs) continue;
-      if (b.room_id) {
-        occupiedRoomIds.add(b.room_id);
-      } else if (b.room_details) {
-        occupiedByType[b.room_details] = (occupiedByType[b.room_details] || 0) + 1;
-      }
-    }
-    // Add blocked-rooms tally per type
-    const blockedByType: Record<string, number> = {};
-    for (const r of (rooms ?? []) as any[]) {
-      if (blockedRoomIds.has(r.id)) blockedByType[r.room_type] = (blockedByType[r.room_type] || 0) + 1;
-      if (occupiedRoomIds.has(r.id)) occupiedByType[r.room_type] = (occupiedByType[r.room_type] || 0) + 1;
-    }
-
-    // Compute availability per type
-    for (const t of Object.keys(totalRoomsByType)) {
-      const total = totalRoomsByType[t] || 0;
-      const occ = occupiedByType[t] || 0;
-      const blk = blockedByType[t] || 0;
-      roomsByType[t] = Math.max(0, total - occ - blk);
-    }
+    const availability = buildRoomTypeAvailability({
+      check_in: data.check_in,
+      check_out: data.check_out,
+      rooms: (rooms ?? []) as any[],
+      bookingItems: (itemRows ?? []) as any[],
+      legacyBookings: (bookingRows ?? []) as any[],
+      maintenanceBlocks: (maintRows ?? []) as any[],
+      includeDraftHolds: true,
+    });
 
     // Build per-type pricing.
     // NOTE: rooms.room_type may differ from room_rates.room_type by the trailing
@@ -238,7 +214,7 @@ export const getAvailability = createServerFn({ method: "POST" })
       return {
         type: displayType,
         room_type_key: type,
-        available: roomsByType[type] ?? 0,
+        available: Object.values(availability.byType).find((row) => normalizeRoomTypeKey(row.room_type) === normalizeRoomTypeKey(type))?.available ?? 0,
         total_rooms: totalRoomsByType[type] ?? 0,
         nights,
         nightly,
@@ -316,7 +292,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       .limit(1)
       .maybeSingle();
 
-    const [{ data: rooms }, { data: ratesAll }, { data: overrides }, { data: bookingRows }, { data: maintRows }, { data: settingRows }] =
+    const [{ data: rooms }, { data: ratesAll }, { data: overrides }, { data: bookingRows }, { data: itemRows }, { data: maintRows }, { data: settingRows }] =
       await Promise.all([
         supabaseAdmin.from("rooms").select("id,room_type").eq("active", true).in("room_type", typeCandidates),
         supabaseAdmin.from("room_rates").select("*").in("room_type", typeCandidates),
@@ -327,8 +303,13 @@ export const createDraftBooking = createServerFn({ method: "POST" })
           .lt("check_in", data.check_out)
           .gt("check_out", data.check_in),
         supabaseAdmin
+          .from("booking_items" as any)
+          .select("booking_id, room_type, rooms, check_in, check_out, item_status, bookings!inner(id, status, draft_expires_at)")
+          .lt("check_in", data.check_out)
+          .gt("check_out", data.check_in),
+        supabaseAdmin
           .from("room_maintenance")
-          .select("room_id,active,start_date,end_date")
+          .select("room_id,active,start_date,end_date,rooms(room_type)")
           .eq("active", true)
           .lt("start_date", data.check_out)
           .gt("end_date", data.check_in),
@@ -342,24 +323,18 @@ export const createDraftBooking = createServerFn({ method: "POST" })
     const totalOfType = (rooms ?? []).length;
     if (totalOfType === 0) throw new Error("That room type is no longer available.");
 
-    const OCCUPIED = new Set(["Pending", "Confirmed", "Advance Paid", "Full Paid", "Checked-In", "Draft"]);
-    const nowMs = Date.now();
-    const blockedRoomIds = new Set<string>(((maintRows ?? []) as any[]).map((m) => m.room_id));
-    let occupied = 0;
-    const occupiedRoomIds = new Set<string>();
     const reuseId = (existingDraft as any)?.id ?? null;
-    for (const b of (bookingRows ?? []) as any[]) {
-      if (!OCCUPIED.has(b.status)) continue;
-      if (b.status === "Draft" && b.draft_expires_at && new Date(b.draft_expires_at).getTime() < nowMs) continue;
-      // Don't count the draft we're about to revive against itself.
-      if (reuseId && b.id === reuseId) continue;
-      if (b.room_id) occupiedRoomIds.add(b.room_id);
-      else if (b.room_details === data.room_type || b.room_details === roomsRoomType) occupied++;
-    }
-    for (const r of (rooms ?? []) as any[]) {
-      if (occupiedRoomIds.has(r.id) || blockedRoomIds.has(r.id)) occupied++;
-    }
-    const available = Math.max(0, totalOfType - occupied);
+    const availability = buildRoomTypeAvailability({
+      check_in: data.check_in,
+      check_out: data.check_out,
+      rooms: (rooms ?? []) as any[],
+      bookingItems: (itemRows ?? []) as any[],
+      legacyBookings: (bookingRows ?? []) as any[],
+      maintenanceBlocks: (maintRows ?? []) as any[],
+      exclude_booking_id: reuseId,
+      includeDraftHolds: true,
+    });
+    const available = Object.values(availability.byType).find((row) => normalizeRoomTypeKey(row.room_type) === normalizeRoomTypeKey(roomsRoomType))?.available ?? 0;
     if (available <= 0) throw new Error("Sorry, the last room of this type was just booked. Please try different dates or another room.");
 
 
@@ -859,7 +834,7 @@ export const updateDraftStay = createServerFn({ method: "POST" })
     // Revalidate inventory & reprice — same logic as createDraftBooking, but
     // exclude THIS booking from the occupied count so the same room slot it
     // already holds is not counted twice.
-    const [{ data: rooms }, { data: ratesAll }, { data: overrides }, { data: bookingRows }, { data: maintRows }, { data: settingRows }] =
+    const [{ data: rooms }, { data: ratesAll }, { data: overrides }, { data: bookingRows }, { data: itemRows }, { data: maintRows }, { data: settingRows }] =
       await Promise.all([
         supabaseAdmin.from("rooms").select("id,room_type").eq("active", true).in("room_type", typeCandidates),
         supabaseAdmin.from("room_rates").select("*").in("room_type", typeCandidates),
@@ -871,8 +846,14 @@ export const updateDraftStay = createServerFn({ method: "POST" })
           .gt("check_out", data.check_in)
           .neq("id", data.booking_id),
         supabaseAdmin
+          .from("booking_items" as any)
+          .select("booking_id, room_type, rooms, check_in, check_out, item_status, bookings!inner(id, status, draft_expires_at)")
+          .lt("check_in", data.check_out)
+          .gt("check_out", data.check_in)
+          .neq("booking_id", data.booking_id),
+        supabaseAdmin
           .from("room_maintenance")
-          .select("room_id,active,start_date,end_date")
+          .select("room_id,active,start_date,end_date,rooms(room_type)")
           .eq("active", true)
           .lt("start_date", data.check_out)
           .gt("end_date", data.check_in),
@@ -885,21 +866,17 @@ export const updateDraftStay = createServerFn({ method: "POST" })
     const totalOfType = (rooms ?? []).length;
     if (totalOfType === 0) throw new Error("That room type is no longer available.");
 
-    const OCCUPIED = new Set(["Pending", "Confirmed", "Advance Paid", "Full Paid", "Checked-In", "Draft"]);
-    const nowMs = Date.now();
-    const blockedRoomIds = new Set<string>(((maintRows ?? []) as any[]).map((m) => m.room_id));
-    let occupied = 0;
-    const occupiedRoomIds = new Set<string>();
-    for (const row of (bookingRows ?? []) as any[]) {
-      if (!OCCUPIED.has(row.status)) continue;
-      if (row.status === "Draft" && row.draft_expires_at && new Date(row.draft_expires_at).getTime() < nowMs) continue;
-      if (row.room_id) occupiedRoomIds.add(row.room_id);
-      else if (row.room_details === data.room_type || row.room_details === roomsRoomType) occupied++;
-    }
-    for (const r of (rooms ?? []) as any[]) {
-      if (occupiedRoomIds.has(r.id) || blockedRoomIds.has(r.id)) occupied++;
-    }
-    const available = Math.max(0, totalOfType - occupied);
+    const availability = buildRoomTypeAvailability({
+      check_in: data.check_in,
+      check_out: data.check_out,
+      rooms: (rooms ?? []) as any[],
+      bookingItems: (itemRows ?? []) as any[],
+      legacyBookings: (bookingRows ?? []) as any[],
+      maintenanceBlocks: (maintRows ?? []) as any[],
+      exclude_booking_id: data.booking_id,
+      includeDraftHolds: true,
+    });
+    const available = Object.values(availability.byType).find((row) => normalizeRoomTypeKey(row.room_type) === normalizeRoomTypeKey(roomsRoomType))?.available ?? 0;
     if (available <= 0) {
       throw new Error("Sorry, no rooms of that type are available for these dates. Try different dates or category.");
     }
