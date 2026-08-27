@@ -273,6 +273,50 @@ export function requiredRoomCount(items: { rooms?: number | null }[]): number {
 }
 
 /**
+ * Drop surplus OPEN occupancy segments after a booking's room mix shrinks.
+ *
+ * `replaceBookingItems()` deletes and re-creates `booking_items`, which nulls
+ * `booking_room_assignments.item_id` (ON DELETE SET NULL). When the edit also
+ * reduces the room count (e.g. Oak x2 -> Oak x1), the segment for the removed
+ * room stayed open forever and kept that physical room "busy" for the whole
+ * stay window — it could no longer be assigned to any other booking, even
+ * though the booking itself showed only one room.
+ *
+ * This keeps, in order of preference, the segments still linked to a live
+ * booking item and then the oldest ones, up to the required room count, and
+ * deletes the unlinked surplus. Historical (already closed) segments — a
+ * mid-stay move, a zero-night checkout — are never touched.
+ */
+export async function pruneSurplusAssignments(booking_id: string) {
+  const [{ data: items }, segments] = await Promise.all([
+    supabase.from("booking_items" as any).select("id,rooms").eq("booking_id", booking_id),
+    listAssignments(booking_id),
+  ]);
+  const liveItemIds = new Set(((items ?? []) as any[]).map((i) => i.id as string));
+  const required = requiredRoomCount((items ?? []) as any[]);
+
+  // Only OPEN segments compete for the required room slots.
+  const open = segments.filter((s) => !s.ended_reason && s.end_date > s.start_date);
+  if (open.length <= required) return;
+
+  const ranked = open.slice().sort((a, b) => {
+    const la = a.item_id && liveItemIds.has(a.item_id) ? 0 : 1;
+    const lb = b.item_id && liveItemIds.has(b.item_id) ? 0 : 1;
+    if (la !== lb) return la - lb;
+    return a.created_at.localeCompare(b.created_at);
+  });
+  const surplus = ranked.slice(required).filter((s) => !(s.item_id && liveItemIds.has(s.item_id)));
+  if (surplus.length === 0) return;
+
+  const { error } = await supabase
+    .from("booking_room_assignments" as any)
+    .delete()
+    .in("id", surplus.map((s) => s.id));
+  if (error) throw error;
+  await syncLegacyBookingRoom(booking_id);
+}
+
+/**
  * Rebalance booking_items so their room_type labels match the desired mix.
  * See original documentation — behaviour unchanged.
  */
