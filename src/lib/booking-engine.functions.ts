@@ -141,7 +141,7 @@ export const getAvailability = createServerFn({ method: "POST" })
         supabaseAdmin.from("app_settings").select("key,value").eq("key", "tax"),
         supabaseAdmin
           .from("bookings")
-          .select("room_id,room_details,check_in,check_out,status,draft_expires_at")
+          .select("id,room_id,room_details,check_in,check_out,status,draft_expires_at")
           .lt("check_in", data.check_out)
           .gt("check_out", data.check_in),
         supabaseAdmin
