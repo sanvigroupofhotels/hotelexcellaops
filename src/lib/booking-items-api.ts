@@ -161,6 +161,14 @@ export async function replaceBookingItems(booking_id: string, items: BookingItem
   } catch {
     /* older deployments may not have the helper yet; assignment flows still work */
   }
+  // A shrinking room mix must release the rooms it no longer needs, otherwise
+  // the orphaned open segment keeps that physical room unassignable.
+  try {
+    const { pruneSurplusAssignments } = await import("@/lib/booking-room-assignments-api");
+    await pruneSurplusAssignments(booking_id);
+  } catch {
+    /* non-blocking */
+  }
   return created;
 }
 
