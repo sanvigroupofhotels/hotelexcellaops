@@ -1848,6 +1848,11 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   } = props;
 
   const dragEnabled = moveEligible && !isHistorical;
+  // Per-room occupant (multi-room booking): hide it when it just repeats the booker.
+  const occupantRaw = String((b as any)._occupantName ?? "").trim();
+  const occupantName = occupantRaw && occupantRaw.toLowerCase() !== String(b.guest_name ?? "").trim().toLowerCase()
+    ? occupantRaw
+    : "";
   const longPress = useLongPress({
     enabled: dragEnabled && isMobile,
     delayMs: LONG_PRESS_DELAY_MS,
