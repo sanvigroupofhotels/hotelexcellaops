@@ -122,8 +122,14 @@ function ymdDiffDays(a: string, b: string): number {
  * explicitly chosen Pay-at-Hotel and confirmed. Operationally these are
  * equivalent — room inventory is held and the guest has committed.
  */
-function blockClasses(b: { status: string; advance_paid?: number | null; pay_at_hotel?: boolean | null }): string {
-  const status = b.status;
+function blockClasses(b: { status: string; advance_paid?: number | null; pay_at_hotel?: boolean | null; _itemStatus?: string | null }): string {
+  // A multi-room booking is a collection of independent rooms: when THIS room's
+  // booking item has its own operational state (checked in / out), that wins
+  // over the parent booking status so the lane reflects reality per room.
+  const itemStatus = String(b._itemStatus ?? "");
+  const status = itemStatus === "Checked-In" ? "Checked-In"
+    : itemStatus === "Checked-Out" ? "Checked-Out"
+    : b.status;
   switch (status) {
     case "Checked-In":
       return "bg-green-500/85 text-white border-green-700";
