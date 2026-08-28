@@ -122,8 +122,14 @@ function ymdDiffDays(a: string, b: string): number {
  * explicitly chosen Pay-at-Hotel and confirmed. Operationally these are
  * equivalent — room inventory is held and the guest has committed.
  */
-function blockClasses(b: { status: string; advance_paid?: number | null; pay_at_hotel?: boolean | null }): string {
-  const status = b.status;
+function blockClasses(b: { status: string; advance_paid?: number | null; pay_at_hotel?: boolean | null; _itemStatus?: string | null }): string {
+  // A multi-room booking is a collection of independent rooms: when THIS room's
+  // booking item has its own operational state (checked in / out), that wins
+  // over the parent booking status so the lane reflects reality per room.
+  const itemStatus = String(b._itemStatus ?? "");
+  const status = itemStatus === "Checked-In" ? "Checked-In"
+    : itemStatus === "Checked-Out" ? "Checked-Out"
+    : b.status;
   switch (status) {
     case "Checked-In":
       return "bg-green-500/85 text-white border-green-700";
@@ -266,7 +272,7 @@ function HouseView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("booking_items" as any)
-        .select("id,booking_id,position,assigned_room_id,breakfast_included,room_type,rooms,check_in,check_out,pet_size,late_check_out,late_check_out_slot,item_status,checked_out_at");
+        .select("id,booking_id,position,assigned_room_id,breakfast_included,room_type,rooms,check_in,check_out,pet_size,late_check_out,late_check_out_slot,item_status,checked_out_at,primary_occupant_name");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -1842,6 +1848,11 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   } = props;
 
   const dragEnabled = moveEligible && !isHistorical;
+  // Per-room occupant (multi-room booking): hide it when it just repeats the booker.
+  const occupantRaw = String((b as any)._occupantName ?? "").trim();
+  const occupantName = occupantRaw && occupantRaw.toLowerCase() !== String(b.guest_name ?? "").trim().toLowerCase()
+    ? occupantRaw
+    : "";
   const longPress = useLongPress({
     enabled: dragEnabled && isMobile,
     delayMs: LONG_PRESS_DELAY_MS,
@@ -1914,7 +1925,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         } as React.CSSProperties;
       })()}
 
-      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${b._turnoverDeparture ? " · Departing (same-day turnover)" : ""}${b._turnoverArrival ? " · Arriving after today's checkout" : ""}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveReason}`}`}
+      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name}${occupantName ? ` · Occupant: ${occupantName}` : ""} · ${b._itemStatus || b.status}${b._turnoverDeparture ? " · Departing (same-day turnover)" : ""}${b._turnoverArrival ? " · Arriving after today's checkout" : ""}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveReason}`}`}
     >
       {continuesLeft && <span aria-hidden className="shrink-0 opacity-70 -ml-0.5">‹</span>}
       {/* UAT-053: same-day turnover markers — departure and arrival stay
@@ -1924,7 +1935,12 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
       {hasPet && <span className="shrink-0" aria-label="Pet">🐾</span>}
       {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
-      <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
+      {/* Booker + per-room occupant (multi-room bookings). */}
+      <span className="truncate font-medium">
+        {b.guest_name}
+        {occupantName ? <span className="opacity-80"> + {occupantName}</span> : null}
+        {b._virtual ? " *" : ""}
+      </span>
       {continuesRight && <span aria-hidden className="ml-auto shrink-0 opacity-70 -mr-0.5">›</span>}
 
     </button>

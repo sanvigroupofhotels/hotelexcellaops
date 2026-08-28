@@ -76,6 +76,9 @@ export interface PlacedChip {
 
   /** Per-item operational status behind this chip (multi-room bookings). */
   _itemStatus?: string | null;
+  _itemId?: string | null;
+  /** Occupant of this specific room (booking_items.primary_occupant_name). */
+  _occupantName?: string | null;
   _itemCheckedOutAt?: string | null;
 
   /** Closed zero-night segment: visible for its day, frees the room same day. */
@@ -198,6 +201,8 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
         _bookingCheckOut: b.check_out,
         _itemStatus: slot.item_status ?? null,
         _itemCheckedOutAt: slot.checked_out_at ?? null,
+        _itemId: slot.item_id ?? null,
+        _occupantName: slot.occupant_name ?? null,
         _zeroNight: !!slot.zero_night,
         // "Historical" = superseded by a room change (dimmed, non-interactive).
         // A checkout closure is NOT historical: it is the room's live departure
@@ -269,6 +274,8 @@ export function placeHouseViewChips(input: PlacementInput): PlacementResult {
         _bookingCheckOut: b.check_out,
         _itemStatus: slot.item_status ?? null,
         _itemCheckedOutAt: slot.checked_out_at ?? null,
+        _itemId: slot.item_id ?? null,
+        _occupantName: slot.occupant_name ?? null,
         _virtual: true,
       });
       byRoom.set(r.id, arr);
