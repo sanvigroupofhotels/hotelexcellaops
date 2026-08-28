@@ -543,27 +543,41 @@ function ChargeFormBody({
             </Field>
           )}
 
-          {/* Multi-room + per_room + new charge → checkbox fan-out. */}
+          {/* Multi-room + per_room + new charge → tap-friendly room chips. */}
           {isMultiRoom && isPerRoom && !isEditing && (
-            <Field label="Apply To Rooms *">
-              <div className={`rounded-md border ${perRoomMissing ? "border-destructive" : "border-border"} bg-input/40 divide-y divide-border/40`}>
-                <div className="flex items-center justify-between px-3 py-1.5 text-[10.5px] text-muted-foreground">
+            <Field label="Charge To Room(s) *">
+              <div className={`rounded-md border ${perRoomMissing ? "border-destructive" : "border-border"} bg-input/40 p-2 space-y-2`}>
+                <div className="flex items-center justify-between text-[10.5px] text-muted-foreground">
                   <span>{selectedItemIds.length} of {items.length} rooms selected</span>
-                  <button type="button" className="hover:text-gold"
+                  <button type="button" className="underline hover:text-gold"
                     onClick={() => setSelectedItemIds(
                       selectedItemIds.length === items.length ? [] : items.map((it: any) => it.id))}>
                     {selectedItemIds.length === items.length ? "Clear all" : "Select all"}
                   </button>
                 </div>
-                {items.map((it: any, idx: number) => {
-                  const checked = selectedItemIds.includes(it.id);
-                  return (
-                    <label key={it.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-secondary/30">
-                      <input type="checkbox" checked={checked} onChange={() => toggleItem(it.id)} />
-                      <span className="flex-1 truncate">{itemOptionLabel(it, idx)}</span>
-                    </label>
-                  );
-                })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {items.map((it: any, idx: number) => {
+                    const checked = selectedItemIds.includes(it.id);
+                    return (
+                      <button
+                        key={it.id}
+                        type="button"
+                        aria-pressed={checked}
+                        onClick={() => toggleItem(it.id)}
+                        className={`flex items-center gap-2 rounded-md border px-3 py-2.5 text-left text-sm min-h-11 transition-colors ${
+                          checked
+                            ? "border-gold bg-gold-soft/60 text-foreground"
+                            : "border-border bg-card text-muted-foreground hover:border-gold/40"
+                        }`}
+                      >
+                        <span className={`h-4 w-4 shrink-0 rounded-sm border grid place-items-center text-[10px] ${checked ? "border-gold bg-gold text-charcoal" : "border-border"}`}>
+                          {checked ? "✓" : ""}
+                        </span>
+                        <span className="flex-1 truncate">{itemOptionLabel(it, idx)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               {perRoomMissing && (
                 <span className="mt-1 block text-[10.5px] text-destructive">
@@ -572,6 +586,7 @@ function ChargeFormBody({
               )}
             </Field>
           )}
+
 
           {/* Multi-room + per_booking OR editing a multi-room line → single select. */}
           {isMultiRoom && (!isPerRoom || isEditing) && (
