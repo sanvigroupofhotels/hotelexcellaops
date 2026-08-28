@@ -213,7 +213,59 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
 }
 
 
-export function ChargeFormDialog({
+/**
+ * Shared Add/Edit Charge dialog — ONE implementation for every surface
+ * (Booking Detail, House View popup, Home quick actions, Quick Booking).
+ *
+ * Callers may pass `items`/`rooms` when they already have them, but they are
+ * no longer required: the dialog resolves the booking's operational rooms and
+ * occupants itself so the experience is identical everywhere. `defaultItemId`
+ * preselects the room the staff member came from (e.g. the House View chip for
+ * Surya Kumari · Room 101).
+ */
+export function ChargeFormDialog(props: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  bookingId: string; categories: string[]; editing: BookingChargeRow | null;
+  items?: any[]; rooms?: any[]; defaultItemId?: string | null;
+}) {
+  const { open, bookingId, items: itemsProp, rooms: roomsProp } = props;
+  const needsFetch = open && !!bookingId && !itemsProp;
+  const itemsQ = useQuery({
+    queryKey: ["booking-items", bookingId],
+    queryFn: () => listBookingItems(bookingId),
+    enabled: needsFetch,
+  });
+  const roomsQ = useQuery({
+    queryKey: ["rooms"],
+    queryFn: () => listRooms(),
+    enabled: open && !roomsProp,
+  });
+  const items = (itemsProp ?? itemsQ.data ?? []) as any[];
+  const rooms = (roomsProp ?? roomsQ.data ?? []) as any[];
+  const loading = (needsFetch && itemsQ.isLoading) || (open && !roomsProp && roomsQ.isLoading);
+
+  if (!open) return null;
+  if (loading) {
+    return (
+      <Dialog open onOpenChange={props.onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Add In-House Charge</DialogTitle></DialogHeader>
+          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+  return (
+    <ChargeFormBody
+      key={`${props.editing?.id ?? "new"}-${props.defaultItemId ?? "any"}-${items.length}`}
+      {...props}
+      items={items}
+      rooms={rooms}
+    />
+  );
+}
+
+function ChargeFormBody({
   open, onOpenChange, bookingId, categories, editing,
   items = [], rooms = [], defaultItemId = null,
 }: {
@@ -236,10 +288,10 @@ export function ChargeFormDialog({
   // Multi-room aware "Charge To" behaviour.
   //   • Single-room booking → Charge-To is hidden and the sole item is
   //     auto-attributed.
-  //   • Multi-room + per_booking category → hidden, stored booking-level.
-  //   • Multi-room + per_room category → checkbox list (default all rooms
-  //     selected). One charge line is created per selected room, attributed
-  //     to the corresponding booking_item.
+  //   • Multi-room + per_booking category → booking-level (room optional).
+  //   • Multi-room + per_room category → room chips. Default = the room the
+  //     staff member came from, else nothing preselected (an explicit choice
+  //     avoids silently charging one guest's food to every room).
   const isSingleRoom = items.length === 1;
   const isMultiRoom = items.length > 1;
   const applicationMode = modeFor(category);
@@ -253,13 +305,12 @@ export function ChargeFormDialog({
       ?? (isSingleRoom ? (items[0]?.id ?? null) : null),
   );
 
-  // Per-room fan-out selection (multi-room + per_room, new charge only).
-  // Default: every room selected. Editing an existing charge stays scoped
-  // to the single line being edited.
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() => {
     if (isEditing) return editing?.item_id ? [editing.item_id] : [];
     if (defaultItemId) return [defaultItemId];
-    return items.map((it: any) => it.id);
+    if (isSingleRoom) return items.map((it: any) => it.id);
+    return [];
+
   });
   const toggleItem = (id: string) =>
     setSelectedItemIds((prev) =>
