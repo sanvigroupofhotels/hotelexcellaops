@@ -213,7 +213,59 @@ export function InHouseChargesSection({ bookingId }: { bookingId: string }) {
 }
 
 
-export function ChargeFormDialog({
+/**
+ * Shared Add/Edit Charge dialog — ONE implementation for every surface
+ * (Booking Detail, House View popup, Home quick actions, Quick Booking).
+ *
+ * Callers may pass `items`/`rooms` when they already have them, but they are
+ * no longer required: the dialog resolves the booking's operational rooms and
+ * occupants itself so the experience is identical everywhere. `defaultItemId`
+ * preselects the room the staff member came from (e.g. the House View chip for
+ * Surya Kumari · Room 101).
+ */
+export function ChargeFormDialog(props: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  bookingId: string; categories: string[]; editing: BookingChargeRow | null;
+  items?: any[]; rooms?: any[]; defaultItemId?: string | null;
+}) {
+  const { open, bookingId, items: itemsProp, rooms: roomsProp } = props;
+  const needsFetch = open && !!bookingId && !itemsProp;
+  const itemsQ = useQuery({
+    queryKey: ["booking-items", bookingId],
+    queryFn: () => listBookingItems(bookingId),
+    enabled: needsFetch,
+  });
+  const roomsQ = useQuery({
+    queryKey: ["rooms"],
+    queryFn: () => listRooms(),
+    enabled: open && !roomsProp,
+  });
+  const items = (itemsProp ?? itemsQ.data ?? []) as any[];
+  const rooms = (roomsProp ?? roomsQ.data ?? []) as any[];
+  const loading = (needsFetch && itemsQ.isLoading) || (open && !roomsProp && roomsQ.isLoading);
+
+  if (!open) return null;
+  if (loading) {
+    return (
+      <Dialog open onOpenChange={props.onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Add In-House Charge</DialogTitle></DialogHeader>
+          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+  return (
+    <ChargeFormBody
+      key={`${props.editing?.id ?? "new"}-${props.defaultItemId ?? "any"}-${items.length}`}
+      {...props}
+      items={items}
+      rooms={rooms}
+    />
+  );
+}
+
+function ChargeFormBody({
   open, onOpenChange, bookingId, categories, editing,
   items = [], rooms = [], defaultItemId = null,
 }: {
@@ -236,10 +288,10 @@ export function ChargeFormDialog({
   // Multi-room aware "Charge To" behaviour.
   //   • Single-room booking → Charge-To is hidden and the sole item is
   //     auto-attributed.
-  //   • Multi-room + per_booking category → hidden, stored booking-level.
-  //   • Multi-room + per_room category → checkbox list (default all rooms
-  //     selected). One charge line is created per selected room, attributed
-  //     to the corresponding booking_item.
+  //   • Multi-room + per_booking category → booking-level (room optional).
+  //   • Multi-room + per_room category → room chips. Default = the room the
+  //     staff member came from, else nothing preselected (an explicit choice
+  //     avoids silently charging one guest's food to every room).
   const isSingleRoom = items.length === 1;
   const isMultiRoom = items.length > 1;
   const applicationMode = modeFor(category);
@@ -253,13 +305,12 @@ export function ChargeFormDialog({
       ?? (isSingleRoom ? (items[0]?.id ?? null) : null),
   );
 
-  // Per-room fan-out selection (multi-room + per_room, new charge only).
-  // Default: every room selected. Editing an existing charge stays scoped
-  // to the single line being edited.
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() => {
     if (isEditing) return editing?.item_id ? [editing.item_id] : [];
     if (defaultItemId) return [defaultItemId];
-    return items.map((it: any) => it.id);
+    if (isSingleRoom) return items.map((it: any) => it.id);
+    return [];
+
   });
   const toggleItem = (id: string) =>
     setSelectedItemIds((prev) =>
@@ -408,11 +459,12 @@ export function ChargeFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[calc(100vw-1.5rem)] sm:w-full max-w-md max-h-[92dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{editing ? "Edit Charge" : "Add In-House Charge"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
+
           {/* Category is picked first so per-room fan-out UI knows which mode to render. */}
           <Field label="Category *">
             <select value={category} onChange={(e) => setCategory(e.target.value)}
@@ -492,27 +544,41 @@ export function ChargeFormDialog({
             </Field>
           )}
 
-          {/* Multi-room + per_room + new charge → checkbox fan-out. */}
+          {/* Multi-room + per_room + new charge → tap-friendly room chips. */}
           {isMultiRoom && isPerRoom && !isEditing && (
-            <Field label="Apply To Rooms *">
-              <div className={`rounded-md border ${perRoomMissing ? "border-destructive" : "border-border"} bg-input/40 divide-y divide-border/40`}>
-                <div className="flex items-center justify-between px-3 py-1.5 text-[10.5px] text-muted-foreground">
+            <Field label="Charge To Room(s) *">
+              <div className={`rounded-md border ${perRoomMissing ? "border-destructive" : "border-border"} bg-input/40 p-2 space-y-2`}>
+                <div className="flex items-center justify-between text-[10.5px] text-muted-foreground">
                   <span>{selectedItemIds.length} of {items.length} rooms selected</span>
-                  <button type="button" className="hover:text-gold"
+                  <button type="button" className="underline hover:text-gold"
                     onClick={() => setSelectedItemIds(
                       selectedItemIds.length === items.length ? [] : items.map((it: any) => it.id))}>
                     {selectedItemIds.length === items.length ? "Clear all" : "Select all"}
                   </button>
                 </div>
-                {items.map((it: any, idx: number) => {
-                  const checked = selectedItemIds.includes(it.id);
-                  return (
-                    <label key={it.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-secondary/30">
-                      <input type="checkbox" checked={checked} onChange={() => toggleItem(it.id)} />
-                      <span className="flex-1 truncate">{itemOptionLabel(it, idx)}</span>
-                    </label>
-                  );
-                })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {items.map((it: any, idx: number) => {
+                    const checked = selectedItemIds.includes(it.id);
+                    return (
+                      <button
+                        key={it.id}
+                        type="button"
+                        aria-pressed={checked}
+                        onClick={() => toggleItem(it.id)}
+                        className={`flex items-center gap-2 rounded-md border px-3 py-2.5 text-left text-sm min-h-11 transition-colors ${
+                          checked
+                            ? "border-gold bg-gold-soft/60 text-foreground"
+                            : "border-border bg-card text-muted-foreground hover:border-gold/40"
+                        }`}
+                      >
+                        <span className={`h-4 w-4 shrink-0 rounded-sm border grid place-items-center text-[10px] ${checked ? "border-gold bg-gold text-charcoal" : "border-border"}`}>
+                          {checked ? "✓" : ""}
+                        </span>
+                        <span className="flex-1 truncate">{itemOptionLabel(it, idx)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               {perRoomMissing && (
                 <span className="mt-1 block text-[10.5px] text-destructive">
@@ -521,6 +587,7 @@ export function ChargeFormDialog({
               )}
             </Field>
           )}
+
 
           {/* Multi-room + per_booking OR editing a multi-room line → single select. */}
           {isMultiRoom && (!isPerRoom || isEditing) && (
@@ -571,7 +638,7 @@ export function ChargeFormDialog({
               <>Amount: <span className="font-medium text-gold">{inr(lineAmount)}</span></>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Field label="Added By">
               <div className="w-full bg-input/40 border border-border rounded-md px-3 py-2 text-sm text-muted-foreground">
                 {addedBy || <span className="italic">Signed-in user</span>}
@@ -589,8 +656,9 @@ export function ChargeFormDialog({
               className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
           </Field>
         </div>
-        <DialogFooter>
-          <button onClick={() => onOpenChange(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
+        <DialogFooter className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-3 pb-1 bg-background/95 backdrop-blur border-t border-border/60 flex-col-reverse sm:flex-row gap-2">
+          <button onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto rounded-md border border-border px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
           <button
             disabled={
               mut.isPending
@@ -603,7 +671,7 @@ export function ChargeFormDialog({
               || perRoomMissing
             }
             onClick={() => mut.mutate()}
-            className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal disabled:opacity-50"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-50"
           >
             {mut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             {editing
@@ -611,6 +679,7 @@ export function ChargeFormDialog({
               : (fanOutRooms > 1 ? `Add ${fanOutRooms} Charges` : "Add")}
           </button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );

@@ -1546,13 +1546,15 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
         onClose={() => setInvoiceOpen(false)} />
     )}
     <ChargeFormDialog
-      key={chargeOpen ? "open" : "closed"}
+      key={chargeOpen ? `open-${(b as any)._itemId ?? "any"}` : "closed"}
       open={chargeOpen}
       onOpenChange={setChargeOpen}
       bookingId={b.id}
       categories={chargeCategories}
       editing={null}
+      defaultItemId={(b as any)._itemId ?? null}
     />
+
     {checkIn.dialogs}
     </>
   );
