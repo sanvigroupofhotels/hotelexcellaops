@@ -18,6 +18,8 @@ export type StayItemLike = {
   item_status?: string | null;
   /** Set when this specific room item was checked out. */
   checked_out_at?: string | null;
+  /** Per-item occupant (the guest actually staying in this room). */
+  primary_occupant_name?: string | null;
 };
 
 export type StayAssignmentLike = {
@@ -54,6 +56,8 @@ export type StaySlot = {
   item_status?: string | null;
   /** Per-item checkout timestamp carried from booking_items. */
   checked_out_at?: string | null;
+  /** Per-item occupant name carried from booking_items. */
+  occupant_name?: string | null;
   /**
    * Closed segment covering zero nights (arrival and departure on the same
    * day). It is real occupancy history and must stay visible, but it releases
@@ -138,6 +142,7 @@ export function expandStaySlots(booking: StayBookingLike, items: StayItemLike[])
       check_out: booking.check_out,
       item_status: null,
       checked_out_at: null,
+      occupant_name: null,
     }] satisfies StaySlot[];
   }
 
@@ -154,6 +159,7 @@ export function expandStaySlots(booking: StayBookingLike, items: StayItemLike[])
         check_out: item.check_out || booking.check_out,
         item_status: item.item_status ?? null,
         checked_out_at: item.checked_out_at ?? null,
+        occupant_name: item.primary_occupant_name ?? null,
       }) satisfies StaySlot);
     });
 }
@@ -266,6 +272,7 @@ export function pairStaySlotsToRooms(
             ended_reason: assignment.ended_reason ?? null,
             item_status: base.item_status ?? null,
             checked_out_at: base.checked_out_at ?? null,
+            occupant_name: base.occupant_name ?? null,
             zero_night: true,
           },
         });
@@ -312,6 +319,7 @@ export function pairStaySlotsToRooms(
         ended_reason: assignment.ended_reason ?? null,
         item_status: base.item_status ?? null,
         checked_out_at: base.checked_out_at ?? null,
+        occupant_name: base.occupant_name ?? null,
       },
     });
     cursors[slotIndex] = range.b;
@@ -330,8 +338,10 @@ export function pairStaySlotsToRooms(
         room_type: s.room_type,
         check_in: cursor,
         check_out: s.check_out === s.check_in && cursor === s.check_in ? s.check_out : slotEnd,
+        item_id: s.item_id ?? null,
         item_status: s.item_status ?? null,
         checked_out_at: s.checked_out_at ?? null,
+        occupant_name: s.occupant_name ?? null,
       });
     }
   }
