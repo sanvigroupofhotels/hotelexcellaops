@@ -282,38 +282,91 @@ export function requiredRoomCount(items: { rooms?: number | null }[]): number {
  * stay window — it could no longer be assigned to any other booking, even
  * though the booking itself showed only one room.
  *
- * This keeps, in order of preference, the segments still linked to a live
- * booking item and then the oldest ones, up to the required room count, and
- * deletes the unlinked surplus. Historical (already closed) segments — a
- * mid-stay move, a zero-night checkout — are never touched.
+ * OCCUPIED rooms are never pruned. A segment is protected when it is linked to
+ * a live booking item, when its item has a check-in stamp, or when it has
+ * already started relative to the business date on a live in-house booking —
+ * deleting such a segment would erase a guest who is physically in the room and
+ * offer that room to another booking. Only not-yet-occupied surplus segments
+ * are released, newest-first, and each release clears the item pointer and
+ * fires the housekeeping hook like `removeAssignment` does.
  */
 export async function pruneSurplusAssignments(booking_id: string) {
-  const [{ data: items }, segments] = await Promise.all([
-    supabase.from("booking_items" as any).select("id,rooms").eq("booking_id", booking_id),
+  const [{ data: items }, segments, { data: booking }] = await Promise.all([
+    supabase
+      .from("booking_items" as any)
+      .select("id,rooms,item_status,checked_in_at,assigned_room_id")
+      .eq("booking_id", booking_id),
     listAssignments(booking_id),
+    supabase.from("bookings" as any).select("status").eq("id", booking_id).maybeSingle(),
   ]);
-  const liveItemIds = new Set(((items ?? []) as any[]).map((i) => i.id as string));
-  const required = requiredRoomCount((items ?? []) as any[]);
+  const itemRows = (items ?? []) as any[];
+  const liveItemIds = new Set(itemRows.map((i) => i.id as string));
+  const required = requiredRoomCount(itemRows);
 
   // Only OPEN segments compete for the required room slots.
   const open = segments.filter((s) => !s.ended_reason && s.end_date > s.start_date);
   if (open.length <= required) return;
 
-  const ranked = open.slice().sort((a, b) => {
-    const la = a.item_id && liveItemIds.has(a.item_id) ? 0 : 1;
-    const lb = b.item_id && liveItemIds.has(b.item_id) ? 0 : 1;
-    if (la !== lb) return la - lb;
-    return a.created_at.localeCompare(b.created_at);
-  });
-  const surplus = ranked.slice(required).filter((s) => !(s.item_id && liveItemIds.has(s.item_id)));
-  if (surplus.length === 0) return;
+  let businessDate = "";
+  try {
+    businessDate = (await getBusinessDate()) || "";
+  } catch { /* fall through — treat as unknown */ }
+
+  const bookingStatus = (booking as any)?.status as string | undefined;
+  const bookingLive = bookingStatus === "Checked-In";
+  // Rooms that any item is physically occupying right now.
+  const occupiedRoomIds = new Set(
+    itemRows
+      .filter((i) => i.checked_in_at || i.item_status === "Checked-In")
+      .map((i) => i.assigned_room_id as string | null)
+      .filter(Boolean) as string[],
+  );
+
+  const isProtected = (s: BookingRoomAssignmentRow) => {
+    if (s.item_id && liveItemIds.has(s.item_id)) return true;
+    if (s.room_id && occupiedRoomIds.has(s.room_id)) return true;
+    // Unknown business date → assume the segment may already be occupied.
+    if (bookingLive && (!businessDate || s.start_date <= businessDate)) return true;
+    return false;
+  };
+
+  const prunable = open.filter((s) => !isProtected(s));
+  const protectedCount = open.length - prunable.length;
+  const dropCount = Math.min(prunable.length, open.length - Math.max(required, protectedCount));
+  if (dropCount <= 0) return;
+
+  // Release the least-established segments first (latest start, newest row).
+  const surplus = prunable
+    .slice()
+    .sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at))
+    .slice(0, dropCount);
 
   const { error } = await supabase
     .from("booking_room_assignments" as any)
     .delete()
     .in("id", surplus.map((s) => s.id));
   if (error) throw error;
+
+  for (const s of surplus) {
+    if (s.item_id && liveItemIds.has(s.item_id)) continue;
+    if (s.item_id) {
+      await supabase
+        .from("booking_items" as any)
+        .update({ assigned_room_id: null } as any)
+        .eq("id", s.item_id);
+    }
+  }
+
   await syncLegacyBookingRoom(booking_id);
+
+  if (bookingLive) {
+    for (const s of surplus) {
+      if (!s.room_id) continue;
+      try {
+        await onBookingRoomMoved(booking_id, s.room_id);
+      } catch { /* non-blocking */ }
+    }
+  }
 }
 
 /**
