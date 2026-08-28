@@ -1920,7 +1920,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         } as React.CSSProperties;
       })()}
 
-      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name} · ${b.status}${b._turnoverDeparture ? " · Departing (same-day turnover)" : ""}${b._turnoverArrival ? " · Arriving after today's checkout" : ""}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveReason}`}`}
+      title={(b._virtual ? "Unassigned · " : "") + `${b.guest_name}${occupantName ? ` · Occupant: ${occupantName}` : ""} · ${b._itemStatus || b.status}${b._turnoverDeparture ? " · Departing (same-day turnover)" : ""}${b._turnoverArrival ? " · Arriving after today's checkout" : ""}${balanceDue > 0 ? ` · Due ₹${balanceDue.toLocaleString("en-IN")}` : ""}${dragEnabled ? (isMobile ? " · Long-press to move" : " · Drag to move room/dates") : ` · ${moveReason}`}`}
     >
       {continuesLeft && <span aria-hidden className="shrink-0 opacity-70 -ml-0.5">‹</span>}
       {/* UAT-053: same-day turnover markers — departure and arrival stay
@@ -1930,7 +1930,12 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
       {hasPet && <span className="shrink-0" aria-label="Pet">🐾</span>}
       {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
-      <span className="truncate font-medium">{b.guest_name}{b._virtual ? " *" : ""}</span>
+      {/* Booker + per-room occupant (multi-room bookings). */}
+      <span className="truncate font-medium">
+        {b.guest_name}
+        {occupantName ? <span className="opacity-80"> + {occupantName}</span> : null}
+        {b._virtual ? " *" : ""}
+      </span>
       {continuesRight && <span aria-hidden className="ml-auto shrink-0 opacity-70 -mr-0.5">›</span>}
 
     </button>
