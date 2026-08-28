@@ -638,7 +638,7 @@ function ChargeFormBody({
               <>Amount: <span className="font-medium text-gold">{inr(lineAmount)}</span></>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Field label="Added By">
               <div className="w-full bg-input/40 border border-border rounded-md px-3 py-2 text-sm text-muted-foreground">
                 {addedBy || <span className="italic">Signed-in user</span>}
@@ -656,8 +656,9 @@ function ChargeFormBody({
               className="w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm" />
           </Field>
         </div>
-        <DialogFooter>
-          <button onClick={() => onOpenChange(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
+        <DialogFooter className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-3 pb-1 bg-background/95 backdrop-blur border-t border-border/60 flex-col-reverse sm:flex-row gap-2">
+          <button onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto rounded-md border border-border px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
           <button
             disabled={
               mut.isPending
@@ -670,7 +671,7 @@ function ChargeFormBody({
               || perRoomMissing
             }
             onClick={() => mut.mutate()}
-            className="inline-flex items-center gap-2 rounded-md gold-gradient px-4 py-2 text-sm font-medium text-charcoal disabled:opacity-50"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-50"
           >
             {mut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             {editing
@@ -678,6 +679,7 @@ function ChargeFormBody({
               : (fanOutRooms > 1 ? `Add ${fanOutRooms} Charges` : "Add")}
           </button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );
