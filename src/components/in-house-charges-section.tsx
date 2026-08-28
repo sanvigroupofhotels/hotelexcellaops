@@ -459,11 +459,12 @@ function ChargeFormBody({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[calc(100vw-1.5rem)] sm:w-full max-w-md max-h-[92dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{editing ? "Edit Charge" : "Add In-House Charge"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
+
           {/* Category is picked first so per-room fan-out UI knows which mode to render. */}
           <Field label="Category *">
             <select value={category} onChange={(e) => setCategory(e.target.value)}
