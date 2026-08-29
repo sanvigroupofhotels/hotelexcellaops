@@ -325,10 +325,16 @@ export async function pruneSurplusAssignments(booking_id: string) {
   const isProtected = (s: BookingRoomAssignmentRow) => {
     if (s.item_id && liveItemIds.has(s.item_id)) return true;
     if (s.room_id && occupiedRoomIds.has(s.room_id)) return true;
-    // Unknown business date → assume the segment may already be occupied.
-    if (bookingLive && (!businessDate || s.start_date <= businessDate)) return true;
     return false;
   };
+
+  // A segment that has already STARTED on an in-house booking is history — it
+  // must never be hard-deleted, but it must not keep blocking the room either.
+  // Such surplus segments are CLOSED at the business date (room free from
+  // today forward, past occupancy preserved). Not-yet-started segments are
+  // pure holds and can be deleted outright.
+  const isHistorical = (s: BookingRoomAssignmentRow) =>
+    bookingLive && (!businessDate || s.start_date <= businessDate);
 
   const prunable = open.filter((s) => !isProtected(s));
   const protectedCount = open.length - prunable.length;
@@ -341,11 +347,25 @@ export async function pruneSurplusAssignments(booking_id: string) {
     .sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at))
     .slice(0, dropCount);
 
-  const { error } = await supabase
-    .from("booking_room_assignments" as any)
-    .delete()
-    .in("id", surplus.map((s) => s.id));
-  if (error) throw error;
+  const toClose = surplus.filter(isHistorical);
+  const toDelete = surplus.filter((s) => !isHistorical(s));
+
+  for (const s of toClose) {
+    const closeAt = businessDate && businessDate > s.start_date ? businessDate : s.start_date;
+    const { error: closeErr } = await supabase
+      .from("booking_room_assignments" as any)
+      .update({ end_date: closeAt, ended_reason: "room_removed" } as any)
+      .eq("id", s.id);
+    if (closeErr) throw closeErr;
+  }
+
+  if (toDelete.length > 0) {
+    const { error } = await supabase
+      .from("booking_room_assignments" as any)
+      .delete()
+      .in("id", toDelete.map((s) => s.id));
+    if (error) throw error;
+  }
 
   for (const s of surplus) {
     if (s.item_id && liveItemIds.has(s.item_id)) continue;
@@ -367,6 +387,7 @@ export async function pruneSurplusAssignments(booking_id: string) {
       } catch { /* non-blocking */ }
     }
   }
+
 }
 
 /**
