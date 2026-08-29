@@ -168,11 +168,24 @@ function BookingDetail() {
         notes: reason,
         metadata: { outstanding_balance: balance },
       });
+      // UAT-054: override-checkout wrote only bookings.status, so room items
+      // stayed 'Checked-In' and occupancy segments stayed open — House View
+      // then painted the departed rooms green. Route through the SAME shared
+      // lifecycle + segment engines as a clean checkout.
+      try {
+        const { fanOutBookingStatusToItems } = await import("@/lib/booking-item-lifecycle");
+        await fanOutBookingStatusToItems(id, "Checked-Out");
+      } catch { /* non-blocking */ }
+      try {
+        const { closeOpenSegmentsForBooking } = await import("@/lib/booking-item-operations-api");
+        await closeOpenSegmentsForBooking(id);
+      } catch { /* non-blocking */ }
       // Housekeeping side-effect on override-checkout (same as clean checkout).
       try {
         const { onBookingCheckedOut } = await import("@/lib/hk-checkout-hook");
         await onBookingCheckedOut(id);
       } catch { /* non-blocking */ }
+
     },
     onSuccess: () => { invalidateAll(); toast.warning("Checked-out with outstanding balance (override recorded)"); },
     onError: (e: any) => toast.error(e.message),

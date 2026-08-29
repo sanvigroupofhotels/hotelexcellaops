@@ -48,33 +48,88 @@ export async function setBusinessDate(date: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * ITEM-AWARE pending computation (UAT-054).
+ *
+ * A multi-room booking is a set of independent Booking Items, each with its own
+ * arrival/departure dates and its own lifecycle. Night Audit must therefore
+ * judge PER ROOM, not on the parent booking row:
+ *
+ *   • Pending check-in  → the booking has at least one item whose own
+ *     `check_in <= business_date` and whose `item_status` is still pre-arrival
+ *     (Confirmed / null). Items arriving AFTER the business date can never be
+ *     checked in yet, so they must never block the audit.
+ *   • Pending check-out → the booking has at least one item still `Checked-In`
+ *     whose own `check_out < business_date` (overdue departure).
+ *
+ * Bookings with no items fall back to the parent booking dates/status.
+ */
+const PRE_ARRIVAL_ITEM = new Set(["Confirmed", "Pending", "Draft", ""]);
+const TERMINAL_ITEM = new Set(["Cancelled", "No-Show", "Removed", "Checked-Out"]);
+
 export async function getPendingForAudit(businessDate?: string): Promise<{
   businessDate: string;
   pendingCheckIns: PendingBooking[];
   pendingCheckOuts: PendingBooking[];
 }> {
   const bd = businessDate ?? (await getBusinessDate());
+  const SELECT = "id,booking_reference,guest_name,phone,check_in,check_out,status,room_id";
 
   const [{ data: ci }, { data: co }, { data: rooms }] = await Promise.all([
-    // Pending Check-In = arrival scheduled ON or BEFORE the business date that
-    // hasn't been checked-in yet. Today's arrivals count as pending: Business
-    // Date must never advance while any expected guest is still un-arrived.
-    // Includes `Pending`, `Confirmed`, `Draft`, `Advance Paid`, etc.
-    db().from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
+    // Candidate arrivals — parent arrival on/before the business date and not
+    // in a terminal state. Item-level filtering happens below.
+    db().from("bookings" as any).select(SELECT)
       .lte("check_in", bd)
-      .not("status", "in", "(Checked-In,Checked-Out,Cancelled,Stay Completed,No-Show)")
+      .not("status", "in", "(Checked-Out,Cancelled,Stay Completed,No-Show)")
       .order("check_in", { ascending: true }),
-    // UAT-037: Pending Check-Out = still Checked-In with a departure STRICTLY
-    // BEFORE the business date. Same-day departures (check_out == bd) are
-    // allowed to remain Checked-In while the day is being closed — Reception
-    // routinely processes them during Night Audit itself. Only overdue
-    // departures (check_out < bd) block Business Date advancement.
-    db().from("bookings" as any).select("id,booking_reference,guest_name,phone,check_in,check_out,status,room_id")
+    // UAT-037: only OVERDUE departures block (check_out < bd). Same-day
+    // departures are processed during the audit itself.
+    db().from("bookings" as any).select(SELECT)
       .lt("check_out", bd)
-      .eq("status", "Checked-In" as any)
+      .not("status", "in", "(Checked-Out,Cancelled,Stay Completed,No-Show,Draft)")
       .order("check_out", { ascending: true }),
     db().from("rooms" as any).select("id,room_number"),
   ]);
+
+  const candidateIds = Array.from(new Set([
+    ...((ci ?? []) as any[]).map((r) => r.id as string),
+    ...((co ?? []) as any[]).map((r) => r.id as string),
+  ]));
+
+  const itemsByBooking = new Map<string, any[]>();
+  if (candidateIds.length > 0) {
+    const { data: items } = await db()
+      .from("booking_items" as any)
+      .select("booking_id,check_in,check_out,item_status")
+      .in("booking_id", candidateIds);
+    for (const it of ((items ?? []) as any[])) {
+      const list = itemsByBooking.get(it.booking_id) ?? [];
+      list.push(it);
+      itemsByBooking.set(it.booking_id, list);
+    }
+  }
+
+  const hasPendingArrival = (b: any): boolean => {
+    const items = itemsByBooking.get(b.id) ?? [];
+    if (items.length === 0) return true; // legacy booking — parent row decides
+    return items.some((it) => {
+      const st = String(it.item_status ?? "Confirmed");
+      if (TERMINAL_ITEM.has(st) || st === "Checked-In") return false;
+      if (!PRE_ARRIVAL_ITEM.has(st)) return false;
+      const arrival = String(it.check_in ?? b.check_in ?? "");
+      return arrival !== "" && arrival <= bd;
+    });
+  };
+
+  const hasOverdueDeparture = (b: any): boolean => {
+    const items = itemsByBooking.get(b.id) ?? [];
+    if (items.length === 0) return String(b.status) === "Checked-In";
+    return items.some((it) => {
+      if (String(it.item_status ?? "") !== "Checked-In") return false;
+      const departure = String(it.check_out ?? b.check_out ?? "");
+      return departure !== "" && departure < bd;
+    });
+  };
 
   const roomMap = new Map<string, string>((rooms ?? []).map((r: any) => [r.id, r.room_number]));
   const decorate = (rows: any[] = []): PendingBooking[] => rows.map((r) => ({
@@ -84,10 +139,11 @@ export async function getPendingForAudit(businessDate?: string): Promise<{
 
   return {
     businessDate: bd,
-    pendingCheckIns: decorate(ci ?? []),
-    pendingCheckOuts: decorate(co ?? []),
+    pendingCheckIns: decorate(((ci ?? []) as any[]).filter(hasPendingArrival)),
+    pendingCheckOuts: decorate(((co ?? []) as any[]).filter(hasOverdueDeparture)),
   };
 }
+
 
 export interface PerformAuditResult {
   ok: boolean;
