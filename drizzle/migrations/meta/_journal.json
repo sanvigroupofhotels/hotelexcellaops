@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788033838000,
+      "tag": "0000_relax_checkin_assignment_gate_to_arrived_rooms",
+      "breakpoints": true
+    }
+  ]
+}
