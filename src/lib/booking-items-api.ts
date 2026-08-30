@@ -148,9 +148,91 @@ export async function addBookingItems(booking_id: string, items: BookingItemInpu
   return (data ?? []) as unknown as BookingItemRow[];
 }
 
+/**
+ * Operational (per-room) state that belongs to the PHYSICAL room stay, not to
+ * the priced line. Editing a booking rewrites the priced lines by delete +
+ * re-insert, so this state must be carried across or reception silently loses
+ * room assignments, occupant names and per-room check-in/out history.
+ */
+type CarriedItemState = {
+  assigned_room_id: string | null;
+  primary_occupant_name: string | null;
+  primary_phone: string | null;
+  item_status: string | null;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
+  added_during_stay: boolean | null;
+  operational_notes?: string | null;
+};
+
+function hasOperationalState(s: CarriedItemState) {
+  return !!(s.assigned_room_id || s.primary_occupant_name || s.primary_phone
+    || s.checked_in_at || s.checked_out_at
+    || (s.item_status && s.item_status !== "Confirmed"));
+}
+
+const normType = (v?: string | null) => String(v ?? "").trim().toLowerCase();
+
 export async function replaceBookingItems(booking_id: string, items: BookingItemInput[]) {
+  // Snapshot the per-room operational state BEFORE the destructive rewrite.
+  const previous = await listBookingItems(booking_id).catch(() => [] as BookingItemRow[]);
+  const carryPool = new Map<string, CarriedItemState[]>();
+  for (const it of [...previous].sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0))) {
+    const state: CarriedItemState = {
+      assigned_room_id: it.assigned_room_id ?? null,
+      primary_occupant_name: it.primary_occupant_name ?? null,
+      primary_phone: it.primary_phone ?? null,
+      item_status: (it.item_status as string | undefined) ?? null,
+      checked_in_at: it.checked_in_at ?? null,
+      checked_out_at: it.checked_out_at ?? null,
+      added_during_stay: it.added_during_stay ?? null,
+      operational_notes: (it as any).operational_notes ?? null,
+    };
+    if (!hasOperationalState(state)) continue;
+    const key = normType(it.room_type);
+    const arr = carryPool.get(key) ?? [];
+    arr.push(state);
+    carryPool.set(key, arr);
+  }
+
   await supabase.from("booking_items" as any).delete().eq("booking_id", booking_id);
   const created = await addBookingItems(booking_id, items);
+
+  // Re-attach the carried state, matching room type first, then any leftover.
+  if (carryPool.size) {
+    const takeState = (roomType: string): CarriedItemState | null => {
+      const exact = carryPool.get(normType(roomType));
+      if (exact?.length) return exact.shift()!;
+      for (const [, arr] of carryPool) if (arr.length) return arr.shift()!;
+      return null;
+    };
+    for (const row of created) {
+      const state = takeState(row.room_type);
+      if (!state) continue;
+      const patch: Record<string, unknown> = {
+        assigned_room_id: state.assigned_room_id,
+        primary_occupant_name: state.primary_occupant_name,
+        primary_phone: state.primary_phone,
+        checked_in_at: state.checked_in_at,
+        checked_out_at: state.checked_out_at,
+      };
+      if (state.item_status) patch.item_status = state.item_status;
+      if (state.added_during_stay != null) patch.added_during_stay = state.added_during_stay;
+      if (state.operational_notes != null) patch.operational_notes = state.operational_notes;
+      await supabase.from("booking_items" as any).update(patch as any).eq("id", row.id);
+      // Segments lost their item_id when the old row was deleted
+      // (ON DELETE SET NULL) — relink by room so occupancy history, House View
+      // colouring and the occupant label all keep pointing at the right room.
+      if (state.assigned_room_id) {
+        await supabase.from("booking_room_assignments" as any)
+          .update({ item_id: row.id } as any)
+          .eq("booking_id", booking_id)
+          .eq("room_id", state.assigned_room_id)
+          .is("item_id", null);
+      }
+    }
+  }
+
   try {
     // Scoped to THIS booking only — the un-scoped variant rewrites item_status
     // for every booking in the property, silently reverting per-room check-ins
@@ -171,6 +253,7 @@ export async function replaceBookingItems(booking_id: string, items: BookingItem
   }
   return created;
 }
+
 
 /** Convert quote items (snapshot) → booking item inputs. */
 export function quoteItemsToBookingInputs(items: QuoteItemRow[]): BookingItemInput[] {
