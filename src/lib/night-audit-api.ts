@@ -111,7 +111,7 @@ export async function getPendingForAudit(businessDate?: string): Promise<{
 
   const hasPendingArrival = (b: any): boolean => {
     const items = itemsByBooking.get(b.id) ?? [];
-    if (items.length === 0) return true; // legacy booking — parent row decides
+    if (items.length === 0) return String(b.status) !== "Checked-In"; // legacy booking — parent row decides; already checked-in guests are never pending arrivals
     return items.some((it) => {
       const st = String(it.item_status ?? "Confirmed");
       if (TERMINAL_ITEM.has(st) || st === "Checked-In") return false;
