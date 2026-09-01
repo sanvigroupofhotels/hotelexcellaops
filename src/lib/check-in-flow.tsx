@@ -172,11 +172,24 @@ export function useCheckInController(
         }).catch(() => { /* legacy log is best-effort */ });
       }
       toast.success(docsForced ? "Checked-In (documents pending)" : "Checked-In Successfully");
+      // Every surface that reads room-level state must repaint immediately:
+      // Booking Detail room list, Room Management, House View chips, in-house
+      // pickers. The shared refresh choke-point covers booking + item +
+      // assignment + house-view caches in one place.
+      try {
+        const { refreshAfterBookingMutation } = await import("@/lib/booking-pricing-sync");
+        await refreshAfterBookingMutation(qc, id, { skipPricing: true });
+      } catch { /* invalidations below are the safety net */ }
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["booking", id] });
+      qc.invalidateQueries({ queryKey: ["booking-items", id] });
+      qc.invalidateQueries({ queryKey: ["booking-items-all"] });
+      qc.invalidateQueries({ queryKey: ["booking-item-activities", id] });
       qc.invalidateQueries({ queryKey: ["booking-room-assignments", id] });
       qc.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
       qc.invalidateQueries({ queryKey: ["booking-room-assignments-all-home"] });
+      qc.invalidateQueries({ queryKey: ["house-view"] });
+      qc.invalidateQueries({ queryKey: ["in-house-items"] });
       qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
       opts?.onCheckedIn?.(id);
     } catch (e: any) {
@@ -187,8 +200,12 @@ export function useCheckInController(
   };
 
   /** Refetch state and advance to the next unmet gate (or commit). */
-  const evaluate = async (id: string, opts2?: { skipDocs?: boolean }) => {
+  const evaluate = async (
+    id: string,
+    opts2?: { skipDocs?: boolean; itemId?: string | null },
+  ) => {
     try {
+      const targetItemId = opts2?.itemId ?? itemId ?? null;
       const [b, items, docs, assignments] = await Promise.all([
         getBooking(id),
         listBookingItems(id),
@@ -211,9 +228,17 @@ export function useCheckInController(
       }
 
       const hasDocs = (docs?.length ?? 0) > 0;
-      const required = requiredRoomCount(items as any);
-      const assignedItems = (items as any[]).filter((it) => it.assigned_room_id).length;
-      const fullyAssigned = assignedItems >= required || (assignments?.length ?? 0) >= required;
+      // Room-level check-in only needs ITS OWN room assigned; booking-level
+      // check-in still needs every operational room assigned.
+      let fullyAssigned: boolean;
+      if (targetItemId) {
+        const target = (items as any[]).find((it) => it.id === targetItemId);
+        fullyAssigned = !!target?.assigned_room_id;
+      } else {
+        const required = requiredRoomCount(items as any);
+        const assignedItems = (items as any[]).filter((it) => it.assigned_room_id).length;
+        fullyAssigned = assignedItems >= required || (assignments?.length ?? 0) >= required;
+      }
 
       const docsOk = hasDocs || docsForced || opts2?.skipDocs === true;
       if (!docsOk) {
@@ -225,18 +250,20 @@ export function useCheckInController(
         return;
       }
 
-      await commit(id, b.status ?? null);
+      await commit(id, b.status ?? null, targetItemId);
     } catch (e: any) {
       toast.error(e?.message ?? "Could not start Check-In");
       reset();
     }
   };
 
-  const start = (id: string) => {
+  const start = (id: string, targetItemId?: string | null) => {
     setBookingId(id);
+    setItemId(targetItemId ?? null);
     setStep("committing"); // placeholder while fetching; prevents double-clicks
-    void evaluate(id);
+    void evaluate(id, { itemId: targetItemId ?? null });
   };
+
 
   const reEvaluate = () => {
     if (!bookingId) return;
