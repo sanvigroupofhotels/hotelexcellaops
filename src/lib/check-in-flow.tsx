@@ -77,8 +77,13 @@ export interface UseCheckInControllerOptions {
 }
 
 export interface CheckInController {
-  /** Begin the check-in gate sequence for this booking. */
-  start: (bookingId: string) => void;
+  /**
+   * Begin the check-in gate sequence for this booking.
+   * Pass `itemId` to check in ONE room of a multi-room booking: the gates are
+   * identical, but the commit routes through the shared per-room engine so
+   * sibling rooms are untouched and the parent booking status is derived.
+   */
+  start: (bookingId: string, itemId?: string | null) => void;
   /** Render exactly once near the root of the consuming component. */
   dialogs: React.ReactNode;
   /** True while a gate dialog is open or the commit is in flight. */
@@ -90,6 +95,8 @@ export function useCheckInController(
 ): CheckInController {
   const qc = useQueryClient();
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [itemId, setItemId] = useState<string | null>(null);
+
   const [step, setStep] = useState<Step>("idle");
   const [phoneValue, setPhoneValue] = useState("");
   const [phoneSaving, setPhoneSaving] = useState(false);
