@@ -123,6 +123,15 @@ export async function checkInBookingItem(itemId: string) {
     .update({ item_status: "Checked-In", checked_in_at: new Date().toISOString() } as any)
     .eq("id", itemId);
   if (error) throw error;
+  // Housekeeping parity with booking-level check-in: the arriving room needs
+  // its service task regardless of which surface triggered the check-in.
+  // Idempotent + non-blocking.
+  try {
+    const { onBookingCheckedIn } = await import("@/lib/hk-checkout-hook");
+    await onBookingCheckedIn(item.booking_id);
+  } catch {
+    /* non-blocking housekeeping fanout */
+  }
   await logItemActivity({
     item_id: itemId,
     booking_id: item.booking_id,
@@ -134,6 +143,7 @@ export async function checkInBookingItem(itemId: string) {
     metadata: { room_id: item.assigned_room_id },
   });
   await syncParent(item.booking_id);
+
 }
 
 export async function checkOutBookingItem(itemId: string, opts: { allowOverride?: boolean } = {}) {
