@@ -110,6 +110,7 @@ export function useCheckInController(
 
   const reset = () => {
     setBookingId(null);
+    setItemId(null);
     setStep("idle");
     setPhoneValue("");
     setPhoneSaving(false);
@@ -121,25 +122,34 @@ export function useCheckInController(
     setForceReasonOther("");
   };
 
-  const commit = async (id: string, prevStatus: string | null) => {
+  const commit = async (id: string, prevStatus: string | null, targetItemId?: string | null) => {
     setStep("committing");
     try {
-      const { transitionBookingStatus } = await import("@/lib/booking-status");
-      await transitionBookingStatus({
-        booking_id: id,
-        kind: "check_in",
-        page: "Check-In",
-        source: "manual",
-        metadata: opts?.note ? { note: opts.note } : null,
-      });
-      // Keep the legacy per-booking activity feed in sync.
-      await logBookingActivity({
-        booking_id: id,
-        action: "check_in",
-        from_status: prevStatus,
-        to_status: "Checked-In",
-        notes: opts?.note ?? null,
-      });
+      if (targetItemId) {
+        // Room-level check-in: shared per-room engine. The parent booking
+        // status is derived from the room statuses (see
+        // booking-item-lifecycle), so siblings are never touched.
+        const { checkInBookingItem } = await import("@/lib/booking-item-operations-api");
+        await checkInBookingItem(targetItemId);
+      } else {
+        const { transitionBookingStatus } = await import("@/lib/booking-status");
+        await transitionBookingStatus({
+          booking_id: id,
+          kind: "check_in",
+          page: "Check-In",
+          source: "manual",
+          metadata: opts?.note ? { note: opts.note } : null,
+        });
+        // Keep the legacy per-booking activity feed in sync.
+        await logBookingActivity({
+          booking_id: id,
+          action: "check_in",
+          from_status: prevStatus,
+          to_status: "Checked-In",
+          notes: opts?.note ?? null,
+        });
+      }
+
       // If documents were force-bypassed, record a dedicated audit entry.
       if (docsForced) {
         const finalReason = forceReason === "Other"
