@@ -1331,7 +1331,12 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   // UAT-044: signed balance — negative = overpaid (Guest Credit).
   const balance = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : (totalCharges - Number(b.advance_paid || 0));
   const today = businessDate ?? dateKey(new Date());
-  const status = b.status as string;
+  // A chip on House View represents ONE physical room. When it is tied to a
+  // Booking Item, that room's own lifecycle status drives the popup — a
+  // multi-room booking can have room 101 in-house while 102 has departed.
+  const chipItemId = ((b as any)._itemId ?? null) as string | null;
+  const status = (chipItemId ? ((b as any)._itemStatus ?? b.status) : b.status) as string;
+
   const [payOpen, setPayOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
@@ -1360,15 +1365,37 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
     enabled: invoiceOpen,
   });
 
+  const refreshRoomState = async () => {
+
+    try {
+      const { refreshAfterBookingMutation } = await import("@/lib/booking-pricing-sync");
+      await refreshAfterBookingMutation(qc, b.id, { skipPricing: true });
+    } catch { /* invalidations below are the safety net */ }
+    qc.invalidateQueries({ queryKey: ["bookings"] });
+    qc.invalidateQueries({ queryKey: ["booking-items-all"] });
+    qc.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
+    qc.invalidateQueries({ queryKey: ["house-view"] });
+    qc.invalidateQueries({ queryKey: ["in-house-items"] });
+    qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
+  };
+
   const checkIn = useCheckInController({ onCheckedIn: () => onClose() });
   const checkOutMut = useMutation({
     mutationFn: async () => {
+      // Room-by-room departure: a chip bound to a Booking Item checks out ONLY
+      // that room through the shared per-room engine. The parent booking is
+      // derived — it closes only once every applicable room has departed.
+      if (chipItemId) {
+        const { checkOutBookingItem } = await import("@/lib/booking-item-operations-api");
+        await checkOutBookingItem(chipItemId);
+        return;
+      }
       const { setBookingStatus } = await import("@/lib/bookings-api");
       await setBookingStatus(b.id, "Checked-Out" as any);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Checked-out");
-      qc.invalidateQueries({ queryKey: ["bookings"] });
+      await refreshRoomState();
       onClose();
     },
     onError: (e: any) => toast.error(e.message),
@@ -1378,15 +1405,16 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
       const { setBookingStatus } = await import("@/lib/bookings-api");
       await setBookingStatus(b.id, "No-Show" as any);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Marked as No-Show");
-      qc.invalidateQueries({ queryKey: ["bookings"] });
+      await refreshRoomState();
       onClose();
     },
     onError: (e: any) => toast.error(e.message),
   });
 
-  const handleCheckIn = () => checkIn.start(b.id);
+  const handleCheckIn = () => checkIn.start(b.id, chipItemId);
+
 
   // Dynamic action button:
   //   Case 1: Balance > 0 (not yet checked-out)  → Add Payment

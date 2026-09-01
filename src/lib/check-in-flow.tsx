@@ -77,8 +77,13 @@ export interface UseCheckInControllerOptions {
 }
 
 export interface CheckInController {
-  /** Begin the check-in gate sequence for this booking. */
-  start: (bookingId: string) => void;
+  /**
+   * Begin the check-in gate sequence for this booking.
+   * Pass `itemId` to check in ONE room of a multi-room booking: the gates are
+   * identical, but the commit routes through the shared per-room engine so
+   * sibling rooms are untouched and the parent booking status is derived.
+   */
+  start: (bookingId: string, itemId?: string | null) => void;
   /** Render exactly once near the root of the consuming component. */
   dialogs: React.ReactNode;
   /** True while a gate dialog is open or the commit is in flight. */
@@ -90,6 +95,8 @@ export function useCheckInController(
 ): CheckInController {
   const qc = useQueryClient();
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [itemId, setItemId] = useState<string | null>(null);
+
   const [step, setStep] = useState<Step>("idle");
   const [phoneValue, setPhoneValue] = useState("");
   const [phoneSaving, setPhoneSaving] = useState(false);
@@ -103,6 +110,7 @@ export function useCheckInController(
 
   const reset = () => {
     setBookingId(null);
+    setItemId(null);
     setStep("idle");
     setPhoneValue("");
     setPhoneSaving(false);
@@ -114,25 +122,34 @@ export function useCheckInController(
     setForceReasonOther("");
   };
 
-  const commit = async (id: string, prevStatus: string | null) => {
+  const commit = async (id: string, prevStatus: string | null, targetItemId?: string | null) => {
     setStep("committing");
     try {
-      const { transitionBookingStatus } = await import("@/lib/booking-status");
-      await transitionBookingStatus({
-        booking_id: id,
-        kind: "check_in",
-        page: "Check-In",
-        source: "manual",
-        metadata: opts?.note ? { note: opts.note } : null,
-      });
-      // Keep the legacy per-booking activity feed in sync.
-      await logBookingActivity({
-        booking_id: id,
-        action: "check_in",
-        from_status: prevStatus,
-        to_status: "Checked-In",
-        notes: opts?.note ?? null,
-      });
+      if (targetItemId) {
+        // Room-level check-in: shared per-room engine. The parent booking
+        // status is derived from the room statuses (see
+        // booking-item-lifecycle), so siblings are never touched.
+        const { checkInBookingItem } = await import("@/lib/booking-item-operations-api");
+        await checkInBookingItem(targetItemId);
+      } else {
+        const { transitionBookingStatus } = await import("@/lib/booking-status");
+        await transitionBookingStatus({
+          booking_id: id,
+          kind: "check_in",
+          page: "Check-In",
+          source: "manual",
+          metadata: opts?.note ? { note: opts.note } : null,
+        });
+        // Keep the legacy per-booking activity feed in sync.
+        await logBookingActivity({
+          booking_id: id,
+          action: "check_in",
+          from_status: prevStatus,
+          to_status: "Checked-In",
+          notes: opts?.note ?? null,
+        });
+      }
+
       // If documents were force-bypassed, record a dedicated audit entry.
       if (docsForced) {
         const finalReason = forceReason === "Other"
@@ -155,11 +172,24 @@ export function useCheckInController(
         }).catch(() => { /* legacy log is best-effort */ });
       }
       toast.success(docsForced ? "Checked-In (documents pending)" : "Checked-In Successfully");
+      // Every surface that reads room-level state must repaint immediately:
+      // Booking Detail room list, Room Management, House View chips, in-house
+      // pickers. The shared refresh choke-point covers booking + item +
+      // assignment + house-view caches in one place.
+      try {
+        const { refreshAfterBookingMutation } = await import("@/lib/booking-pricing-sync");
+        await refreshAfterBookingMutation(qc, id, { skipPricing: true });
+      } catch { /* invalidations below are the safety net */ }
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["booking", id] });
+      qc.invalidateQueries({ queryKey: ["booking-items", id] });
+      qc.invalidateQueries({ queryKey: ["booking-items-all"] });
+      qc.invalidateQueries({ queryKey: ["booking-item-activities", id] });
       qc.invalidateQueries({ queryKey: ["booking-room-assignments", id] });
       qc.invalidateQueries({ queryKey: ["booking-room-assignments-all"] });
       qc.invalidateQueries({ queryKey: ["booking-room-assignments-all-home"] });
+      qc.invalidateQueries({ queryKey: ["house-view"] });
+      qc.invalidateQueries({ queryKey: ["in-house-items"] });
       qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
       opts?.onCheckedIn?.(id);
     } catch (e: any) {
@@ -170,8 +200,12 @@ export function useCheckInController(
   };
 
   /** Refetch state and advance to the next unmet gate (or commit). */
-  const evaluate = async (id: string, opts2?: { skipDocs?: boolean }) => {
+  const evaluate = async (
+    id: string,
+    opts2?: { skipDocs?: boolean; itemId?: string | null },
+  ) => {
     try {
+      const targetItemId = opts2?.itemId ?? itemId ?? null;
       const [b, items, docs, assignments] = await Promise.all([
         getBooking(id),
         listBookingItems(id),
@@ -194,9 +228,17 @@ export function useCheckInController(
       }
 
       const hasDocs = (docs?.length ?? 0) > 0;
-      const required = requiredRoomCount(items as any);
-      const assignedItems = (items as any[]).filter((it) => it.assigned_room_id).length;
-      const fullyAssigned = assignedItems >= required || (assignments?.length ?? 0) >= required;
+      // Room-level check-in only needs ITS OWN room assigned; booking-level
+      // check-in still needs every operational room assigned.
+      let fullyAssigned: boolean;
+      if (targetItemId) {
+        const target = (items as any[]).find((it) => it.id === targetItemId);
+        fullyAssigned = !!target?.assigned_room_id;
+      } else {
+        const required = requiredRoomCount(items as any);
+        const assignedItems = (items as any[]).filter((it) => it.assigned_room_id).length;
+        fullyAssigned = assignedItems >= required || (assignments?.length ?? 0) >= required;
+      }
 
       const docsOk = hasDocs || docsForced || opts2?.skipDocs === true;
       if (!docsOk) {
@@ -208,18 +250,20 @@ export function useCheckInController(
         return;
       }
 
-      await commit(id, b.status ?? null);
+      await commit(id, b.status ?? null, targetItemId);
     } catch (e: any) {
       toast.error(e?.message ?? "Could not start Check-In");
       reset();
     }
   };
 
-  const start = (id: string) => {
+  const start = (id: string, targetItemId?: string | null) => {
     setBookingId(id);
+    setItemId(targetItemId ?? null);
     setStep("committing"); // placeholder while fetching; prevents double-clicks
-    void evaluate(id);
+    void evaluate(id, { itemId: targetItemId ?? null });
   };
+
 
   const reEvaluate = () => {
     if (!bookingId) return;
