@@ -73,11 +73,27 @@ export function itemStatusForBookingStatus(status: string): string | null {
 }
 
 /**
+ * While a booking-level fan-out is running, per-item actions must NOT re-derive
+ * the parent status: the parent was just written by the caller and the loop is
+ * mid-flight, so an intermediate derivation would flap the booking between
+ * Checked-In and Checked-Out. The fan-out re-derives once when it finishes.
+ */
+let fanOutDepth = 0;
+
+/**
  * Recompute the parent booking status from its items and persist it when it
  * changed. Called after every per-item lifecycle action so a partial check-in
  * or partial departure never leaves booking/item state inconsistent.
+ *
+ * Bidirectional sync contract (Room Management → Booking Detail → House View):
+ * the parent booking is only Checked-Out once EVERY applicable room has
+ * departed; any room still in-house keeps the booking Checked-In. Derived
+ * transitions also emit the booking activity entry and the housekeeping
+ * side-effect that the booking-level path would have produced, so a booking
+ * closed room-by-room behaves exactly like one closed from Booking Detail.
  */
 export async function syncBookingStatusFromItems(bookingId: string): Promise<string | null> {
+  if (fanOutDepth > 0) return null;
   const [{ data: booking }, { data: items }] = await Promise.all([
     supabase.from("bookings" as any).select("id, status").eq("id", bookingId).maybeSingle(),
     supabase.from("booking_items" as any).select("item_status").eq("booking_id", bookingId),
@@ -91,6 +107,26 @@ export async function syncBookingStatusFromItems(bookingId: string): Promise<str
     .update({ status: next } as any)
     .eq("id", bookingId);
   if (error) throw error;
+
+  // Keep the booking activity feed truthful about room-driven transitions.
+  try {
+    const { logBookingActivity } = await import("@/lib/booking-activities-api");
+    await logBookingActivity({
+      booking_id: bookingId,
+      action: next === "Checked-In" ? "check_in" : next === "Checked-Out" ? "check_out" : "reactivated",
+      from_status: current,
+      to_status: next,
+      notes: "Derived from room-level status",
+    } as any);
+  } catch { /* non-blocking */ }
+
+  // Housekeeping parity with the booking-level path. Both hooks are idempotent.
+  try {
+    const hk = await import("@/lib/hk-checkout-hook");
+    if (next === "Checked-Out") await hk.onBookingCheckedOut(bookingId);
+    else if (next === "Checked-In") await hk.onBookingCheckedIn(bookingId);
+  } catch { /* non-blocking */ }
+
   return next;
 }
 
@@ -100,8 +136,18 @@ export async function syncBookingStatusFromItems(bookingId: string): Promise<str
  * Root cause of the BJP Aditya (HEXB-310C65) case: booking-level Check-In /
  * Check-Out only wrote `bookings.status`, so every item stayed 'Confirmed'
  * forever. House View then had to guess whether a room had departed.
- * Items that are already terminal (Removed / Cancelled / No-Show) are skipped,
- * and an item that already departed is never re-stamped.
+ *
+ * Each room is now processed INDIVIDUALLY through the same shared per-room
+ * engines that Room Management uses (`checkInBookingItem` /
+ * `checkOutBookingItem`), so a booking-level action produces identical
+ * per-room results: occupancy segments closed on the business date, per-room
+ * housekeeping tasks, and a per-room activity timeline entry. When a room
+ * cannot be processed operationally (no assigned room, or the shared engine
+ * refuses), we fall back to stamping the status so booking and items never
+ * drift apart.
+ *
+ * Financial validation is NOT re-run here — the entry point (Booking Detail,
+ * Night Audit, override dialog) already decided the booking may depart.
  */
 export async function fanOutBookingStatusToItems(bookingId: string, status: string) {
   const target = itemStatusForBookingStatus(status);
@@ -109,24 +155,56 @@ export async function fanOutBookingStatusToItems(bookingId: string, status: stri
 
   const { data: items, error } = await supabase
     .from("booking_items" as any)
-    .select("id, item_status")
-    .eq("booking_id", bookingId);
+    .select("id, item_status, assigned_room_id")
+    .eq("booking_id", bookingId)
+    .order("position", { ascending: true });
   if (error) throw error;
 
-  const now = new Date().toISOString();
-  for (const it of ((items ?? []) as any[])) {
-    const cur = String(it.item_status ?? "Confirmed");
-    if (ITEM_IGNORED.has(cur) || cur === "Removed") continue;
-    if (cur === target) continue;
-    if (target === "Checked-In" && cur === "Checked-Out") continue; // already departed
+  const ops =
+    target === "Checked-In" || target === "Checked-Out"
+      ? await import("@/lib/booking-item-operations-api").catch(() => null)
+      : null;
 
-    const patch: Record<string, any> = { item_status: target };
-    if (target === "Checked-In") patch.checked_in_at = now;
-    if (target === "Checked-Out") patch.checked_out_at = now;
-    const { error: upErr } = await supabase
-      .from("booking_items" as any)
-      .update(patch as any)
-      .eq("id", it.id);
-    if (upErr) throw upErr;
+  const now = new Date().toISOString();
+  fanOutDepth += 1;
+  try {
+    for (const it of ((items ?? []) as any[])) {
+      const cur = String(it.item_status ?? "Confirmed");
+      if (ITEM_IGNORED.has(cur) || cur === "Removed") continue;
+      if (cur === target) continue;
+      if (target === "Checked-In" && cur === "Checked-Out") continue; // already departed
+
+      // Per-room operational path (preferred).
+      if (ops && it.assigned_room_id) {
+        try {
+          if (target === "Checked-In") {
+            await ops.checkInBookingItem(it.id);
+            continue;
+          }
+          if (target === "Checked-Out") {
+            await ops.checkOutBookingItem(it.id, { allowOverride: true });
+            continue;
+          }
+        } catch {
+          /* fall through to the status stamp below */
+        }
+      }
+
+      // A room with no physical room assigned can never be operationally
+      // in-house — leave it Confirmed rather than faking an occupancy.
+      if (target === "Checked-In" && !it.assigned_room_id) continue;
+
+      const patch: Record<string, any> = { item_status: target };
+      if (target === "Checked-In") patch.checked_in_at = now;
+      if (target === "Checked-Out") patch.checked_out_at = now;
+      const { error: upErr } = await supabase
+        .from("booking_items" as any)
+        .update(patch as any)
+        .eq("id", it.id);
+      if (upErr) throw upErr;
+    }
+  } finally {
+    fanOutDepth -= 1;
   }
 }
+
