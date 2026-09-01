@@ -1365,11 +1365,8 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
     enabled: invoiceOpen,
   });
 
-  const checkIn = useCheckInController({ onCheckedIn: () => onClose() });
-  const checkOutMut = useMutation({
-    mutationFn: async () => {
-      const { setBookingStatus } = await import("@/lib/bookings-api");
   const refreshRoomState = async () => {
+
     try {
       const { refreshAfterBookingMutation } = await import("@/lib/booking-pricing-sync");
       await refreshAfterBookingMutation(qc, b.id, { skipPricing: true });
