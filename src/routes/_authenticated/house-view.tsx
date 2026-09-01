@@ -1331,7 +1331,12 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   // UAT-044: signed balance — negative = overpaid (Guest Credit).
   const balance = (b.status === "Cancelled" || b.status === "No-Show") ? 0 : (totalCharges - Number(b.advance_paid || 0));
   const today = businessDate ?? dateKey(new Date());
-  const status = b.status as string;
+  // A chip on House View represents ONE physical room. When it is tied to a
+  // Booking Item, that room's own lifecycle status drives the popup — a
+  // multi-room booking can have room 101 in-house while 102 has departed.
+  const chipItemId = ((b as any)._itemId ?? null) as string | null;
+  const status = (chipItemId ? ((b as any)._itemStatus ?? b.status) : b.status) as string;
+
   const [payOpen, setPayOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
