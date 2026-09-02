@@ -124,7 +124,12 @@ export function useCheckInController(
     setForceReasonOther("");
   };
 
-  const commit = async (id: string, prevStatus: string | null, targetItemId?: string | null) => {
+  const commit = async (
+    id: string,
+    prevStatus: string | null,
+    targetItemId?: string | null,
+    allowDocsOverride = docsForced,
+  ) => {
     setStep("committing");
     try {
       if (targetItemId) {
@@ -132,7 +137,7 @@ export function useCheckInController(
         // status is derived from the room statuses (see
         // booking-item-lifecycle), so siblings are never touched.
         const { checkInBookingItem } = await import("@/lib/booking-item-operations-api");
-        await checkInBookingItem(targetItemId);
+        await checkInBookingItem(targetItemId, { allowOverride: allowDocsOverride });
       } else {
         const { transitionBookingStatus } = await import("@/lib/booking-status");
         await transitionBookingStatus({
@@ -205,7 +210,7 @@ export function useCheckInController(
   /** Refetch state and advance to the next unmet gate (or commit). */
   const evaluate = async (
     id: string,
-    opts2?: { skipDocs?: boolean; itemId?: string | null },
+    opts2?: { skipDocs?: boolean; itemId?: string | null; allowDocsOverride?: boolean },
   ) => {
     try {
       const targetItemId = opts2?.itemId ?? itemId ?? null;
@@ -253,7 +258,7 @@ export function useCheckInController(
         return;
       }
 
-      await commit(id, b.status ?? null, targetItemId);
+      await commit(id, b.status ?? null, targetItemId, opts2?.allowDocsOverride ?? docsForced);
     } catch (e: any) {
       toast.error(e?.message ?? "Could not start Check-In");
       reset();
@@ -390,8 +395,8 @@ export function useCheckInController(
                     return;
                   }
                   if (!bookingId) return;
-                  setDocsForced(true);
-                  void evaluate(bookingId, { skipDocs: true });
+                   setDocsForced(true);
+                   void evaluate(bookingId, { skipDocs: true, allowDocsOverride: true });
                 }}
               >
                 Force Check-In

@@ -168,7 +168,18 @@ export async function updateBooking(id: string, patch: Partial<BookingInput>) {
   return data as unknown as BookingRow;
 }
 
-export async function setBookingStatus(id: string, status: BookingStatus) {
+export async function setBookingStatus(
+  id: string,
+  status: BookingStatus,
+  opts: { allowOverride?: boolean } = {},
+) {
+  if (status === "Checked-In" && !opts.allowOverride) {
+    const { listGuestDocuments } = await import("@/lib/guest-documents-api");
+    const documents = await listGuestDocuments(id);
+    if (documents.length === 0) {
+      throw new Error("Guest documents are required before check-in.");
+    }
+  }
   // Read prior status so we can fire housekeeping side-effects only on real
   // transitions into Checked-Out (idempotent no-ops must not re-fire the hook).
   const { data: prior } = await supabase
