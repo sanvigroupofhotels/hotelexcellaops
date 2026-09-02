@@ -1425,8 +1425,10 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   //   Case 4: status = Checked-Out / Stay Completed                   → View Booking only
   let primary: { label: string; onClick: () => void; tone?: "gold" | "green" | "blue" } | null = null;
   if (status !== "Checked-Out" && status !== "Stay Completed" && status !== "Cancelled") {
-    if (status === "Checked-In") {
+    if (status === "Checked-In" && (balance <= 0 || canManage)) {
       primary = { label: "Check-Out", onClick: () => checkOutMut.mutate(), tone: "blue" };
+    } else if (status === "Checked-In" && balance > 0) {
+      primary = { label: "Add Payment", onClick: () => setPayOpen(true), tone: "gold" };
     } else if (balance > 0) {
       primary = { label: "Add Payment", onClick: () => setPayOpen(true), tone: "gold" };
     } else if (today >= b.check_in) {

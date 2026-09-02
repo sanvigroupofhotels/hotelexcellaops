@@ -585,6 +585,7 @@ function BookingDetail() {
               activeAssignments={activeAssignments as any[]}
               activities={itemActivities as any[]}
               businessDate={businessDate ?? null}
+              bookingBalance={balance}
               allowCheckoutOverride={canManage}
               busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemRemove.isPending || itemAdd.isPending || itemCheckIn.isPending || itemCheckOut.isPending || itemRevertCheckIn.isPending || itemRevertCheckOut.isPending}
               onAssign={(itemId) => {
@@ -1146,6 +1147,7 @@ function RoomManagementGrid({
   activeAssignments: any[];
   activities: any[];
   businessDate: string | null;
+  bookingBalance: number;
   busy: boolean;
   onAssign: (itemId: string) => void;
   onMove: (itemId: string, assignmentId: string) => void;
@@ -1504,9 +1506,18 @@ function RoomManagementGrid({
                       </DropdownMenuItem>
                     )}
                     {itemCanOperate && hasRoom && status !== "Checked-Out" && status === "Checked-In" && (
-                      <DropdownMenuItem onClick={() => onItemCheckOut(item.id)} className="cursor-pointer">
+                      <DropdownMenuItem
+                        onClick={() => onItemCheckOut(item.id)}
+                        disabled={bookingBalance > 0 && !allowCheckoutOverride}
+                        className="cursor-pointer"
+                      >
                         <LogOut className="h-3.5 w-3.5 mr-2" /> Check-Out
                       </DropdownMenuItem>
+                    )}
+                    {itemCanOperate && hasRoom && status === "Checked-In" && bookingBalance > 0 && !allowCheckoutOverride && (
+                      <div className="px-2 py-1 text-[10px] text-warning">
+                        Balance due — collect payment first
+                      </div>
                     )}
                     {status === "Checked-In" && (
                       <DropdownMenuItem onClick={() => onRevertItemCheckIn(item.id)} className="cursor-pointer">
