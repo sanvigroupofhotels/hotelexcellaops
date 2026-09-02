@@ -1400,7 +1400,6 @@ function RoomManagementGrid({
 
           const hasRoom = !!active?.id;
           const itemCanOperate = canEditRooms && status !== "Checked-Out" && status !== "Cancelled" && status !== "No-Show";
-          const canItemCheckOut = allowCheckoutOverride || bookingBalance(booking, items) <= 0;
           const isExpanded = !!expandedItems[item.id];
           const guestTitle = displayNameForItem(item, index, hasRoom);
           const dateLine = `${new Date(item.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(item.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`;
