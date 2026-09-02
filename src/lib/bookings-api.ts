@@ -201,7 +201,7 @@ export async function setBookingStatus(
   // Aditya / HEXB-310C65 inconsistency). Shared engine: booking-item-lifecycle.
   try {
     const { fanOutBookingStatusToItems } = await import("@/lib/booking-item-lifecycle");
-    await fanOutBookingStatusToItems(id, status);
+    await fanOutBookingStatusToItems(id, status, { allowOverride: opts.allowOverride });
   } catch {
     /* non-blocking — never fail the status change on item fan-out */
   }

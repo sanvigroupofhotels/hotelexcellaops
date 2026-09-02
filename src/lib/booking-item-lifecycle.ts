@@ -149,7 +149,11 @@ export async function syncBookingStatusFromItems(bookingId: string): Promise<str
  * Financial validation is NOT re-run here — the entry point (Booking Detail,
  * Night Audit, override dialog) already decided the booking may depart.
  */
-export async function fanOutBookingStatusToItems(bookingId: string, status: string) {
+export async function fanOutBookingStatusToItems(
+  bookingId: string,
+  status: string,
+  opts: { allowOverride?: boolean } = {},
+) {
   const target = itemStatusForBookingStatus(status);
   if (!target) return;
 
@@ -178,11 +182,11 @@ export async function fanOutBookingStatusToItems(bookingId: string, status: stri
       if (ops && it.assigned_room_id) {
         try {
           if (target === "Checked-In") {
-            await ops.checkInBookingItem(it.id);
+            await ops.checkInBookingItem(it.id, { allowOverride: opts.allowOverride });
             continue;
           }
           if (target === "Checked-Out") {
-            await ops.checkOutBookingItem(it.id, { allowOverride: true });
+            await ops.checkOutBookingItem(it.id, { allowOverride: opts.allowOverride });
             continue;
           }
         } catch {
