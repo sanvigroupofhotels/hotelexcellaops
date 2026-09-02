@@ -1132,6 +1132,8 @@ function RoomManagementGrid({
   onAddRoom,
   onItemCheckIn,
   onItemCheckOut,
+  bookingBalance,
+  allowCheckoutOverride,
   onRevertItemCheckIn,
   onRevertItemCheckOut,
   onRevertAllCheckIns,
