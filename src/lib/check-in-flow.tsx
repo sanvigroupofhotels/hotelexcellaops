@@ -33,6 +33,7 @@ import {
 import { listGuestDocuments } from "@/lib/guest-documents-api";
 import { logBookingActivity } from "@/lib/booking-activities-api";
 import { logActivity } from "@/lib/activity-log";
+import { useUserRole } from "@/hooks/use-role";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import {
@@ -94,6 +95,7 @@ export function useCheckInController(
   opts?: UseCheckInControllerOptions,
 ): CheckInController {
   const qc = useQueryClient();
+  const { canManage } = useUserRole();
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [itemId, setItemId] = useState<string | null>(null);
 
@@ -138,6 +140,7 @@ export function useCheckInController(
           kind: "check_in",
           page: "Check-In",
           source: "manual",
+          allow_override: docsForced,
           metadata: opts?.note ? { note: opts.note } : null,
         });
         // Keep the legacy per-booking activity feed in sync.
@@ -267,7 +270,7 @@ export function useCheckInController(
 
   const reEvaluate = () => {
     if (!bookingId) return;
-    void evaluate(bookingId);
+    void evaluate(bookingId, { itemId });
   };
 
   const dialogs = (
@@ -316,19 +319,21 @@ export function useCheckInController(
                   Capture or upload Guest ID now (recommended).
                 </div>
               </button>
-              <button
-                type="button"
-                onClick={() => setStep("force_reason")}
-                className="rounded-md border border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 px-4 py-3 text-left text-sm"
-              >
-                <div className="font-medium flex items-center gap-1.5">
-                  <ShieldAlert className="h-4 w-4 text-amber-600" />
-                  Force Check-In
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  Continue without documents. Action will be audited.
-                </div>
-              </button>
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => setStep("force_reason")}
+                  className="rounded-md border border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 px-4 py-3 text-left text-sm"
+                >
+                  <div className="font-medium flex items-center gap-1.5">
+                    <ShieldAlert className="h-4 w-4 text-amber-600" />
+                    Force Check-In
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Continue without documents. Action will be audited.
+                  </div>
+                </button>
+              )}
             </div>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>

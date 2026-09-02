@@ -48,6 +48,8 @@ export interface TransitionInput {
   reason?: string | null;
   /** When reverting, the status to roll back to. */
   revert_to_status?: BookingStatus;
+  /** Owner/Admin-only bypass for gates such as missing documents. */
+  allow_override?: boolean;
   source?: ActivitySource;
   page?: string;
   correlation_id?: string | null;
@@ -83,7 +85,7 @@ export async function transitionBookingStatus(
     return { booking_id, from_status: from, to_status: to };
   }
 
-  await setBookingStatus(booking_id, to);
+  await setBookingStatus(booking_id, to, { allowOverride: input.allow_override });
 
   await logActivity({
     page: input.page ?? "Bookings",
