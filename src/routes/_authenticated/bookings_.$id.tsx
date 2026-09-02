@@ -88,7 +88,7 @@ function BookingDetail() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, canManage } = useUserRole();
   const currentStaff = useCurrentStaff();
   // UAT-028: Payment Mode dropdowns everywhere read from the same shared
   // hook (Master Data → Finance → Payment Modes).
@@ -369,14 +369,9 @@ function BookingDetail() {
     onError: (e: any) => toast.error(e?.message ?? "Could not check in room item"),
   });
   const itemCheckOut = useMutation({
-    // Shared Checkout Validation Service enforces balance-due gate. Admins can
-    // still bypass via the booking-level override dialog for now; per-item
-    // override UI can layer on later without touching the API surface.
-    mutationFn: (input: string | { itemId: string; allowOverride?: boolean }) => {
-      const itemId = typeof input === "string" ? input : input.itemId;
-      const allowOverride = typeof input === "string" ? false : !!input.allowOverride;
-      return checkOutBookingItem(itemId, { allowOverride });
-    },
+    // Staff always uses the shared balance gate. Owner/Admin may use the same
+    // audited override capability as the booking-level checkout action.
+    mutationFn: (itemId: string) => checkOutBookingItem(itemId, { allowOverride: canManage }),
     onSuccess: () => { invalidateAll(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room item checked out"); },
     onError: (e: any) => toast.error(e?.message ?? "Could not check out room item"),
   });
@@ -590,6 +585,8 @@ function BookingDetail() {
               activeAssignments={activeAssignments as any[]}
               activities={itemActivities as any[]}
               businessDate={businessDate ?? null}
+              bookingBalance={balance}
+              allowCheckoutOverride={canManage}
               busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemRemove.isPending || itemAdd.isPending || itemCheckIn.isPending || itemCheckOut.isPending || itemRevertCheckIn.isPending || itemRevertCheckOut.isPending}
               onAssign={(itemId) => {
                 setTargetItemId(itemId);
@@ -669,7 +666,7 @@ function BookingDetail() {
                     return;
                   }
                   if (balance <= 0) { status.mutate("Checked-Out" as any); return; }
-                  if (isAdmin) { setOverrideOpen(true); return; }
+                  if (canManage) { setOverrideOpen(true); return; }
                   toast.error("Balance due — collect payment before check-out");
                 };
                 // Shared Check-In controller — single source of truth for the
@@ -705,7 +702,7 @@ function BookingDetail() {
                           className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-xs hover:border-gold/40">
                           <LogOut className="h-3.5 w-3.5" /> Check-Out
                         </button>
-                        {balance > 0 && !isAdmin && (
+                        {balance > 0 && !canManage && (
                           <p className="text-[10px] text-warning">Balance due ₹{balance.toLocaleString("en-IN")} — collect payment to enable check-out.</p>
                         )}
                         {overpaid > 0 && (
@@ -1135,6 +1132,8 @@ function RoomManagementGrid({
   onAddRoom,
   onItemCheckIn,
   onItemCheckOut,
+  bookingBalance,
+  allowCheckoutOverride,
   onRevertItemCheckIn,
   onRevertItemCheckOut,
   onRevertAllCheckIns,
@@ -1150,6 +1149,7 @@ function RoomManagementGrid({
   activeAssignments: any[];
   activities: any[];
   businessDate: string | null;
+  bookingBalance: number;
   busy: boolean;
   onAssign: (itemId: string) => void;
   onMove: (itemId: string, assignmentId: string) => void;
@@ -1167,6 +1167,7 @@ function RoomManagementGrid({
   }) => void;
   onItemCheckIn: (itemId: string) => void;
   onItemCheckOut: (itemId: string) => void;
+  allowCheckoutOverride: boolean;
   onRevertItemCheckIn: (itemId: string) => void;
   onRevertItemCheckOut: (itemId: string) => void;
   onRevertAllCheckIns: () => void;
@@ -1507,9 +1508,18 @@ function RoomManagementGrid({
                       </DropdownMenuItem>
                     )}
                     {itemCanOperate && hasRoom && status !== "Checked-Out" && status === "Checked-In" && (
-                      <DropdownMenuItem onClick={() => onItemCheckOut(item.id)} className="cursor-pointer">
+                      <DropdownMenuItem
+                        onClick={() => onItemCheckOut(item.id)}
+                        disabled={bookingBalance > 0 && !allowCheckoutOverride}
+                        className="cursor-pointer"
+                      >
                         <LogOut className="h-3.5 w-3.5 mr-2" /> Check-Out
                       </DropdownMenuItem>
+                    )}
+                    {itemCanOperate && hasRoom && status === "Checked-In" && bookingBalance > 0 && !allowCheckoutOverride && (
+                      <div className="px-2 py-1 text-[10px] text-warning">
+                        Balance due — collect payment first
+                      </div>
                     )}
                     {status === "Checked-In" && (
                       <DropdownMenuItem onClick={() => onRevertItemCheckIn(item.id)} className="cursor-pointer">

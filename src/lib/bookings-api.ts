@@ -168,7 +168,22 @@ export async function updateBooking(id: string, patch: Partial<BookingInput>) {
   return data as unknown as BookingRow;
 }
 
-export async function setBookingStatus(id: string, status: BookingStatus) {
+export async function setBookingStatus(
+  id: string,
+  status: BookingStatus,
+  opts: { allowOverride?: boolean } = {},
+) {
+  if (status === "Checked-In" && !opts.allowOverride) {
+    const { listGuestDocuments } = await import("@/lib/guest-documents-api");
+    const documents = await listGuestDocuments(id);
+    if (documents.length === 0) {
+      throw new Error("Guest documents are required before check-in.");
+    }
+  }
+  if (status === "Checked-Out" && !opts.allowOverride) {
+    const { assertCheckoutAllowed } = await import("@/lib/checkout-validation");
+    await assertCheckoutAllowed(id);
+  }
   // Read prior status so we can fire housekeeping side-effects only on real
   // transitions into Checked-Out (idempotent no-ops must not re-fire the hook).
   const { data: prior } = await supabase
@@ -186,7 +201,7 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
   // Aditya / HEXB-310C65 inconsistency). Shared engine: booking-item-lifecycle.
   try {
     const { fanOutBookingStatusToItems } = await import("@/lib/booking-item-lifecycle");
-    await fanOutBookingStatusToItems(id, status);
+    await fanOutBookingStatusToItems(id, status, { allowOverride: opts.allowOverride });
   } catch {
     /* non-blocking — never fail the status change on item fan-out */
   }

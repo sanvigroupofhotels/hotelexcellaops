@@ -114,9 +114,19 @@ async function syncParent(bookingId: string) {
   }
 }
 
-export async function checkInBookingItem(itemId: string) {
+export async function checkInBookingItem(
+  itemId: string,
+  opts: { allowOverride?: boolean } = {},
+) {
   const item = await getItem(itemId);
   if (!item.assigned_room_id) throw new Error("Assign a room before item check-in.");
+  if (!opts.allowOverride) {
+    const { listGuestDocuments } = await import("@/lib/guest-documents-api");
+    const documents = await listGuestDocuments(item.booking_id);
+    if (documents.length === 0) {
+      throw new Error("Guest documents are required before check-in.");
+    }
+  }
   const previous = item.item_status ?? "Confirmed";
   const { error } = await supabase
     .from("booking_items" as any)

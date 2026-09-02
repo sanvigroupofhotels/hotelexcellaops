@@ -23,6 +23,7 @@ import { issueBookingToken } from "@/lib/portal.functions";
 import { publicOrigin } from "@/lib/public-url";
 import { BlockRoomDialog } from "@/components/block-room-dialog";
 import { useCheckInController } from "@/lib/check-in-flow";
+import { useUserRole } from "@/hooks/use-role";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { useChargeCategories } from "@/hooks/use-charge-categories";
 import { MetricCard, Money } from "@/components/money";
@@ -1316,6 +1317,7 @@ function Legend({ cls, label }: { cls: string; label: string }) {
 
 function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean; businessDate?: string }) {
   const qc = useQueryClient();
+  const { canManage } = useUserRole();
   const opsTimes = useOpsTimeLabels();
   const room = rooms.find((r: any) => r.id === b.room_id);
   const { data: chargesForBooking = [] } = useQuery({
@@ -1387,11 +1389,11 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
       // derived — it closes only once every applicable room has departed.
       if (chipItemId) {
         const { checkOutBookingItem } = await import("@/lib/booking-item-operations-api");
-        await checkOutBookingItem(chipItemId);
+        await checkOutBookingItem(chipItemId, { allowOverride: canManage });
         return;
       }
       const { setBookingStatus } = await import("@/lib/bookings-api");
-      await setBookingStatus(b.id, "Checked-Out" as any);
+      await setBookingStatus(b.id, "Checked-Out" as any, { allowOverride: canManage });
     },
     onSuccess: async () => {
       toast.success("Checked-out");
@@ -1423,8 +1425,10 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   //   Case 4: status = Checked-Out / Stay Completed                   → View Booking only
   let primary: { label: string; onClick: () => void; tone?: "gold" | "green" | "blue" } | null = null;
   if (status !== "Checked-Out" && status !== "Stay Completed" && status !== "Cancelled") {
-    if (status === "Checked-In") {
+    if (status === "Checked-In" && (balance <= 0 || canManage)) {
       primary = { label: "Check-Out", onClick: () => checkOutMut.mutate(), tone: "blue" };
+    } else if (status === "Checked-In" && balance > 0) {
+      primary = { label: "Add Payment", onClick: () => setPayOpen(true), tone: "gold" };
     } else if (balance > 0) {
       primary = { label: "Add Payment", onClick: () => setPayOpen(true), tone: "gold" };
     } else if (today >= b.check_in) {

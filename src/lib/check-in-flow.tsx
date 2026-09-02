@@ -33,6 +33,7 @@ import {
 import { listGuestDocuments } from "@/lib/guest-documents-api";
 import { logBookingActivity } from "@/lib/booking-activities-api";
 import { logActivity } from "@/lib/activity-log";
+import { useUserRole } from "@/hooks/use-role";
 import { RoomAssignmentDialog } from "@/components/room-assignment-dialog";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import {
@@ -94,6 +95,7 @@ export function useCheckInController(
   opts?: UseCheckInControllerOptions,
 ): CheckInController {
   const qc = useQueryClient();
+  const { canManage } = useUserRole();
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [itemId, setItemId] = useState<string | null>(null);
 
@@ -122,7 +124,12 @@ export function useCheckInController(
     setForceReasonOther("");
   };
 
-  const commit = async (id: string, prevStatus: string | null, targetItemId?: string | null) => {
+  const commit = async (
+    id: string,
+    prevStatus: string | null,
+    targetItemId?: string | null,
+    allowDocsOverride = docsForced,
+  ) => {
     setStep("committing");
     try {
       if (targetItemId) {
@@ -130,7 +137,7 @@ export function useCheckInController(
         // status is derived from the room statuses (see
         // booking-item-lifecycle), so siblings are never touched.
         const { checkInBookingItem } = await import("@/lib/booking-item-operations-api");
-        await checkInBookingItem(targetItemId);
+        await checkInBookingItem(targetItemId, { allowOverride: allowDocsOverride });
       } else {
         const { transitionBookingStatus } = await import("@/lib/booking-status");
         await transitionBookingStatus({
@@ -138,6 +145,7 @@ export function useCheckInController(
           kind: "check_in",
           page: "Check-In",
           source: "manual",
+          allow_override: docsForced,
           metadata: opts?.note ? { note: opts.note } : null,
         });
         // Keep the legacy per-booking activity feed in sync.
@@ -202,7 +210,7 @@ export function useCheckInController(
   /** Refetch state and advance to the next unmet gate (or commit). */
   const evaluate = async (
     id: string,
-    opts2?: { skipDocs?: boolean; itemId?: string | null },
+    opts2?: { skipDocs?: boolean; itemId?: string | null; allowDocsOverride?: boolean },
   ) => {
     try {
       const targetItemId = opts2?.itemId ?? itemId ?? null;
@@ -250,7 +258,7 @@ export function useCheckInController(
         return;
       }
 
-      await commit(id, b.status ?? null, targetItemId);
+      await commit(id, b.status ?? null, targetItemId, opts2?.allowDocsOverride ?? docsForced);
     } catch (e: any) {
       toast.error(e?.message ?? "Could not start Check-In");
       reset();
@@ -267,7 +275,7 @@ export function useCheckInController(
 
   const reEvaluate = () => {
     if (!bookingId) return;
-    void evaluate(bookingId);
+    void evaluate(bookingId, { itemId });
   };
 
   const dialogs = (
@@ -316,19 +324,21 @@ export function useCheckInController(
                   Capture or upload Guest ID now (recommended).
                 </div>
               </button>
-              <button
-                type="button"
-                onClick={() => setStep("force_reason")}
-                className="rounded-md border border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 px-4 py-3 text-left text-sm"
-              >
-                <div className="font-medium flex items-center gap-1.5">
-                  <ShieldAlert className="h-4 w-4 text-amber-600" />
-                  Force Check-In
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  Continue without documents. Action will be audited.
-                </div>
-              </button>
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => setStep("force_reason")}
+                  className="rounded-md border border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 px-4 py-3 text-left text-sm"
+                >
+                  <div className="font-medium flex items-center gap-1.5">
+                    <ShieldAlert className="h-4 w-4 text-amber-600" />
+                    Force Check-In
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Continue without documents. Action will be audited.
+                  </div>
+                </button>
+              )}
             </div>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -385,8 +395,8 @@ export function useCheckInController(
                     return;
                   }
                   if (!bookingId) return;
-                  setDocsForced(true);
-                  void evaluate(bookingId, { skipDocs: true });
+                   setDocsForced(true);
+                   void evaluate(bookingId, { skipDocs: true, allowDocsOverride: true });
                 }}
               >
                 Force Check-In
