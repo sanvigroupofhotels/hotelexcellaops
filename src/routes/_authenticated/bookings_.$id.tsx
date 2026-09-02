@@ -88,7 +88,7 @@ function BookingDetail() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, canManage } = useUserRole();
   const currentStaff = useCurrentStaff();
   // UAT-028: Payment Mode dropdowns everywhere read from the same shared
   // hook (Master Data → Finance → Payment Modes).
@@ -369,14 +369,9 @@ function BookingDetail() {
     onError: (e: any) => toast.error(e?.message ?? "Could not check in room item"),
   });
   const itemCheckOut = useMutation({
-    // Shared Checkout Validation Service enforces balance-due gate. Admins can
-    // still bypass via the booking-level override dialog for now; per-item
-    // override UI can layer on later without touching the API surface.
-    mutationFn: (input: string | { itemId: string; allowOverride?: boolean }) => {
-      const itemId = typeof input === "string" ? input : input.itemId;
-      const allowOverride = typeof input === "string" ? false : !!input.allowOverride;
-      return checkOutBookingItem(itemId, { allowOverride });
-    },
+    // Staff always uses the shared balance gate. Owner/Admin may use the same
+    // audited override capability as the booking-level checkout action.
+    mutationFn: (itemId: string) => checkOutBookingItem(itemId, { allowOverride: canManage }),
     onSuccess: () => { invalidateAll(); qc.invalidateQueries({ queryKey: ["booking-item-activities", id] }); toast.success("Room item checked out"); },
     onError: (e: any) => toast.error(e?.message ?? "Could not check out room item"),
   });
@@ -1167,6 +1162,7 @@ function RoomManagementGrid({
   }) => void;
   onItemCheckIn: (itemId: string) => void;
   onItemCheckOut: (itemId: string) => void;
+  allowCheckoutOverride: boolean;
   onRevertItemCheckIn: (itemId: string) => void;
   onRevertItemCheckOut: (itemId: string) => void;
   onRevertAllCheckIns: () => void;

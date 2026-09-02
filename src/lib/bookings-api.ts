@@ -180,6 +180,10 @@ export async function setBookingStatus(
       throw new Error("Guest documents are required before check-in.");
     }
   }
+  if (status === "Checked-Out" && !opts.allowOverride) {
+    const { assertCheckoutAllowed } = await import("@/lib/checkout-validation");
+    await assertCheckoutAllowed(id);
+  }
   // Read prior status so we can fire housekeeping side-effects only on real
   // transitions into Checked-Out (idempotent no-ops must not re-fire the hook).
   const { data: prior } = await supabase
