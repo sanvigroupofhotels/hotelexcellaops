@@ -585,6 +585,7 @@ function BookingDetail() {
               activeAssignments={activeAssignments as any[]}
               activities={itemActivities as any[]}
               businessDate={businessDate ?? null}
+              allowCheckoutOverride={canManage}
               busy={unassignRoom.isPending || itemRemoveRoom.isPending || itemRemove.isPending || itemAdd.isPending || itemCheckIn.isPending || itemCheckOut.isPending || itemRevertCheckIn.isPending || itemRevertCheckOut.isPending}
               onAssign={(itemId) => {
                 setTargetItemId(itemId);
@@ -664,7 +665,7 @@ function BookingDetail() {
                     return;
                   }
                   if (balance <= 0) { status.mutate("Checked-Out" as any); return; }
-                  if (isAdmin) { setOverrideOpen(true); return; }
+                  if (canManage) { setOverrideOpen(true); return; }
                   toast.error("Balance due — collect payment before check-out");
                 };
                 // Shared Check-In controller — single source of truth for the
@@ -700,7 +701,7 @@ function BookingDetail() {
                           className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-xs hover:border-gold/40">
                           <LogOut className="h-3.5 w-3.5" /> Check-Out
                         </button>
-                        {balance > 0 && !isAdmin && (
+                        {balance > 0 && !canManage && (
                           <p className="text-[10px] text-warning">Balance due ₹{balance.toLocaleString("en-IN")} — collect payment to enable check-out.</p>
                         )}
                         {overpaid > 0 && (
@@ -1399,6 +1400,7 @@ function RoomManagementGrid({
 
           const hasRoom = !!active?.id;
           const itemCanOperate = canEditRooms && status !== "Checked-Out" && status !== "Cancelled" && status !== "No-Show";
+          const canItemCheckOut = allowCheckoutOverride || bookingBalance(booking, items) <= 0;
           const isExpanded = !!expandedItems[item.id];
           const guestTitle = displayNameForItem(item, index, hasRoom);
           const dateLine = `${new Date(item.check_in).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} → ${new Date(item.check_out).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`;
