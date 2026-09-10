@@ -12,7 +12,7 @@ Important caveat: both existing tools call `supabase.from(...)` directly inside 
 
 ## A. What HEOS already has that MCP can reuse
 
-**Shared engines (documented in `docs/shared-engines.md`)** — one owner per domain, all side-effecting logic already funnelled through them:
+**Shared engines (documented in** `docs/shared-engines.md`**)** — one owner per domain, all side-effecting logic already funnelled through them:
 
 - Booking lifecycle: `bookings-api.ts` (`setBookingStatus` — now the central document/balance gate), `booking-status.ts` (`transitionBookingStatus`), `booking-create.ts`, `booking-stay.ts`
 - Booking Items (operational rooms): `booking-items-api.ts`, `booking-item-operations-api.ts` (`checkInBookingItem`, `checkOutBookingItem`, `moveBookingItemRoom`), `booking-item-lifecycle.ts` (fan-out + derivation), `booking-item-bulk.ts`
@@ -73,28 +73,30 @@ Principles: read-only, per-user token, RLS as the ceiling and permissions as the
 
 ## E. Proposed first 15–20 tools (all read-only)
 
-| Tool | Existing HEOS source | Data touched | Rules already enforced | Authz | Notes |
-|---|---|---|---|---|---|
-| `whoami` | existing | `user_roles` | RLS | any | shipped |
-| `get_business_date` | `night-audit-api.getBusinessDate` | `app_settings` | BD ≤ calendar date trigger | any | clock for all other tools |
-| `search_bookings` | `booking-search.ts` | bookings, items, customers | RLS | bookings.view | replaces ad-hoc `list_bookings` filters |
-| `get_booking` | `bookings-api.getBooking` | bookings | RLS | bookings.view | redact internal notes for non-manage |
-| `get_booking_items` | `booking-items-api` | booking_items | RLS | bookings.view | operational room truth |
-| `get_booking_balance` | `checkout-validation` / payments engine | payments, charges | shared balance math | bookings.view | Guest Credit semantics preserved |
-| `list_booking_charges` | `booking-charges-api` | booking_charges | RLS | bookings.view | per-room attribution included |
-| `list_booking_payments` | `booking-payments-api` | booking_payments | RLS | payments.view | no gateway payloads |
-| `arrivals` | `night-audit-api` / item queries | bookings, items | BD-scoped | bookings.view | item-aware |
-| `departures` | same | bookings, items | BD-scoped | bookings.view | item-aware |
-| `in_house_guests` | `in-house.ts` | items, segments | single in-house definition | bookings.view | |
-| `house_view` | `house-view-placement.ts` + `stay-segments.ts` | segments, items | lane/turnover rules | bookings.view | date-window capped |
-| `room_status` | `rooms-api`, `hk-status` | rooms, hk_tasks | RLS | rooms.view | |
-| `room_availability` | `room-inventory` / `room-type-availability-core` | items, blocks | nightly peak demand | bookings.view | never re-derive |
-| `list_housekeeping_tasks` | `hk-tasks.ts` | housekeeping_tasks | RLS | hk.view | |
-| `complaints_summary` | `complaints-api` | complaints | RLS | complaints.view | counts + open ages |
-| `night_audit_status` | `night-audit-api.getPendingForAudit` | bookings, items, sessions | item-aware blockers | na.view | read-only, no close |
-| `occupancy_revenue_summary` | `reporting/*`, `owner-dashboard.functions` | aggregates | date-range engine | reporting.view | owner/admin only |
-| `cash_summary` | `cash-report.ts` | cash_transactions | day/category rules | cash.view | owner/admin only |
-| `get_invoice_preview` | `invoice-document.ts` | booking + charges | shared invoice math | bookings.view | returns data, not a stored PDF |
+
+| Tool                        | Existing HEOS source                             | Data touched               | Rules already enforced     | Authz           | Notes                                   |
+| --------------------------- | ------------------------------------------------ | -------------------------- | -------------------------- | --------------- | --------------------------------------- |
+| `whoami`                    | existing                                         | `user_roles`               | RLS                        | any             | shipped                                 |
+| `get_business_date`         | `night-audit-api.getBusinessDate`                | `app_settings`             | BD ≤ calendar date trigger | any             | clock for all other tools               |
+| `search_bookings`           | `booking-search.ts`                              | bookings, items, customers | RLS                        | bookings.view   | replaces ad-hoc `list_bookings` filters |
+| `get_booking`               | `bookings-api.getBooking`                        | bookings                   | RLS                        | bookings.view   | redact internal notes for non-manage    |
+| `get_booking_items`         | `booking-items-api`                              | booking_items              | RLS                        | bookings.view   | operational room truth                  |
+| `get_booking_balance`       | `checkout-validation` / payments engine          | payments, charges          | shared balance math        | bookings.view   | Guest Credit semantics preserved        |
+| `list_booking_charges`      | `booking-charges-api`                            | booking_charges            | RLS                        | bookings.view   | per-room attribution included           |
+| `list_booking_payments`     | `booking-payments-api`                           | booking_payments           | RLS                        | payments.view   | no gateway payloads                     |
+| `arrivals`                  | `night-audit-api` / item queries                 | bookings, items            | BD-scoped                  | bookings.view   | item-aware                              |
+| `departures`                | same                                             | bookings, items            | BD-scoped                  | bookings.view   | item-aware                              |
+| `in_house_guests`           | `in-house.ts`                                    | items, segments            | single in-house definition | bookings.view   | &nbsp;                                  |
+| `house_view`                | `house-view-placement.ts` + `stay-segments.ts`   | segments, items            | lane/turnover rules        | bookings.view   | date-window capped                      |
+| `room_status`               | `rooms-api`, `hk-status`                         | rooms, hk_tasks            | RLS                        | rooms.view      | &nbsp;                                  |
+| `room_availability`         | `room-inventory` / `room-type-availability-core` | items, blocks              | nightly peak demand        | bookings.view   | never re-derive                         |
+| `list_housekeeping_tasks`   | `hk-tasks.ts`                                    | housekeeping_tasks         | RLS                        | hk.view         | &nbsp;                                  |
+| `complaints_summary`        | `complaints-api`                                 | complaints                 | RLS                        | complaints.view | counts + open ages                      |
+| `night_audit_status`        | `night-audit-api.getPendingForAudit`             | bookings, items, sessions  | item-aware blockers        | na.view         | read-only, no close                     |
+| `occupancy_revenue_summary` | `reporting/*`, `owner-dashboard.functions`       | aggregates                 | date-range engine          | reporting.view  | owner/admin only                        |
+| `cash_summary`              | `cash-report.ts`                                 | cash_transactions          | day/category rules         | cash.view       | owner/admin only                        |
+| `get_invoice_preview`       | `invoice-document.ts`                            | booking + charges          | shared invoice math        | bookings.view   | returns data, not a stored PDF          |
+
 
 Write candidates deferred to Phase 2+, each mapped to its existing engine and each requiring explicit confirmation: assign/unassign room and move room (`moveBookingItemRoom`, `splitAssignment`), check-in / check-out per item (`checkInBookingItem` / `checkOutBookingItem` with the docs and balance gates and role-aware override), add charge (`booking-charges-api`), update occupant, add/remove booking item (`replaceBookingItems` — high risk, state-preserving path), create/modify booking (`booking-create`, `booking-stay`), record payment (`booking-payments-api`), update HK status, cancel booking, generate invoice. Money, guest status, cancellation, and anything touching occupancy history are confirmation-required by definition; Night Audit close stays out entirely.
 
@@ -121,3 +123,221 @@ Per-user OAuth token only (no service role anywhere in `src/lib/mcp/`); `require
 ## Next step
 
 If this reading matches your intent, the follow-up plan would be Phase 1 only: add the read tools in section E on top of the existing MCP server, plus the in-tool permission check — no writes, no schema changes.
+
+&nbsp;
+
+&nbsp;
+
+My comments - 
+
+&nbsp;
+
+> Proceed with MCP Phase 1 — all proposed read-only tools from your architecture review.
+
+&nbsp;
+
+Implement the full Phase 1 read-only MCP surface:
+
+&nbsp;
+
+whoami
+
+&nbsp;
+
+get_business_date
+
+&nbsp;
+
+search_bookings
+
+&nbsp;
+
+get_booking
+
+&nbsp;
+
+get_booking_items
+
+&nbsp;
+
+get_booking_balance
+
+&nbsp;
+
+list_booking_charges
+
+&nbsp;
+
+list_booking_payments
+
+&nbsp;
+
+arrivals
+
+&nbsp;
+
+departures
+
+&nbsp;
+
+in_house_guests
+
+&nbsp;
+
+house_view
+
+&nbsp;
+
+room_status
+
+&nbsp;
+
+room_availability
+
+&nbsp;
+
+list_housekeeping_tasks
+
+&nbsp;
+
+complaints_summary
+
+&nbsp;
+
+night_audit_status
+
+&nbsp;
+
+occupancy_revenue_summary
+
+&nbsp;
+
+cash_summary
+
+&nbsp;
+
+get_invoice_preview
+
+&nbsp;
+
+&nbsp;
+
+Requirements:
+
+&nbsp;
+
+Keep the existing /mcp endpoint and OAuth architecture.
+
+&nbsp;
+
+Read-only only. No write tools in this phase.
+
+&nbsp;
+
+Use the authenticated HEOS user's identity, existing RLS, and appropriate user_effective_permissions.
+
+&nbsp;
+
+Do not introduce a service-role bypass.
+
+&nbsp;
+
+Do not expose arbitrary SQL/database querying.
+
+&nbsp;
+
+Reuse existing HEOS shared engines/services wherever they already exist. Do not duplicate business logic inside MCP.
+
+&nbsp;
+
+Business Date must come from the existing HEOS Business Date engine, never from the AI/client clock.
+
+&nbsp;
+
+Preserve Booking → Booking Item → Occupancy Segment architecture.
+
+&nbsp;
+
+Preserve all existing availability, pricing, charge, occupancy, House View, Night Audit and reporting rules.
+
+&nbsp;
+
+Apply appropriate PII minimisation, response caps, and stable JSON response shapes.
+
+&nbsp;
+
+Do not expose ID documents, signatures, tokens, sensitive staff data, or internal credentials.
+
+&nbsp;
+
+Do not make database/schema changes unless absolutely required for this read-only phase. If you believe one is necessary, stop and explain it before making the change.
+
+&nbsp;
+
+Do not modify existing PMS behaviour.
+
+&nbsp;
+
+Do not implement any future write architecture yet.
+
+&nbsp;
+
+&nbsp;
+
+For every tool, ensure errors are clear and useful to the MCP client and that authorization failures do not leak data.
+
+&nbsp;
+
+After implementation, test every Phase 1 tool against realistic HEOS data and run the existing HEOS test suite/typecheck.
+
+&nbsp;
+
+Report:
+
+&nbsp;
+
+1. Tools implemented.
+
+&nbsp;
+
+&nbsp;
+
+2. Exact HEOS source/engine used by each.
+
+&nbsp;
+
+&nbsp;
+
+3. Authentication/permission behavior.
+
+&nbsp;
+
+&nbsp;
+
+4. Any schema or architecture changes made.
+
+&nbsp;
+
+&nbsp;
+
+5. Test results.
+
+&nbsp;
+
+&nbsp;
+
+6. Any limitations discovered when exercising the tools through MCP.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Do not implement Phase 2 writes yet.
+
+&nbsp;
+
+The objective is to make Claude a reliable read-only HEOS operations assistant while keeping HEOS as the single source of truth.
+
+&nbsp;
