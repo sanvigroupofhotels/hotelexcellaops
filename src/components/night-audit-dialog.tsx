@@ -10,6 +10,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCheckInController } from "@/lib/check-in-flow";
+import { useUserRole } from "@/hooks/use-role";
 
 /**
  * Night Audit dialog.
@@ -24,6 +25,7 @@ import { useCheckInController } from "@/lib/check-in-flow";
 export function NightAuditDialog({ open, onClose, inline = false }: { open: boolean; onClose: () => void; inline?: boolean }) {
   const qc = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const { canManage } = useUserRole();
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
