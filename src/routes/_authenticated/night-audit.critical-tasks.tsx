@@ -106,7 +106,8 @@ function CriticalTasksPage() {
     if (!coId) return;
     setBusy(true);
     try {
-      await setBookingStatus(coId, "Checked-Out" as any);
+      // Owner/Admin keep the audited override; staff stay behind the balance gate.
+      await setBookingStatus(coId, "Checked-Out" as any, { allowOverride: canManage });
       await logBookingActivity({ booking_id: coId, action: "status_changed", summary: "Checked-Out from Critical Tasks" } as any);
       toast.success("Guest checked out");
       setCoId(null);

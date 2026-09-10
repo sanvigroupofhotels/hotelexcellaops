@@ -166,11 +166,15 @@ export async function performNightAudit(_opts: { mode?: "manual" | "auto"; actor
 }
 
 /** Bulk operations used by the Night Audit dialog. */
-export async function bulkSetStatus(ids: string[], status: "Checked-In" | "Checked-Out" | "Cancelled"): Promise<void> {
+export async function bulkSetStatus(
+  ids: string[],
+  status: "Checked-In" | "Checked-Out" | "Cancelled",
+  opts: { allowOverride?: boolean } = {},
+): Promise<void> {
   const { setBookingStatus } = await import("@/lib/bookings-api");
   const { logBookingActivity } = await import("@/lib/booking-activities-api");
   for (const id of ids) {
-    await setBookingStatus(id, status as any);
+    await setBookingStatus(id, status as any, { allowOverride: opts.allowOverride });
     await logBookingActivity({
       booking_id: id,
       action: status === "Checked-In" ? "check_in" : status === "Checked-Out" ? "check_out" : "cancelled",
