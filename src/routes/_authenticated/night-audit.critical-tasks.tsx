@@ -18,6 +18,7 @@ import { logBookingActivity } from "@/lib/booking-activities-api";
 import { listRooms } from "@/lib/rooms-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { performNightAuditNow } from "@/lib/perform-night-audit";
+import { useUserRole } from "@/hooks/use-role";
 
 type Tab = "checkins" | "checkouts";
 
@@ -38,6 +39,7 @@ function CriticalTasksPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { tab } = Route.useSearch();
+  const { canManage } = useUserRole();
   const activeTab = (tab as Tab) ?? "checkins";
 
   const pending = useQuery({ queryKey: ["night-audit-pending"], queryFn: () => getPendingForAudit() });
@@ -106,7 +108,8 @@ function CriticalTasksPage() {
     if (!coId) return;
     setBusy(true);
     try {
-      await setBookingStatus(coId, "Checked-Out" as any);
+      // Owner/Admin keep the audited override; staff stay behind the balance gate.
+      await setBookingStatus(coId, "Checked-Out" as any, { allowOverride: canManage });
       await logBookingActivity({ booking_id: coId, action: "status_changed", summary: "Checked-Out from Critical Tasks" } as any);
       toast.success("Guest checked out");
       setCoId(null);

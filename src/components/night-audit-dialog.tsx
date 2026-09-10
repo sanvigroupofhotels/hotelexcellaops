@@ -10,6 +10,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useCheckInController } from "@/lib/check-in-flow";
+import { useUserRole } from "@/hooks/use-role";
 
 /**
  * Night Audit dialog.
@@ -24,6 +25,7 @@ import { useCheckInController } from "@/lib/check-in-flow";
 export function NightAuditDialog({ open, onClose, inline = false }: { open: boolean; onClose: () => void; inline?: boolean }) {
   const qc = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const { canManage } = useUserRole();
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
@@ -46,7 +48,9 @@ export function NightAuditDialog({ open, onClose, inline = false }: { open: bool
       setBusyId(id);
       const { setBookingStatus } = await import("@/lib/bookings-api");
       const { logBookingActivity } = await import("@/lib/booking-activities-api");
-      await setBookingStatus(id, status as any);
+      // Owner/Admin keep the audited override; staff stay behind the shared
+      // document (check-in) and balance (check-out) gates.
+      await setBookingStatus(id, status as any, { allowOverride: canManage });
       await logBookingActivity({
         booking_id: id,
         action: status === "Checked-In" ? "check_in"
@@ -71,7 +75,7 @@ export function NightAuditDialog({ open, onClose, inline = false }: { open: bool
 
   const bulk = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: "Checked-In" | "Checked-Out" | "Cancelled" }) => {
-      await bulkSetStatus(ids, status);
+      await bulkSetStatus(ids, status, { allowOverride: canManage });
     },
     onSuccess: (_d, vars) => {
       toast.success(`${vars.ids.length} bookings → ${vars.status}`);

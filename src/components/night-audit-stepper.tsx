@@ -856,7 +856,11 @@ function DeparturesStep({
   const doCheckOut = async (id: string, beforeStatus: string, reason: string | null) => {
     setBusyId(id);
     try {
-      await setBookingStatus(id, "Checked-Out" as any);
+      // Owner/Admin override with mandatory reason bypasses the shared balance
+      // gate; staff (or no reason given) stays subject to assertCheckoutAllowed.
+      await setBookingStatus(id, "Checked-Out" as any, {
+        allowOverride: isAdmin && !!reason?.trim(),
+      });
       await logBookingActivity({
         booking_id: id, action: "check_out",
         from_status: beforeStatus, to_status: "Checked-Out",
