@@ -1,108 +1,123 @@
-# Maintenance Module — Architecture & Milestones
+# HEOS MCP Server — Discovery & Architecture Review
 
-Freeze acknowledged: Booking, Booking Items, Occupancy Segments, Availability, Pricing, Charges, Payments, Night Audit, HK integration, Search, Clone, Room Operations are closed to architectural change. Auth stays as-is (signups disabled, email auto-confirm on).
+Analysis only. No code, schema, or data changes proposed for this step.
 
-The Maintenance Module is added as a **new engine** (`Maintenance`) that plugs into existing engines as an adapter — never a second implementation of occupancy, availability, HK or activity logging.
+## Starting point: an MCP server already exists
+
+`src/lib/mcp/` already ships a working, OAuth-protected MCP server mounted at `/mcp` with two read tools (`whoami`, `list_bookings`), Supabase OAuth 2.1 as the authorization server, and a consent screen. So Phase 1 is an extension, not a greenfield build.
+
+Important caveat: both existing tools call `supabase.from(...)` directly inside the tool handler. That is acceptable for pure reads under RLS, but it is exactly the pattern that must NOT be extended to writes — it bypasses the shared engines.
 
 ---
 
-## 1. Position in the shared-engine map
+## A. What HEOS already has that MCP can reuse
+
+**Shared engines (documented in `docs/shared-engines.md`)** — one owner per domain, all side-effecting logic already funnelled through them:
+
+- Booking lifecycle: `bookings-api.ts` (`setBookingStatus` — now the central document/balance gate), `booking-status.ts` (`transitionBookingStatus`), `booking-create.ts`, `booking-stay.ts`
+- Booking Items (operational rooms): `booking-items-api.ts`, `booking-item-operations-api.ts` (`checkInBookingItem`, `checkOutBookingItem`, `moveBookingItemRoom`), `booking-item-lifecycle.ts` (fan-out + derivation), `booking-item-bulk.ts`
+- Occupancy truth: `booking-room-assignments-api.ts` (+ `split_room_assignment` RPC), `room-occupancy.ts`, `stay-segments.ts`
+- Availability: `room-availability.ts`, `room-inventory.ts`, `room-type-availability-core.ts`, `rooms-api.ts`
+- Pricing & charges: `pricing.ts` (`computePricing`), `rates.ts`, `guest-allocation.ts`, `booking-charges-api.ts`, `charge-catalog-api.ts`, `expected-time-charges.ts`
+- Money: `booking-payments-api.ts`, `razorpay-completion.server.ts`, `cash-api.ts`, `cash-report.ts`
+- Gates: `checkout-validation.ts` (`assertCheckoutAllowed`), guest-document gate in `setBookingStatus` / `checkInBookingItem`
+- Ops reads: `in-house.ts`, `house-view-placement.ts`, `booking-search.ts`, `night-audit-api.ts` (`getBusinessDate`, `getPendingForAudit`), `hk-tasks.ts`, `complaints-api.ts`, `reporting/*`, `owner-dashboard.functions.ts`, `invoice-document.ts`
+- Night Audit: `night-audit-sessions-api.ts` (`closeSession` = only Business-Date advance)
+
+**Auth / authz / audit**: Supabase Auth + RLS on every table; `user_roles` with `admin | owner | fo_staff | housekeeping`; `has_role`, `my_permissions`, `user_effective_permissions` RPCs; `PermissionGate`; `activity_log` plus per-domain trails (`booking_activities`, `booking_payment_activities`, `complaint_activities`, …); notification engine for human awareness.
+
+---
+
+## B. What needs to be built (the real gaps)
+
+1. **Engine reachability from the MCP runtime.** The engines are browser-side modules importing `@/integrations/supabase/client`. MCP tools run in the Worker. Any write tool needs a server-callable engine boundary — either move/wrap the engine entry points into server-safe modules that accept a caller-scoped Supabase client, or expose them as server functions the tool calls with the caller's bearer token. Until this exists, no write tool should ship.
+2. **Role/permission check inside tools.** Tools currently rely on RLS only. Tools must additionally resolve `user_effective_permissions` and refuse the call when the permission the equivalent screen requires is absent — mirroring `PermissionGate`.
+3. **AI actor attribution in audit.** `activity_log` has no `actor_type` (`user` / `ai_agent` / `automation`) and no client/agent id. Already flagged in `docs/ai-readiness.md` §5. Needed before any write.
+4. **Idempotency keys** on write paths, so a retrying agent cannot double-charge or double-check-in (also flagged in `docs/ai-readiness.md`).
+5. **Confirmation / approval protocol** for money, status, and cancellation tools: a two-step propose → confirm token, since MCP clients auto-approve tools too easily.
+6. **Read-tool shaping**: PII minimisation (no ID documents, no staff PII, no tokens), row caps, and stable JSON shapes.
+7. **Rate limiting / abuse guard** per OAuth client.
+
+---
+
+## C. What should NOT be exposed
+
+- Direct SQL / arbitrary query tools of any kind.
+- Any write that touches `booking_room_assignments`, `booking_items`, `bookings.status`, or `booking_payments` without going through the owning engine.
+- Night Audit close / Business-Date advance (`closeSession`) — never agent-initiated.
+- Guest ID documents, storage objects, signatures.
+- `user_roles`, `role_permissions`, `app_settings` writes (especially `business_date`), master data.
+- Backfill/repair routines (`backfill_booking_item_segment_links`, prune/split helpers) — historical truth must never be rewritten to satisfy an AI request.
+- Refunds / payment reversals; delete of bookings, customers, complaints.
+- Outbound guest messaging (WhatsApp / email send). Drafts only.
+
+---
+
+## D. Proposed Phase 1 architecture (read-only)
 
 ```text
-Maintenance Engine
-  owns:  work orders, their lifecycle, assignment, cost, parts, room out-of-order windows
-  reads: Rooms, Business Date, Vendors, Complaints, HK tasks, Occupancy segments
-  writes:room_maintenance blocks (existing table) + new maintenance_* tables
-  emits: activity log entries (the existing event bus)
-
-Occupancy / Availability  ← Maintenance only ever writes an OOO window; availability
-                             continues to read it via occupancy-source.listMaintenanceBlocks()
-Housekeeping              ← HK issue → work order; work order completion → HK re-clean task
-Night Audit               ← nightly sweep: overdue orders, expiring OOO windows
-Reporting                 ← read-only aggregation over maintenance snapshots
-Activity Timeline         ← same logActivity trail, reusing BookingItemTimeline patterns
+MCP client (Claude/ChatGPT)
+  → OAuth 2.1 (Supabase AS) + consent screen        [already built]
+  → /mcp  (mcp-js, verifies bearer, client_id claim) [already built]
+  → tool handler
+      ├─ resolve identity: ctx.getUserId/Email
+      ├─ authorize: user_effective_permissions check  [to build]
+      ├─ read via caller-scoped Supabase client (RLS as user)
+      │   or via a read engine wrapper (Business Date, House View, in-house)
+      └─ shape + cap + redact response
 ```
 
-Non-negotiable rules carried over:
-- Availability is read only through `src/lib/availability.ts`; the module never queries `booking_room_assignments` or computes overlap itself.
-- Any Out-of-Order window is written through one function that inserts/closes `room_maintenance` rows (the existing block table stays the single occupancy-visible representation). `blocks-api.ts` becomes an internal detail of the maintenance engine rather than a parallel path.
-- "Today" always comes from `getBusinessDate()`.
-- Every state change emits `logActivity`.
+Principles: read-only, per-user token, RLS as the ceiling and permissions as the floor, Business Date always from `getBusinessDate()` (never `new Date()`), no derived math the engines already own.
 
 ---
 
-## 2. Data model (additive only)
+## E. Proposed first 15–20 tools (all read-only)
 
-New tables (public schema, RLS + GRANTs per project standard):
+| Tool | Existing HEOS source | Data touched | Rules already enforced | Authz | Notes |
+|---|---|---|---|---|---|
+| `whoami` | existing | `user_roles` | RLS | any | shipped |
+| `get_business_date` | `night-audit-api.getBusinessDate` | `app_settings` | BD ≤ calendar date trigger | any | clock for all other tools |
+| `search_bookings` | `booking-search.ts` | bookings, items, customers | RLS | bookings.view | replaces ad-hoc `list_bookings` filters |
+| `get_booking` | `bookings-api.getBooking` | bookings | RLS | bookings.view | redact internal notes for non-manage |
+| `get_booking_items` | `booking-items-api` | booking_items | RLS | bookings.view | operational room truth |
+| `get_booking_balance` | `checkout-validation` / payments engine | payments, charges | shared balance math | bookings.view | Guest Credit semantics preserved |
+| `list_booking_charges` | `booking-charges-api` | booking_charges | RLS | bookings.view | per-room attribution included |
+| `list_booking_payments` | `booking-payments-api` | booking_payments | RLS | payments.view | no gateway payloads |
+| `arrivals` | `night-audit-api` / item queries | bookings, items | BD-scoped | bookings.view | item-aware |
+| `departures` | same | bookings, items | BD-scoped | bookings.view | item-aware |
+| `in_house_guests` | `in-house.ts` | items, segments | single in-house definition | bookings.view | |
+| `house_view` | `house-view-placement.ts` + `stay-segments.ts` | segments, items | lane/turnover rules | bookings.view | date-window capped |
+| `room_status` | `rooms-api`, `hk-status` | rooms, hk_tasks | RLS | rooms.view | |
+| `room_availability` | `room-inventory` / `room-type-availability-core` | items, blocks | nightly peak demand | bookings.view | never re-derive |
+| `list_housekeeping_tasks` | `hk-tasks.ts` | housekeeping_tasks | RLS | hk.view | |
+| `complaints_summary` | `complaints-api` | complaints | RLS | complaints.view | counts + open ages |
+| `night_audit_status` | `night-audit-api.getPendingForAudit` | bookings, items, sessions | item-aware blockers | na.view | read-only, no close |
+| `occupancy_revenue_summary` | `reporting/*`, `owner-dashboard.functions` | aggregates | date-range engine | reporting.view | owner/admin only |
+| `cash_summary` | `cash-report.ts` | cash_transactions | day/category rules | cash.view | owner/admin only |
+| `get_invoice_preview` | `invoice-document.ts` | booking + charges | shared invoice math | bookings.view | returns data, not a stored PDF |
 
-- `maintenance_categories` — small master list (Electrical, Plumbing, AC, Carpentry, Civil, IT/Network, Furniture, Safety), maps to existing HK issue types and complaint categories via nullable link columns. Reuses the Master Data engine style.
-- `maintenance_work_orders`
-  - identity: `code` (MO-XXXXXX), `title`, `description`, `category_id`, `priority` (low/normal/high/critical)
-  - location: `room_id` (nullable) or `area_label` for public areas
-  - lifecycle: `status` (Reported → Acknowledged → In Progress → On Hold → Resolved → Verified → Closed / Cancelled), `reported_at`, `due_date`, `resolved_at`, `closed_at`
-  - ownership: `assigned_staff_id`, `assigned_vendor_id` (Vendor engine, `vendor_kind` gains `maintenance`)
-  - occupancy link: `blocks_room` bool, `maintenance_block_id` → `room_maintenance.id`
-  - source link: `source` (manual | hk_issue | complaint | night_audit), `hk_task_id`, `complaint_id`
-  - cost: `estimated_cost`, `actual_cost`
-- `maintenance_work_order_notes` — timestamped notes + photo paths (reuses existing photo picker / storage conventions).
-- `maintenance_work_order_parts` — optional consumption lines linked to `inventory_items`, posting movements through the existing Inventory engine (`inventory-movements.ts`), never direct stock updates.
-
-`room_maintenance` gains one nullable column: `work_order_id`, so an OOO window is always traceable to its order. No behavioural change for existing blocks.
-
-RPCs for atomic transitions where multiple tables move together: `maintenance_open_work_order`, `maintenance_transition_status`, `maintenance_close_work_order` (closes any OOO window + fires HK re-clean).
-
----
-
-## 3. Service layer
-
-```text
-src/lib/maintenance-api.ts        CRUD + list/filter/search for work orders
-src/lib/maintenance-status.ts     status graph, allowed transitions, derived badges
-src/lib/maintenance-operations.ts orchestration: open / assign / hold / resolve / verify / close
-                                  → OOO window via room-blocks, HK hook, activity log
-src/lib/maintenance-room-status.ts single derivation of a room's maintenance state for
-                                  House View / Rooms / HK (Operational | OOO | Under Repair)
-src/lib/reporting/maintenance-reporting.ts  read-only aggregation (MTTR, by category, cost)
-```
-
-`blocks-api.ts` is refactored (not duplicated) so that room blocking flows through `maintenance-operations.ts`, keeping one write path to `room_maintenance`.
+Write candidates deferred to Phase 2+, each mapped to its existing engine and each requiring explicit confirmation: assign/unassign room and move room (`moveBookingItemRoom`, `splitAssignment`), check-in / check-out per item (`checkInBookingItem` / `checkOutBookingItem` with the docs and balance gates and role-aware override), add charge (`booking-charges-api`), update occupant, add/remove booking item (`replaceBookingItems` — high risk, state-preserving path), create/modify booking (`booking-create`, `booking-stay`), record payment (`booking-payments-api`), update HK status, cancel booking, generate invoice. Money, guest status, cancellation, and anything touching occupancy history are confirmation-required by definition; Night Audit close stays out entirely.
 
 ---
 
-## 4. UI surfaces
+## F. Security / auth / audit
 
-- `/operations/maintenance` — work order list: filters (status, priority, category, room, assignee, overdue), search via a maintenance adapter over the shared search patterns.
-- `/operations/maintenance/$id` — detail: header + status actions, notes/photos timeline, parts, cost, linked HK task / complaint, OOO window control.
-- New Work Order dialog — reusable `<MaintenanceWorkOrderDialog>`, the single creation surface, opened from Maintenance list, Room card (House View long-press menu), HK issue, and Complaint detail.
-- House View / Rooms: OOO rooms show a maintenance lane badge sourced from `maintenance-room-status.ts` (no new availability math).
-- Dashboard: "Open maintenance" + "Overdue" tiles, and a Critical Work Orders row in Night Audit.
-- Reporting: Maintenance report using `ReportDateRangePicker` and the reporting engine conventions.
-
-Permissions: new `maintenance.view` / `maintenance.manage` capabilities in the Access engine; housekeeping role gets view + raise, admin/owner get manage. Sidebar entry gated by `PermissionGate`.
+Per-user OAuth token only (no service role anywhere in `src/lib/mcp/`); `requireOAuthClientClaim` stays on so pasted app sessions are rejected; issuer pinned to the direct Supabase host; permissions checked in-tool, not just RLS; every read capped and PII-minimised; every future write emits `activity_log` with AI actor attribution plus an idempotency key; notification engine used for human awareness of agent actions.
 
 ---
 
-## 5. Milestones
+## G. Decisions to resolve together
 
-**M1 — Foundation (schema + engine + list/detail, manual only)**
-Tables, RLS/GRANTs, RPCs, `maintenance-api` / `-status` / `-operations`, list + detail routes, create dialog, permissions, activity logging, sidebar entry. No integrations yet beyond room blocking.
-
-**M2 — Occupancy & Room Status integration**
-OOO windows created/closed exclusively via the engine, `work_order_id` backlink, House View + Rooms + assignment dialogs reflect Under-Repair state through `maintenance-room-status.ts`, guard against blocking an occupied room without an explicit move, availability verified unchanged via `availability.ts`.
-
-**M3 — Housekeeping & Complaints integration**
-HK issue → work order (one click, linked both ways), complaint → work order, resolution → HK re-clean task before the room returns to sellable, HK screens show open orders per room.
-
-**M4 — Night Audit, Reporting & Timeline**
-Nightly sweep (overdue orders, OOO windows expiring today, unverified resolutions) added to the existing Night Audit sweep list; maintenance report (open/closed, MTTR, cost by category/vendor, room downtime); shared maintenance timeline component; notification routing for critical/overdue orders through the Notification engine.
-
-**M5 — Vendors, Parts & Costing**
-`maintenance` vendor kind, vendor assignment + turnaround tracking, parts consumption posting inventory movements, estimated vs actual cost, optional cost roll-up in reporting.
-
-Each milestone ships with: migration summary, API changes, UI changes, regression tests (`tests/e2e/`), manual validation checklist, deferred items — the same "What Changed" report format used through PMS development.
+1. Should MCP identity be a real staff user (RLS + their permissions), or a dedicated restricted "AI agent" user? Recommendation: real staff user.
+2. Per-role tool visibility: hide owner/finance tools from `fo_staff` and `housekeeping`, or show and refuse? Recommendation: refuse with a clear message, keep one manifest.
+3. Do we add `actor_type` to `activity_log` now (small migration) or defer until Phase 2?
+4. Preferred write boundary: server-safe engine wrappers, or reuse existing `*.functions.ts` server functions from tools?
+5. Confirmation UX: rely on the MCP client's own approval prompt, or a HEOS-side propose/confirm token?
+6. Which write tool is worth doing first once the boundary exists — add charge, or per-room check-in?
+7. Any hard exclusion list from your side (e.g. never expose revenue to `fo_staff`)?
 
 ---
 
-## 6. Deferred / out of scope for now
+## Next step
 
-Preventive-maintenance schedules (recurring plans), asset register per room, QR-code technician mobile view, guest-visible repair status, external vendor portal. All are additive on top of M1–M5.
+If this reading matches your intent, the follow-up plan would be Phase 1 only: add the read tools in section E on top of the existing MCP server, plus the in-tool permission check — no writes, no schema changes.
