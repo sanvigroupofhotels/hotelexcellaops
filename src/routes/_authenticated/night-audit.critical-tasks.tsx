@@ -18,6 +18,7 @@ import { logBookingActivity } from "@/lib/booking-activities-api";
 import { listRooms } from "@/lib/rooms-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { performNightAuditNow } from "@/lib/perform-night-audit";
+import { useUserRole } from "@/hooks/use-role";
 
 type Tab = "checkins" | "checkouts";
 
@@ -38,6 +39,7 @@ function CriticalTasksPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { tab } = Route.useSearch();
+  const { canManage } = useUserRole();
   const activeTab = (tab as Tab) ?? "checkins";
 
   const pending = useQuery({ queryKey: ["night-audit-pending"], queryFn: () => getPendingForAudit() });
