@@ -1,3 +1,4 @@
+import type { Db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalYMD } from "@/lib/utils";
 
@@ -106,8 +107,8 @@ export interface ComplaintFilters {
   from?: string; to?: string;
   search?: string;
 }
-export async function listComplaints(f?: ComplaintFilters) {
-  let q = supabase.from("complaints" as any).select("*");
+export async function listComplaints(f?: ComplaintFilters, client: Db = supabase) {
+  let q = client.from("complaints" as any).select("*");
   if (f?.status && f.status !== "all") q = q.eq("status", f.status);
   if (f?.priority && f.priority !== "all") q = q.eq("priority", f.priority);
   if (f?.category && f.category !== "all") q = q.eq("category", f.category);

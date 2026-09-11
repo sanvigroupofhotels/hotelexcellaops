@@ -63,7 +63,7 @@ function LaundryPage() {
     if (search.batch) navigate({ to: "/laundry", search: {} as any, replace: true });
   };
 
-  const { data: businessDate } = useQuery({ queryKey: ["business-date"], queryFn: getBusinessDate, staleTime: 30_000 });
+  const { data: businessDate } = useQuery({ queryKey: ["business-date"], queryFn: () => getBusinessDate(), staleTime: 30_000 });
 
   if (pickupOpen && businessDate) {
     return (

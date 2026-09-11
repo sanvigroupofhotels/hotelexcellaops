@@ -35,6 +35,7 @@
  *   underlying tables (bookings, assignments, maintenance) is mutated and
  *   invalidated elsewhere in the app, the availability re-computes.
  */
+import type { Db } from "@/lib/db";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -85,6 +86,7 @@ export interface RoomTypeAvailabilityInput {
  */
 export async function getRoomTypeAvailability(
   input: RoomTypeAvailabilityInput,
+  client: Db = supabase,
 ): Promise<RoomTypeAvailability> {
   const { check_in, check_out, exclude_booking_id } = input;
   if (!check_in || !check_out || check_in >= check_out) return { byType: {} };
@@ -93,12 +95,12 @@ export async function getRoomTypeAvailability(
 
   const [{ data: rooms, error: rErr }, { data: items, error: iErr }, blocks] =
     await Promise.all([
-      supabase.from("rooms").select("id, room_type, active").eq("active", true),
+      client.from("rooms").select("id, room_type, active").eq("active", true),
       // Pull every booking_item belonging to a committed booking whose own
       // room-line dates overlap the requested window. Parent booking dates can
       // be wider than an individual room's stay, so filtering/counting by the
       // parent over-deducts inventory for staggered multi-room bookings.
-      supabase
+      client
         .from("booking_items" as any)
         .select("booking_id, room_type, rooms, check_in, check_out, item_status, bookings!inner(id, status, draft_expires_at)")
         .lt("check_in", check_out)
@@ -106,7 +108,7 @@ export async function getRoomTypeAvailability(
         .not("bookings.status", "in", closedIn),
       // Maintenance blocks come from the shared occupancy source — one
       // implementation for every availability granularity.
-      listMaintenanceBlocks({ check_in, check_out }),
+      listMaintenanceBlocks({ check_in, check_out }, client),
     ]);
   if (rErr) throw rErr;
   if (iErr) throw iErr;

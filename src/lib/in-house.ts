@@ -17,6 +17,7 @@
  * that covers the current business date. Multi-room bookings surface one row
  * per operational room.
  */
+import type { Db } from "@/lib/db";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalYMD } from "@/lib/utils";
@@ -35,10 +36,10 @@ export type InHouseItem = {
 
 const IN_HOUSE_BOOKING_STATUSES = new Set(["Checked-In"]);
 
-export async function listInHouseItems(): Promise<InHouseItem[]> {
+export async function listInHouseItems(client: Db = supabase): Promise<InHouseItem[]> {
   const today = toLocalYMD();
 
-  const { data: bookings, error: bErr } = await supabase
+  const { data: bookings, error: bErr } = await client
     .from("bookings")
     .select("id, guest_name, phone, status, check_in, check_out, amount, advance_paid, customer_id")
     .in("status", ["Checked-In"] as const);
@@ -46,19 +47,19 @@ export async function listInHouseItems(): Promise<InHouseItem[]> {
   const bookingIds = (bookings ?? []).map((b: any) => b.id);
   if (bookingIds.length === 0) return [];
 
-  const { data: items, error: iErr } = await supabase
+  const { data: items, error: iErr } = await client
     .from("booking_items" as any)
     .select("id, booking_id, position, room_type, assigned_room_id, primary_occupant_name, item_status, check_in, check_out")
     .in("booking_id", bookingIds);
   if (iErr) throw iErr;
 
-  const { data: assignments, error: aErr } = await supabase
+  const { data: assignments, error: aErr } = await client
     .from("booking_room_assignments" as any)
     .select("id, booking_id, item_id, room_id, start_date, end_date, ended_reason")
     .in("booking_id", bookingIds);
   if (aErr) throw aErr;
 
-  const { data: rooms, error: rErr } = await supabase
+  const { data: rooms, error: rErr } = await client
     .from("rooms")
     .select("id, room_number, room_type");
   if (rErr) throw rErr;
@@ -130,7 +131,7 @@ export async function listInHouseItems(): Promise<InHouseItem[]> {
 export function useInHouseItems() {
   return useQuery({
     queryKey: ["in-house-items"],
-    queryFn: listInHouseItems,
+    queryFn: () => listInHouseItems(),
     staleTime: 30 * 1000,
   });
 }
