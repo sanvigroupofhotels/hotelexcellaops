@@ -10,16 +10,18 @@ export default defineTool({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: guarded(async (_input, ctx) => {
     const supabase = await requirePerm(ctx);
+    const userId = ctx.getUserId();
+    if (!userId) throw new Error("Authenticated user has no user id.");
     const { data: rolesRows, error: rolesErr } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", ctx.getUserId());
+      .eq("user_id", userId);
     if (rolesErr) {
       throw rolesErr;
     }
     const roles = (rolesRows ?? []).map((r: any) => r.role);
     const payload = {
-      user_id: ctx.getUserId(),
+      user_id: userId,
       email: ctx.getUserEmail() ?? null,
       roles,
     };

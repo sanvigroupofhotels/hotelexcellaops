@@ -2,6 +2,8 @@ import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { capLimit, guarded, ok, PERM, requirePerm } from "../guard";
 
+const BOOKING_STATUSES = ["Advance Paid", "Cancelled", "Checked-In", "Checked-Out", "Confirmed", "Draft", "Full Paid", "No-Show", "Pending", "Stay Completed"] as const;
+
 export default defineTool({
   name: "list_bookings",
   title: "List bookings",
@@ -9,7 +11,7 @@ export default defineTool({
     "List Hotel Excella bookings visible to the signed-in user. Supports optional filters: status, arriving-on date (YYYY-MM-DD), and a text search over guest name or booking reference. Returns up to 50 most-recent bookings.",
   inputSchema: {
     status: z
-      .string()
+      .enum(BOOKING_STATUSES)
       .optional()
       .describe("Optional booking status filter, e.g. 'Confirmed', 'Checked-In', 'Checked-Out'."),
     arriving_on: z

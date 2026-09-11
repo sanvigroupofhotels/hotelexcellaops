@@ -63,7 +63,19 @@
           "properties": {
             "status": {
               "description": "Optional booking status filter, e.g. 'Confirmed', 'Checked-In', 'Checked-Out'.",
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "Advance Paid",
+                "Cancelled",
+                "Checked-In",
+                "Checked-Out",
+                "Confirmed",
+                "Draft",
+                "Full Paid",
+                "No-Show",
+                "Pending",
+                "Stay Completed"
+              ]
             },
             "arriving_on": {
               "description": "Optional check-in date filter in YYYY-MM-DD.",
