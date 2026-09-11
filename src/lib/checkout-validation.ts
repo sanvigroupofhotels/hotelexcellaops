@@ -92,7 +92,7 @@ async function loadBookingFinancials(bookingId: string, client: Db = supabase): 
 }
 
 export async function validateCheckout(bookingId: string, client: Db = supabase): Promise<CheckoutValidation> {
-  return loadBookingFinancials(bookingId);
+  return loadBookingFinancials(bookingId, client);
 }
 
 /**

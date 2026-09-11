@@ -108,7 +108,7 @@ export async function getRoomTypeAvailability(
         .not("bookings.status", "in", closedIn),
       // Maintenance blocks come from the shared occupancy source — one
       // implementation for every availability granularity.
-      listMaintenanceBlocks({ check_in, check_out }),
+      listMaintenanceBlocks({ check_in, check_out }, client),
     ]);
   if (rErr) throw rErr;
   if (iErr) throw iErr;

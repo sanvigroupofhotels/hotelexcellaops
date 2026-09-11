@@ -157,8 +157,8 @@ export async function listMaintenanceBlocks(
  */
 export async function listBusyRoomIds(win: OccupancyWindow, client: Db = supabase): Promise<Set<string>> {
   const [segments, blocks] = await Promise.all([
-    listOccupancySegments(win),
-    listMaintenanceBlocks(win),
+    listOccupancySegments(win, client),
+    listMaintenanceBlocks(win, client),
   ]);
   const busy = new Set<string>();
   for (const s of segments) if (s.room_id) busy.add(s.room_id);

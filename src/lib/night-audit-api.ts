@@ -72,7 +72,7 @@ export async function getPendingForAudit(businessDate?: string, client: Db = db(
   pendingCheckIns: PendingBooking[];
   pendingCheckOuts: PendingBooking[];
 }> {
-  const bd = businessDate ?? (await getBusinessDate());
+  const bd = businessDate ?? (await getBusinessDate(client));
   const SELECT = "id,booking_reference,guest_name,phone,check_in,check_out,status,room_id";
 
   const [{ data: ci }, { data: co }, { data: rooms }] = await Promise.all([
