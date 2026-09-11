@@ -1,17 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
+import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
-
-function supabaseForUser(ctx: ToolContext) {
-  return createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_PUBLISHABLE_KEY!,
-    {
-      global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-      auth: { persistSession: false, autoRefreshToken: false },
-    },
-  );
-}
+import { capLimit, guarded, ok, PERM, requirePerm } from "../guard";
 
 export default defineTool({
   name: "list_bookings",
@@ -39,16 +28,13 @@ export default defineTool({
       .describe("Max rows to return (default 25, hard capped at 50)."),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ status, arriving_on, search, limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const cap = Math.min(Math.max(1, Number(limit ?? 25)), 50);
-    const supabase = supabaseForUser(ctx);
+  handler: guarded(async ({ status, arriving_on, search, limit }, ctx) => {
+    const cap = Math.min(capLimit(limit, 25), 50);
+    const supabase = await requirePerm(ctx, PERM.bookings);
     let query = supabase
       .from("bookings")
       .select(
-        "id, booking_reference, guest_name, status, check_in, check_out, room_id, amount, balance, created_at",
+        "id, booking_reference, guest_name, status, check_in, check_out, amount, advance_paid, created_at",
       )
       .order("created_at", { ascending: false })
       .limit(cap);
@@ -62,12 +48,9 @@ export default defineTool({
 
     const { data, error } = await query;
     if (error) {
-      return { content: [{ type: "text", text: error.message }], isError: true };
+      throw error;
     }
     const rows = data ?? [];
-    return {
-      content: [{ type: "text", text: JSON.stringify(rows) }],
-      structuredContent: { count: rows.length, rows },
-    };
-  },
+    return ok({ count: rows.length, rows });
+  }),
 });

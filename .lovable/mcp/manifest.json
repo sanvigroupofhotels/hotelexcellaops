@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "hotel-excella-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "title": "Hotel Excella"
     },
     "tools": [
@@ -20,6 +20,22 @@
         "name": "whoami",
         "title": "Who am I",
         "description": "Returns the signed-in Hotel Excella user's id, email, and roles. Use to verify the MCP connection is authenticated as the expected user.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_business_date",
+        "title": "Get business date",
+        "description": "Return the current HEOS operational business date.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -65,6 +81,484 @@
               "maximum": 9007199254740991
             }
           }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_bookings",
+        "title": "Search bookings",
+        "description": "Search bookings by reference, guest, phone, occupant, room, or company using the shared HEOS search.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 2,
+              "description": "At least two characters."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "include_cancelled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_booking",
+        "title": "Get booking",
+        "description": "Return a booking's safe commercial and stay details by UUID or booking reference.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "booking": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Booking UUID or reference such as HEXB-123ABC."
+            }
+          },
+          "required": [
+            "booking"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_booking_items",
+        "title": "Get booking rooms",
+        "description": "Return the independent operational room items and current room assignments for a booking.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "booking_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "booking_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_booking_balance",
+        "title": "Get booking balance",
+        "description": "Return shared checkout-validation totals, balance due, Guest Credit, and blockers for a booking.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "booking_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "booking_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_booking_charges",
+        "title": "List booking charges",
+        "description": "List additional charges with booking-room attribution, excluding audit internals.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "booking_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "booking_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_booking_payments",
+        "title": "List booking payments",
+        "description": "List safe payment records for a booking without gateway payloads or secrets.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "booking_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "booking_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "arrivals",
+        "title": "List arrivals",
+        "description": "List item-aware arrivals for a date, defaulting to the HEOS business date.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "departures",
+        "title": "List departures",
+        "description": "List item-aware departures for a date, defaulting to the HEOS business date.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "in_house_guests",
+        "title": "List in-house guests",
+        "description": "List the canonical item-aware set of guests physically in house.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "house_view",
+        "title": "Get House View",
+        "description": "Return the shared HEOS House View placement for a capped date window, including turnover and pending arrivals.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "start_date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 14
+            }
+          },
+          "required": [
+            "start_date"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "room_status",
+        "title": "Get room status",
+        "description": "Return room master, housekeeping state, and whether each room is occupied or blocked in a date window.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "room_number": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "date"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "room_availability",
+        "title": "Check room availability",
+        "description": "Return sellable room-type availability using the canonical nightly peak-demand engine.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "check_in": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "check_out": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "exclude_booking_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "check_in",
+            "check_out"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_housekeeping_tasks",
+        "title": "List housekeeping tasks",
+        "description": "List housekeeping tasks for an operational business date.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "business_date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          "required": [
+            "business_date"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "complaints_summary",
+        "title": "Get complaints summary",
+        "description": "Summarize complaints by status, priority, and category; optionally include capped safe rows.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "include_rows": {
+              "type": "boolean"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "night_audit_status",
+        "title": "Get Night Audit status",
+        "description": "Return item-aware pending arrivals and departures for Night Audit. This tool cannot close the audit.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "business_date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "occupancy_revenue_summary",
+        "title": "Get occupancy and revenue summary",
+        "description": "Return shared room-night, occupancy, ADR, RevPAR, revenue, and collection metrics for a date range.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "range_start": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "range_end": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          "required": [
+            "range_start",
+            "range_end"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "cash_summary",
+        "title": "Get cash summary",
+        "description": "Return the canonical daily cash totals without guest or staff details.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          "required": [
+            "date"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_invoice_preview",
+        "title": "Get invoice preview",
+        "description": "Build the canonical invoice or proforma data model without creating or storing a PDF.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "booking_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "booking_id"
+          ]
         },
         "outputSchema": null
       }
