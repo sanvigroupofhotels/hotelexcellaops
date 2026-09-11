@@ -12,6 +12,6 @@ export default defineTool({
   handler: guarded(async ({ booking_id }, ctx) => {
     const client = await requirePerm(ctx, PERM.finance);
     const result = await validateCheckout(booking_id, client);
-    return ok({ booking_id, ...result, payable: money(result.payable), paid: money(result.paid), balance: money(result.balance), guest_credit: result.balance < 0 ? money(-result.balance) : 0 });
+    return ok({ booking_id, ...result, payable: money(result.payable), paid: money(result.advance), balance: money(result.balance), guest_credit: result.balance < 0 ? money(-result.balance) : 0 });
   }),
 });
