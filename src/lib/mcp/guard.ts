@@ -8,9 +8,12 @@
  *  - read through shared HEOS engines with the caller-scoped client injected;
  *  - never return documents, signatures, payment gateway secrets or raw notes.
  */
-import { ToolError, type ToolContext } from "@lovable.dev/mcp-js";
+import type { ToolContext } from "@lovable.dev/mcp-js";
 import type { Db } from "@/lib/db";
 import { supabaseForUser } from "./supabase";
+
+/** Error whose message is safe to show the calling assistant. */
+export class McpToolError extends Error {}
 
 /** Permission key groups, mirroring the app's PermissionGate usage. */
 export const PERM = {
@@ -28,13 +31,13 @@ export const PERM = {
 export const MAX_ROWS = 200;
 export function capLimit(n: number | undefined, fallback = 50) {
   const v = Number.isFinite(n) ? Number(n) : fallback;
-  return Math.min(Math.max(1, Math.trunc(v)), MAX_ROWS);
+  return Math.min(Math.max(1, Math.trunc(v as number)), MAX_ROWS);
 }
 
 async function loadPermissions(client: Db): Promise<Set<string>> {
-  const { data, error } = await client.rpc("my_permissions" as never);
-  if (error) throw new ToolError("Could not verify permissions for this user.");
-  const list = ((data as unknown as any[]) ?? []).map((r) =>
+  const { data, error } = await (client as any).rpc("my_permissions");
+  if (error) throw new McpToolError("Could not verify permissions for this user.");
+  const list = ((data as any[]) ?? []).map((r) =>
     typeof r === "string" ? r : (r?.my_permissions ?? r?.permission_key ?? null),
   );
   return new Set(list.filter(Boolean) as string[]);
@@ -44,16 +47,13 @@ async function loadPermissions(client: Db): Promise<Set<string>> {
  * Authenticate + authorize, returning the caller-scoped client to inject into
  * the shared engines. `anyOf` is satisfied when the user holds ANY listed key.
  */
-export async function requirePerm(
-  ctx: ToolContext,
-  anyOf: readonly string[] = [],
-): Promise<Db> {
-  if (!ctx.isAuthenticated()) throw new ToolError("Not authenticated. Reconnect this app to Hotel Excella.");
+export async function requirePerm(ctx: ToolContext, anyOf: readonly string[] = []): Promise<Db> {
+  if (!ctx.isAuthenticated()) throw new McpToolError("Not authenticated. Reconnect this app to Hotel Excella.");
   const client = supabaseForUser(ctx) as unknown as Db;
   if (anyOf.length) {
     const perms = await loadPermissions(client);
     if (!anyOf.some((p) => perms.has(p))) {
-      throw new ToolError(`Your Hotel Excella role does not allow this (needs one of: ${anyOf.join(", ")}).`);
+      throw new McpToolError(`Your Hotel Excella role does not allow this (needs one of: ${anyOf.join(", ")}).`);
     }
   }
   return client;
@@ -64,6 +64,22 @@ export function ok(payload: Record<string, unknown>) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
     structuredContent: payload,
+  };
+}
+
+export function fail(message: string) {
+  return { content: [{ type: "text" as const, text: message }], isError: true as const };
+}
+
+/** Wrap a handler so engine/permission errors come back as clean tool errors. */
+export function guarded<I>(fn: (input: I, ctx: ToolContext) => Promise<ReturnType<typeof ok>>) {
+  return async (input: I, ctx: ToolContext) => {
+    try {
+      return await fn(input, ctx);
+    } catch (e: any) {
+      const msg = e instanceof McpToolError ? e.message : (e?.message ?? "Unexpected error");
+      return fail(msg);
+    }
   };
 }
 
