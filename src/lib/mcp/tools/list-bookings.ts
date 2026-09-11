@@ -8,7 +8,7 @@ export default defineTool({
   name: "list_bookings",
   title: "List bookings",
   description:
-    "List Hotel Excella bookings visible to the signed-in user. Supports optional filters: status, arriving-on date (YYYY-MM-DD), and a text search over guest name or booking reference. Returns up to 50 most-recent bookings.",
+    "List bookings visible to the signed-in user in this HEOS hotel instance. Supports optional filters: status, arriving-on date (YYYY-MM-DD), and a text search over guest name or booking reference. Returns up to 50 most-recent bookings.",
   inputSchema: {
     status: z
       .enum(BOOKING_STATUSES)

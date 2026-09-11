@@ -48,12 +48,12 @@ async function loadPermissions(client: Db): Promise<Set<string>> {
  * the shared engines. `anyOf` is satisfied when the user holds ANY listed key.
  */
 export async function requirePerm(ctx: ToolContext, anyOf: readonly string[] = []): Promise<Db> {
-  if (!ctx.isAuthenticated()) throw new McpToolError("Not authenticated. Reconnect this app to Hotel Excella.");
+  if (!ctx.isAuthenticated()) throw new McpToolError("Not authenticated. Reconnect this app to HEOS.");
   const client = supabaseForUser(ctx) as unknown as Db;
   if (anyOf.length) {
     const perms = await loadPermissions(client);
     if (!anyOf.some((p) => perms.has(p))) {
-      throw new McpToolError(`Your Hotel Excella role does not allow this (needs one of: ${anyOf.join(", ")}).`);
+      throw new McpToolError(`Your HEOS role does not allow this (needs one of: ${anyOf.join(", ")}).`);
     }
   }
   return client;

@@ -127,3 +127,19 @@ every cross-module effect flows through an engine.
   through approval workflows (`docs/ai-roadmap.md`). Never bypass RLS.
 - **New table?** Migration must include GRANT + RLS + policies + an
   entry in `docs/database.md`.
+
+## 8. MCP deployment and hotel scope
+
+- **One HEOS instance represents one hotel.** Hotel context comes from the
+  authenticated HEOS deployment and user session; MCP clients never submit or
+  select a hotel identifier.
+- **Reusable product capability.** Every hotel uses the same HEOS MCP code.
+  Onboarding another hotel means provisioning/configuring its HEOS instance and
+  completing OAuth authorization, not creating hotel-specific tools.
+- **Caller-scoped access only.** MCP tools use the verified OAuth bearer token,
+  database row-level security, and the HEOS permission matrix. They never use a
+  service role or embed hotel IDs, room numbers, staff identities, or settings.
+- **Permanent write-tool constraint.** Future MCP writes must call the existing
+  shared business engine or canonical RPC, preserve Booking → Booking Item →
+  Occupancy Segment history, and require explicit confirmation for financial or
+  operational state changes. Direct operational-table writes are forbidden.

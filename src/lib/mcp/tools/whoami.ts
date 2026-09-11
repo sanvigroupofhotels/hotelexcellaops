@@ -5,7 +5,7 @@ export default defineTool({
   name: "whoami",
   title: "Who am I",
   description:
-    "Returns the signed-in Hotel Excella user's id, email, and roles. Use to verify the MCP connection is authenticated as the expected user.",
+    "Returns the signed-in HEOS user's id, email, and roles. Use to verify the MCP connection is authenticated as the expected user.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: guarded(async (_input, ctx) => {
