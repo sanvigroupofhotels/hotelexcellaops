@@ -22,11 +22,11 @@ import getInvoicePreviewTool from "./tools/get-invoice-preview";
 const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
 
 export default defineMcp({
-  name: "hotel-excella-mcp",
-  title: "Hotel Excella",
+  name: "heos-mcp",
+  title: "HEOS",
   version: "0.2.0",
   instructions:
-    "Read-only operational tools for Hotel Excella. Use get_business_date as the operational clock. Booking is the commercial entity; booking items are operational rooms; occupancy segments preserve room history. All tools enforce the signed-in user's RLS and HEOS permission matrix. No tool can write, close Night Audit, or access guest documents.",
+    "Read-only operational tools for the hotel configured in this HEOS instance. Use get_business_date as the operational clock. Booking is the commercial entity; booking items are operational rooms; occupancy segments preserve room history. All tools enforce the signed-in user's RLS and HEOS permission matrix. No tool can write, close Night Audit, or access guest documents.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",

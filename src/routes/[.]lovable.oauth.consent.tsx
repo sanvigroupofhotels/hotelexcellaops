@@ -100,7 +100,7 @@ function Consent() {
             <span className="font-display text-lg text-charcoal">H</span>
           </div>
           <div>
-            <div className="font-display text-base">HOTEL EXCELLA</div>
+            <div className="font-display text-base">HEOS</div>
             <div className="text-[10px] tracking-[0.3em] text-gold/80 uppercase">
               Reservations OS
             </div>
@@ -108,11 +108,11 @@ function Consent() {
         </div>
 
         <h1 className="font-display text-2xl mb-1">
-          Connect {clientName} to Hotel Excella
+          Connect {clientName} to HEOS
         </h1>
         <p className="text-sm text-muted-foreground mb-4">
-          This lets {clientName} use Hotel Excella as you. It can only see and do
-          what your account is already allowed to.
+          This lets {clientName} access the hotel configured in this HEOS instance
+          as you. It can only see and do what your account is already allowed to.
         </p>
 
         {scopes.length > 0 && (
@@ -129,7 +129,7 @@ function Consent() {
         )}
 
         <p className="text-xs text-muted-foreground mb-6">
-          This does not bypass Hotel Excella's permissions or backend policies.
+          This does not bypass HEOS permissions or backend policies.
         </p>
 
         {error && (
