@@ -57,8 +57,8 @@ export async function deleteRoom(id: string) {
   if (error) throw error;
 }
 
-export async function listMaintenance() {
-  const { data, error } = await supabase.from("room_maintenance" as any).select("*").order("start_date", { ascending: false });
+export async function listMaintenance(client: Db = supabase) {
+  const { data, error } = await client.from("room_maintenance" as any).select("*").order("start_date", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as RoomMaintenanceRow[];
 }

@@ -8,6 +8,7 @@
  * never be used for historical rendering.
  */
 import { supabase } from "@/integrations/supabase/client";
+import type { Db } from "@/lib/db";
 
 export interface RoomOccupancySegment {
   assignment_id: string;
@@ -25,8 +26,11 @@ export interface RoomOccupancySegment {
  * Segments for one booking, or all bookings when `booking_id` is null.
  * Ordered by `booking_id, start_date, created_at`.
  */
-export async function getRoomOccupancySegments(booking_id?: string | null): Promise<RoomOccupancySegment[]> {
-  const { data, error } = await supabase.rpc("get_room_occupancy_segments" as any, {
+export async function getRoomOccupancySegments(
+  booking_id?: string | null,
+  client: Db = supabase,
+): Promise<RoomOccupancySegment[]> {
+  const { data, error } = await client.rpc("get_room_occupancy_segments" as any, {
     p_booking_id: booking_id ?? null,
   } as any);
   if (error) throw error;
