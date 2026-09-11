@@ -131,7 +131,7 @@ export async function listInHouseItems(client: Db = supabase): Promise<InHouseIt
 export function useInHouseItems() {
   return useQuery({
     queryKey: ["in-house-items"],
-    queryFn: listInHouseItems,
+    queryFn: () => listInHouseItems(),
     staleTime: 30 * 1000,
   });
 }

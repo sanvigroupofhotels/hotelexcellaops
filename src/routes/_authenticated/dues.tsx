@@ -72,7 +72,7 @@ function DuesPage() {
   const { data: bookings = [], isLoading: lb } = useQuery({ queryKey: ["bookings"], queryFn: listBookings });
   const { data: chargeTotals = {} } = useQuery({ queryKey: ["all-charge-totals"], queryFn: listAllChargeTotals });
   const { data: rooms = [] } = useQuery({ queryKey: ["rooms-dues"], queryFn: () => listRooms() });
-  const { data: businessDate } = useQuery({ queryKey: ["business-date"], queryFn: getBusinessDate, staleTime: 5 * 60_000 });
+  const { data: businessDate } = useQuery({ queryKey: ["business-date"], queryFn: () => getBusinessDate(), staleTime: 5 * 60_000 });
 
   // UAT-047: room display comes from occupancy SEGMENTS, never `bookings.room_id`.
   const { data: segments = [] } = useQuery({

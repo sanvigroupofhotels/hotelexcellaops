@@ -32,7 +32,7 @@ function HousekeepingPage() {
   const qc = useQueryClient();
   const { data: businessDate } = useQuery({
     queryKey: ["business-date"],
-    queryFn: getBusinessDate,
+    queryFn: () => getBusinessDate(),
     staleTime: 30_000,
   });
 
