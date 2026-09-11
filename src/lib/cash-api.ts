@@ -1,3 +1,4 @@
+import type { Db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeOrThrow } from "@/lib/phone";
 
@@ -100,8 +101,8 @@ export interface CashTxInput {
   occurred_at?: string;
 }
 
-export async function listCashTx(opts?: { from?: string; to?: string; includeInactive?: boolean }) {
-  let q = supabase.from("cash_transactions" as any).select("*");
+export async function listCashTx(opts?: { from?: string; to?: string; includeInactive?: boolean }, client: Db = supabase) {
+  let q = client.from("cash_transactions" as any).select("*");
   if (!opts?.includeInactive) q = q.eq("active", true);
   if (opts?.from) q = q.gte("occurred_at", opts.from);
   if (opts?.to) q = q.lte("occurred_at", opts.to);

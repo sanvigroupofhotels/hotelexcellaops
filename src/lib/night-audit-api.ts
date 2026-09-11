@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { db, type Db } from "@/lib/db";
 import { toLocalYMD } from "@/lib/utils";
 
 /**
@@ -31,8 +31,8 @@ export interface PendingBooking {
   room_number?: string | null;
 }
 
-export async function getBusinessDate(): Promise<string> {
-  const { data } = await db()
+export async function getBusinessDate(client: Db = db()): Promise<string> {
+  const { data } = await client
     .from("app_settings" as any)
     .select("value")
     .eq("key", "business_date")
@@ -67,7 +67,7 @@ export async function setBusinessDate(date: string): Promise<void> {
 const PRE_ARRIVAL_ITEM = new Set(["Confirmed", "Pending", "Draft", ""]);
 const TERMINAL_ITEM = new Set(["Cancelled", "No-Show", "Removed", "Checked-Out"]);
 
-export async function getPendingForAudit(businessDate?: string): Promise<{
+export async function getPendingForAudit(businessDate?: string, client: Db = db()): Promise<{
   businessDate: string;
   pendingCheckIns: PendingBooking[];
   pendingCheckOuts: PendingBooking[];

@@ -16,7 +16,7 @@
  *
  * Design refs: §4 helpers, §4.2 fanout, §7 edge cases.
  */
-import { db } from "@/lib/db";
+import { db, type Db } from "@/lib/db";
 import { logActivity, newCorrelationId } from "@/lib/activity-log";
 import { recordMovement } from "@/lib/inventory-movements";
 import { setRoomHousekeepingStatus, type HousekeepingStatus } from "@/lib/hk-status";
@@ -70,8 +70,8 @@ export interface CompleteTaskPayload {
 /* Reads                                                        */
 /* ------------------------------------------------------------ */
 
-export async function listTasksForDate(businessDate: string): Promise<HkTaskRow[]> {
-  const { data, error } = await db()
+export async function listTasksForDate(businessDate: string, client: Db = db()): Promise<HkTaskRow[]> {
+  const { data, error } = await client
     .from("housekeeping_tasks" as any)
     .select("*")
     .eq("business_date", businessDate)

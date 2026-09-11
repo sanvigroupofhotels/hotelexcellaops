@@ -1,3 +1,4 @@
+import type { Db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { phoneSearchVariants, splitPhone } from "@/lib/phone";
 
@@ -106,6 +107,7 @@ export function matchesBookingSearch(
 export async function searchBookings(
   query: string,
   opts: { limit?: number; includeCancelled?: boolean } = {},
+  client: Db = supabase,
 ): Promise<BookingSearchResult[]> {
   const q = query.trim();
   const limit = opts.limit ?? 20;
@@ -124,7 +126,7 @@ export async function searchBookings(
     if (vd.length >= 3) phoneVariants.add(vd);
   }
   for (const v of phoneVariants) orParts.push(`phone.ilike.${like(v)}`);
-  const direct = await supabase
+  const direct = await client
     .from("bookings" as any)
     .select("id")
     .or(orParts.join(","))
@@ -132,7 +134,7 @@ export async function searchBookings(
   for (const r of (direct.data ?? []) as any[]) ids.add(r.id);
 
   // 2) Primary Occupant — operational room identity.
-  const occ = await supabase
+  const occ = await client
     .from("booking_items" as any)
     .select("booking_id")
     .ilike("primary_occupant_name", like(q))
@@ -140,14 +142,14 @@ export async function searchBookings(
   for (const r of (occ.data ?? []) as any[]) ids.add(r.booking_id);
 
   // 3) Assigned Room Number — occupancy segments are the source of truth.
-  const roomHits = await supabase
+  const roomHits = await client
     .from("rooms" as any)
     .select("id")
     .ilike("room_number", like(q))
     .limit(50);
   const roomIds = ((roomHits.data ?? []) as any[]).map((r) => r.id);
   if (roomIds.length > 0) {
-    const seg = await supabase
+    const seg = await client
       .from("booking_room_assignments" as any)
       .select("booking_id")
       .in("room_id", roomIds)
@@ -156,14 +158,14 @@ export async function searchBookings(
   }
 
   // 4) Company / Group name — from the linked customer record.
-  const comp = await supabase
+  const comp = await client
     .from("customers" as any)
     .select("id")
     .ilike("company_name", like(q))
     .limit(50);
   const custIds = ((comp.data ?? []) as any[]).map((c) => c.id);
   if (custIds.length > 0) {
-    const cb = await supabase
+    const cb = await client
       .from("bookings" as any)
       .select("id")
       .in("customer_id", custIds)
@@ -174,7 +176,7 @@ export async function searchBookings(
   if (ids.size === 0) return [];
 
   // Hydrate the union, then enrich with occupants / rooms / company.
-  const { data: rows } = await supabase
+  const { data: rows } = await client
     .from("bookings" as any)
     .select("id,booking_reference,guest_name,phone,email,check_in,check_out,status,customer_id")
     .in("id", Array.from(ids))
@@ -188,16 +190,16 @@ export async function searchBookings(
   const bookingIds = bookings.map((b) => b.id);
 
   const [itemsRes, segRes, roomRes, custRes] = await Promise.all([
-    supabase
+    client
       .from("booking_items" as any)
       .select("booking_id,primary_occupant_name,item_status")
       .in("booking_id", bookingIds),
-    supabase
+    client
       .from("booking_room_assignments" as any)
       .select("booking_id,room_id,start_date")
       .in("booking_id", bookingIds),
-    supabase.from("rooms" as any).select("id,room_number"),
-    supabase
+    client.from("rooms" as any).select("id,room_number"),
+    client
       .from("customers" as any)
       .select("id,company_name")
       .in("id", bookings.map((b) => b.customer_id).filter(Boolean)),

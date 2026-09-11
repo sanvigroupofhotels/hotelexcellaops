@@ -18,6 +18,7 @@
  * Additional validators plug in as new `Blocker` entries; callers with the
  * appropriate role (admin) can pass `allowOverride: true` to bypass.
  */
+import type { Db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 
 export type CheckoutBlocker = {
@@ -39,8 +40,8 @@ export type CheckoutValidation = {
  * Load booking financial snapshot needed to evaluate checkout gates.
  * Kept private — callers use `assertCheckoutAllowed` or `validateCheckout`.
  */
-async function loadBookingFinancials(bookingId: string): Promise<CheckoutValidation> {
-  const { data: booking, error: bErr } = await supabase
+async function loadBookingFinancials(bookingId: string, client: Db = supabase): Promise<CheckoutValidation> {
+  const { data: booking, error: bErr } = await client
     .from("bookings")
     .select("id, amount, advance_paid, status")
     .eq("id", bookingId)
@@ -48,7 +49,7 @@ async function loadBookingFinancials(bookingId: string): Promise<CheckoutValidat
   if (bErr) throw bErr;
   if (!booking) throw new Error("Booking not found");
 
-  const { data: chargeRows, error: cErr } = await supabase
+  const { data: chargeRows, error: cErr } = await client
     .from("booking_charges" as any)
     .select("amount")
     .eq("booking_id", bookingId);
@@ -90,7 +91,7 @@ async function loadBookingFinancials(bookingId: string): Promise<CheckoutValidat
   };
 }
 
-export async function validateCheckout(bookingId: string): Promise<CheckoutValidation> {
+export async function validateCheckout(bookingId: string, client: Db = supabase): Promise<CheckoutValidation> {
   return loadBookingFinancials(bookingId);
 }
 

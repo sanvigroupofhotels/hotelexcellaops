@@ -1,3 +1,4 @@
+import type { Db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivity } from "@/lib/activity-log";
 
@@ -41,8 +42,8 @@ export interface BookingPaymentInput {
   refund_reason?: string | null;
 }
 
-export async function listBookingPayments(booking_id: string) {
-  const { data, error } = await supabase
+export async function listBookingPayments(booking_id: string, client: Db = supabase) {
+  const { data, error } = await client
     .from("booking_payments" as any)
     .select("*")
     .eq("booking_id", booking_id)

@@ -15,6 +15,7 @@
  *
  * Public entry point for feature code: `src/lib/availability.ts`.
  */
+import type { Db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 
 /** Booking statuses that release physical occupancy. */
@@ -86,10 +87,11 @@ export interface OccupancySegment {
  */
 export async function listOccupancySegments(
   win: OccupancyWindow,
+  client: Db = supabase,
 ): Promise<OccupancySegment[]> {
   const { check_in, check_out, exclude_booking_id } = win;
   if (!check_in || !check_out || check_out < check_in) return [];
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from("booking_room_assignments" as any)
     .select(
       "room_id,booking_id,start_date,end_date,ended_reason,bookings:bookings!inner(id,status,booking_reference,guest_name,check_in,check_out)",
@@ -130,10 +132,11 @@ export interface MaintenanceBlock {
 /** Active maintenance blocks overlapping [check_in, check_out). */
 export async function listMaintenanceBlocks(
   win: Pick<OccupancyWindow, "check_in" | "check_out">,
+  client: Db = supabase,
 ): Promise<MaintenanceBlock[]> {
   const { check_in, check_out } = win;
   if (!check_in || !check_out || check_out < check_in) return [];
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from("room_maintenance" as any)
     .select("room_id, start_date, end_date, active, rooms!inner(room_type)")
     .eq("active", true)
@@ -152,7 +155,7 @@ export async function listMaintenanceBlocks(
  * Every room_id that is unavailable for [check_in, check_out) — occupied by a
  * live segment OR under an active maintenance block.
  */
-export async function listBusyRoomIds(win: OccupancyWindow): Promise<Set<string>> {
+export async function listBusyRoomIds(win: OccupancyWindow, client: Db = supabase): Promise<Set<string>> {
   const [segments, blocks] = await Promise.all([
     listOccupancySegments(win),
     listMaintenanceBlocks(win),

@@ -1,3 +1,4 @@
+import type { Db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { buildBookingChargeRow, type BookingChargeInput } from "@/lib/booking-charge-row";
 
@@ -27,8 +28,8 @@ export interface BookingChargeRow {
 }
 
 
-export async function listBookingCharges(booking_id: string) {
-  const { data, error } = await supabase
+export async function listBookingCharges(booking_id: string, client: Db = supabase) {
+  const { data, error } = await client
     .from("booking_charges" as any)
     .select("*")
     .eq("booking_id", booking_id)

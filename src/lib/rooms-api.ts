@@ -1,3 +1,4 @@
+import type { Db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import {
   datesOverlap,
@@ -30,8 +31,8 @@ export interface RoomMaintenanceRow {
   created_at: string;
 }
 
-export async function listRooms(activeOnly = false) {
-  let q = supabase.from("rooms" as any).select("*").order("floor").order("room_number");
+export async function listRooms(activeOnly = false, client: Db = supabase) {
+  let q = client.from("rooms" as any).select("*").order("floor").order("room_number");
   if (activeOnly) q = q.eq("active", true);
   const { data, error } = await q;
   if (error) throw error;
