@@ -8,6 +8,13 @@
       "when": 1788033838000,
       "tag": "0000_relax_checkin_assignment_gate_to_arrived_rooms",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789187852833,
+      "tag": "0001_restrict_anonymous_internal_settings_and_rooms",
+      "breakpoints": true
     }
   ]
 }
