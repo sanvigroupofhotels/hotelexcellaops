@@ -47,8 +47,12 @@ export function InvoiceDialog({
   onClose: () => void;
 }) {
   const docRef = useRef<HTMLDivElement>(null);
-  const checkTimes = useOpsTimeLabels();
-  const { data: branding } = useQuery({ queryKey: ["branding-settings"], queryFn: getBrandingSettings });
+  const checkTimes = useOpsTimeLabels(!presentation);
+  const { data: branding } = useQuery({
+    queryKey: ["branding-settings"],
+    queryFn: getBrandingSettings,
+    enabled: !presentation,
+  });
 
   const effectiveBranding = presentation?.branding ?? branding;
   const model = useMemo(
