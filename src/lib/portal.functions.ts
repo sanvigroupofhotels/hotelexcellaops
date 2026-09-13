@@ -15,6 +15,27 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const TOKEN_TTL_DAYS = 30;
 
+async function getPortalPresentationSettings(supabaseAdmin: any) {
+  const { data } = await supabaseAdmin
+    .from("app_settings")
+    .select("key,value")
+    .in("key", ["ops", "branding"]);
+  const settings = new Map((data ?? []).map((row: any) => [row.key, row.value ?? {}]));
+  const ops = (settings.get("ops") ?? {}) as Record<string, unknown>;
+  const branding = (settings.get("branding") ?? {}) as Record<string, unknown>;
+  return {
+    checkInTime: typeof ops.check_in_time === "string" ? ops.check_in_time : "13:00",
+    checkOutTime: typeof ops.check_out_time === "string" ? ops.check_out_time : "11:00",
+    branding: {
+      invoice_footer: typeof branding.invoice_footer === "string" ? branding.invoice_footer : "Thank you for staying with us.",
+      signature_url: typeof branding.signature_url === "string" ? branding.signature_url : "",
+      signatory_designation: typeof branding.signatory_designation === "string"
+        ? branding.signatory_designation
+        : "Authorised Signatory",
+    },
+  };
+}
+
 function randomToken(): string {
   // 32 hex chars, sufficient entropy for an unguessable share link
   const bytes = new Uint8Array(16);
@@ -330,6 +351,8 @@ export const getPortalBooking = createServerFn({ method: "POST" })
     if (ptype === "fixed") minPartPayment = pval;
     else if (ptype === "percent") minPartPayment = Math.round((payable * pval) / 100);
 
+    const presentation = await getPortalPresentationSettings(supabaseAdmin);
+
     return {
       bookingId: (b as any).id,
       reference: (b as any).booking_reference,
@@ -368,6 +391,8 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       emergencyContactName: ecName,
       emergencyContactPhone: ecPhone,
       specialRequests: (b as any).special_requests ?? "",
+      checkInTime: presentation.checkInTime,
+      checkOutTime: presentation.checkOutTime,
     };
   });
 
@@ -1156,11 +1181,12 @@ export const getPortalInvoice = createServerFn({ method: "POST" })
     const { supabaseAdmin, booking: tokBk } = await resolvePortalRef(data.token);
     const bookingId = (tokBk as any).id as string;
 
-    const [{ data: booking }, { data: items }, { data: payments }, { data: charges }] = await Promise.all([
+    const [{ data: booking }, { data: items }, { data: payments }, { data: charges }, presentation] = await Promise.all([
       supabaseAdmin.from("bookings").select("*").eq("id", bookingId).maybeSingle(),
       supabaseAdmin.from("booking_items").select("*").eq("booking_id", bookingId).order("created_at", { ascending: true }),
       supabaseAdmin.from("booking_payments").select("*").eq("booking_id", bookingId).order("occurred_at", { ascending: false }),
       supabaseAdmin.from("booking_charges").select("*").eq("booking_id", bookingId).order("created_at", { ascending: true }),
+      getPortalPresentationSettings(supabaseAdmin),
     ]);
 
     if (!booking) throw new Error("Booking not found");
@@ -1169,6 +1195,9 @@ export const getPortalInvoice = createServerFn({ method: "POST" })
       items: items ?? [],
       payments: payments ?? [],
       charges: charges ?? [],
+      branding: presentation.branding,
+      checkInTime: presentation.checkInTime,
+      checkOutTime: presentation.checkOutTime,
     };
   });
 
