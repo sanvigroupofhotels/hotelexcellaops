@@ -49,15 +49,13 @@ export async function hydrateOpsTimes(): Promise<Labels> {
   try { return await inflight; } finally { inflight = null; }
 }
 
-export function useOpsTimeLabels(): Labels {
+export function useOpsTimeLabels(enabled = true): Labels {
   const { data } = useQuery({
     queryKey: ["ops-time-labels"],
     queryFn: async () => hydrateOpsTimes(),
+    enabled,
     staleTime: 5 * 60 * 1000,
     initialData: cache,
   });
   return data;
 }
-
-// Kick off on import so message builders have fresh values by first call.
-void hydrateOpsTimes();

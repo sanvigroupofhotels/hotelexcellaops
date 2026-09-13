@@ -33,24 +33,35 @@ const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-I
  *   Download PDF (saves a real PDF — never window.print()).
  */
 export function InvoiceDialog({
-  booking, items = [], payments = [], charges = [], onClose,
+  booking, items = [], payments = [], charges = [], presentation, onClose,
 }: {
   booking: BookingRow;
   items?: BookingItemRow[];
   payments?: BookingPaymentRow[];
   charges?: BookingChargeRow[];
+  presentation?: {
+    branding?: { invoice_footer?: string | null; signature_url?: string | null; signatory_designation?: string | null } | null;
+    checkInTime?: string;
+    checkOutTime?: string;
+  };
   onClose: () => void;
 }) {
   const docRef = useRef<HTMLDivElement>(null);
-  const checkTimes = useOpsTimeLabels();
-  const { data: branding } = useQuery({ queryKey: ["branding-settings"], queryFn: getBrandingSettings });
+  const checkTimes = useOpsTimeLabels(!presentation);
+  const { data: branding } = useQuery({
+    queryKey: ["branding-settings"],
+    queryFn: getBrandingSettings,
+    enabled: !presentation,
+  });
 
+  const effectiveBranding = presentation?.branding ?? branding;
   const model = useMemo(
     () => buildInvoiceDocument({
-      booking, items, payments, charges, branding,
-      checkInTime: checkTimes.checkIn, checkOutTime: checkTimes.checkOut,
+      booking, items, payments, charges, branding: effectiveBranding,
+      checkInTime: presentation?.checkInTime ?? checkTimes.checkIn,
+      checkOutTime: presentation?.checkOutTime ?? checkTimes.checkOut,
     }),
-    [booking, items, payments, charges, branding, checkTimes.checkIn, checkTimes.checkOut],
+    [booking, items, payments, charges, effectiveBranding, presentation?.checkInTime, presentation?.checkOutTime, checkTimes.checkIn, checkTimes.checkOut],
   );
   const { kind, isFinal, totals } = model;
 
