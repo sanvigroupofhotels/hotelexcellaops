@@ -11,6 +11,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { getOpsSettings, DEFAULT_OPS } from "@/lib/app-settings-api";
+import { formatHotelTime } from "@/lib/time-format";
 
 type Labels = { checkIn: string; checkOut: string; checkInRaw: string; checkOutRaw: string };
 
@@ -18,17 +19,13 @@ let cache: Labels = format(DEFAULT_OPS.check_in_time, DEFAULT_OPS.check_out_time
 let hydrated = false;
 let inflight: Promise<Labels> | null = null;
 
-function to12h(hhmm: string): string {
-  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || "");
-  if (!m) return hhmm;
-  let h = Number(m[1]); const mm = m[2];
-  const ampm = h >= 12 ? "PM" : "AM";
-  h = h % 12; if (h === 0) h = 12;
-  return `${h}:${mm} ${ampm}`;
-}
-
 function format(inT: string, outT: string): Labels {
-  return { checkIn: to12h(inT), checkOut: to12h(outT), checkInRaw: inT, checkOutRaw: outT };
+  return {
+    checkIn: formatHotelTime(inT),
+    checkOut: formatHotelTime(outT),
+    checkInRaw: inT,
+    checkOutRaw: outT,
+  };
 }
 
 export function getOpsTimeLabels(): Labels {

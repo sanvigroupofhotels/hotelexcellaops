@@ -12,6 +12,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { formatHotelTime } from "@/lib/time-format";
 
 const TOKEN_TTL_DAYS = 30;
 
@@ -23,9 +24,11 @@ async function getPortalPresentationSettings(supabaseAdmin: any) {
   const settings = new Map((data ?? []).map((row: any) => [row.key, row.value ?? {}]));
   const ops = (settings.get("ops") ?? {}) as Record<string, unknown>;
   const branding = (settings.get("branding") ?? {}) as Record<string, unknown>;
+  const checkInTime = typeof ops.check_in_time === "string" ? ops.check_in_time : "13:00";
+  const checkOutTime = typeof ops.check_out_time === "string" ? ops.check_out_time : "11:00";
   return {
-    checkInTime: typeof ops.check_in_time === "string" ? ops.check_in_time : "13:00",
-    checkOutTime: typeof ops.check_out_time === "string" ? ops.check_out_time : "11:00",
+    checkInTime: formatHotelTime(checkInTime),
+    checkOutTime: formatHotelTime(checkOutTime),
     branding: {
       invoice_footer: typeof branding.invoice_footer === "string" ? branding.invoice_footer : "Thank you for staying with us.",
       signature_url: typeof branding.signature_url === "string" ? branding.signature_url : "",
