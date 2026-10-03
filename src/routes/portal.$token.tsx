@@ -46,7 +46,9 @@ export const Route = createFileRoute("/portal/$token")({
     <div className="min-h-screen flex items-center justify-center p-6">
       <div className="luxe-card rounded-xl p-6 max-w-md text-center space-y-2">
         <h1 className="font-display text-xl">Link unavailable</h1>
-        <p className="text-sm text-muted-foreground">{error?.message ?? "This booking link could not be loaded."}</p>
+        <p className="text-sm text-muted-foreground">
+          {error instanceof Error ? error.message : "This booking link could not be loaded."}
+        </p>
       </div>
     </div>
   ),
