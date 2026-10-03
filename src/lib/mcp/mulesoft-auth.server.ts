@@ -90,7 +90,8 @@ async function ensureServiceIdentity(): Promise<{ email: string; password: strin
 
 function authClient() {
   const url = env("SUPABASE_URL");
-  const publishableKey = env("SUPABASE_PUBLISHABLE_KEY");
+  const publishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"]?.trim() ?? process.env["SUPABASE_ANON_KEY"]?.trim();
+  if (!publishableKey) throw new Error("Missing SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY");
   return createClient<Database>(url, publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
