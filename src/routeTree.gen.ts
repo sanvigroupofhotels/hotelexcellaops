@@ -54,10 +54,13 @@ import { Route as BookingEngineIndexRouteImport } from './routes/booking-engine.
 import { Route as BookingEngineCheckoutRouteImport } from './routes/booking-engine.checkout'
 import { Route as BookingEngineReviewRouteImport } from './routes/booking-engine.review'
 import { Route as BookingEngineSearchRouteImport } from './routes/booking-engine.search'
+import { Route as McpMulesoftRouteImport } from './routes/mcp_.mulesoft'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as Char91DotwellKnownChar93OauthAuthorizationServerMulesoftRouteImport } from './routes/[.well-known]/oauth-authorization-server/mulesoft'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceMulesoftRouteImport } from './routes/[.well-known]/oauth-protected-resource/mulesoft'
 import { Route as AuthenticatedBookingsIdRouteImport } from './routes/_authenticated/bookings_.$id'
 import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenticated/bookings_.new'
 import { Route as AuthenticatedBookingsQuickRouteImport } from './routes/_authenticated/bookings_.quick'
@@ -109,6 +112,8 @@ import { Route as AuthenticatedBookingsIdEditRouteImport } from './routes/_authe
 import { Route as AuthenticatedQuoteIdEditRouteImport } from './routes/_authenticated/quote.$id_.edit'
 import { Route as AuthenticatedSettingsIntegrationsIdRouteImport } from './routes/_authenticated/settings_.integrations.$id'
 import { Route as AuthenticatedStaffIdLedgerRouteImport } from './routes/_authenticated/staff_.$id.ledger'
+import { Route as ApiPublicMulesoftOauthTokenRouteImport } from './routes/api/public/mulesoft-oauth/token'
+import { Route as Char91DotwellKnownChar93OauthAuthorizationServerApiPublicMulesoftOauthRouteImport } from './routes/[.well-known]/oauth-authorization-server/api/public/mulesoft-oauth'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -341,6 +346,11 @@ const BookingEngineSearchRoute = BookingEngineSearchRouteImport.update({
   path: '/search',
   getParentRoute: () => BookingEngineRoute,
 } as any)
+const McpMulesoftRoute = McpMulesoftRouteImport.update({
+  id: '/mcp_/mulesoft',
+  path: '/mcp/mulesoft',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PortalIndexRoute = PortalIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -361,6 +371,18 @@ const Char91DotmcpChar93InvokeToolToolRoute =
     id: '/.mcp/invoke-tool/$tool',
     path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotwellKnownChar93OauthAuthorizationServerMulesoftRoute =
+  Char91DotwellKnownChar93OauthAuthorizationServerMulesoftRouteImport.update({
+    id: '/.well-known/oauth-authorization-server/mulesoft',
+    path: '/.well-known/oauth-authorization-server/mulesoft',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceMulesoftRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceMulesoftRouteImport.update({
+    id: '/mulesoft',
+    path: '/mulesoft',
+    getParentRoute: () => Char91DotwellKnownChar93OauthProtectedResourceRoute,
   } as any)
 const AuthenticatedBookingsIdRoute = AuthenticatedBookingsIdRouteImport.update({
   id: '/bookings_/$id',
@@ -661,6 +683,20 @@ const AuthenticatedStaffIdLedgerRoute =
     path: '/staff/$id/ledger',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiPublicMulesoftOauthTokenRoute =
+  ApiPublicMulesoftOauthTokenRouteImport.update({
+    id: '/api/public/mulesoft-oauth/token',
+    path: '/api/public/mulesoft-oauth/token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotwellKnownChar93OauthAuthorizationServerApiPublicMulesoftOauthRoute =
+  Char91DotwellKnownChar93OauthAuthorizationServerApiPublicMulesoftOauthRouteImport.update(
+    {
+      id: '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth',
+      path: '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth',
+      getParentRoute: () => rootRouteImport,
+    } as any,
+  )
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -669,7 +705,7 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/portal': typeof PortalRouteWithChildren
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
-  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/attendance': typeof AuthenticatedAttendanceRoute
@@ -705,12 +741,15 @@ export interface FileRoutesByFullPath {
   '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
   '/booking-engine/review': typeof BookingEngineReviewRoute
   '/booking-engine/search': typeof BookingEngineSearchRoute
+  '/mcp/mulesoft': typeof McpMulesoftRoute
   '/portal/$token': typeof PortalTokenRoute
   '/be/': typeof BeIndexRoute
   '/booking-engine/': typeof BookingEngineIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/.well-known/oauth-authorization-server/mulesoft': typeof Char91DotwellKnownChar93OauthAuthorizationServerMulesoftRoute
+  '/.well-known/oauth-protected-resource/mulesoft': typeof Char91DotwellKnownChar93OauthProtectedResourceMulesoftRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/bookings/quick': typeof AuthenticatedBookingsQuickRoute
@@ -762,12 +801,14 @@ export interface FileRoutesByFullPath {
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
   '/settings/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
   '/staff/$id/ledger': typeof AuthenticatedStaffIdLedgerRoute
+  '/api/public/mulesoft-oauth/token': typeof ApiPublicMulesoftOauthTokenRoute
+  '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth': typeof Char91DotwellKnownChar93OauthAuthorizationServerApiPublicMulesoftOauthRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
-  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/attendance': typeof AuthenticatedAttendanceRoute
@@ -800,6 +841,7 @@ export interface FileRoutesByTo {
   '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
   '/booking-engine/review': typeof BookingEngineReviewRoute
   '/booking-engine/search': typeof BookingEngineSearchRoute
+  '/mcp/mulesoft': typeof McpMulesoftRoute
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/be': typeof BeIndexRoute
@@ -807,6 +849,8 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/.well-known/oauth-authorization-server/mulesoft': typeof Char91DotwellKnownChar93OauthAuthorizationServerMulesoftRoute
+  '/.well-known/oauth-protected-resource/mulesoft': typeof Char91DotwellKnownChar93OauthProtectedResourceMulesoftRoute
   '/bookings/$id': typeof AuthenticatedBookingsIdRoute
   '/bookings/new': typeof AuthenticatedBookingsNewRoute
   '/bookings/quick': typeof AuthenticatedBookingsQuickRoute
@@ -858,6 +902,8 @@ export interface FileRoutesByTo {
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
   '/settings/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
   '/staff/$id/ledger': typeof AuthenticatedStaffIdLedgerRoute
+  '/api/public/mulesoft-oauth/token': typeof ApiPublicMulesoftOauthTokenRoute
+  '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth': typeof Char91DotwellKnownChar93OauthAuthorizationServerApiPublicMulesoftOauthRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -867,7 +913,7 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/portal': typeof PortalRouteWithChildren
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
-  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren
   '/_authenticated/access-settings': typeof AuthenticatedAccessSettingsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
@@ -903,6 +949,7 @@ export interface FileRoutesById {
   '/booking-engine/checkout': typeof BookingEngineCheckoutRoute
   '/booking-engine/review': typeof BookingEngineReviewRoute
   '/booking-engine/search': typeof BookingEngineSearchRoute
+  '/mcp_/mulesoft': typeof McpMulesoftRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/be/': typeof BeIndexRoute
@@ -910,6 +957,8 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/.well-known/oauth-authorization-server/mulesoft': typeof Char91DotwellKnownChar93OauthAuthorizationServerMulesoftRoute
+  '/.well-known/oauth-protected-resource/mulesoft': typeof Char91DotwellKnownChar93OauthProtectedResourceMulesoftRoute
   '/_authenticated/bookings_/$id': typeof AuthenticatedBookingsIdRoute
   '/_authenticated/bookings_/new': typeof AuthenticatedBookingsNewRoute
   '/_authenticated/bookings_/quick': typeof AuthenticatedBookingsQuickRoute
@@ -961,6 +1010,8 @@ export interface FileRoutesById {
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
   '/_authenticated/settings_/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
   '/_authenticated/staff_/$id/ledger': typeof AuthenticatedStaffIdLedgerRoute
+  '/api/public/mulesoft-oauth/token': typeof ApiPublicMulesoftOauthTokenRoute
+  '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth': typeof Char91DotwellKnownChar93OauthAuthorizationServerApiPublicMulesoftOauthRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1007,12 +1058,15 @@ export interface FileRouteTypes {
     | '/booking-engine/checkout'
     | '/booking-engine/review'
     | '/booking-engine/search'
+    | '/mcp/mulesoft'
     | '/portal/$token'
     | '/be/'
     | '/booking-engine/'
     | '/portal/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/.well-known/oauth-authorization-server/mulesoft'
+    | '/.well-known/oauth-protected-resource/mulesoft'
     | '/bookings/$id'
     | '/bookings/new'
     | '/bookings/quick'
@@ -1064,6 +1118,8 @@ export interface FileRouteTypes {
     | '/quote/$id/edit'
     | '/settings/integrations/$id'
     | '/staff/$id/ledger'
+    | '/api/public/mulesoft-oauth/token'
+    | '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -1102,6 +1158,7 @@ export interface FileRouteTypes {
     | '/booking-engine/checkout'
     | '/booking-engine/review'
     | '/booking-engine/search'
+    | '/mcp/mulesoft'
     | '/portal/$token'
     | '/'
     | '/be'
@@ -1109,6 +1166,8 @@ export interface FileRouteTypes {
     | '/portal'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/.well-known/oauth-authorization-server/mulesoft'
+    | '/.well-known/oauth-protected-resource/mulesoft'
     | '/bookings/$id'
     | '/bookings/new'
     | '/bookings/quick'
@@ -1160,6 +1219,8 @@ export interface FileRouteTypes {
     | '/quote/$id/edit'
     | '/settings/integrations/$id'
     | '/staff/$id/ledger'
+    | '/api/public/mulesoft-oauth/token'
+    | '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth'
   id:
     | '__root__'
     | '/_authenticated'
@@ -1204,6 +1265,7 @@ export interface FileRouteTypes {
     | '/booking-engine/checkout'
     | '/booking-engine/review'
     | '/booking-engine/search'
+    | '/mcp_/mulesoft'
     | '/portal/$token'
     | '/_authenticated/'
     | '/be/'
@@ -1211,6 +1273,8 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/.well-known/oauth-authorization-server/mulesoft'
+    | '/.well-known/oauth-protected-resource/mulesoft'
     | '/_authenticated/bookings_/$id'
     | '/_authenticated/bookings_/new'
     | '/_authenticated/bookings_/quick'
@@ -1262,6 +1326,8 @@ export interface FileRouteTypes {
     | '/_authenticated/quote/$id_/edit'
     | '/_authenticated/settings_/integrations/$id'
     | '/_authenticated/staff_/$id/ledger'
+    | '/api/public/mulesoft-oauth/token'
+    | '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1271,11 +1337,13 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   PortalRoute: typeof PortalRouteWithChildren
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
-  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren
   BeSplatRoute: typeof BeSplatRoute
+  McpMulesoftRoute: typeof McpMulesoftRoute
   BeIndexRoute: typeof BeIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  Char91DotwellKnownChar93OauthAuthorizationServerMulesoftRoute: typeof Char91DotwellKnownChar93OauthAuthorizationServerMulesoftRoute
   ApiPublicCleanupGuestDocumentsRoute: typeof ApiPublicCleanupGuestDocumentsRoute
   ApiPublicHotelzifyPollRoute: typeof ApiPublicHotelzifyPollRoute
   ApiPublicNightAuditRoute: typeof ApiPublicNightAuditRoute
@@ -1283,6 +1351,8 @@ export interface RootRouteChildren {
   ApiPublicNotificationEmailDispatchRoute: typeof ApiPublicNotificationEmailDispatchRoute
   ApiPublicPushDispatchRoute: typeof ApiPublicPushDispatchRoute
   ApiPublicRazorpayWebhookRoute: typeof ApiPublicRazorpayWebhookRoute
+  ApiPublicMulesoftOauthTokenRoute: typeof ApiPublicMulesoftOauthTokenRoute
+  Char91DotwellKnownChar93OauthAuthorizationServerApiPublicMulesoftOauthRoute: typeof Char91DotwellKnownChar93OauthAuthorizationServerApiPublicMulesoftOauthRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1602,6 +1672,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BookingEngineSearchRouteImport
       parentRoute: typeof BookingEngineRoute
     }
+    '/mcp_/mulesoft': {
+      id: '/mcp_/mulesoft'
+      path: '/mcp/mulesoft'
+      fullPath: '/mcp/mulesoft'
+      preLoaderRoute: typeof McpMulesoftRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/portal/': {
       id: '/portal/'
       path: '/'
@@ -1629,6 +1706,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/.mcp/invoke-tool/$tool'
       preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-authorization-server/mulesoft': {
+      id: '/.well-known/oauth-authorization-server/mulesoft'
+      path: '/.well-known/oauth-authorization-server/mulesoft'
+      fullPath: '/.well-known/oauth-authorization-server/mulesoft'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthAuthorizationServerMulesoftRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-protected-resource/mulesoft': {
+      id: '/.well-known/oauth-protected-resource/mulesoft'
+      path: '/mulesoft'
+      fullPath: '/.well-known/oauth-protected-resource/mulesoft'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceMulesoftRouteImport
+      parentRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
     }
     '/_authenticated/bookings_/$id': {
       id: '/_authenticated/bookings_/$id'
@@ -1987,6 +2078,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStaffIdLedgerRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/mulesoft-oauth/token': {
+      id: '/api/public/mulesoft-oauth/token'
+      path: '/api/public/mulesoft-oauth/token'
+      fullPath: '/api/public/mulesoft-oauth/token'
+      preLoaderRoute: typeof ApiPublicMulesoftOauthTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth': {
+      id: '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth'
+      path: '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth'
+      fullPath: '/.well-known/oauth-authorization-server/api/public/mulesoft-oauth'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthAuthorizationServerApiPublicMulesoftOauthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -2268,6 +2373,21 @@ const PortalRouteChildren: PortalRouteChildren = {
 const PortalRouteWithChildren =
   PortalRoute._addFileChildren(PortalRouteChildren)
 
+interface Char91DotwellKnownChar93OauthProtectedResourceRouteChildren {
+  Char91DotwellKnownChar93OauthProtectedResourceMulesoftRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceMulesoftRoute
+}
+
+const Char91DotwellKnownChar93OauthProtectedResourceRouteChildren: Char91DotwellKnownChar93OauthProtectedResourceRouteChildren =
+  {
+    Char91DotwellKnownChar93OauthProtectedResourceMulesoftRoute:
+      Char91DotwellKnownChar93OauthProtectedResourceMulesoftRoute,
+  }
+
+const Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren =
+  Char91DotwellKnownChar93OauthProtectedResourceRoute._addFileChildren(
+    Char91DotwellKnownChar93OauthProtectedResourceRouteChildren,
+  )
+
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   BookingEngineRoute: BookingEngineRouteWithChildren,
@@ -2276,11 +2396,14 @@ const rootRouteChildren: RootRouteChildren = {
   PortalRoute: PortalRouteWithChildren,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
-    Char91DotwellKnownChar93OauthProtectedResourceRoute,
+    Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren,
   BeSplatRoute: BeSplatRoute,
+  McpMulesoftRoute: McpMulesoftRoute,
   BeIndexRoute: BeIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  Char91DotwellKnownChar93OauthAuthorizationServerMulesoftRoute:
+    Char91DotwellKnownChar93OauthAuthorizationServerMulesoftRoute,
   ApiPublicCleanupGuestDocumentsRoute: ApiPublicCleanupGuestDocumentsRoute,
   ApiPublicHotelzifyPollRoute: ApiPublicHotelzifyPollRoute,
   ApiPublicNightAuditRoute: ApiPublicNightAuditRoute,
@@ -2289,6 +2412,9 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicNotificationEmailDispatchRoute,
   ApiPublicPushDispatchRoute: ApiPublicPushDispatchRoute,
   ApiPublicRazorpayWebhookRoute: ApiPublicRazorpayWebhookRoute,
+  ApiPublicMulesoftOauthTokenRoute: ApiPublicMulesoftOauthTokenRoute,
+  Char91DotwellKnownChar93OauthAuthorizationServerApiPublicMulesoftOauthRoute:
+    Char91DotwellKnownChar93OauthAuthorizationServerApiPublicMulesoftOauthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -143,3 +143,12 @@ every cross-module effect flows through an engine.
   shared business engine or canonical RPC, preserve Booking → Booking Item →
   Occupancy Segment history, and require explicit confirmation for financial or
   operational state changes. Direct operational-table writes are forbidden.
+- **Machine clients use dedicated identities.** An integration that requires
+  unattended OAuth uses its own HEOS auth identity and credentials, never a
+  human user's identity. MuleSoft uses `/mcp/mulesoft`; its short-lived bearer
+  is issued to `mulesoft@hotelexcella.in`, while RLS and `my_permissions()`
+  remain the authorization boundary. The ordinary `/mcp` Authorization Code +
+  PKCE flow is unchanged.
+- **Current MCP remains read-only.** An owner-equivalent integration identity
+  receives the existing permission matrix, but it does not gain write ability
+  until a write tool is explicitly built through a canonical HEOS engine.
