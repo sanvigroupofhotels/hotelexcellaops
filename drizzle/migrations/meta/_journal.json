@@ -22,6 +22,13 @@
       "when": 1789263458726,
       "tag": "0002_grant_authenticated_app_settings_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791080668572,
+      "tag": "0003_default_new_profiles_to_fo_staff",
+      "breakpoints": true
     }
   ]
 }
