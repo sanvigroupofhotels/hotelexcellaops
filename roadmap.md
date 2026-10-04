@@ -6,4 +6,4 @@
 - [x] Apply the required routine package security update and confirm the preview build remains healthy.
 - [x] Provision a dedicated `mulesoft@hotelexcella.in` owner-equivalent service identity on first authenticated use.
 - [x] Add a MuleSoft-only client-credentials adapter and dedicated MCP endpoint without changing Claude OAuth.
-- [ ] Verify deployed MuleSoft token issuance, MCP initialization, `whoami`, and all 21 tools after publishing.
+- [x] Verify deployed MuleSoft token issuance, MCP initialization, `whoami`, and all 21 registered read-only tools after publishing.
