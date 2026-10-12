@@ -19,10 +19,19 @@ import { listRooms } from "@/lib/rooms-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import { performNightAuditNow } from "@/lib/perform-night-audit";
 import { useUserRole } from "@/hooks/use-role";
+import { BOOKING_CANCELLATION_DENIED } from "@/lib/booking-cancellation-access";
 
 type Tab = "checkins" | "checkouts";
 
 export const Route = createFileRoute("/_authenticated/night-audit/critical-tasks")({
+  head: () => ({ meta: [
+    { title: "Critical Tasks | HEOS" },
+    { name: "description", content: "HEOS pending arrival and departure tasks for Night Audit." },
+    { property: "og:title", content: "Critical Tasks | HEOS" },
+    { property: "og:description", content: "HEOS pending arrival and departure tasks for Night Audit." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   validateSearch: (s: Record<string, unknown>): { tab?: "checkins" | "checkouts" } => ({
     tab: s.tab === "checkouts" ? "checkouts" : "checkins",
   }),
@@ -197,7 +206,7 @@ function CriticalTasksPage() {
                     <Button size="sm" className="bg-gold text-charcoal hover:bg-gold/90" onClick={() => checkIn.start(row.id)} disabled={checkIn.isWorking}>
                       Check-In
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => setCancelId(row.id)}>
+                    <Button size="sm" variant="outline" onClick={() => { if (!canManage) { toast.error(BOOKING_CANCELLATION_DENIED); return; } setCancelId(row.id); }}>
                       <X className="h-3.5 w-3.5 mr-1" /> Cancel
                     </Button>
                     <Link to="/bookings/$id" params={{ id: row.id }} className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground gap-1 ml-auto">

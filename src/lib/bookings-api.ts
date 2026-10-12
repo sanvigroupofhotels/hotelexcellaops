@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { BookingStatus } from "@/lib/mock-data";
 import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
+import { assertBookingCancellationAllowed, isRestrictedBookingStatus } from "@/lib/booking-cancellation-access";
 
 
 export interface BookingRow {
@@ -118,6 +119,7 @@ export async function getBooking(id: string) {
 }
 
 export async function createBooking(input: BookingInput) {
+  if (isRestrictedBookingStatus(input.status)) await assertBookingCancellationAllowed();
   validateBookingInput(input);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
@@ -160,6 +162,7 @@ export async function createBooking(input: BookingInput) {
 }
 
 export async function updateBooking(id: string, patch: Partial<BookingInput>) {
+  if (isRestrictedBookingStatus(patch.status)) await assertBookingCancellationAllowed();
   if (patch.check_in && patch.check_out && new Date(patch.check_out) < new Date(patch.check_in))
     throw new Error("Check-out cannot be before check-in");
   const { data, error } = await supabase
@@ -173,6 +176,7 @@ export async function setBookingStatus(
   status: BookingStatus,
   opts: { allowOverride?: boolean } = {},
 ) {
+  if (isRestrictedBookingStatus(status)) await assertBookingCancellationAllowed();
   if (status === "Checked-In" && !opts.allowOverride) {
     const { listGuestDocuments } = await import("@/lib/guest-documents-api");
     const documents = await listGuestDocuments(id);

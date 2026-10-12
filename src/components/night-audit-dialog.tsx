@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useCheckInController } from "@/lib/check-in-flow";
 import { useUserRole } from "@/hooks/use-role";
+import { BOOKING_CANCELLATION_DENIED } from "@/lib/booking-cancellation-access";
+import { Button } from "@/components/ui/button";
 
 /**
  * Night Audit dialog.
@@ -87,6 +89,7 @@ export function NightAuditDialog({ open, onClose, inline = false }: { open: bool
   });
 
   const runBulk = (ids: string[], status: "Checked-In" | "Checked-Out" | "Cancelled", verb: string) => {
+    if (status === "Cancelled" && !canManage) { toast.error(BOOKING_CANCELLATION_DENIED); return; }
     if (ids.length === 0) return;
     if (!window.confirm(`You are about to ${verb} ${ids.length} booking${ids.length === 1 ? "" : "s"}. Continue?`)) return;
     bulk.mutate({ ids, status });
@@ -164,9 +167,9 @@ export function NightAuditDialog({ open, onClose, inline = false }: { open: bool
                   <button onClick={() => runBulk(ci.map((b) => b.id), "Checked-In", "Check-In")}
                     disabled={bulk.isPending}
                     className="rounded-md gold-gradient px-2.5 py-1 text-[11px] font-medium text-charcoal disabled:opacity-50">Check-In All</button>
-                  <button onClick={() => runBulk(ci.map((b) => b.id), "Cancelled", "Cancel")}
+                  <Button variant="outline" onClick={() => runBulk(ci.map((b) => b.id), "Cancelled", "Cancel")}
                     disabled={bulk.isPending}
-                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive disabled:opacity-50">Cancel All</button>
+                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive disabled:opacity-50">Cancel All</Button>
                 </>
               ) : null}
               renderActions={(b) => {
@@ -185,22 +188,23 @@ export function NightAuditDialog({ open, onClose, inline = false }: { open: bool
                       <LogIn className="h-3 w-3" /> Check-In
                     </button>
                     {showNoShow && (
-                      <button
+                      <Button variant="outline"
                         onClick={() => {
+                          if (!canManage) { toast.error(BOOKING_CANCELLATION_DENIED); return; }
                           if (!window.confirm(`Mark "${b.guest_name}" as No-Show? Balance Due becomes ₹0 and the room is freed.`)) return;
                           setStatus.mutate({ id: b.id, status: "No-Show" });
                         }}
                         disabled={busyId === b.id}
                         className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1 text-[11px] text-warning disabled:opacity-50">
                         <UserX className="h-3 w-3" /> No-Show
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      onClick={() => setCancelTarget({ id: b.id, name: b.guest_name })}
+                    <Button variant="outline"
+                      onClick={() => { if (!canManage) { toast.error(BOOKING_CANCELLATION_DENIED); return; } setCancelTarget({ id: b.id, name: b.guest_name }); }}
                       disabled={busyId === b.id}
                       className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive disabled:opacity-50">
                       <Ban className="h-3 w-3" /> Cancel
-                    </button>
+                    </Button>
                   </>
                 );
               }}

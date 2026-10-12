@@ -78,8 +78,18 @@ import { toast } from "sonner";
 import { useOpsTimeLabels } from "@/lib/check-times";
 import { usePaymentModes } from "@/hooks/use-payment-modes";
 import { PhoneField } from "@/components/phone-field";
+import { assertBookingCancellationAllowed, BOOKING_CANCELLATION_DENIED } from "@/lib/booking-cancellation-access";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
+  head: () => ({ meta: [
+    { title: "Booking Details | HEOS" },
+    { name: "description", content: "HEOS booking details, stay history and payments." },
+    { property: "og:title", content: "Booking Details | HEOS" },
+    { property: "og:description", content: "HEOS booking details, stay history and payments." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: BookingDetail,
 });
 
@@ -229,6 +239,7 @@ function BookingDetail() {
 
   const cancelBooking = useMutation({
     mutationFn: async (input: { reason: string; refundAmount: number; refundMode: string; refundCollectedBy: string }) => {
+      await assertBookingCancellationAllowed();
       const { reason, refundAmount, refundMode, refundCollectedBy } = input;
       const from = b?.status as string | undefined;
       // 1) If refund > 0, write a booking_payment with is_refund=true (trigger handles cashbook for Cash)
@@ -682,14 +693,15 @@ function BookingDetail() {
                       </button>
                     )}
                     {canMarkNoShow && (
-                      <button
+                      <Button variant="outline"
                         onClick={() => {
+                          if (!canManage) { toast.error(BOOKING_CANCELLATION_DENIED); return; }
                           if (!confirm("Mark this booking as No-Show? The guest will be recorded as never arrived.")) return;
                           status.mutate("No-Show" as any);
                         }}
                         className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] text-destructive hover:bg-destructive/20">
                         Mark No-Show
-                      </button>
+                      </Button>
                     )}
                     {!canCheckIn && ["Pending", "Confirmed", "Advance Paid", "Full Paid"].includes(b.status as any) && (
                       <div className="text-[11px] text-muted-foreground italic">
@@ -720,10 +732,10 @@ function BookingDetail() {
                       </>
                     )}
                     {canCancel && (
-                      <button onClick={() => { setCancelReason(""); setCancelOpen(true); }}
+                      <Button variant="outline" onClick={() => { if (!canManage) { toast.error(BOOKING_CANCELLATION_DENIED); return; } setCancelReason(""); setCancelOpen(true); }}
                         className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] text-destructive hover:bg-destructive/20">
                         Cancel Booking
-                      </button>
+                      </Button>
                     )}
                     {(b as any).checkout_override_at && (
                       <div className="rounded-md border border-warning/30 bg-warning/5 p-2 text-[10px] text-warning">
