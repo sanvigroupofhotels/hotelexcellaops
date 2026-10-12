@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Restrict Cancel and No-Show to owner/admin across UI, shared calls, and database writes; no approval workflow.
+- [ ] Test blocked staff actions, allowed owner/admin actions, and existing lifecycle/display regressions.
+
 - [x] Fix only House View grouped multi-day booking rendering; 38 targeted display and occupancy regression tests pass, preview build OK; operational engines unchanged.
 - [ ] Verify HEXB-0241CF visually in authenticated House View — blocked until the user signs in to the preview.
 
