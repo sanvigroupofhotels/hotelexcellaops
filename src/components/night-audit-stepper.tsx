@@ -30,6 +30,7 @@ import { setBookingStatus } from "@/lib/bookings-api";
 import { logBookingActivity } from "@/lib/booking-activities-api";
 import { getOpenSession, logDecision, saveSessionDraft } from "@/lib/night-audit-sessions-api";
 import { useUserRole } from "@/hooks/use-role";
+import { BOOKING_CANCELLATION_DENIED } from "@/lib/booking-cancellation-access";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -495,6 +496,7 @@ function ArrivalsStep({
   naLog: (step: string, action: string, extra?: any) => Promise<void>;
 }) {
   const qc = useQueryClient();
+  const { canManage } = useUserRole();
   const [filter, setFilter] = useState<ArrivalFilter>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
@@ -630,22 +632,23 @@ function ArrivalsStep({
                     <LogIn className="h-3 w-3" /> Check-In
                   </button>
                   {showNoShow && (
-                    <button
+                    <Button variant="outline"
                       onClick={() => {
+                        if (!canManage) { toast.error(BOOKING_CANCELLATION_DENIED); return; }
                         if (!window.confirm(`Mark "${b.guest_name}" as No-Show?`)) return;
                         setStatus.mutate({ id: b.id, status: "No-Show" });
                       }}
                       disabled={busyId === b.id}
                       className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1 text-[11px] text-warning disabled:opacity-50">
                       <UserX className="h-3 w-3" /> No-Show
-                    </button>
+                    </Button>
                   )}
-                  <button
-                    onClick={() => setCancelTarget({ id: b.id, name: b.guest_name })}
+                  <Button variant="outline"
+                    onClick={() => { if (!canManage) { toast.error(BOOKING_CANCELLATION_DENIED); return; } setCancelTarget({ id: b.id, name: b.guest_name }); }}
                     disabled={busyId === b.id}
                     className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive disabled:opacity-50">
                     <Ban className="h-3 w-3" /> Cancel
-                  </button>
+                  </Button>
                 </div>
               </li>
             );

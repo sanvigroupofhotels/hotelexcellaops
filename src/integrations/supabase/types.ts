@@ -4131,6 +4131,7 @@ export type Database = {
         Args: { p_booking_id: string }
         Returns: undefined
       }
+      can_cancel_bookings: { Args: never; Returns: boolean }
       cleanup_expired_guest_documents: { Args: never; Returns: number }
       confirm_laundry_return: {
         Args: {

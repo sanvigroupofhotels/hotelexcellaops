@@ -43,6 +43,7 @@ import {
 import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
 import { placeHouseViewChips } from "@/lib/house-view-placement";
 import { houseViewGroupLayout } from "@/lib/house-view-group-layout";
+import { BOOKING_CANCELLATION_DENIED } from "@/lib/booking-cancellation-access";
 
 
 
@@ -1563,15 +1564,16 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
             </button>
           )}
           {canTransact && status !== "Checked-In" && today > b.check_out && (
-            <button
+            <Button variant="outline"
               onClick={() => {
+                if (!canManage) { toast.error(BOOKING_CANCELLATION_DENIED); return; }
                 if (!confirm("Mark this booking as No-Show?")) return;
                 noShowMut.mutate();
               }}
               disabled={noShowMut.isPending}
               className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-3 py-2 text-xs font-medium hover:bg-destructive/20 disabled:opacity-60">
               {noShowMut.isPending ? "Working…" : "Mark No-Show"}
-            </button>
+            </Button>
           )}
         </div>
       </div>
