@@ -29,6 +29,13 @@
       "when": 1791080668572,
       "tag": "0003_default_new_profiles_to_fo_staff",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791776558449,
+      "tag": "0004_restrict_booking_cancellation_to_owner_admin",
+      "breakpoints": true
     }
   ]
 }
