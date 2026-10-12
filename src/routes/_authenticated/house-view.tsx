@@ -42,10 +42,19 @@ import {
 } from "@/lib/stay-segments";
 import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
 import { placeHouseViewChips } from "@/lib/house-view-placement";
+import { houseViewGroupLayout } from "@/lib/house-view-group-layout";
 
 
 
 export const Route = createFileRoute("/_authenticated/house-view")({
+  head: () => ({ meta: [
+    { title: "House View | HEOS" },
+    { name: "description", content: "HEOS room occupancy and booking timeline." },
+    { property: "og:title", content: "House View | HEOS" },
+    { property: "og:description", content: "HEOS room occupancy and booking timeline." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: HouseView,
 });
 
@@ -965,6 +974,10 @@ function HouseView() {
                         // Render pills only in the start cell to span across
                         const bdKey = r.id + "|" + dk;
                         const startingBookings = startingByRoomDay.get(bdKey);
+                        // Only groups containing a visible multi-day stay need separate tracks.
+                        const stackedGroup = (startingBookings?.length ?? 0) > 1
+                          && (startingBookings ?? []).some((b) => slotEndExclusive(b) > dateKey(addDays(d, 1)));
+                        const groupTrackCount = (startingBookings?.length ?? 0) > 3 ? 3 : (startingBookings?.length ?? 0);
                         const startingBlocks = blockStartingByRoomDay.get(bdKey);
                         const isCovered = coveredSet ? coveredSet.has(dk) : false;
                         const dragHL = dragAvail
@@ -1008,7 +1021,7 @@ function HouseView() {
                               setDragAvail(null);
                             }}
                           >
-                            <div className="relative h-full" style={{ minHeight: 40 }}>
+                            <div className="relative h-full" style={{ minHeight: stackedGroup ? Math.max(40, groupTrackCount * 32) : 40 }}>
                               {/* Vacant action button — visible when no booking/block covers this day */}
                               {!isCovered && (
                                 <button
@@ -1082,6 +1095,7 @@ function HouseView() {
                                           origCheckOut={mutationCheckOut}
                                           groupSlot={isGrouped ? idx : 0}
                                           groupSlots={isGrouped ? slotCount : 1}
+                                          stackedGroup={stackedGroup}
                                           lateFractionDays={lateFractionDays}
                                           incomingLateDays={incomingLateDays}
                                           isHistorical={!!b._historical}
@@ -1093,17 +1107,13 @@ function HouseView() {
                                       );
                                     })}
                                     {showOverflow && (() => {
-                                      const gap = 4;
-                                      const inset = 2;
-                                      const inner = cellW - inset * 2;
-                                      const w = (inner - (slotCount - 1) * gap) / slotCount;
-                                      const left = inset + (slotCount - 1) * (w + gap);
+                                      const overflowLayout = houseViewGroupLayout(cellW, 1, slotCount - 1, slotCount, stackedGroup);
                                       return (
                                         <button
                                           type="button"
                                           onClick={() => handleChipSelect(sb[visibleCount])}
                                           className="absolute top-0.5 bottom-0.5 rounded-xl border-2 border-opacity-90 px-1 text-[11px] font-medium flex items-center justify-center overflow-hidden bg-secondary/60 text-foreground/80 border-border hover:ring-2 hover:ring-gold/50 transition shadow-[0_1px_1.5px_rgba(0,0,0,0.08)]"
-                                          style={{ left, width: w, zIndex: 20 }}
+                                          style={{ ...overflowLayout, zIndex: 20 }}
                                           title={`${overflowN} more booking${overflowN > 1 ? "s" : ""} on this day`}
                                         >
                                           +{overflowN}
@@ -1859,6 +1869,7 @@ interface BookingChipProps {
   origCheckOut: string;
   groupSlot?: number;
   groupSlots?: number;
+  stackedGroup?: boolean;
   /** UAT-036: fractional next-day extension for Late Check-out visualization (0..0.75). */
   lateFractionDays?: number;
   /** UAT-036 follow-up: fractional inset from left when a previous booking in
@@ -1876,7 +1887,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
   const {
     b, roomId, span, cellW, hasBreakfast, hasPet, balanceDue, moveEligible, moveReason,
     isMobile, highlight, continuesLeft, continuesRight, origCheckIn, origCheckOut,
-    groupSlot = 0, groupSlots = 1, lateFractionDays = 0, incomingLateDays = 0,
+    groupSlot = 0, groupSlots = 1, stackedGroup = false, lateFractionDays = 0, incomingLateDays = 0,
     isHistorical = false,
     onSelect, onLongPress, onDragStartAvail, onDragEnd,
   } = props;
@@ -1940,13 +1951,8 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       )}
       style={(() => {
         if (groupSlots > 1) {
-          const gap = 4;
-          const inset = 2;
-          const inner = cellW - inset * 2;
-          const w = (inner - (groupSlots - 1) * gap) / groupSlots;
           return {
-            left: inset + groupSlot * (w + gap),
-            width: w,
+            ...houseViewGroupLayout(cellW, span, groupSlot, groupSlots, stackedGroup, continuesLeft, continuesRight),
             zIndex: highlight ? 25 : 20,
             touchAction: dragEnabled && isMobile ? "manipulation" : undefined,
           } as React.CSSProperties;
