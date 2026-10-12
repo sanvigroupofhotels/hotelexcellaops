@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Fix only House View grouped multi-day booking rendering and run regression checks; leave operational engines unchanged.
+
 - [x] Register a dedicated confidential OAuth client for MuleSoft with `https://mulesoft.com` as its exact redirect URI.
 - [x] Verify OAuth discovery, client registration, callback binding, and MCP protection remain intact.
 - [x] Provide the MuleSoft Client ID and Client Secret through a private deliverable.
