@@ -1,6 +1,7 @@
 # Roadmap
 
-- [ ] Fix only House View grouped multi-day booking rendering and run regression checks; leave operational engines unchanged.
+- [x] Fix only House View grouped multi-day booking rendering; 38 targeted display and occupancy regression tests pass, preview build OK; operational engines unchanged.
+- [ ] Verify HEXB-0241CF visually in authenticated House View — blocked until the user signs in to the preview.
 
 - [x] Register a dedicated confidential OAuth client for MuleSoft with `https://mulesoft.com` as its exact redirect URI.
 - [x] Verify OAuth discovery, client registration, callback binding, and MCP protection remain intact.
