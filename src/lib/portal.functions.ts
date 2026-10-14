@@ -940,36 +940,10 @@ export const uploadPortalDocument = createServerFn({ method: "POST" })
 // --- cancelPortalBooking -----------------------------------------------------
 export const cancelPortalBooking = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ token: z.string().min(8).max(128) }).parse(input))
-  .handler(async ({ data }) => {
-    const { supabaseAdmin, booking } = await tokenToBooking(data.token);
-    if (["Cancelled", "Checked-In", "Checked-Out", "Stay Completed", "No-Show"].includes(booking.status)) {
-      throw new Error("This booking cannot be cancelled from the portal. Please contact reception.");
-    }
-    if (Number(booking.advance_paid || 0) > 0) {
-      throw new Error("Payment already recorded — please contact reception to cancel your booking.");
-    }
-    // Cut-off: now <= check-in 14:00 IST - 24h
-    const checkInIso = `${booking.check_in}T14:00:00+05:30`;
-    const cutoff = new Date(checkInIso).getTime() - 24 * 60 * 60 * 1000;
-    if (Date.now() > cutoff) {
-      throw new Error("Cancellation window closed (within 24h of check-in) — please contact reception.");
-    }
-    const { error } = await supabaseAdmin
-      .from("bookings")
-      .update({
-        status: "Cancelled",
-        cancel_reason: "Guest self-cancelled (Guest Portal)",
-      } as any)
-      .eq("id", booking.id);
-    if (error) throw error;
-    await supabaseAdmin.from("booking_activities" as any).insert({
-      booking_id: booking.id,
-      actor_name: "Guest (Portal)",
-      actor_role: "guest",
-      action: "cancelled",
-      notes: "Booking cancelled by guest via portal",
-    } as any);
-    return { ok: true };
+  .handler(async () => {
+    // Stage 1: cancellation is deliberately owner/admin-only. Guest tokens
+    // cannot establish either role and must not use privileged writes.
+    throw new Error("Only an owner or admin can cancel this booking. Please contact reception.");
   });
 
 // --- submitPortalComplaint --------------------------------------------------
