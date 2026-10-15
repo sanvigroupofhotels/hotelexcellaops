@@ -724,6 +724,78 @@ function HouseView() {
     .toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const systemLabel = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
+  // Single shared search box (same search service + results) used in the
+  // desktop header and the mobile row — only one is visible per breakpoint.
+  const renderSearch = (variant: "desktop" | "mobile") => (
+    <div className="relative">
+      <input
+        type="text"
+        value={searchQ}
+        onChange={(e) => setSearchQ(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && searchMatches.length > 0) openBooking(searchMatches[0]);
+          if (e.key === "Escape") setSearchQ("");
+        }}
+        placeholder={variant === "desktop" ? "Search guest, mobile, ref, room…" : "Search guest, occupant, mobile, reference, room, company…"}
+        className="w-full bg-input/60 border border-border rounded-md pl-8 pr-8 py-1.5 md:py-2 text-sm placeholder:text-muted-foreground/60"
+      />
+      <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+      {searchQ && (
+        <button onClick={() => setSearchQ("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground">
+          <X className="h-4 w-4" />
+        </button>
+      )}
+      {searchQ.trim() && searchMatches.length > 0 && (
+        <div className={cn("absolute z-40 mt-1 luxe-card rounded-md max-h-80 overflow-auto shadow-xl", variant === "desktop" ? "right-0 w-[26rem]" : "left-0 right-0")}>
+          {searchMatches.map((m) => (
+            <button key={m.id} onClick={() => openBooking(m)}
+              className="w-full text-left px-3 py-2 border-b border-border last:border-b-0 hover:bg-gold-soft/20">
+              <div className="text-sm font-medium">{m.guest_name} <span className="text-[11px] text-muted-foreground">· {m.booking_reference}</span></div>
+              <div className="text-[11px] text-muted-foreground tabular">
+                {m.phone ? `+${normPhone(m.phone).replace(/^91/, "91 ")}` : "—"} · {fmtFull(m.check_in)} → {fmtFull(m.check_out)}
+                {m.roomNumbers.length > 0 ? ` · Room ${m.roomNumbers.join(", ")}` : ""}
+              </div>
+              {(m.occupants.length > 0 || m.company) && (
+                <div className="text-[10px] text-muted-foreground/80 truncate">
+                  {m.company ? `${m.company}` : ""}
+                  {m.company && m.occupants.length > 0 ? " · " : ""}
+                  {m.occupants.length > 0 ? `Occupants: ${m.occupants.join(", ")}` : ""}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      {searchQ.trim() && searchMatches.length === 0 && (
+        <div className={cn("absolute z-40 mt-1 luxe-card rounded-md p-3 text-xs text-muted-foreground", variant === "desktop" ? "right-0 w-64" : "left-0 right-0")}>No matching bookings.</div>
+      )}
+    </div>
+  );
+
+  const goToday = () => { const d = businessDate ? new Date(businessDate + "T00:00:00") : new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - 1); setAnchor(d); };
+  const renderNav = (variant: "desktop" | "mobile") => (
+    <div className={cn("flex items-center gap-1.5", variant === "mobile" ? "luxe-card rounded-xl p-1.5 justify-between" : "")}>
+      <button onClick={() => setAnchor((d) => addDays(d, -1))} aria-label="Previous day" className="p-1.5 rounded-md border border-border hover:border-gold/40 shrink-0"><ChevronLeft className="h-4 w-4" /></button>
+      <div className="flex items-center gap-1.5 justify-center">
+        <button onClick={goToday} className="px-2.5 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
+        <input type="date"
+          value={dateKey(addDays(anchor, 1))}
+          onChange={(e) => {
+            const d = new Date(e.target.value);
+            if (!isNaN(d.getTime())) { d.setHours(0,0,0,0); d.setDate(d.getDate() - 1); setAnchor(d); }
+          }}
+          className="bg-input/60 border border-border rounded-md px-2 py-1 text-xs md:text-sm" />
+        {variant === "desktop" && (
+          <button onClick={() => setStatsOpen(true)}
+            className="flex px-2.5 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 items-center gap-1.5">
+            <Hotel className="h-3.5 w-3.5" /> Stats
+          </button>
+        )}
+      </div>
+      <button onClick={() => setAnchor((d) => addDays(d, 1))} aria-label="Next day" className="p-1.5 rounded-md border border-border hover:border-gold/40 shrink-0"><ChevronRight className="h-4 w-4" /></button>
+    </div>
+  );
+
   return (
     <>
       <LongPressDebugOverlay />
