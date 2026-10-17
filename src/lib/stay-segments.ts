@@ -67,6 +67,9 @@ export type StaySlot = {
 };
 
 const DEPARTED_ITEM_STATUSES = new Set(["Checked-Out"]);
+const INACTIVE_ITEM_STATUSES = new Set(["Removed", "Cancelled"]);
+// Closures that end an assignment without the guest having stayed there.
+const NON_STAY_END_REASONS = new Set(["room_removed", "item_removed", "unassigned"]);
 
 
 export function normalizeStayRoomType(value?: string | null) {
@@ -146,7 +149,11 @@ export function expandStaySlots(booking: StayBookingLike, items: StayItemLike[])
     }] satisfies StaySlot[];
   }
 
-  return [...items]
+  // Removed/Cancelled items no longer hold a room — they never emit stay slots.
+  const live = items.filter((item) => !INACTIVE_ITEM_STATUSES.has(String(item.item_status ?? "")));
+  if (!live.length) return [] as StaySlot[];
+
+  return [...live]
     .sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0))
     .flatMap((item, itemIndex) => {
       const count = Math.max(1, Number(item.rooms ?? 1));
@@ -173,6 +180,9 @@ export function pairStaySlotsToRooms(
 ) {
   const items = itemsByBooking.get(booking.id) ?? [];
   const slots = expandStaySlots(booking, items);
+  const inactiveItemIds = new Set(
+    items.filter((i) => i.id && INACTIVE_ITEM_STATUSES.has(String(i.item_status ?? ""))).map((i) => i.id as string),
+  );
   const assigned = [...(assignmentsByBooking.get(booking.id) ?? [])];
 
   // Compatibility fallback for bookings that have an item-level room pointer
@@ -250,7 +260,8 @@ export function pairStaySlotsToRooms(
     // and do NOT advance the slot cursor (no nights were consumed).
     // A zero-night segment closed by unassignment (room_removed) never hosted
     // a guest — it is audit history only and must not render as a stay.
-    if (segEnd <= segStart && assignment.ended_reason === "room_removed") continue;
+    if (segEnd <= segStart && NON_STAY_END_REASONS.has(String(assignment.ended_reason ?? ""))) continue;
+    if (assignment.item_id && inactiveItemIds.has(assignment.item_id)) continue;
     if (segEnd <= segStart) {
       let idx = assignment.item_id
         ? slots.findIndex((s, i) => s.item_id === assignment.item_id && cursors[i] <= segStart && segStart < slotEndExclusive(s))

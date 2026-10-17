@@ -15,3 +15,17 @@ describe("assign → unassign → reassign on arrival day", () => {
     expect(list.length).toBe(1);
   });
 });
+
+describe("removed items", () => {
+  it("removed item with item_removed zero-night segments renders nothing", () => {
+    const booking = { id: "b2", check_in: "2026-10-17", check_out: "2026-10-18", room_id: null } as any;
+    const items = new Map([["b2", [{ id: "i1", position: 0, rooms: 1, room_type: "Deluxe", item_status: "Removed", check_in: "2026-10-17", check_out: "2026-10-18" }]]]) as any;
+    const asg = new Map([["b2", [
+      { id: "a1", room_id: "r205", booking_id: "b2", item_id: "i1", start_date: "2026-10-17", end_date: "2026-10-17", ended_reason: "item_removed" },
+      { id: "a2", room_id: "r306", booking_id: "b2", item_id: "i1", start_date: "2026-10-17", end_date: "2026-10-17", ended_reason: "item_removed" },
+    ]]]) as any;
+    const r = pairStaySlotsToRooms(booking, items, asg, [{ id: "r205", room_type: "Deluxe" }, { id: "r306", room_type: "Deluxe" }] as any);
+    expect(r.paired).toHaveLength(0);
+    expect(r.unpaired).toHaveLength(0);
+  });
+});
