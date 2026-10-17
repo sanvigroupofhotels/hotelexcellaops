@@ -248,6 +248,9 @@ export function pairStaySlotsToRooms(
     // range is empty, so the generic intersection below can never match it —
     // yet the room really was occupied that day. Emit a one-day departed chip
     // and do NOT advance the slot cursor (no nights were consumed).
+    // A zero-night segment closed by unassignment (room_removed) never hosted
+    // a guest — it is audit history only and must not render as a stay.
+    if (segEnd <= segStart && assignment.ended_reason === "room_removed") continue;
     if (segEnd <= segStart) {
       let idx = assignment.item_id
         ? slots.findIndex((s, i) => s.item_id === assignment.item_id && cursors[i] <= segStart && segStart < slotEndExclusive(s))
