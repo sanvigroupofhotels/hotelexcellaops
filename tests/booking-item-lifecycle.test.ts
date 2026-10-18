@@ -18,7 +18,7 @@ describe("booking item lifecycle — derived parent status", () => {
   });
 
   it("3. reverting the only check-in returns to the pre-arrival status", () => {
-    expect(deriveBookingStatusFromItems(items("Confirmed"), "Checked-In")).toBeNull();
+    expect(deriveBookingStatusFromItems(items("Confirmed"), "Checked-In")).toBe("Pending");
   });
 
   it("4. reverting a check-out re-activates the booking", () => {
