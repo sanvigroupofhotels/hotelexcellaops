@@ -206,6 +206,13 @@ function BookingDetail() {
       // If any payment exists → Advance Paid; else Pending. Triggers re-derive on save.
       const { data: pays } = await supabase.from("booking_payments" as any).select("id").eq("booking_id", id).limit(1);
       const newStatus: BookingStatus = (pays && pays.length > 0) ? "Advance Paid" : "Pending";
+      // Revert every checked-in room first so the room-level sync can't
+      // force the booking back to Checked-In.
+      await supabase
+        .from("booking_items" as any)
+        .update({ item_status: "Confirmed", checked_in_at: null } as any)
+        .eq("booking_id", id)
+        .eq("item_status", "Checked-In");
       await setBookingStatus(id, newStatus);
       await logBookingActivity({
         booking_id: id, action: "revert_check_in",
