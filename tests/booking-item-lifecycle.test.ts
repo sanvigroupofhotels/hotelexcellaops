@@ -18,7 +18,7 @@ describe("booking item lifecycle — derived parent status", () => {
   });
 
   it("3. reverting the only check-in returns to the pre-arrival status", () => {
-    expect(deriveBookingStatusFromItems(items("Confirmed"), "Checked-In")).toBeNull();
+    expect(deriveBookingStatusFromItems(items("Confirmed"), "Checked-In")).toBe("Pending");
   });
 
   it("4. reverting a check-out re-activates the booking", () => {
@@ -72,5 +72,14 @@ describe("booking item lifecycle — derived parent status", () => {
     expect(itemStatusForBookingStatus("Cancelled")).toBe("Cancelled");
     expect(itemStatusForBookingStatus("No-Show")).toBe("No-Show");
     expect(itemStatusForBookingStatus("Advance Paid")).toBeNull();
+  });
+});
+
+describe("revert check-in parent sync", () => {
+  it("rolls parent back when the only checked-in room is reverted", () => {
+    expect(deriveBookingStatusFromItems([{ item_status: "Confirmed" }], "Checked-In")).toBe("Pending");
+  });
+  it("keeps parent Checked-In when another room is still in-house", () => {
+    expect(deriveBookingStatusFromItems([{ item_status: "Confirmed" }, { item_status: "Checked-In" }], "Checked-In")).toBe("Checked-In");
   });
 });

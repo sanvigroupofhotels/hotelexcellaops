@@ -662,9 +662,25 @@ export async function addBookingItemDuringStay(input: {
  * for remaining nights. Historical segments and the item row are preserved
  * for audit — the item simply becomes inactive.
  */
+export const LAST_ROOM_REMOVAL_MESSAGE =
+  "You cannot leave this booking with no rooms. If you want to cancel the booking, please click Cancel Booking.";
+
 export async function removeBookingItem(input: { itemId: string; reason?: string | null }) {
   const item = await getItem(input.itemId);
   if ((item.item_status ?? "") === "Removed") return;
+
+  // Never leave a booking with zero rooms — cancellation is the only way out.
+  const { data: siblings } = await supabase
+    .from("booking_items" as any)
+    .select("id, item_status")
+    .eq("booking_id", item.booking_id);
+  const liveOthers = ((siblings ?? []) as any[]).filter(
+    (s) => s.id !== input.itemId && !["Removed", "Cancelled", "No-Show"].includes(String(s.item_status ?? "")),
+  );
+  if (liveOthers.length === 0) {
+    throw new Error(LAST_ROOM_REMOVAL_MESSAGE);
+  }
+
 
   const businessDate = await getBusinessDate();
 
