@@ -74,3 +74,12 @@ describe("booking item lifecycle — derived parent status", () => {
     expect(itemStatusForBookingStatus("Advance Paid")).toBeNull();
   });
 });
+
+describe("revert check-in parent sync", () => {
+  it("rolls parent back when the only checked-in room is reverted", () => {
+    expect(deriveBookingStatusFromItems([{ item_status: "Confirmed" }], "Checked-In")).toBe("Pending");
+  });
+  it("keeps parent Checked-In when another room is still in-house", () => {
+    expect(deriveBookingStatusFromItems([{ item_status: "Confirmed" }, { item_status: "Checked-In" }], "Checked-In")).toBe("Checked-In");
+  });
+});
