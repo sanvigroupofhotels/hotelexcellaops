@@ -52,6 +52,10 @@ export function deriveBookingStatusFromItems(
   // Mixed Confirmed + Checked-Out (partial departure before any check-in was
   // recorded, or a reverted check-in) — the booking is still live.
   if (operational.some((s) => ITEM_DEPARTED.has(s))) return "Checked-In";
+  // Every live room is back to Confirmed (e.g. the last checked-in room was
+  // reverted) — roll an in-house booking back to pre-arrival. "Pending" is
+  // re-derived by the database into Pending / Advance Paid / Full Paid.
+  if (currentStatus === "Checked-In") return "Pending";
   return null;
 }
 
