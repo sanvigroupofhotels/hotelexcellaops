@@ -227,6 +227,17 @@ function BookingDetail() {
     mutationFn: async (reason: string | null) => {
       // Clear the override warning fields so the "Outstanding Balance" banner
       // disappears immediately — the warning is derived from current state.
+      // Restore every checked-out room first (re-opens its room segment and
+      // re-attaches the room number) so the room sync can't flip the booking
+      // back to Checked-Out.
+      const { data: outItems } = await supabase
+        .from("booking_items" as any)
+        .select("id")
+        .eq("booking_id", id)
+        .eq("item_status", "Checked-Out");
+      for (const it of (outItems ?? []) as any[]) {
+        await revertItemCheckOut(it.id);
+      }
       await supabase.from("bookings" as any).update({
         status: "Checked-In" as any,
         checkout_override_at: null,
