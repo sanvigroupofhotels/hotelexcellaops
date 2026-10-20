@@ -289,7 +289,9 @@ export async function revertItemCheckOut(itemId: string) {
   const seg = (segs ?? [])[0] as any | undefined;
 
   let restoredRoomId: string | null = null;
-  if (seg && seg.ended_reason === "item_check_out") {
+  let conflictRoomLabel: string | null = null;
+  const CHECKOUT_REASONS = new Set(["item_check_out", "booking_check_out", null, undefined, ""]);
+  if (seg && CHECKOUT_REASONS.has(seg.ended_reason)) {
     // Extend segment back to the booking's original check_out (exclusive).
     const targetEnd = item.check_out as string;
     if (targetEnd > seg.end_date) {
@@ -299,6 +301,14 @@ export async function revertItemCheckOut(itemId: string) {
         .eq("id", seg.id);
       // Overlap-guarded by GiST exclusion; if it collides, cannot restore.
       if (!upErr) restoredRoomId = seg.room_id;
+      else {
+        const { data: rm } = await supabase
+          .from("rooms" as any)
+          .select("room_number")
+          .eq("id", seg.room_id)
+          .maybeSingle();
+        conflictRoomLabel = ((rm as any)?.room_number as string) ?? "the previous room";
+      }
     } else {
       restoredRoomId = seg.room_id;
     }
@@ -309,6 +319,11 @@ export async function revertItemCheckOut(itemId: string) {
   // prior segment (another booking now occupies the room, or the segment was
   // closed for a different reason like room_removed), the revert is unsafe.
   const finalRoomId = restoredRoomId ?? item.assigned_room_id;
+  if (!finalRoomId && conflictRoomLabel) {
+    throw new Error(
+      `Room ${conflictRoomLabel} is already occupied by another guest. Please release or reassign that room first so that revert check-out can be completed.`,
+    );
+  }
   if (!finalRoomId) {
     throw new Error(
       "Cannot revert check-out: the previous room is no longer available. Assign a room to this item instead.",
