@@ -261,7 +261,29 @@ export function pairStaySlotsToRooms(
     // A zero-night segment closed by unassignment (room_removed) never hosted
     // a guest — it is audit history only and must not render as a stay.
     if (segEnd <= segStart && NON_STAY_END_REASONS.has(String(assignment.ended_reason ?? ""))) continue;
-    if (assignment.item_id && inactiveItemIds.has(assignment.item_id)) continue;
+    if (assignment.item_id && inactiveItemIds.has(assignment.item_id)) {
+      // Removed mid-stay: keep the nights actually stayed (closed, non-empty
+      // segment) as history; drop open/zero-night/never-stayed segments.
+      if (segEnd > segStart && assignment.end_date && assignment.ended_reason) {
+        const it = items.find((i) => i.id === assignment.item_id);
+        paired.push({
+          room_id: assignment.room_id,
+          slot: {
+            key: `${booking.id}:removed:${assignment.id ?? assignment.room_id}:${segStart}`,
+            booking_id: booking.id,
+            item_id: assignment.item_id,
+            room_type: (it as any)?.room_type ?? null,
+            check_in: segStart,
+            check_out: segEnd,
+            ended_reason: assignment.ended_reason ?? null,
+            item_status: "Checked-Out",
+            checked_out_at: (it as any)?.checked_out_at ?? segEnd,
+            occupant_name: (it as any)?.occupant_name ?? null,
+          },
+        });
+      }
+      continue;
+    }
     if (segEnd <= segStart) {
       let idx = assignment.item_id
         ? slots.findIndex((s, i) => s.item_id === assignment.item_id && cursors[i] <= segStart && segStart < slotEndExclusive(s))
