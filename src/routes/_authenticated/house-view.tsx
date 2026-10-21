@@ -1948,7 +1948,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
         radiusClasses,
         blockClasses(b),
         b._virtual && "border-dashed",
-        isHistorical && "opacity-50 grayscale saturate-50 border-dashed pointer-events-none",
+        isHistorical && "opacity-50 grayscale saturate-50 border-dashed",
         dragEnabled && !isMobile && "cursor-grab active:cursor-grabbing",
         // NOTE: `touch-none` was previously applied to mobile-movable chips.
         // It blocks native panning, which is the dominant cause of laggy

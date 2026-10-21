@@ -202,6 +202,28 @@ export async function splitAssignment(
   } as any);
   if (error) throw error;
 
+  // Moving back to the room the guest just left: coalesce the adjacent
+  // same-room segments so the stay renders as one continuous chip.
+  if (itemId) {
+    try {
+      const { data: segs } = await supabase
+        .from("booking_room_assignments" as any)
+        .select("id,room_id,start_date,end_date,ended_reason")
+        .eq("booking_id", booking_id).eq("item_id", itemId)
+        .order("start_date", { ascending: true });
+      const list = (segs ?? []) as any[];
+      for (let i = 1; i < list.length; i++) {
+        const a = list[i - 1], b = list[i];
+        if (a.room_id === b.room_id && a.end_date === b.start_date && a.ended_reason === "room_change") {
+          await supabase.from("booking_room_assignments" as any).delete().eq("id", b.id);
+          await supabase.from("booking_room_assignments" as any)
+            .update({ end_date: b.end_date, ended_reason: b.ended_reason ?? null } as any).eq("id", a.id);
+          break;
+        }
+      }
+    } catch { /* non-blocking */ }
+  }
+
   if (itemId) {
     await supabase
       .from("booking_items" as any)
