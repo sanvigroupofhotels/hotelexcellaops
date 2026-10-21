@@ -319,7 +319,7 @@ export async function revertItemCheckOut(itemId: string) {
   // prior segment (another booking now occupies the room, or the segment was
   // closed for a different reason like room_removed), the revert is unsafe.
   const finalRoomId = restoredRoomId ?? item.assigned_room_id;
-  if (!finalRoomId && conflictRoomLabel) {
+  if (conflictRoomLabel) {
     throw new Error(
       `Room ${conflictRoomLabel} is already occupied by another guest. Please release or reassign that room first so that revert check-out can be completed.`,
     );
