@@ -1,3 +1,4 @@
+import { confirmEarlyCheckout, nightsRemaining } from "@/lib/early-checkout";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
