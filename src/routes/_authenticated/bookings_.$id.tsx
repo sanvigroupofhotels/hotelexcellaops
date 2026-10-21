@@ -1,3 +1,4 @@
+import { confirmEarlyCheckout, nightsRemaining } from "@/lib/early-checkout";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -631,7 +632,12 @@ function BookingDetail() {
               onRemoveItem={(itemId, reason) => itemRemove.mutate({ itemId, reason })}
               onAddRoom={(payload) => itemAdd.mutate({ bookingId: id, ...payload })}
               onItemCheckIn={(itemId) => itemCheckIn.mutate(itemId)}
-              onItemCheckOut={(itemId) => itemCheckOut.mutate(itemId)}
+              onItemCheckOut={(itemId) => {
+                const it = (items as any[]).find((x) => x.id === itemId);
+                const rn = (rooms as any[]).find((r) => r.id === it?.assigned_room_id)?.room_number;
+                if (!confirmEarlyCheckout(rn ? `Room ${rn}` : "This room", it?.check_out ?? b.check_out, businessDate)) return;
+                itemCheckOut.mutate(itemId);
+              }}
               onRevertItemCheckIn={(itemId) => itemRevertCheckIn.mutate(itemId)}
               onRevertItemCheckOut={(itemId) => itemRevertCheckOut.mutate(itemId)}
               onRevertAllCheckIns={() => {
@@ -683,6 +689,7 @@ function BookingDetail() {
                 const canCheckOut = b.status === "Checked-In";
                 const canCancel = !["Checked-In", "Checked-Out", "Cancelled", "No-Show"].includes(b.status as any);
                 const handleCheckOutClick = () => {
+                  if (!confirmEarlyCheckout(`Booking ${b.booking_reference} (${b.guest_name})`, b.check_out, businessDate)) return;
                   // Block overpayment — but offer to process refund inline.
                   if (overpaid > 0) {
                     setRefundAmount(overpaid);
@@ -1270,6 +1277,10 @@ function RoomManagementGrid({
   const [bulkBusy, setBulkBusy] = useState(false);
   const runBulk = async (action: "assign" | "move" | "checkin" | "checkout") => {
     if (selectedItems.length === 0) return;
+    if (action === "checkout") {
+      const early = (items as any[]).filter((it) => selectedItems.includes(it.id) && nightsRemaining(it.check_out ?? booking.check_out, businessDate) > 0);
+      if (early.length > 0 && !confirmEarlyCheckout(`${early.length} selected room(s)`, early[0].check_out ?? booking.check_out, businessDate)) return;
+    }
     setBulkBusy(true);
     try {
       const res =

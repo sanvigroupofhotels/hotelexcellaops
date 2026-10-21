@@ -1403,6 +1403,8 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
   const checkIn = useCheckInController({ onCheckedIn: () => onClose() });
   const checkOutMut = useMutation({
     mutationFn: async () => {
+      const { confirmEarlyCheckout } = await import("@/lib/early-checkout");
+      if (!confirmEarlyCheckout(`${b.guest_name} (${b.booking_reference})`, b.check_out, today)) throw new Error("Early check-out cancelled");
       // Room-by-room departure: a chip bound to a Booking Item checks out ONLY
       // that room through the shared per-room engine. The parent booking is
       // derived — it closes only once every applicable room has departed.
