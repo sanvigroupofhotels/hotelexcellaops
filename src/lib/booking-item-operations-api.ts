@@ -508,6 +508,11 @@ export async function moveBookingItemRoom(input: {
 }) {
   const { splitAssignment } = await import("@/lib/booking-room-assignments-api");
   const item = await getItem(input.itemId);
+  // Staff guardrail: checked-out rooms can only be changed by owner/admin.
+  if (((item as any).item_status ?? "") === "Checked-Out") {
+    const { data: isManager } = await supabase.rpc("can_cancel_bookings" as any);
+    if (isManager !== true) throw new Error("Cannot change the room of a checked-out stay. Please contact an Admin.");
+  }
   const businessDate = await getBusinessDate();
 
   // Locate the segment currently linked to this item on/after today. Prefer
