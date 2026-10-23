@@ -232,6 +232,7 @@ export interface ExpectedTimeSyncPlan {
   }[];
   chargeUpdates: {
     id: string;
+    item_id?: string;
     quantity: number;
     unit_price: number;
     standard_unit_price: number;
@@ -389,10 +390,12 @@ export function planExpectedTimeSync(input: ExpectedTimeSyncInput): ExpectedTime
           Number(existing.unit_price) !== unit ||
           Number(existing.quantity) !== 1 ||
           Number(existing.standard_unit_price ?? NaN) !== standard ||
-          !!existing.price_overridden !== overridden
+          !!existing.price_overridden !== overridden ||
+          existing.item_id !== it.id
         ) {
           plan.chargeUpdates.push({
             id: existing.id,
+            item_id: it.id,
             quantity: 1,
             unit_price: unit,
             standard_unit_price: standard,

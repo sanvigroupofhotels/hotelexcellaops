@@ -250,3 +250,31 @@ describe("negotiated Early/Late amount (override)", () => {
     ]);
   });
 });
+
+import { planExpectedTimeSync as __plan } from "@/lib/expected-times";
+import { extraAdultRateOf, withExtraAdultRate } from "@/lib/mock-data";
+import { lineSubtotal } from "@/components/line-items-editor";
+describe("edit-save duplicate guard", () => {
+  it("reuses an orphaned early check-in charge instead of creating a second", () => {
+    const plan = __plan({
+      expectedArrival: "08:00", standardCheckIn: "12:00",
+      expectedDeparture: null, standardCheckOut: "11:00",
+      items: [{ id: "new", rate: 4000 } as any],
+      charges: [{ id: "c1", item_id: null, category: "Early Check-In", quantity: 1, unit_price: 1 } as any],
+    } as any);
+    expect(plan.chargeCreates).toHaveLength(0);
+    expect(plan.chargeUpdates.map((c) => [c.id, c.item_id])).toEqual([["c1", "new"]]);
+  });
+});
+describe("extra adult rate", () => {
+  it("defaults to 500 and accepts 650", () => {
+    expect(extraAdultRateOf({ notes: null })).toBe(500);
+    expect(extraAdultRateOf({ notes: withExtraAdultRate("vip", 650) })).toBe(650);
+    expect(withExtraAdultRate("vip [extra_adult_rate:650]", 500)).toBe("vip");
+  });
+  it("prices 1 extra adult × 3 nights at 650 = 1950 over base", () => {
+    const base: any = { room_type: "Oak", rooms: 1, adults: 2, children: 0, check_in: "2026-10-01", check_out: "2026-10-04", rate: 0, breakfast_included: false, extra_bed: false, pet_size: "none", extra_adults: 1, drivers: 0, notes: withExtraAdultRate(null, 650) };
+    const without = lineSubtotal({ ...base, extra_adults: 0 });
+    expect(lineSubtotal(base) - without).toBe(1950);
+  });
+});
