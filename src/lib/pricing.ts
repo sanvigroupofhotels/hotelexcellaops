@@ -21,7 +21,7 @@
 import { lineItemsTotal, lineSubtotal, nightsOf, type LineItem } from "@/components/line-items-editor";
 import { normalizeLineGuests } from "@/lib/guest-allocation";
 import { chargeFinancials } from "@/lib/expected-times";
-import { EARLY_CHECK_IN_SLOTS, LATE_CHECK_OUT_SLOTS, PET_RATES, EXTRA_ADULT_RATE, DRIVER_RATE } from "@/lib/mock-data";
+import { EARLY_CHECK_IN_SLOTS, LATE_CHECK_OUT_SLOTS, PET_RATES, EXTRA_ADULT_RATE, DRIVER_RATE, extraAdultRateOf } from "@/lib/mock-data";
 
 export const DEFAULT_TAX_RATE = 0.05;
 
@@ -97,7 +97,10 @@ function lineExtraItems(item: LineItem): { label: string; value: number; standar
   }
   const pet = PET_RATES[item.pet_size] ?? 0;
   if (pet > 0) out.push({ label: `Pet Stay (${item.pet_size}) · ${n}N`, value: pet * n });
-  if ((item.extra_adults || 0) > 0) out.push({ label: `Extra Adults × ${item.extra_adults} · ${n}N`, value: (item.extra_adults || 0) * EXTRA_ADULT_RATE * n });
+  if ((item.extra_adults || 0) > 0) {
+    const ear = extraAdultRateOf(item);
+    out.push({ label: `Extra Adults × ${item.extra_adults} · ${n}N${ear !== EXTRA_ADULT_RATE ? ` (@ ₹${ear}/n)` : ""}`, value: (item.extra_adults || 0) * ear * n });
+  }
   if ((item.drivers || 0) > 0) out.push({ label: `Drivers × ${item.drivers} · ${n}N`, value: (item.drivers || 0) * DRIVER_RATE * n });
   return out;
 }

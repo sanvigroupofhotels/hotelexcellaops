@@ -99,6 +99,20 @@ export function getRoomRate(roomName: string, breakfastIncluded: boolean): numbe
 
 // ---------- Charge policies (corrected) ----------
 export const EXTRA_ADULT_RATE = 500; // per night, incl. mattress & breakfast
+
+// Per-line negotiated Extra Adult rate, stored as a tag inside the room line's
+// notes (no schema change). Absent tag → standard EXTRA_ADULT_RATE.
+const EA_RATE_TAG = /\[extra_adult_rate:(\d+(?:\.\d+)?)\]/;
+export function extraAdultRateOf(item: { notes?: string | null }): number {
+  const m = (item.notes ?? "").match(EA_RATE_TAG);
+  return m ? Math.max(0, Number(m[1])) : EXTRA_ADULT_RATE;
+}
+export function withExtraAdultRate(notes: string | null | undefined, rate: number): string | null {
+  const base = (notes ?? "").replace(EA_RATE_TAG, "").trim();
+  const r = Math.max(0, Math.round(Number(rate) || 0));
+  const tagged = r === EXTRA_ADULT_RATE ? base : `${base} [extra_adult_rate:${r}]`.trim();
+  return tagged || null;
+}
 export const DRIVER_RATE = 500; // per night, incl. mattress & breakfast
 export const EXTRA_BREAKFAST_RATE = 150; // per head per night (only when breakfast NOT included)
 
