@@ -232,6 +232,7 @@ export interface ExpectedTimeSyncPlan {
   }[];
   chargeUpdates: {
     id: string;
+    item_id?: string;
     quantity: number;
     unit_price: number;
     standard_unit_price: number;
@@ -299,10 +300,22 @@ export function planExpectedTimeSync(input: ExpectedTimeSyncInput): ExpectedTime
     patches.set(id, { ...(patches.get(id) ?? {}), ...p });
   };
 
-  const findCharge = (itemId: string, category: string) =>
-    input.charges.find(
-      (c) => c.item_id === itemId && c.category.toLowerCase() === category.toLowerCase(),
-    );
+  // Edit Booking rewrites room lines with new IDs, orphaning the previous
+  // expected-time charge. Fall back to an unclaimed orphan charge of the same
+  // category so it is updated (and relinked) instead of duplicated.
+  const liveIds = new Set(input.items.map((i) => i.id));
+  const claimed = new Set<string>();
+  const findCharge = (itemId: string, category: string) => {
+    const cat = category.toLowerCase();
+    const hit =
+      input.charges.find((c) => c.item_id === itemId && c.category.toLowerCase() === cat) ??
+      input.charges.find(
+        (c) => c.category.toLowerCase() === cat && !claimed.has(c.id) &&
+          (!c.item_id || !liveIds.has(c.item_id)),
+      );
+    if (hit) claimed.add(hit.id);
+    return hit;
+  };
 
   /** Reception-supplied override for this item + category, if any. */
   const suppliedOverride = (itemId: string, category: string) =>
@@ -377,10 +390,12 @@ export function planExpectedTimeSync(input: ExpectedTimeSyncInput): ExpectedTime
           Number(existing.unit_price) !== unit ||
           Number(existing.quantity) !== 1 ||
           Number(existing.standard_unit_price ?? NaN) !== standard ||
-          !!existing.price_overridden !== overridden
+          !!existing.price_overridden !== overridden ||
+          existing.item_id !== it.id
         ) {
           plan.chargeUpdates.push({
             id: existing.id,
+            item_id: it.id,
             quantity: 1,
             unit_price: unit,
             standard_unit_price: standard,

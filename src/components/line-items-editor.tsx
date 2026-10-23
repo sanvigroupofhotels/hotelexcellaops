@@ -8,6 +8,8 @@ import {
   PET_OPTIONS,
   PET_RATES,
   EXTRA_ADULT_RATE,
+  extraAdultRateOf,
+  withExtraAdultRate,
   DRIVER_RATE,
   type EarlyCheckInSlot,
   type LateCheckOutSlot,
@@ -104,7 +106,7 @@ export function lineSubtotal(item: LineItem) {
     total += unit * rooms;
   }
   total += (PET_RATES[item.pet_size] ?? 0) * n;
-  total += (item.extra_adults || 0) * EXTRA_ADULT_RATE * n;
+  total += (item.extra_adults || 0) * extraAdultRateOf(item) * n;
   total += (item.drivers || 0) * DRIVER_RATE * n;
   return total;
 }
@@ -372,7 +374,8 @@ function LineItemRow({
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <NumField label={`Extra Adults (₹${EXTRA_ADULT_RATE}/n)`} value={item.extra_adults} min={0} onChange={(v) => onChange({ extra_adults: v })} />
+            <NumField label={`Extra Adults (₹${extraAdultRateOf(item)}/n)`} value={item.extra_adults} min={0} onChange={(v) => onChange({ extra_adults: v })} />
+            <NumField label={`Extra Adult Rate / Night (std ₹${EXTRA_ADULT_RATE})`} value={extraAdultRateOf(item)} min={0} onChange={(v) => onChange({ notes: withExtraAdultRate(item.notes, v) })} />
             <NumField label={`Drivers (₹${DRIVER_RATE}/n)`} value={item.drivers} min={0} onChange={(v) => onChange({ drivers: v })} />
           </div>
         </div>

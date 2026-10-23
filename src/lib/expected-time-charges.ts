@@ -104,7 +104,8 @@ export async function syncExpectedTimes(
       standard_unit_price: c.standard_unit_price,
       price_overridden: c.price_overridden,
       notes: c.notes,
-    });
+      ...(c.item_id ? { item_id: c.item_id } : {}),
+    } as any);
   }
   for (const id of plan.chargeDeletes) await deleteBookingCharge(id);
 

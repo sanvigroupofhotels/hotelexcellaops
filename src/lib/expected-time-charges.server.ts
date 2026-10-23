@@ -76,6 +76,7 @@ export async function syncExpectedTimesAdmin(
         standard_unit_price: c.standard_unit_price,
         price_overridden: c.price_overridden,
         notes: c.notes,
+        ...(c.item_id ? { item_id: c.item_id } : {}),
         added_by: opts.addedBy ?? "Guest Portal",
       },
       booking.user_id,
