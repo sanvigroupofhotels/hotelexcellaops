@@ -20,6 +20,8 @@ import {
   chargeFinancials, parseExpectedFromNotes,
 } from "@/lib/expected-times";
 import { syncExpectedTimes } from "@/lib/expected-time-charges";
+import { EXTRA_ADULT_RATE } from "@/lib/mock-data";
+import { parseExtraAdultTag, withExtraAdultTag, stayNights } from "@/lib/extra-adult-charge";
 
 
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
@@ -357,7 +359,22 @@ function ChargeFormBody({
   const expectedFin = chargeFinancials(derivedUnitPrice, negotiated);
 
   const effectiveUnitPrice = isExpectedTimeCategory ? expectedFin.final : unitPrice;
-  const lineAmount = Number((quantity * effectiveUnitPrice).toFixed(2));
+
+  // ---- Extra Adult: adults × nights × rate/night (posted on top of room rent)
+  const isExtraAdultCategory = category.toLowerCase() === "extra adult";
+  const parsedEa = parseExtraAdultTag(editing?.notes);
+  const targetStay = items.find((it: any) => targetItemIds.includes(it.id)) ?? items[0];
+  const [eaAdults, setEaAdults] = useState<number>(parsedEa?.adults ?? 1);
+  const [eaNights, setEaNights] = useState<number>(
+    parsedEa?.nights ?? Math.max(1, stayNights(targetStay?.check_in, targetStay?.check_out)),
+  );
+  const [eaRateInit, setEaRateInit] = useState(false);
+  if (isExtraAdultCategory && !isEditing && !eaRateInit) {
+    setEaRateInit(true);
+    if (!unitPrice) setUnitPrice(EXTRA_ADULT_RATE);
+  }
+  const effQuantity = isExtraAdultCategory ? eaAdults * eaNights : quantity;
+  const lineAmount = Number((effQuantity * effectiveUnitPrice).toFixed(2));
   // Multi-room per-room fan-out multiplies the line by number of selected rooms
   // in the preview total ONLY (each posted row still shows Qty × Unit).
   const fanOutRooms = !isEditing && isMultiRoom && isPerRoom ? selectedItemIds.length : 1;
@@ -401,10 +418,12 @@ function ChargeFormBody({
         booking_id: bookingId,
         category,
         other_description: category === "Other" ? otherDesc : null,
-        quantity, unit_price: unitPrice,
+        quantity: effQuantity, unit_price: unitPrice,
         added_by: addedBy || null,
         occurred_at: new Date(occurredAt).toISOString(),
-        notes: notes || null,
+        notes: isExtraAdultCategory
+          ? withExtraAdultTag(notes, eaAdults, eaNights)
+          : (notes || null),
       };
       if (isEditing) {
         return updateBookingCharge(editing!.id, { ...base, item_id: itemId });
@@ -620,7 +639,19 @@ function ChargeFormBody({
               Charging: <span className="text-foreground font-medium">{itemOptionLabel(items[0], 0)}</span>
             </div>
           )}
-          {!isExpectedTimeCategory && (
+          {isExtraAdultCategory && (
+            <div className="space-y-1">
+              <div className="grid grid-cols-3 gap-2">
+                <NumField label="Extra Adults *" value={eaAdults} min={1} onChange={(n) => setEaAdults(Math.max(1, Math.round(n || 0)))} />
+                <NumField label="Nights *" value={eaNights} min={1} onChange={(n) => setEaNights(Math.max(1, Math.round(n || 0)))} />
+                <NumField label="Rate / Night *" value={unitPrice} min={0} decimal onChange={setUnitPrice} prefix="₹" />
+              </div>
+              <div className="text-[11px] text-muted-foreground tabular-nums">
+                {eaAdults} adult{eaAdults === 1 ? "" : "s"} × {eaNights} night{eaNights === 1 ? "" : "s"} @ {inr(unitPrice)}/n = <span className="text-gold font-medium">{inr(eaAdults * eaNights * unitPrice)}</span>
+              </div>
+            </div>
+          )}
+          {!isExpectedTimeCategory && !isExtraAdultCategory && (
             <div className="grid grid-cols-2 gap-2">
               <NumField label="Quantity *" value={quantity} min={0} decimal onChange={setQuantity} />
               <NumField label="Unit Price * (tax incl.)" value={unitPrice} min={0} decimal onChange={setUnitPrice} prefix="₹" />
