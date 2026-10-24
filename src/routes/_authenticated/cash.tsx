@@ -17,6 +17,7 @@ import {
   CashTxAttachmentsPanel, CashTxAttachmentsViewer,
   requiresCashOutAttachment, type StagedAttachment,
 } from "@/components/cash-tx-attachments";
+import { supabase } from "@/integrations/supabase/client";
 import { listBookings } from "@/lib/bookings-api";
 import { toast } from "sonner";
 import { useMasterData } from "@/hooks/use-master-data";
