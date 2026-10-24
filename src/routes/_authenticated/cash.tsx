@@ -17,6 +17,7 @@ import {
   CashTxAttachmentsPanel, CashTxAttachmentsViewer,
   requiresCashOutAttachment, type StagedAttachment,
 } from "@/components/cash-tx-attachments";
+import { supabase } from "@/integrations/supabase/client";
 import { listBookings } from "@/lib/bookings-api";
 import { toast } from "sonner";
 import { useMasterData } from "@/hooks/use-master-data";
@@ -730,7 +731,8 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
     return bookings.filter(b =>
       b.booking_reference.toLowerCase().includes(s)
       || b.guest_name.toLowerCase().includes(s)
-      || (b.phone ?? "").toLowerCase().includes(s),
+      || (b.phone ?? "").toLowerCase().includes(s)
+      || String((b as any).room_number ?? (b as any).room_numbers ?? "").toLowerCase().includes(s),
     ).slice(0, 8);
   }, [bookingSearch, bookings]);
 
@@ -758,7 +760,24 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
   const save = useMutation({
     mutationFn: async () => {
       if (isEdit) return updateCashTx(edit!.id, payload());
-      const row = await createCashTx(payload());
+      const p = payload();
+      if (kind === "collection" && bookingId) {
+        // Sync to folio: booking payment (Cash) auto-creates the linked cash entry via DB trigger.
+        const { createBookingPayment } = await import("@/lib/booking-payments-api");
+        const bp = await createBookingPayment({
+          booking_id: bookingId, customer_id: selectedBooking?.customer_id ?? null,
+          amount: p.amount, payment_mode: "Cash" as any,
+          collected_by: p.staff_name ?? "Front Desk", occurred_at: p.occurred_at,
+          notes: [p.type_name, p.notes].filter(Boolean).join(" · ") || null,
+        });
+        const { data: linked } = await supabase.from("cash_transactions").select("id").eq("booking_payment_id", bp.id).maybeSingle();
+        if (linked) for (const s of staged) {
+          try { await uploadCashTxAttachment(linked.id, s.file); }
+          catch (e: any) { toast.error(`Attachment "${s.file.name}" failed: ${e?.message ?? "unknown"}`); }
+        }
+        return linked;
+      }
+      const row = await createCashTx(p);
       // Flush any staged attachments now that we have a tx id.
       for (const s of staged) {
         try { await uploadCashTxAttachment(row.id, s.file); }

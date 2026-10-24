@@ -127,9 +127,9 @@ export async function submitNewBooking(input: SubmitNewBookingInput): Promise<Su
 
   if (input.advance && input.advance.amount > 0) {
     const { createBookingPayment } = await import("@/lib/booking-payments-api");
-    const { listStaff } = await import("@/lib/cash-api");
-    const staff = await listStaff(true);
-    const collectedBy = staff[0]?.name ?? "Front Desk";
+    const { data: { user } } = await supabase.auth.getUser();
+    const collectedBy = (input.advance as any).collected_by?.trim()
+      || (user?.user_metadata as any)?.display_name || user?.email || "Front Desk";
     await createBookingPayment({
       booking_id: booking.id,
       customer_id: booking.customer_id,

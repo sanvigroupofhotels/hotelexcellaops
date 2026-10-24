@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listStaff } from "@/lib/cash-api";
 import { supabase } from "@/integrations/supabase/client";
 import {
   createBookingPayment, updateBookingPayment, replacePaymentAttachment,
@@ -37,8 +38,10 @@ export function AddBookingPaymentModal({
 
   const [amount, setAmount] = useState<number>(payment ? Number(payment.amount) : Math.max(0, maxAmount));
   const [mode, setMode] = useState<string>(payment?.payment_mode ?? paymentModes[0] ?? PAYMENT_MODES[0]);
-  // Preserve historical attribution on edit; otherwise use the signed-in user.
-  const collectedBy = payment?.collected_by ?? currentStaff.name;
+  void currentStaff;
+  // Collector must be explicitly chosen (staff or owner who physically received it).
+  const [collectedBy, setCollectedBy] = useState<string>(payment?.collected_by ?? "");
+  const { data: staffList = [] } = useQuery({ queryKey: ["staff", "active"], queryFn: () => listStaff(true) });
   const [occurredAt, setOccurredAt] = useState<string>(() => {
     const d = payment ? new Date(payment.occurred_at) : new Date();
     const tz = d.getTimezoneOffset();
@@ -192,6 +195,15 @@ export function AddBookingPaymentModal({
 
         <div className="grid grid-cols-2 gap-3 text-sm">
           <NumField label="Amount *" value={amount} min={0} decimal onChange={setAmount} prefix="₹" />
+          <label className="col-span-2 block">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Collected By *</span>
+            <select value={collectedBy} onChange={(e) => setCollectedBy(e.target.value)}
+              className="mt-1 w-full rounded-md border border-border bg-input px-3 py-2 text-sm">
+              <option value="">Select who collected…</option>
+              {collectedBy && !staffList.some((s) => s.name === collectedBy) && <option>{collectedBy}</option>}
+              {staffList.map((s) => <option key={s.id}>{s.name}</option>)}
+            </select>
+          </label>
           <label className="block">
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Mode *</span>
             <select value={mode} onChange={(e) => setMode(e.target.value)}
