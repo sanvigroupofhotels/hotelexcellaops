@@ -771,6 +771,18 @@ function TxFormModal({ kind, edit, onClose }: { kind: "collection"|"expense"; ed
           notes: [p.type_name, p.notes].filter(Boolean).join(" · ") || null,
         });
         const { data: linked } = await supabase.from("cash_transactions").select("id").eq("booking_payment_id", bp.id).maybeSingle();
+        if (linked) {
+          // Trigger stamps "Advance Payment"; restore the receptionist's chosen category and details.
+          const { error: fixErr } = await supabase.from("cash_transactions").update({
+            type_name: p.type_name,
+            description: p.description ?? null,
+            room_number: p.room_number ?? null,
+            ...(p.guest_name ? { guest_name: p.guest_name } : {}),
+            ...(p.guest_mobile ? { guest_mobile: p.guest_mobile } : {}),
+            ...(p.staff_id ? { staff_id: p.staff_id, staff_name: p.staff_name ?? null } : {}),
+          } as any).eq("id", linked.id);
+          if (fixErr) toast.error(`Saved, but category not updated: ${fixErr.message}`);
+        }
         if (linked) for (const s of staged) {
           try { await uploadCashTxAttachment(linked.id, s.file); }
           catch (e: any) { toast.error(`Attachment "${s.file.name}" failed: ${e?.message ?? "unknown"}`); }
