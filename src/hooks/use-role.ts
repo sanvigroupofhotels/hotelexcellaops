@@ -62,7 +62,10 @@ export function useUserRole() {
     enabled: !!user,
     staleTime: 5 * 60_000,
   });
-  const role = (data ?? "housekeeping") as AppRole;
+  // Super admin safeguard (UX only — backend checks still apply). Future: move
+  // to a dedicated Super Admin role.
+  const isSuper = (user?.email ?? "").toLowerCase() === "shobhan.india@gmail.com";
+  const role = (isSuper ? "admin" : (data ?? "housekeeping")) as AppRole;
   return {
     role,
     isAdmin: role === "admin",
