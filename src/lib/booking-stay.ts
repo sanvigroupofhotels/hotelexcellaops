@@ -171,7 +171,7 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   // actually trying to change dates. Room-only moves (including moving a
   // Checked-In guest back to a previously-occupied room) skip these guards
   // entirely and flow through split_room_assignment below.
-  if (!datesUnchanged) {
+  if (!datesUnchanged && !isAdmin) {
     if (isCheckedIn && newIn !== oldInYmd) {
       throw new Error("Check-in date cannot be changed after the guest has checked in.");
     }
@@ -202,7 +202,10 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   // of truth for "can this stay be accommodated?". Excluding this booking
   // folds its own current demand back into `available` so shortening or
   // shifting within already-owned inventory never trips the guard.
-  if (newIn !== oldIn || newOut !== oldOut) {
+  // Admin-only exception: fully past stays (new check-out on/before today)
+  // skip this guard; current and future stays are checked for everyone.
+  const pastStayAdminEdit = isAdmin && newOut <= todayKolkata();
+  if ((newIn !== oldIn || newOut !== oldOut) && !pastStayAdminEdit) {
     const { getRoomTypeAvailability } = await import("@/lib/room-inventory");
     const { data: bookingItems } = await supabase
       .from("booking_items" as any)
