@@ -26,8 +26,8 @@ export const ACTIVE_ROLES: readonly AppRole[] = [
 const RANK: Record<AppRole, number> = { admin: 1, owner: 2, fo_staff: 3, housekeeping: 4 };
 
 export const ROLE_LABEL: Record<AppRole, string> = {
-  admin: "Admin",
-  owner: "Owner",
+  admin: "Super Admin",
+  owner: "Admin",
   fo_staff: "Front Office",
   housekeeping: "Housekeeping",
 };
