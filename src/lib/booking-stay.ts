@@ -77,6 +77,17 @@ function ymdDiffDays(a: string, b: string): number {
   return Math.round((new Date(a + "T00:00:00").getTime() - new Date(b + "T00:00:00").getTime()) / 86400000);
 }
 
+export const SUPER_ADMIN_EMAIL = "shobhan.india@gmail.com";
+
+/** True when the signed-in caller is Admin (role row) or the super admin email. */
+async function callerIsAdmin(): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  if ((user.email ?? "").toLowerCase() === SUPER_ADMIN_EMAIL) return true;
+  const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin" as any).maybeSingle();
+  return !!data;
+}
+
 /** Translate raw DB / trigger errors into friendly text. Never expose trigger names. */
 export function humanizeStayError(raw: unknown): string {
   const msg = String((raw as any)?.message ?? raw ?? "").toLowerCase();
@@ -111,7 +122,10 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   if (!current) throw new Error("Booking not found.");
 
   const status = String((current as any).status ?? "");
-  if (CLOSED.has(status)) {
+  // Admin (and the designated super admin) bypass date/status restrictions
+  // on past bookings. Fresh caller-scoped role check — never a UI flag.
+  const isAdmin = await callerIsAdmin();
+  if (CLOSED.has(status) && !isAdmin) {
     throw new Error("This booking is closed and can no longer be modified.");
   }
 
