@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { copilotParse, type CopilotDraft } from "@/lib/copilot.functions";
+import { buildCopilotPreview, createCopilotBooking, type CopilotPreview } from "@/lib/copilot-booking";
+import { toLocalYMD } from "@/lib/utils";
 
 export type CopilotLang = "en-IN" | "te-IN" | "hi-IN";
-export type CopilotMessage = { id: string; role: "user" | "assistant"; text: string; at: number };
+export type CopilotMessage = {
+  id: string; role: "user" | "assistant"; text: string; at: number;
+  preview?: CopilotPreview; bookingId?: string; status?: "pending" | "created" | "dismissed";
+};
 
 const KEY = "heos-copilot-session-v1";
 
@@ -12,11 +19,14 @@ function makeId() {
 /** Single active conversation, stored in this browser only. */
 export function useCopilotChat() {
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
+  const [draft, setDraft] = useState<CopilotDraft | null>(null);
   const [lang, setLang] = useState<CopilotLang>("en-IN");
   const [listening, setListening] = useState(false);
+  const [thinking, setThinking] = useState(false);
   const [interim, setInterim] = useState("");
   const recRef = useRef<any>(null);
   const loaded = useRef(false);
+  const parse = useServerFn(copilotParse);
 
   useEffect(() => {
     try {
@@ -25,6 +35,7 @@ export function useCopilotChat() {
         const s = JSON.parse(raw);
         if (Array.isArray(s.messages)) setMessages(s.messages);
         if (s.lang) setLang(s.lang);
+        if (s.draft) setDraft(s.draft);
       }
     } catch {}
     loaded.current = true;
@@ -32,23 +43,51 @@ export function useCopilotChat() {
 
   useEffect(() => {
     if (!loaded.current) return;
-    try { localStorage.setItem(KEY, JSON.stringify({ messages, lang })); } catch {}
-  }, [messages, lang]);
+    try { localStorage.setItem(KEY, JSON.stringify({ messages, lang, draft })); } catch {}
+  }, [messages, lang, draft]);
 
-  const sendMessage = useCallback((text: string) => {
+  const push = (m: Omit<CopilotMessage, "id" | "at">) =>
+    setMessages((prev) => [...prev, { ...m, id: makeId(), at: Date.now() }]);
+
+  const sendMessage = useCallback(async (text: string) => {
     const t = text.trim();
-    if (!t) return;
+    if (!t || thinking) return;
     const user: CopilotMessage = { id: makeId(), role: "user", text: t, at: Date.now() };
-    const reply: CopilotMessage = {
-      id: makeId(),
-      role: "assistant",
-      text: "Noted. Booking actions from chat are coming in the next update — for now I'm capturing your request.",
-      at: Date.now(),
-    };
-    setMessages((m) => [...m, user, reply]);
+    const history = [...messages, user].map((m) => ({ role: m.role, text: m.text }));
+    setMessages((m) => [...m, user]);
+    setThinking(true);
+    try {
+      const r = await parse({ data: { turns: history, today: toLocalYMD(), draft } });
+      setDraft(r.draft ?? null);
+      let preview: CopilotPreview | undefined;
+      if (r.ready && r.draft) {
+        try { preview = await buildCopilotPreview(r.draft); } catch (e: any) {
+          push({ role: "assistant", text: `Couldn't check availability: ${e?.message ?? e}` });
+        }
+      }
+      push({ role: "assistant", text: r.reply || (preview ? "Here's the booking. Tap Confirm to create." : "Okay."), preview, status: preview ? "pending" : undefined });
+    } catch (e: any) {
+      push({ role: "assistant", text: `Sorry, something went wrong: ${e?.message ?? "try again"}` });
+    } finally {
+      setThinking(false);
+    }
+  }, [messages, draft, thinking, parse]);
+
+  const confirmPreview = useCallback(async (id: string) => {
+    const msg = messages.find((m) => m.id === id);
+    if (!msg?.preview) return;
+    const b = await createCopilotBooking(msg.preview);
+    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, status: "created", bookingId: b.id } : m)));
+    setDraft(null);
+    push({ role: "assistant", text: `Booking created for ${b.guest_name}.` });
+    return b;
+  }, [messages]);
+
+  const dismissPreview = useCallback((id: string) => {
+    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, status: "dismissed" } : m)));
   }, []);
 
-  const clearSession = useCallback(() => setMessages([]), []);
+  const clearSession = useCallback(() => { setMessages([]); setDraft(null); }, []);
 
   const speechSupported =
     typeof window !== "undefined" &&
@@ -85,5 +124,5 @@ export function useCopilotChat() {
 
   const stopListening = useCallback(() => recRef.current?.stop(), []);
 
-  return { messages, lang, setLang, listening, interim, sendMessage, clearSession, speechSupported, startListening, stopListening };
+  return { messages, lang, setLang, listening, thinking, interim, sendMessage, confirmPreview, dismissPreview, clearSession, speechSupported, startListening, stopListening };
 }
