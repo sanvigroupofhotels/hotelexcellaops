@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Loader2 } from "lucide-react";
+import { CopilotDrawer } from "@/components/copilot/copilot-drawer";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -29,6 +30,7 @@ function AuthenticatedLayout() {
       <main className="md:pl-64 min-h-screen">
         <Outlet />
       </main>
+      <CopilotDrawer />
     </div>
   );
 }
