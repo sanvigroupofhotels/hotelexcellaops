@@ -14,6 +14,17 @@ export type CopilotDraft = {
 
 export type CopilotTurn = { role: "user" | "assistant"; text: string };
 
+/** Requested changes to an existing booking. All optional. */
+export type CopilotUpdate = {
+  target?: string | null; // guest name / phone / room / reference; null = active booking
+  rate?: number | null; // per night, before tax
+  early_time?: string | null; // HH:MM 24h expected arrival
+  late_time?: string | null; // HH:MM 24h expected departure
+  check_in?: string | null;
+  check_out?: string | null;
+};
+export type CopilotActive = { id: string; label: string } | null;
+
 /**
  * Parses a front-desk conversation (EN / Telugu / Hindi) into a booking draft.
  * Read-only: never writes. The client shows a preview card and the booking is
@@ -21,22 +32,32 @@ export type CopilotTurn = { role: "user" | "assistant"; text: string };
  */
 export const copilotParse = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { turns: CopilotTurn[]; today: string; draft: CopilotDraft | null }) => {
+  .inputValidator((d: { turns: CopilotTurn[]; today: string; draft: CopilotDraft | null; active?: CopilotActive }) => {
     if (!Array.isArray(d?.turns)) throw new Error("turns required");
-    return { turns: d.turns.slice(-20).map((t) => ({ role: t.role, text: String(t.text).slice(0, 2000) })), today: String(d.today), draft: d.draft ?? null };
+    const a = d.active && typeof d.active.id === "string" ? { id: d.active.id, label: String(d.active.label).slice(0, 200) } : null;
+    return { turns: d.turns.slice(-20).map((t) => ({ role: t.role, text: String(t.text).slice(0, 2000) })), today: String(d.today), draft: d.draft ?? null, active: a };
   })
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("AI not configured");
     const system = `You are HEOS, the front-desk booking assistant for Hotel Excella (Vizag). Today is ${data.today} (Asia/Kolkata).
-Staff speak English, Telugu, Hindi or a mix. Your job now: collect details to create a booking.
+Staff speak English, Telugu, Hindi or a mix. You either CREATE a new booking or UPDATE an existing one.
+Active booking in this chat: ${data.active ? data.active.label : "none"}.
+Decide intent:
+- "update" when staff ask to change something on a booking (rate/price/tariff per night, early check-in time, late checkout time, check-in/check-out dates) — e.g. "update price to 2000", "add early check-in 9am", "late checkout 3pm", "for Ravi change checkout to 10th". Never create a new booking for these.
+  update fields: target (guest name, phone, room number or booking reference mentioned; null if they mean the active booking), rate (number per night), early_time ("HH:MM" 24h), late_time ("HH:MM" 24h), check_in, check_out (YYYY-MM-DD). Only fill what was asked in the LATEST request.
+  If there is no active booking and no target, ask which booking (guest name or mobile).
+  Reply briefly, e.g. "Here are the changes. Tap Confirm to apply."
+- "create" for new bookings. Before creating, if this guest was just booked in this chat, prefer update.
+- "chat" for anything else.
+For create:
 Required: guest_name, phone (10-digit Indian mobile, digits only), check_in, check_out (YYYY-MM-DD, check_out after check_in; resolve "tomorrow", "Nov 5", "2 nights").
 Optional with defaults: adults (2), children (0), room_type ("Oak Room" default, or "Mapple Room"), rooms (1).
 Current draft so far: ${JSON.stringify(data.draft ?? {})}. Merge new info into it; later messages override earlier values.
 If something is missing or unclear (e.g. phone not 10 digits, ambiguous date), ask ONE short clarifying question in the staff's language.
 If all required fields are present, reply with a one-line summary and say "Tap Confirm to create."
-If the request is not about creating a booking, briefly say that only new bookings are supported in chat right now.
-Return ONLY JSON: {"reply": string, "draft": {guest_name, phone, check_in, check_out, adults, children, room_type, rooms}, "ready": boolean}. No markdown.`;
+For "chat", briefly say you can create bookings and update rate, early check-in, late checkout and dates.
+Return ONLY JSON: {"intent": "create"|"update"|"chat", "reply": string, "draft": {guest_name, phone, check_in, check_out, adults, children, room_type, rooms}, "ready": boolean, "update": {target, rate, early_time, late_time, check_in, check_out} | null}. No markdown.`;
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
@@ -63,8 +84,21 @@ Return ONLY JSON: {"reply": string, "draft": {guest_name, phone, check_in, check
       const d: CopilotDraft = { ...(data.draft ?? {}), ...(p.draft ?? {}) };
       if (d.phone) d.phone = String(d.phone).replace(/\D/g, "").slice(-10);
       if (d.room_type !== "Mapple Room") d.room_type = "Oak Room";
-      const ready = !!(d.guest_name && d.phone?.length === 10 && d.check_in && d.check_out && d.check_out > d.check_in);
-      return { reply: String(p.reply ?? ""), draft: d, ready };
+      const intent: "create" | "update" | "chat" = p.intent === "update" ? "update" : p.intent === "chat" ? "chat" : "create";
+      if (intent === "update") {
+        const u = p.update ?? {};
+        const hm = (v: any) => (typeof v === "string" && /^\d{1,2}:\d{2}$/.test(v) ? v.padStart(5, "0") : null);
+        const ymd = (v: any) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+        const update: CopilotUpdate = {
+          target: u.target ? String(u.target).slice(0, 80) : null,
+          rate: Number(u.rate) > 0 ? Math.round(Number(u.rate)) : null,
+          early_time: hm(u.early_time), late_time: hm(u.late_time),
+          check_in: ymd(u.check_in), check_out: ymd(u.check_out),
+        };
+        return { intent, reply: String(p.reply ?? ""), draft: data.draft, ready: false, update };
+      }
+      const ready = intent === "create" && !!(d.guest_name && d.phone?.length === 10 && d.check_in && d.check_out && d.check_out > d.check_in);
+      return { intent, reply: String(p.reply ?? ""), draft: intent === "create" ? d : data.draft, ready, update: null as CopilotUpdate | null };
     } catch {
       return { reply: text || "Could you repeat that?", draft: data.draft, ready: false };
     }

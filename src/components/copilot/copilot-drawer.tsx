@@ -13,7 +13,7 @@ const LANGS: { key: CopilotLang; label: string }[] = [
   { key: "te-IN", label: "తె" },
   { key: "hi-IN", label: "हि" },
 ];
-const PILLS = ["Book for Ravi 9876543210 tomorrow for 2 nights", "New walk-in booking"];
+const PILLS = ["Book for Ravi 9876543210 tomorrow for 2 nights", "Update price to 2000 per night", "Add late checkout at 3pm"];
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
 /** Track the visible area (shrinks when the mobile keyboard opens). */
@@ -31,7 +31,35 @@ function useVisualHeight() {
   return h;
 }
 
-function PreviewCard({ m, onConfirm, onDismiss }: { m: CopilotMessage; onConfirm: () => Promise<void>; onDismiss: () => void }) {
+function UpdateCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; onConfirm: () => Promise<void>; onDismiss: () => void; onOpen: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const u = m.update!;
+  return (
+    <div className="mt-2 rounded-xl border border-border bg-card p-3 text-sm space-y-1.5">
+      <div className="font-display text-base">{u.guest_name}</div>
+      {u.phone && <div className="text-muted-foreground">{u.phone}</div>}
+      <div className="text-xs text-muted-foreground">{u.label}</div>
+      {u.changes.map((c) => (
+        <div key={c.label}><span className="text-muted-foreground">{c.label}:</span> <s className="text-muted-foreground">{c.from}</s> → <b>{c.to}</b></div>
+      ))}
+      {u.newTotal != null && <div className="font-semibold text-gold">Total {inr(u.oldTotal)} → {inr(u.newTotal)} (incl. GST, before extras)</div>}
+      {m.status === "applied" ? (
+        <Link to="/bookings/$id" params={{ id: u.bookingId }} onClick={onOpen} className="inline-block text-primary underline text-sm">Open booking</Link>
+      ) : m.status === "dismissed" ? (
+        <div className="text-xs text-muted-foreground">Dismissed</div>
+      ) : (
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" disabled={busy} onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}>
+            {busy && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />} Confirm Update
+          </Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={onDismiss}>Cancel</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PreviewCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; onConfirm: () => Promise<void>; onDismiss: () => void; onOpen: () => void }) {
   const [busy, setBusy] = useState(false);
   const p = m.preview!;
   const d = p.draft;
@@ -46,7 +74,7 @@ function PreviewCard({ m, onConfirm, onDismiss }: { m: CopilotMessage; onConfirm
       <div className="font-semibold text-gold">Total {inr(p.total)}</div>
       <div className={short ? "text-destructive text-xs" : "text-muted-foreground text-xs"}>{p.available} {d.room_type} available</div>
       {m.status === "created" && m.bookingId ? (
-        <Link to="/bookings/$id" params={{ id: m.bookingId }} className="inline-block text-primary underline text-sm">Open booking</Link>
+        <Link to="/bookings/$id" params={{ id: m.bookingId }} onClick={onOpen} className="inline-block text-primary underline text-sm">Open booking</Link>
       ) : m.status === "dismissed" ? (
         <div className="text-xs text-muted-foreground">Dismissed</div>
       ) : (
@@ -135,6 +163,7 @@ export function CopilotDrawer() {
                       <PreviewCard
                         m={m}
                         onDismiss={() => c.dismissPreview(m.id)}
+                        onOpen={() => setOpen(false)}
                         onConfirm={async () => {
                           try {
                             await c.confirmPreview(m.id);
@@ -143,6 +172,28 @@ export function CopilotDrawer() {
                           } catch (e: any) { toast.error(e?.message ?? "Could not create booking"); }
                         }}
                       />
+                    )}
+                    {m.update && (
+                      <UpdateCard
+                        m={m}
+                        onDismiss={() => c.dismissPreview(m.id)}
+                        onOpen={() => setOpen(false)}
+                        onConfirm={async () => {
+                          try { await c.confirmUpdate(m.id); toast.success("Booking updated"); }
+                          catch (e: any) { toast.error(e?.message ?? "Could not update booking"); }
+                        }}
+                      />
+                    )}
+                    {m.matches && (
+                      <div className="mt-2 space-y-1.5">
+                        {m.matches.map((b) => (
+                          <button key={b.id} disabled={m.status === "applied"} onClick={() => void c.pickMatch(m.id, b)}
+                            className="w-full text-left rounded-lg border border-border bg-card px-3 py-2 hover:bg-muted disabled:opacity-80">
+                            <div className="font-medium">{b.guest_name} <span className="text-xs text-muted-foreground">{b.booking_reference}</span></div>
+                            <div className="text-xs text-muted-foreground">{b.phone ?? "No phone"} · {String(b.check_in).slice(0, 10)} → {String(b.check_out).slice(0, 10)}{b.roomNumbers?.length ? ` · Room ${b.roomNumbers.join(", ")}` : ""} · {b.status}</div>
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>
