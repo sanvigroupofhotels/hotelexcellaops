@@ -10,6 +10,10 @@ export type CopilotDraft = {
   children?: number | null;
   room_type?: "Oak Room" | "Mapple Room" | null;
   rooms?: number | null;
+  /** Per-night rate agreed with the guest (per room). */
+  agreed_rate?: number | null;
+  /** Whether agreed_rate already includes GST. */
+  gst_included?: boolean | null;
 };
 
 export type CopilotTurn = { role: "user" | "assistant"; text: string };
@@ -52,12 +56,14 @@ Decide intent:
 - "chat" for anything else.
 For create:
 Required: guest_name, phone (10-digit Indian mobile, digits only), check_in, check_out (YYYY-MM-DD, check_out after check_in; resolve "tomorrow", "Nov 5", "2 nights").
+Also required: agreed_rate (the per-night, per-room price staff agreed with the guest, number) and gst_included (true if that price already includes GST, false if GST is extra). If agreed_rate is missing, ask "What rate did you agree per night with the guest, and does it include GST?". If only gst_included is unclear, ask whether it includes GST. If staff say "rack rate"/"standard rate", set agreed_rate to 0 and gst_included false.
+Always reply in the same language the staff used (Telugu script for Telugu, Devanagari for Hindi).
 Optional with defaults: adults (2), children (0), room_type ("Oak Room" default, or "Mapple Room"), rooms (1).
 Current draft so far: ${JSON.stringify(data.draft ?? {})}. Merge new info into it; later messages override earlier values.
 If something is missing or unclear (e.g. phone not 10 digits, ambiguous date), ask ONE short clarifying question in the staff's language.
 If all required fields are present, reply with a one-line summary and say "Tap Confirm to create."
 For "chat", briefly say you can create bookings and update rate, early check-in, late checkout and dates.
-Return ONLY JSON: {"intent": "create"|"update"|"chat", "reply": string, "draft": {guest_name, phone, check_in, check_out, adults, children, room_type, rooms}, "ready": boolean, "update": {target, rate, early_time, late_time, check_in, check_out} | null}. No markdown.`;
+Return ONLY JSON: {"intent": "create"|"update"|"chat", "reply": string, "draft": {guest_name, phone, check_in, check_out, adults, children, room_type, rooms, agreed_rate, gst_included}, "ready": boolean, "update": {target, rate, early_time, late_time, check_in, check_out} | null}. No markdown.`;
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
@@ -97,7 +103,9 @@ Return ONLY JSON: {"intent": "create"|"update"|"chat", "reply": string, "draft":
         };
         return { intent, reply: String(p.reply ?? ""), draft: data.draft, ready: false, update };
       }
-      const ready = intent === "create" && !!(d.guest_name && d.phone?.length === 10 && d.check_in && d.check_out && d.check_out > d.check_in);
+      if (d.agreed_rate != null) d.agreed_rate = Number(d.agreed_rate) >= 0 ? Math.round(Number(d.agreed_rate)) : null;
+      if (d.gst_included != null) d.gst_included = d.gst_included === true || String(d.gst_included) === "true";
+      const ready = intent === "create" && !!(d.guest_name && d.phone?.length === 10 && d.check_in && d.check_out && d.check_out > d.check_in) && d.agreed_rate != null && typeof d.gst_included === "boolean";
       return { intent, reply: String(p.reply ?? ""), draft: intent === "create" ? d : data.draft, ready, update: null as CopilotUpdate | null };
     } catch {
       return { reply: text || "Could you repeat that?", draft: data.draft, ready: false };

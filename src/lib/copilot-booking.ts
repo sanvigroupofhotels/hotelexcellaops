@@ -25,6 +25,9 @@ export type CopilotPreview = {
   taxRate: number;
   discount: number;
   items: LineItem[];
+  /** Staff-agreed total (all rooms × nights); null = rack rate. */
+  totalOverride: number | null;
+  taxesIncluded: boolean;
 };
 
 export async function buildCopilotPreview(d: CopilotDraft): Promise<CopilotPreview> {
@@ -32,6 +35,7 @@ export async function buildCopilotPreview(d: CopilotDraft): Promise<CopilotPrevi
     guest_name: d.guest_name!, phone: d.phone!, check_in: d.check_in!, check_out: d.check_out!,
     adults: Math.max(1, d.adults ?? 2), children: Math.max(0, d.children ?? 0),
     room_type: d.room_type ?? "Oak Room", rooms: Math.max(1, d.rooms ?? 1),
+    agreed_rate: d.agreed_rate ?? 0, gst_included: !!d.gst_included,
   } as CopilotPreview["draft"];
   const [rates, overrides, avail] = await Promise.all([
     listRoomRates(),
@@ -49,9 +53,11 @@ export async function buildCopilotPreview(d: CopilotDraft): Promise<CopilotPrevi
     pet_size: "none", extra_adults: 0, drivers: 0,
   } as LineItem;
   const items = allocateGuestsToLines([base], { adults: draft.adults, children: draft.children });
-  const p = computePricing(items, 0, DEFAULT_TAX_RATE, {});
   const nights = Math.round((Date.parse(draft.check_out) - Date.parse(draft.check_in)) / 86400000);
-  return { draft, rate, nights, available: inv.available, total: p.total, subtotal: p.subtotal, taxes: p.taxes, taxRate: p.taxRate, discount: p.discount ?? 0, items };
+  const totalOverride = draft.agreed_rate > 0 ? draft.agreed_rate * nights * draft.rooms : null;
+  const taxesIncluded = totalOverride != null && draft.gst_included;
+  const p = computePricing(items, 0, DEFAULT_TAX_RATE, { totalOverride, taxesIncluded });
+  return { totalOverride, taxesIncluded, draft, rate: draft.agreed_rate > 0 ? draft.agreed_rate : rate, nights, available: inv.available, total: p.total, subtotal: p.subtotal, taxes: p.taxes, taxRate: p.taxRate, discount: p.discount ?? 0, items };
 }
 
 export async function createCopilotBooking(pv: CopilotPreview) {
@@ -67,7 +73,7 @@ export async function createCopilotBooking(pv: CopilotPreview) {
       guests: d.adults + d.children, room_details: `${d.room_type.replace(" Room", "")} × ${d.rooms}`, room_id: null,
       amount: pv.total, subtotal: pv.subtotal, taxes: pv.taxes, tax_rate: pv.taxRate, discount: pv.discount,
       notes: null, internal_notes: "Created via HEOS Copilot", payment_status: "None", lead_source: "Direct",
-      total_override: null, taxes_included: false,
+      total_override: pv.totalOverride ?? null, taxes_included: pv.taxesIncluded ?? false,
       allow_full_payment: s.allow_full_payment, allow_part_payment: s.allow_part_payment,
       allow_pay_at_hotel: s.allow_pay_at_hotel, part_payment_type: "percent", part_payment_value: s.default_part_percent,
     },

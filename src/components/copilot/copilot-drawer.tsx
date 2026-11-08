@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BotMessageSquare, Loader2, Mic, MicOff, RotateCcw, Send } from "lucide-react";
+import { BotMessageSquare, Loader2, Mic, MicOff, RotateCcw, Send, Volume2, VolumeX } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -70,7 +70,7 @@ function PreviewCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; o
       <div className="text-muted-foreground">+91 {d.phone}</div>
       <div>{d.check_in} → {d.check_out} · {p.nights} night{p.nights === 1 ? "" : "s"}</div>
       <div>{d.room_type} × {d.rooms} · {d.adults} adult{d.adults === 1 ? "" : "s"}{d.children ? ` · ${d.children} child` : ""}</div>
-      <div>{inr(p.rate)}/night · Taxes {inr(p.taxes)}</div>
+      <div>{inr(p.rate)}/night{p.totalOverride != null ? (p.taxesIncluded ? " (incl. GST)" : " + GST") : " (rack)"} · Taxes {inr(p.taxes)}</div>
       <div className="font-semibold text-gold">Total {inr(p.total)}</div>
       <div className={short ? "text-destructive text-xs" : "text-muted-foreground text-xs"}>{p.available} {d.room_type} available</div>
       {m.status === "created" && m.bookingId ? (
@@ -135,7 +135,11 @@ export function CopilotDrawer() {
                   {l.label}
                 </button>
               ))}
-              <Button size="sm" variant="ghost" className="ml-auto h-7 text-xs" onClick={c.clearSession}>
+              <Button size="icon" variant="ghost" className="ml-auto h-7 w-7" aria-label={c.voiceOn ? "Mute voice replies" : "Speak replies"}
+                onClick={() => { if (c.voiceOn) window.speechSynthesis?.cancel(); c.setVoiceOn(!c.voiceOn); }}>
+                {c.voiceOn ? <Volume2 className="h-4 w-4 text-gold" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={c.clearSession}>
                 <RotateCcw className="h-3.5 w-3.5 mr-1" /> New Session
               </Button>
             </div>

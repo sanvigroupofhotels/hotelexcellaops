@@ -32,6 +32,22 @@ export function useCopilotChat() {
   const recRef = useRef<any>(null);
   const loaded = useRef(false);
   const parse = useServerFn(copilotParse);
+  const [voiceOn, setVoiceOn] = useState(false);
+  const langRef = useRef(lang); langRef.current = lang;
+  const voiceRef = useRef(voiceOn); voiceRef.current = voiceOn;
+
+  /** Browser text-to-speech in the selected language. */
+  const speak = useCallback((text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window) || !text) return;
+    const ss = window.speechSynthesis;
+    ss.cancel();
+    const u = new SpeechSynthesisUtterance(text.replace(/[*_#`]/g, ""));
+    const l = langRef.current;
+    u.lang = l;
+    const v = ss.getVoices().find((x) => x.lang === l) ?? ss.getVoices().find((x) => x.lang.startsWith(l.slice(0, 2)));
+    if (v) u.voice = v;
+    ss.speak(u);
+  }, []);
 
   useEffect(() => {
     try {
@@ -42,6 +58,7 @@ export function useCopilotChat() {
         if (s.lang) setLang(s.lang);
         if (s.draft) setDraft(s.draft);
         if (s.active) setActive(s.active);
+        if (typeof s.voiceOn === "boolean") setVoiceOn(s.voiceOn);
       }
     } catch {}
     loaded.current = true;
@@ -49,11 +66,13 @@ export function useCopilotChat() {
 
   useEffect(() => {
     if (!loaded.current) return;
-    try { localStorage.setItem(KEY, JSON.stringify({ messages, lang, draft, active })); } catch {}
-  }, [messages, lang, draft, active]);
+    try { localStorage.setItem(KEY, JSON.stringify({ messages, lang, draft, active, voiceOn })); } catch {}
+  }, [messages, lang, draft, active, voiceOn]);
 
-  const push = (m: Omit<CopilotMessage, "id" | "at">) =>
+  const push = (m: Omit<CopilotMessage, "id" | "at">) => {
     setMessages((prev) => [...prev, { ...m, id: makeId(), at: Date.now() }]);
+    if (m.role === "assistant" && voiceRef.current) speak(m.text);
+  };
 
   const sendMessage = useCallback(async (text: string) => {
     const t = text.trim();
@@ -173,5 +192,5 @@ export function useCopilotChat() {
 
   const stopListening = useCallback(() => recRef.current?.stop(), []);
 
-  return { messages, lang, setLang, listening, thinking, interim, sendMessage, confirmPreview, dismissPreview, confirmUpdate, pickMatch, clearSession, speechSupported, startListening, stopListening };
+  return { voiceOn, setVoiceOn, speak, messages, lang, setLang, listening, thinking, interim, sendMessage, confirmPreview, dismissPreview, confirmUpdate, pickMatch, clearSession, speechSupported, startListening, stopListening };
 }
