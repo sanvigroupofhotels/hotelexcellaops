@@ -192,5 +192,7 @@ export function useCopilotChat() {
 
   const stopListening = useCallback(() => recRef.current?.stop(), []);
 
-  return { voiceOn, setVoiceOn, speak, messages, lang, setLang, listening, thinking, interim, sendMessage, confirmPreview, dismissPreview, confirmUpdate, pickMatch, clearSession, speechSupported, startListening, stopListening };
+  const setActiveBooking = useCallback((id: string, label: string) => setActive({ id, label }), []);
+
+  return { active, setActiveBooking, voiceOn, setVoiceOn, speak, messages, lang, setLang, listening, thinking, interim, sendMessage, confirmPreview, dismissPreview, confirmUpdate, pickMatch, clearSession, speechSupported, startListening, stopListening };
 }

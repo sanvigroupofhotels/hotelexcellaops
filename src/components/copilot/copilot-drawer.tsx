@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BotMessageSquare, Loader2, Mic, MicOff, RotateCcw, Send, Volume2, VolumeX } from "lucide-react";
+import { History, BotMessageSquare, Loader2, Mic, MicOff, RotateCcw, Send, Volume2, VolumeX } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useCopilotChat, type CopilotLang, type CopilotMessage } from "@/hooks/use-copilot-chat";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { listRecentBookings, bookingLabel } from "@/lib/copilot-update";
+
+/** Open Copilot from anywhere, optionally targeting a booking. */
+export function openCopilot(booking?: { id: string; label: string }) {
+  window.dispatchEvent(new CustomEvent("heos-copilot-open", { detail: booking }));
+}
 
 const LANGS: { key: CopilotLang; label: string }[] = [
   { key: "en-IN", label: "EN" },
@@ -97,6 +104,17 @@ export function CopilotDrawer() {
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const vh = useVisualHeight();
+  const [showRecent, setShowRecent] = useState(false);
+  const recent = useQuery({ queryKey: ["copilot-recent"], queryFn: listRecentBookings, enabled: open && showRecent });
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent).detail as { id: string; label: string } | undefined;
+      if (d) c.setActiveBooking(d.id, d.label);
+      setOpen(true);
+    };
+    window.addEventListener("heos-copilot-open", on);
+    return () => window.removeEventListener("heos-copilot-open", on);
+  }, [c.setActiveBooking]);
 
   const toEnd = () => endRef.current?.scrollIntoView({ block: "end" });
   useEffect(() => { toEnd(); }, [c.messages, c.interim, c.thinking, vh]);
@@ -139,10 +157,27 @@ export function CopilotDrawer() {
                 onClick={() => { if (c.voiceOn) window.speechSynthesis?.cancel(); c.setVoiceOn(!c.voiceOn); }}>
                 {c.voiceOn ? <Volume2 className="h-4 w-4 text-gold" /> : <VolumeX className="h-4 w-4" />}
               </Button>
+              <Button size="sm" variant={showRecent ? "secondary" : "ghost"} className="h-7 text-xs px-2" onClick={() => setShowRecent(!showRecent)}>
+                <History className="h-3.5 w-3.5 mr-1" /> Recent
+              </Button>
               <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={c.clearSession}>
                 <RotateCcw className="h-3.5 w-3.5 mr-1" /> New Session
               </Button>
             </div>
+            {c.active && <div className="text-xs text-muted-foreground pt-1 truncate">Working on: <span className="text-foreground">{c.active.label}</span></div>}
+            {showRecent && (
+              <div className="mt-2 max-h-64 overflow-y-auto space-y-1.5 text-left">
+                {recent.isLoading && <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" /> Loading…</div>}
+                {recent.data?.map((b) => (
+                  <button key={b.id} onClick={() => { c.setActiveBooking(b.id, bookingLabel(b)); setShowRecent(false); toast.success(`Now working on ${b.guest_name}`); }}
+                    className={`w-full text-left rounded-lg border px-3 py-2 hover:bg-muted ${c.active?.id === b.id ? "border-gold" : "border-border"}`}>
+                    <div className="text-sm font-medium flex justify-between gap-2"><span className="truncate">{b.guest_name}</span><span>{inr(Number(b.amount) || 0)}</span></div>
+                    <div className="text-xs text-muted-foreground">{String(b.check_in).slice(0, 10)} → {String(b.check_out).slice(0, 10)}{b.room_details ? ` · ${b.room_details}` : ""} · {b.status}</div>
+                  </button>
+                ))}
+                {recent.data?.length === 0 && <div className="text-xs text-muted-foreground">No bookings yet.</div>}
+              </div>
+            )}
           </SheetHeader>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col">
@@ -163,6 +198,11 @@ export function CopilotDrawer() {
                     ? "max-w-[85%] rounded-2xl rounded-br-sm bg-primary text-primary-foreground px-3 py-2 text-sm"
                     : "max-w-[95%] text-sm text-foreground"}>
                     {m.text}
+                    {m.role === "assistant" && m.text && (
+                      <button aria-label="Listen" onClick={() => c.speak(m.text)} className="ml-1.5 inline-flex items-center gap-1 align-middle text-xs text-muted-foreground hover:text-gold">
+                        <Volume2 className="h-3.5 w-3.5" /> Listen
+                      </button>
+                    )}
                     {m.preview && (
                       <PreviewCard
                         m={m}

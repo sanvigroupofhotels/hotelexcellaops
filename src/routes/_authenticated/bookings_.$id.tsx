@@ -1,3 +1,6 @@
+import { openCopilot } from "@/components/copilot/copilot-drawer";
+import { bookingLabel } from "@/lib/copilot-update";
+import { BotMessageSquare } from "lucide-react";
 import { confirmEarlyCheckout, nightsRemaining } from "@/lib/early-checkout";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useRef, useState } from "react";
@@ -505,7 +508,17 @@ function BookingDetail() {
   return (
     <>
       <Topbar title="Booking" subtitle={b.booking_reference} />
-      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] space-y-6 print:p-0">
+      <div className="md:hidden sticky top-0 z-30 flex items-center gap-2 bg-background/90 backdrop-blur border-b border-border px-3 py-2 print:hidden">
+        <div className="min-w-0 flex-1">
+          <div className="font-display text-sm truncate">{b.guest_name}</div>
+          <div className="text-[11px] text-muted-foreground truncate">{b.booking_reference} · {b.status}</div>
+        </div>
+        <button onClick={() => openCopilot({ id: b.id, label: bookingLabel(b as any) })}
+          className="shrink-0 inline-flex items-center gap-1 rounded-full border border-gold/50 text-gold px-3 py-1.5 text-xs">
+          <BotMessageSquare className="h-3.5 w-3.5" /> Back to Copilot
+        </button>
+      </div>
+      <div className="px-3 md:px-8 py-4 md:py-8 max-w-[1400px] space-y-4 md:space-y-6 overflow-x-hidden print:p-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
           <Link to="/bookings" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> All bookings

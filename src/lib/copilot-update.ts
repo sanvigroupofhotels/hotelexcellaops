@@ -103,3 +103,12 @@ export async function applyCopilotUpdate(pv: CopilotUpdatePreview, qc: QueryClie
   }
   await refreshAfterBookingMutation(qc, id);
 }
+
+export type CopilotRecent = { id: string; booking_reference: string | null; guest_name: string; phone: string | null; check_in: string; check_out: string; status: string; amount: number; room_details: string | null };
+/** Last 10 bookings for the Copilot "Recent" panel (caller-scoped read). */
+export async function listRecentBookings(): Promise<CopilotRecent[]> {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { data, error } = await supabase.from("bookings").select("id, booking_reference, guest_name, phone, check_in, check_out, status, amount, room_details").order("created_at", { ascending: false }).limit(10);
+  if (error) throw error;
+  return (data ?? []) as any;
+}
