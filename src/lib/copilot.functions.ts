@@ -27,6 +27,8 @@ export type CopilotUpdate = {
   check_in?: string | null;
   check_out?: string | null;
 };
+/** Stay / billing action request. */
+export type CopilotOp = { kind: "check_in" | "check_out" | "payment"; target?: string | null; amount?: number | null; mode?: string | null; utr?: string | null };
 export type CopilotActive = { id: string; label: string } | null;
 
 /**
@@ -52,6 +54,9 @@ Decide intent:
   update fields: target (guest name, phone, room number or booking reference mentioned; null if they mean the active booking), rate (number per night), early_time ("HH:MM" 24h), late_time ("HH:MM" 24h), check_in, check_out (YYYY-MM-DD). Only fill what was asked in the LATEST request.
   If there is no active booking and no target, ask which booking (guest name or mobile).
   Reply briefly, e.g. "Here are the changes. Tap Confirm to apply."
+- "check_in" when staff want to check a guest in; "check_out" to check a guest out / settle and check out; "payment" to record/collect a payment or advance.
+  op fields: target (guest name, phone, room number or reference; null = active booking), amount (number, payment only), mode ("Cash"|"UPI"|"Card"|"Bank Transfer", payment only), utr (string or null).
+  Reply briefly, e.g. "Here's the check-in. Tap Confirm."
 - "create" for new bookings. Before creating, if this guest was just booked in this chat, prefer update.
 - "chat" for anything else.
 For create:
@@ -62,8 +67,8 @@ Optional with defaults: adults (2), children (0), room_type ("Oak Room" default,
 Current draft so far: ${JSON.stringify(data.draft ?? {})}. Merge new info into it; later messages override earlier values.
 If something is missing or unclear (e.g. phone not 10 digits, ambiguous date), ask ONE short clarifying question in the staff's language.
 If all required fields are present, reply with a one-line summary and say "Tap Confirm to create."
-For "chat", briefly say you can create bookings and update rate, early check-in, late checkout and dates.
-Return ONLY JSON: {"intent": "create"|"update"|"chat", "reply": string, "draft": {guest_name, phone, check_in, check_out, adults, children, room_type, rooms, agreed_rate, gst_included}, "ready": boolean, "update": {target, rate, early_time, late_time, check_in, check_out} | null}. No markdown.`;
+For "chat", briefly say you can create bookings, update rate/times/dates, check guests in or out, and record payments.
+Return ONLY JSON: {"intent": "create"|"update"|"check_in"|"check_out"|"payment"|"chat", "reply": string, "draft": {guest_name, phone, check_in, check_out, adults, children, room_type, rooms, agreed_rate, gst_included}, "ready": boolean, "update": {target, rate, early_time, late_time, check_in, check_out} | null, "op": {target, amount, mode, utr} | null}. No markdown.`;
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
@@ -90,6 +95,17 @@ Return ONLY JSON: {"intent": "create"|"update"|"chat", "reply": string, "draft":
       const d: CopilotDraft = { ...(data.draft ?? {}), ...(p.draft ?? {}) };
       if (d.phone) d.phone = String(d.phone).replace(/\D/g, "").slice(-10);
       if (d.room_type !== "Mapple Room") d.room_type = "Oak Room";
+      if (["check_in", "check_out", "payment"].includes(p.intent)) {
+        const o = p.op ?? {};
+        const modes = ["Cash", "UPI", "Card", "Bank Transfer"];
+        const op: CopilotOp = {
+          kind: p.intent, target: o.target ? String(o.target).slice(0, 80) : null,
+          amount: Number(o.amount) > 0 ? Math.round(Number(o.amount)) : null,
+          mode: modes.find((m) => m.toLowerCase() === String(o.mode ?? "").toLowerCase()) ?? null,
+          utr: o.utr ? String(o.utr).slice(0, 60) : null,
+        };
+        return { intent: p.intent as CopilotOp["kind"], reply: String(p.reply ?? ""), draft: data.draft, ready: false, update: null, op };
+      }
       const intent: "create" | "update" | "chat" = p.intent === "update" ? "update" : p.intent === "chat" ? "chat" : "create";
       if (intent === "update") {
         const u = p.update ?? {};

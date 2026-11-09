@@ -9,6 +9,89 @@ import { useCopilotChat, type CopilotLang, type CopilotMessage } from "@/hooks/u
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { listRecentBookings, bookingLabel } from "@/lib/copilot-update";
+import { useCurrentStaff } from "@/hooks/use-current-staff";
+import { Input } from "@/components/ui/input";
+
+type StayOpts = { collectedBy?: string; rooms?: Record<string, string>; overrideDocs?: boolean; settleMode?: string };
+const MODES = ["Cash", "UPI", "Card"];
+
+function StayCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; onConfirm: (o: StayOpts) => Promise<void>; onDismiss: () => void; onOpen: () => void }) {
+  const op = m.stay!;
+  const [busy, setBusy] = useState(false);
+  const [rooms, setRooms] = useState<Record<string, string>>({});
+  const [amount, setAmount] = useState(op.kind === "payment" ? String(op.amount || "") : "");
+  const [mode, setMode] = useState(op.kind === "payment" ? op.mode : "Cash");
+  const [utr, setUtr] = useState(op.kind === "payment" ? op.utr : "");
+  const run = async (o: StayOpts) => { setBusy(true); try { await onConfirm(o); } finally { setBusy(false); } };
+  const done = m.status === "applied", gone = m.status === "dismissed";
+  const title = op.kind === "check_in" ? "Check-In" : op.kind === "check_out" ? "Check-Out" : "Record Payment";
+  return (
+    <div className="mt-2 rounded-xl border border-border bg-card p-3 text-sm space-y-2">
+      <div className="text-xs uppercase tracking-wide text-gold">{title}</div>
+      <div className="font-display text-base">{op.guest_name}</div>
+      <div className="text-xs text-muted-foreground">{op.label}</div>
+      {op.kind === "check_in" && (<>
+        {op.items.map((it) => (
+          <div key={it.id}>
+            <div className="text-muted-foreground">{it.room_type}: {it.roomNumber ? <b className="text-foreground">Room {it.roomNumber}</b> : rooms[it.id] ? <b className="text-foreground">Room {it.options.find((o) => o.id === rooms[it.id])?.room_number}</b> : "pick a clean room"}</div>
+            {!it.roomId && !done && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {it.options.length === 0 && <span className="text-xs text-destructive">No clean {it.room_type} free right now.</span>}
+                {it.options.map((o) => (
+                  <button key={o.id} onClick={() => setRooms({ ...rooms, [it.id]: o.id })}
+                    className={`px-2.5 py-1 rounded-full border text-xs ${rooms[it.id] === o.id ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}>{o.room_number}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        {op.docsPending && <div className="text-xs rounded-md bg-destructive/10 text-destructive px-2 py-1">Guest ID documents are not uploaded yet.</div>}
+      </>)}
+      {op.kind === "check_out" && (<>
+        <div>Rooms: {op.rooms.join(", ")}</div>
+        <div className={op.balance > 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>{op.balance > 0 ? `Balance due ${inr(op.balance)}` : "No balance due"}</div>
+        {op.blocker && <div className="text-xs text-destructive">{op.blocker}</div>}
+      </>)}
+      {op.kind === "payment" && !done && (<>
+        <div className="text-xs text-muted-foreground">Balance due {inr(op.balance)}</div>
+        <Input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))} placeholder="Amount" />
+        <div className="flex flex-wrap gap-1.5">
+          {[...MODES, "Bank Transfer"].map((x) => (
+            <button key={x} onClick={() => setMode(x)} className={`px-2.5 py-1 rounded-full border text-xs ${mode === x ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}>{x}</button>
+          ))}
+        </div>
+        {mode !== "Cash" && <Input value={utr} onChange={(e) => setUtr(e.target.value)} placeholder="UTR / reference (optional)" />}
+      </>)}
+      {done ? (
+        <Link to="/bookings/$id" params={{ id: op.bookingId }} onClick={onOpen} className="inline-block text-primary underline text-sm">Open booking</Link>
+      ) : gone ? (
+        <div className="text-xs text-muted-foreground">Dismissed</div>
+      ) : (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {op.kind === "check_in" && (() => {
+            const ready = op.items.every((it) => it.roomId || rooms[it.id]);
+            return (
+              <Button size="sm" disabled={busy || !ready} onClick={() => run({ rooms, overrideDocs: op.docsPending })}>
+                {busy && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}{op.docsPending ? "Check In (skip ID)" : "Confirm Check-In"}
+              </Button>
+            );
+          })()}
+          {op.kind === "check_out" && !op.blocker && (op.balance > 0 ? MODES.map((x) => (
+            <Button key={x} size="sm" disabled={busy} onClick={() => run({ settleMode: x })}>Pay {inr(op.balance)} {x} & Check Out</Button>
+          )) : (
+            <Button size="sm" disabled={busy} onClick={() => run({})}>{busy && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}Confirm Check-Out</Button>
+          ))}
+          {op.kind === "payment" && (
+            <Button size="sm" disabled={busy || !(Number(amount) > 0)} onClick={() => { (op as any).amount = Number(amount); (op as any).mode = mode; (op as any).utr = utr; void run({}); }}>
+              {busy && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}Confirm {amount ? inr(Number(amount)) : ""} Payment
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" disabled={busy} onClick={onDismiss}>Cancel</Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Open Copilot from anywhere, optionally targeting a booking. */
 export function openCopilot(booking?: { id: string; label: string }) {
@@ -20,7 +103,7 @@ const LANGS: { key: CopilotLang; label: string }[] = [
   { key: "te-IN", label: "తె" },
   { key: "hi-IN", label: "हि" },
 ];
-const PILLS = ["Book for Ravi 9876543210 tomorrow for 2 nights", "Update price to 2000 per night", "Add late checkout at 3pm"];
+const PILLS = ["Book for Ravi 9876543210 tomorrow for 2 nights", "Update price to 2000 per night", "Add late checkout at 3pm", "Check in Ravi", "Record 2000 UPI for Ravi", "Check out room 204"];
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
 /** Track the visible area (shrinks when the mobile keyboard opens). */
@@ -100,6 +183,7 @@ export function CopilotDrawer() {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const c = useCopilotChat();
+  const staff = useCurrentStaff();
   const qc = useQueryClient();
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -225,6 +309,17 @@ export function CopilotDrawer() {
                         onConfirm={async () => {
                           try { await c.confirmUpdate(m.id); toast.success("Booking updated"); }
                           catch (e: any) { toast.error(e?.message ?? "Could not update booking"); }
+                        }}
+                      />
+                    )}
+                    {m.stay && (
+                      <StayCard
+                        m={m}
+                        onDismiss={() => c.dismissPreview(m.id)}
+                        onOpen={() => setOpen(false)}
+                        onConfirm={async (o) => {
+                          try { await c.confirmStay(m.id, { ...o, collectedBy: staff.name || "Front Desk" }); toast.success("Done"); }
+                          catch (e: any) { toast.error(e?.message ?? "Could not complete that"); }
                         }}
                       />
                     )}
