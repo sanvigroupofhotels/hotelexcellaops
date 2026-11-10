@@ -21,7 +21,6 @@ export function usePermissions() {
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
   });
   const set = data ?? new Set<string>();
   return {

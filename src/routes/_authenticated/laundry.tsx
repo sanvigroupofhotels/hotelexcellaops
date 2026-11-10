@@ -125,7 +125,6 @@ function QueueTab({ businessDate }: { businessDate: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ["laundry-preview", businessDate],
     queryFn: () => previewPickup(businessDate),
-    refetchInterval: 30_000,
   });
 
   if (isLoading) {

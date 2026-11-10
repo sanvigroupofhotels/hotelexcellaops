@@ -29,6 +29,5 @@ export function useNightAuditStatus() {
       };
     },
     staleTime: 60_000,
-    refetchInterval: 60_000,
   });
 }

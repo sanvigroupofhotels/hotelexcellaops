@@ -40,7 +40,6 @@ function HousekeepingPage() {
     queryKey: ["hk-tasks", businessDate],
     queryFn: () => listTasksForDate(businessDate as string),
     enabled: !!businessDate,
-    refetchInterval: 15_000,
   });
   const { data: rooms = [] } = useQuery({
     queryKey: ["rooms", "active"],
