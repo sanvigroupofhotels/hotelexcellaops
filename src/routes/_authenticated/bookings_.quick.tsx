@@ -53,6 +53,7 @@ import { useChargeCategories } from "@/hooks/use-charge-categories";
 import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/payment-settings-section";
 import { useMasterData } from "@/hooks/use-master-data";
 import { LEAD_SOURCES } from "@/lib/mock-data";
+import { openCopilot } from "@/components/copilot/copilot-drawer";
 
 export const Route = createFileRoute("/_authenticated/bookings_/quick")({
   component: QuickBookingPage,
@@ -436,6 +437,10 @@ function QuickBookingPage() {
   return (
     <div className="min-h-screen bg-background">
       <Topbar title="Quick Booking" subtitle="Fast Reception flow · shared pricing & inventory" />
+      <div className="md:hidden sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-card/95 backdrop-blur px-3 py-2">
+        <span className="font-display text-sm">Quick Booking</span>
+        <button type="button" onClick={() => openCopilot()} className="rounded-full border border-gold/40 px-3 py-1 text-xs text-gold">Back to Copilot</button>
+      </div>
       <div className="mx-auto max-w-2xl px-3 py-4 space-y-4 pb-32">
 
         {/* GROUP 1 — Stay dates (most-changed field, kept at top) */}

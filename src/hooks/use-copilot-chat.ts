@@ -85,6 +85,13 @@ export function useCopilotChat() {
     setThinking(true);
     try {
       const r: any = await parse({ data: { turns: history, today: toLocalYMD(), draft, active } });
+      if (r.query) {
+        const { answerCopilotQuery } = await import("@/lib/copilot-queries");
+        const a = await answerCopilotQuery(r.query);
+        if (a.bookingId && a.label) setActive({ id: a.bookingId, label: a.label });
+        push({ role: "assistant", text: a.text, bookingId: a.bookingId, status: a.bookingId ? "applied" : undefined });
+        return;
+      }
       if (r.op) { await runOp(r.op, r.reply); return; }
       if (r.intent === "update" && r.update) {
         await runUpdate(r.update, r.reply);

@@ -180,6 +180,7 @@ function PreviewCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; o
 }
 
 export function CopilotDrawer() {
+  const lift = useBottomBarLift();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const c = useCopilotChat();
@@ -215,7 +216,8 @@ export function CopilotDrawer() {
       <button
         aria-label="Open HEOS Copilot"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:scale-105 transition"
+        style={{ bottom: lift ? "calc(5.5rem + env(safe-area-inset-bottom))" : "calc(1.25rem + env(safe-area-inset-bottom))" }}
+        className="fixed left-4 md:left-[17rem] z-40 transition-[bottom] h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:scale-105 transition"
       >
         <BotMessageSquare className="h-6 w-6" />
       </button>
@@ -323,6 +325,9 @@ export function CopilotDrawer() {
                         }}
                       />
                     )}
+                    {m.bookingId && !m.preview && !m.update && !m.stay && (
+                      <Link to="/bookings/$id" params={{ id: m.bookingId }} onClick={() => setOpen(false)} className="mt-1 inline-block text-primary underline text-xs">Open folio</Link>
+                    )}
                     {m.matches && (
                       <div className="mt-2 space-y-1.5">
                         {m.matches.map((b) => (
@@ -360,4 +365,20 @@ export function CopilotDrawer() {
       </Sheet>
     </>
   );
+}
+
+/** Lift the trigger when the page shows a fixed bottom action bar (e.g. Quick Booking). */
+function useBottomBarLift() {
+  const [lift, setLift] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const bars = Array.from(document.querySelectorAll<HTMLElement>("main .fixed.bottom-0, main .fixed.inset-x-0.bottom-0"));
+      setLift(bars.some((el) => el.offsetParent !== null || getComputedStyle(el).display !== "none"));
+    };
+    check();
+    const mo = new MutationObserver(check);
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, []);
+  return lift;
 }

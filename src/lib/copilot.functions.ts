@@ -54,6 +54,7 @@ Decide intent:
   update fields: target (guest name, phone, room number or booking reference mentioned; null if they mean the active booking), rate (number per night), early_time ("HH:MM" 24h), late_time ("HH:MM" 24h), check_in, check_out (YYYY-MM-DD). Only fill what was asked in the LATEST request.
   If there is no active booking and no target, ask which booking (guest name or mobile).
   Reply briefly, e.g. "Here are the changes. Tap Confirm to apply."
+- "query" for read-only questions: vacancy ("how many deluxe/oak rooms vacant today"), occupant ("who is in room 204"), balance ("folio balance for Ravi"). query fields: kind ("vacancy"|"occupant"|"balance"), room_type (string or null), room (room number string or null), target (guest name/phone or null), date (YYYY-MM-DD or null). Reply briefly like "Checking…".
 - "check_in" when staff want to check a guest in; "check_out" to check a guest out / settle and check out; "payment" to record/collect a payment or advance.
   op fields: target (guest name, phone, room number or reference; null = active booking), amount (number, payment only), mode ("Cash"|"UPI"|"Card"|"Bank Transfer", payment only), utr (string or null).
   Reply briefly, e.g. "Here's the check-in. Tap Confirm."
@@ -67,8 +68,8 @@ Optional with defaults: adults (2), children (0), room_type ("Oak Room" default,
 Current draft so far: ${JSON.stringify(data.draft ?? {})}. Merge new info into it; later messages override earlier values.
 If something is missing or unclear (e.g. phone not 10 digits, ambiguous date), ask ONE short clarifying question in the staff's language.
 If all required fields are present, reply with a one-line summary and say "Tap Confirm to create."
-For "chat", briefly say you can create bookings, update rate/times/dates, check guests in or out, and record payments.
-Return ONLY JSON: {"intent": "create"|"update"|"check_in"|"check_out"|"payment"|"chat", "reply": string, "draft": {guest_name, phone, check_in, check_out, adults, children, room_type, rooms, agreed_rate, gst_included}, "ready": boolean, "update": {target, rate, early_time, late_time, check_in, check_out} | null, "op": {target, amount, mode, utr} | null}. No markdown.`;
+For "chat", briefly say you can answer vacancy/room/balance questions, create bookings, update rate/times/dates, check guests in or out, and record payments.
+Return ONLY JSON: {"intent": "create"|"update"|"check_in"|"check_out"|"payment"|"chat", "reply": string, "draft": {guest_name, phone, check_in, check_out, adults, children, room_type, rooms, agreed_rate, gst_included}, "ready": boolean, "update": {target, rate, early_time, late_time, check_in, check_out} | null, "op": {target, amount, mode, utr} | null, "query": {kind, room_type, room, target, date} | null}. No markdown.`;
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
@@ -95,6 +96,10 @@ Return ONLY JSON: {"intent": "create"|"update"|"check_in"|"check_out"|"payment"|
       const d: CopilotDraft = { ...(data.draft ?? {}), ...(p.draft ?? {}) };
       if (d.phone) d.phone = String(d.phone).replace(/\D/g, "").slice(-10);
       if (d.room_type !== "Mapple Room") d.room_type = "Oak Room";
+      if (p.intent === "query" && p.query && ["vacancy", "occupant", "balance"].includes(p.query.kind)) {
+        const q = p.query; const str = (v: any) => (v ? String(v).slice(0, 80) : null);
+        return { intent: "query" as const, reply: String(p.reply ?? ""), draft: data.draft, ready: false, update: null, query: { kind: q.kind as "vacancy" | "occupant" | "balance", room_type: str(q.room_type), room: str(q.room), target: str(q.target), date: typeof q.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(q.date) ? q.date : null } };
+      }
       if (["check_in", "check_out", "payment"].includes(p.intent)) {
         const o = p.op ?? {};
         const modes = ["Cash", "UPI", "Card", "Bank Transfer"];

@@ -8,7 +8,6 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
@@ -156,15 +155,6 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
-  useEffect(() => {
-    if (typeof window === "undefined" || (window as any).__excella_swept) return;
-    (window as any).__excella_swept = true;
-    import("@/integrations/supabase/client").then(({ supabase }) => {
-      supabase.rpc("sweep_stay_completed" as any).then(() => {
-        queryClient.invalidateQueries({ queryKey: ["bookings"] });
-      });
-    }).catch(() => {});
-  }, [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
