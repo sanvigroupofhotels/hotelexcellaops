@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Loader2 } from "lucide-react";
 import { CopilotDrawer } from "@/components/copilot/copilot-drawer";
+import { WhatsAppPitchDialog } from "@/components/whatsapp-pitch";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +42,7 @@ function AuthenticatedLayout() {
         <Outlet />
       </main>
       <CopilotDrawer />
+      <WhatsAppPitchDialog />
     </div>
   );
 }

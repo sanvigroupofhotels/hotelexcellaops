@@ -2,6 +2,7 @@ import { Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
+import { WhatsAppPitchButton } from "@/components/whatsapp-pitch";
 
 export function Topbar({
   title,
@@ -43,6 +44,7 @@ export function Topbar({
           </div>
         )}
         <ThemeToggle />
+        <WhatsAppPitchButton />
         <NotificationBell variant="desktop" />
         <div className="h-9 w-9 rounded-full gold-gradient flex items-center justify-center text-charcoal font-semibold text-sm shadow-[0_0_18px_oklch(0.82_0.13_82/0.2)]">
           HE

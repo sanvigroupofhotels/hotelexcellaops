@@ -16,6 +16,7 @@ import { useUserRole } from "@/hooks/use-role";
 import { usePermissions } from "@/hooks/use-permissions";
 import { UserMenu } from "@/components/user-menu";
 import { NotificationBell as MobileNotificationBell } from "@/components/notification-bell";
+import { WhatsAppPitchButton } from "@/components/whatsapp-pitch";
 
 type NavItem = { to: string; label: string; icon: any; adminOnly?: boolean; managerOnly?: boolean; permission?: string; anyOf?: string[] };
 
@@ -335,6 +336,7 @@ export function AppSidebar() {
       <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-lg border-b border-border print:hidden">
         <Logo />
         <div className="flex items-center gap-2">
+          <WhatsAppPitchButton />
           <MobileNotificationBell variant="mobile" />
           <UserMenu />
           <button onClick={() => setOpen(true)} className="p-2 rounded-md text-muted-foreground hover:text-foreground" aria-label="Open menu">

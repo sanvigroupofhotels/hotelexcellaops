@@ -14,6 +14,7 @@ import { Route as BookingEngineRouteImport } from './routes/booking-engine'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as PortalRouteImport } from './routes/portal'
+import { Route as WhatsappBookingRouteImport } from './routes/whatsapp-booking'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
@@ -137,6 +138,11 @@ const McpRoute = McpRouteImport.update({
 const PortalRoute = PortalRouteImport.update({
   id: '/portal',
   path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WhatsappBookingRoute = WhatsappBookingRouteImport.update({
+  id: '/whatsapp-booking',
+  path: '/whatsapp-booking',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Char91DotmcpChar93ListToolsRoute =
@@ -704,6 +710,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/portal': typeof PortalRouteWithChildren
+  '/whatsapp-booking': typeof WhatsappBookingRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
@@ -807,6 +814,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/whatsapp-booking': typeof WhatsappBookingRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren
   '/access-settings': typeof AuthenticatedAccessSettingsRoute
@@ -912,6 +920,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/portal': typeof PortalRouteWithChildren
+  '/whatsapp-booking': typeof WhatsappBookingRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren
   '/_authenticated/access-settings': typeof AuthenticatedAccessSettingsRoute
@@ -1021,6 +1030,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mcp'
     | '/portal'
+    | '/whatsapp-booking'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/access-settings'
@@ -1124,6 +1134,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/mcp'
+    | '/whatsapp-booking'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/access-settings'
@@ -1228,6 +1239,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mcp'
     | '/portal'
+    | '/whatsapp-booking'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/access-settings'
@@ -1336,6 +1348,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   PortalRoute: typeof PortalRouteWithChildren
+  WhatsappBookingRoute: typeof WhatsappBookingRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren
   BeSplatRoute: typeof BeSplatRoute
@@ -1390,6 +1403,13 @@ declare module '@tanstack/react-router' {
       path: '/portal'
       fullPath: '/portal'
       preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/whatsapp-booking': {
+      id: '/whatsapp-booking'
+      path: '/whatsapp-booking'
+      fullPath: '/whatsapp-booking'
+      preLoaderRoute: typeof WhatsappBookingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.mcp/list-tools': {
@@ -2394,6 +2414,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   PortalRoute: PortalRouteWithChildren,
+  WhatsappBookingRoute: WhatsappBookingRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRouteWithChildren,

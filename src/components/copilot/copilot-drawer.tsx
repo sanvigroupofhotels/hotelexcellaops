@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { openWhatsAppPitch } from "@/components/whatsapp-pitch";
 import { History, BotMessageSquare, Loader2, Mic, MicOff, RotateCcw, Send, Volume2, VolumeX } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -272,6 +273,7 @@ export function CopilotDrawer() {
                 <div className="text-sm text-muted-foreground">
                   <p className="mb-3">Type or tap the mic and speak in English, Telugu or Hindi. Give guest name, mobile, check-in and check-out.</p>
                   <div className="flex flex-wrap gap-2">
+                    <button onClick={() => { setOpen(false); openWhatsAppPitch(); }} className="px-3 py-1.5 rounded-full border border-primary/50 text-primary text-xs hover:bg-muted text-left">Share Welcome Pitch</button>
                     {PILLS.map((p) => (
                       <button key={p} onClick={() => send(p)} className="px-3 py-1.5 rounded-full border border-border text-xs hover:bg-muted text-left">{p}</button>
                     ))}
