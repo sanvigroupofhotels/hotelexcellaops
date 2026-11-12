@@ -253,10 +253,24 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       phone: z.string().trim().regex(/^\+?[1-9]\d{7,15}$/, "Please enter a valid phone number in international format"),
       email: z.string().trim().email().max(255).optional().or(z.literal("")),
       special_requests: z.string().trim().max(2000).optional().or(z.literal("")),
+      rooms: z.number().int().min(1).max(20).optional(),
     }).parse(input),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Multi-room requests (WhatsApp form) hold N rooms via one booking_items line.
+    const holdRooms = async (bookingId: string, subtotal: number, nights: number) => {
+      const n = data.rooms ?? 1;
+      if (n <= 1) return;
+      await supabaseAdmin.from("booking_items" as any).delete().eq("booking_id", bookingId);
+      const rate = Math.round(subtotal / Math.max(1, nights));
+      const { error } = await supabaseAdmin.from("booking_items" as any).insert({
+        booking_id: bookingId, position: 0, room_type: data.room_type, rooms: n,
+        adults: data.guests, children: 0, check_in: data.check_in, check_out: data.check_out,
+        rate, subtotal: rate * nights * n,
+      } as any);
+      if (error) throw error;
+    };
 
     // Canonicalize phone so Lead.phone == Customer.phone == Booking.phone everywhere.
     const phone = normalizeOrThrow(data.phone);
@@ -408,6 +422,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
         .select("id, booking_reference")
         .single();
       if (uErr) throw uErr;
+      await holdRooms((upd as any).id, subtotal, nights);
       return {
         booking_id: (upd as any).id,
         reference: (upd as any).booking_reference,
@@ -449,6 +464,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       notes: `Created from Booking Engine`,
     } as any).select("id, booking_reference").single();
     if (bErr) throw bErr;
+    await holdRooms((ins as any).id, subtotal, nights);
 
     return {
       booking_id: (ins as any).id,

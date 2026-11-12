@@ -3,9 +3,9 @@ export const WHATSAPP_BOOKING_URL = "https://book.hotelexcella.in/whatsapp-booki
 export const RECEPTION_WA = "919985908131";
 
 export function pitchGreeting(emailOrUsername: string | null | undefined): string {
-  const u = (emailOrUsername ?? "").toLowerCase().split("@")[0].trim();
-  if (u === "shoban.india") return "I am Shobhan, Owner Hotel Excella, Vizag";
-  if (u === "kilimshetty.kumar") return "I am Dileep, Owner Hotel Excella, Vizag";
+  const u = (emailOrUsername ?? "").toLowerCase().trim();
+  if (u.includes("shobhan") || u.includes("shoban")) return "I am Shobhan, Owner Hotel Excella, Vizag";
+  if (u.includes("killamsetti.kumar")) return "I am Dileep, Owner Hotel Excella, Vizag";
   return "I am Manager, Hotel Excella, Vizag";
 }
 

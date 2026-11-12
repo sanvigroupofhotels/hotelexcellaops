@@ -38,7 +38,10 @@ function WhatsAppBooking() {
   const [phone, setPhone] = useState("");
   const [checkIn, setCheckIn] = useState(iso(0));
   const [checkOut, setCheckOut] = useState(iso(1));
-  const [guests, setGuests] = useState(2);
+  const [guestsStr, setGuestsStr] = useState("2");
+  const [roomsStr, setRoomsStr] = useState("1");
+  const guests = Math.max(1, Math.min(10, parseInt(guestsStr) || 1));
+  const roomsReq = Math.max(1, Math.min(20, parseInt(roomsStr) || 1));
   const [types, setTypes] = useState<Avail[]>([]);
   const [roomType, setRoomType] = useState("");
   const [busy, setBusy] = useState(false);
@@ -71,10 +74,10 @@ function WhatsAppBooking() {
     setBusy(true);
     try {
       upsertLeadFromBookingEngine({
-        data: { guest_name: name.trim(), phone: intl, check_in: checkIn, check_out: checkOut, adults: guests, room_type_name: label, notes: "WhatsApp booking form" },
+        data: { guest_name: name.trim(), phone: intl, check_in: checkIn, check_out: checkOut, adults: guests, room_type_name: label, notes: `WhatsApp booking form — ${roomsReq} room(s) for ${guests} guest(s)` },
       }).catch(() => {});
       const draft = await createDraftBooking({
-        data: { room_type: roomType, check_in: checkIn, check_out: checkOut, guests, guest_name: name.trim(), phone: intl, special_requests: "Via WhatsApp booking form — rate to be confirmed by front desk" },
+        data: { room_type: roomType, check_in: checkIn, check_out: checkOut, guests, rooms: roomsReq, guest_name: name.trim(), phone: intl, special_requests: `Via WhatsApp booking form — ${roomsReq} room(s) requested for ${guests} guest(s); rate to be confirmed by front desk` },
       });
       const conf = await confirmPayAtHotel({ data: { booking_id: draft.booking_id } });
       const msg = `Hi Hotel Excella, I just reserved via WhatsApp booking.\nRef: ${conf.reference}\nName: ${name.trim()}\nMobile: ${digits}\nStay: ${checkIn} to ${checkOut}\nRoom: ${label}\nGuests: ${guests}\nPlease confirm my best direct price.`;
@@ -119,7 +122,7 @@ function WhatsAppBooking() {
               <div className="space-y-1.5"><Label className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />Check-in</Label><Input type="date" min={iso(0)} value={checkIn} onChange={(e) => { setCheckIn(e.target.value); if (checkOut <= e.target.value) { const d = new Date(e.target.value + "T00:00:00"); d.setDate(d.getDate() + 1); setCheckOut(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`); } }} /></div>
               <div className="space-y-1.5"><Label className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />Check-out</Label><Input type="date" min={checkIn} value={checkOut} onChange={(e) => setCheckOut(e.target.value)} /></div>
             </div>
-            <div className="space-y-1.5"><Label className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />Guests</Label><Input type="number" min={1} max={10} value={guests} onChange={(e) => setGuests(Math.max(1, Math.min(10, Number(e.target.value) || 1)))} /></div>
+            <div className="space-y-1.5"><Label className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />Guests</Label><Input type="number" inputMode="numeric" min={1} max={10} value={guestsStr} onChange={(e) => setGuestsStr(e.target.value.replace(/\D/g, "").slice(0, 2))} onBlur={() => setGuestsStr(String(guests))} /></div>
             <div className="space-y-1.5">
               <Label>Room type</Label>
               <div className="grid gap-2">
@@ -131,11 +134,18 @@ function WhatsAppBooking() {
                     onClick={() => setRoomType(t.room_type_key)}
                     className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm text-left disabled:opacity-40 ${roomType === t.room_type_key ? "border-primary bg-primary/10" : "border-border"}`}
                   >
-                    <span>{t.type}{t.available <= 0 && " — sold out"}</span>
+                    <span>{t.type} <span className="text-xs text-muted-foreground">— {t.available > 0 ? `${t.available} available` : "sold out"}</span></span>
                     <a href={TOUR} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-primary flex items-center gap-1"><PlayCircle className="h-3.5 w-3.5" />Tour</a>
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Number of rooms</Label>
+              <Input type="number" inputMode="numeric" min={1} value={roomsStr} onChange={(e) => setRoomsStr(e.target.value.replace(/\D/g, "").slice(0, 2))} onBlur={() => setRoomsStr(String(roomsReq))} />
+              {(() => { const sel = types.find((t) => t.room_type_key === roomType); return sel ? (
+                <p className="text-xs text-muted-foreground">{sel.type}: {sel.available} room(s) available for these dates{roomsReq > sel.available ? " — we'll confirm the extra rooms with you on WhatsApp." : ""}</p>
+              ) : null; })()}
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button className="w-full" onClick={submit} disabled={busy}>
