@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Loader2, LogIn } from "lucide-react";
+import crest from "@/assets/excella-crown-final.webp.asset.json";
 
 function isSameOriginRelative(path: unknown): path is string {
   return typeof path === "string" && path.startsWith("/") && !path.startsWith("//");
@@ -98,16 +99,8 @@ function LoginPage() {
       >
         <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
         <div className="relative">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="h-12 w-12 rounded-md gold-gradient flex items-center justify-center">
-              <span className="font-display text-xl text-charcoal">H</span>
-            </div>
-            <div>
-              <div className="font-display text-lg">HOTEL EXCELLA</div>
-              <div className="text-[10px] tracking-[0.3em] text-gold/80 uppercase">
-                Reservations OS
-              </div>
-            </div>
+          <div className="flex justify-center mb-8">
+            <img src={crest.url} alt="Hotel Excella, Vizag" width={960} height={620} className="login-crown" />
           </div>
 
           <h1 className="font-display text-3xl mb-1">Welcome back</h1>

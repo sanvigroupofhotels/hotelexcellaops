@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Replace the earlier opening sequence with one authentic crown-logo reveal and matching login branding; desktop/mobile rendering, once-per-session playback, reduced motion and 10 safeguards verified.
+
 - [x] Add automatic browser-side photo compression to guest IDs, staff documents, receipts, and payment screenshots; six safeguards pass, real browser sample shrank 91% with readable text, PDFs unchanged.
 - [x] Add a brief gold hotel crest opening animation with reduced-motion support; desktop/mobile crest rendering, fade-out and reduced motion verified without console errors.
 - [ ] Verify a saved photo upload and read-back through the staff/guest UI — blocked until the user signs in to the preview; own-account session mint found no matching account.

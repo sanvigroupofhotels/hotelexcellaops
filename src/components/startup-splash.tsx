@@ -1,26 +1,29 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import crest from "@/assets/pwa-icon-512.png";
+import crest from "@/assets/excella-crown-transparent.webp.asset.json";
+import { claimStartupReveal, startupRevealAllowed } from "@/lib/startup-reveal";
 
 /** A visual reveal only: never delays auth, navigation or background loading. */
 export function StartupSplash() {
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   useEffect(() => {
+    if (!startupRevealAllowed(pathname)) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const timer = window.setTimeout(() => setVisible(false), reduced ? 150 : 1700);
+    if (reduced || !claimStartupReveal(window.sessionStorage)) return;
+    setVisible(true);
+    const timer = window.setTimeout(() => setVisible(false), 1900);
     return () => window.clearTimeout(timer);
+    // Root stays mounted across navigation; redirects must not restart the reveal.
   }, []);
 
-  if (!visible || /^\/(\.well-known|\.lovable|mcp|api)(\/|\.|$)/.test(pathname)) return null;
+  if (!visible || !startupRevealAllowed(pathname)) return null;
 
   return (
     <div className="startup-splash" aria-hidden="true" data-startup-splash>
       <div className="startup-splash-mark">
-        <img src={crest} alt="" width={112} height={112} className="h-28 w-28 rounded-lg" fetchPriority="high" />
-        <span className="font-display text-3xl text-gold">Hotel Excella</span>
-        <span className="text-xs text-muted-foreground">Visakhapatnam</span>
-        <span className="startup-splash-line" />
+        <img src={crest.url} alt="" width={960} height={620} className="startup-crown" fetchPriority="high" onError={() => setVisible(false)} />
+        <img src={crest.url} alt="" width={960} height={620} className="startup-crown startup-crown-sheen" />
       </div>
     </div>
   );
