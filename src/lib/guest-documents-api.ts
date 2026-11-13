@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { logActivity } from "@/lib/activity-log";
+import { compressUploadImage } from "@/lib/compress-upload-image";
 
 
 export const GUEST_DOC_BUCKET = "guest-documents";
@@ -75,6 +76,7 @@ function extOf(file: File) {
 }
 
 async function uploadOne(scope: string, docId: string, kind: "front" | "back" | "selfie", file: File): Promise<string> {
+  file = await compressUploadImage(file);
   const path = `${scope}/${docId}/${kind}.${extOf(file)}`;
   const { error } = await supabase.storage.from(GUEST_DOC_BUCKET).upload(path, file, {
     upsert: true, cacheControl: "3600", contentType: file.type || "image/jpeg",

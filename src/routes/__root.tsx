@@ -12,6 +12,7 @@ import {
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth";
+import { StartupSplash } from "@/components/startup-splash";
 
 function NotFoundComponent() {
   return (
@@ -83,8 +84,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "Hotel Excella Operations" },
       { property: "og:description", content: "Front-desk, reservations and operations platform for Hotel Excella." },
       { name: "twitter:description", content: "Front-desk, reservations and operations platform for Hotel Excella." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/261c0488-0dba-4aeb-8555-36b32d8c8a66/id-preview-cd0a4d7e--bf9d317a-170f-4eb0-82c9-ac90cf77e6ab.lovable.app-1779321940047.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/261c0488-0dba-4aeb-8555-36b32d8c8a66/id-preview-cd0a4d7e--bf9d317a-170f-4eb0-82c9-ac90cf77e6ab.lovable.app-1779321940047.png" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],
@@ -159,6 +158,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <StartupSplash />
         <Outlet />
         <Toaster position="top-right" />
       </AuthProvider>

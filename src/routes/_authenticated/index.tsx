@@ -32,6 +32,14 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
+  head: () => ({ meta: [
+    { title: "Dashboard — Hotel Excella Operations" },
+    { name: "description", content: "Hotel Excella daily arrivals, occupancy, payments and operational overview." },
+    { property: "og:title", content: "Dashboard — Hotel Excella Operations" },
+    { property: "og:description", content: "Hotel Excella daily arrivals, occupancy, payments and operational overview." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: HomePage,
 });
 

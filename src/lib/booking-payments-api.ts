@@ -1,6 +1,7 @@
 import type { Db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivity } from "@/lib/activity-log";
+import { compressUploadImage } from "@/lib/compress-upload-image";
 
 
 export const PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Card", "Hotelzify", "OTA"] as const;
@@ -148,6 +149,7 @@ export async function replacePaymentAttachment(paymentId: string, bookingId: str
 
   let newPath: string | null = null;
   if (file) {
+    file = await compressUploadImage(file);
     const ext = (file.name.match(/\.([a-z0-9]+)$/i)?.[1] || "jpg").toLowerCase();
     newPath = `${bookingId || "_orphan"}/${crypto.randomUUID()}.${ext}`;
     const up = await supabase.storage

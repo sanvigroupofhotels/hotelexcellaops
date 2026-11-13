@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { compressUploadImage } from "@/lib/compress-upload-image";
 
 export const STAFF_DOC_TYPES = [
   "Aadhaar",
@@ -48,12 +49,14 @@ export async function uploadStaffDocument(input: {
   const { data: userRes } = await supabase.auth.getUser();
   const userId = userRes?.user?.id ?? null;
 
-  const safeName = input.file.name.replace(/[^A-Za-z0-9._-]/g, "_");
+  const originalName = input.file.name;
+  const file = await compressUploadImage(input.file);
+  const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, "_");
   const path = `${input.staff_id}/${Date.now()}_${safeName}`;
 
   const { error: upErr } = await supabase
     .storage.from(BUCKET)
-    .upload(path, input.file, { contentType: input.file.type || undefined, upsert: false });
+    .upload(path, file, { contentType: file.type || undefined, upsert: false });
   if (upErr) throw upErr;
 
   const { data, error } = await supabase
@@ -62,9 +65,9 @@ export async function uploadStaffDocument(input: {
       staff_id: input.staff_id,
       doc_type: input.doc_type,
       file_path: path,
-      file_name: input.file.name,
-      mime_type: input.file.type || null,
-      file_size_bytes: input.file.size || null,
+      file_name: originalName,
+      mime_type: file.type || null,
+      file_size_bytes: file.size || null,
       uploaded_by: userId,
       notes: input.notes ?? null,
     })

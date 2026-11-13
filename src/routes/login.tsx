@@ -11,6 +11,14 @@ function isSameOriginRelative(path: unknown): path is string {
 }
 
 export const Route = createFileRoute("/login")({
+  head: () => ({ meta: [
+    { title: "Staff Sign In — Hotel Excella" },
+    { name: "description", content: "Secure staff sign in for Hotel Excella operations." },
+    { property: "og:title", content: "Staff Sign In — Hotel Excella" },
+    { property: "og:description", content: "Secure staff sign in for Hotel Excella operations." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   validateSearch: (s: Record<string, unknown>): { next?: string } => ({
     next: isSameOriginRelative(s.next) ? (s.next as string) : undefined,
   }),

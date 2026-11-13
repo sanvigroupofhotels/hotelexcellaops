@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Camera, Upload, Loader2, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { extractPaymentDetails } from "@/lib/payment-ocr.functions";
+import { compressUploadImage } from "@/lib/compress-upload-image";
 
 export const PAYMENT_SCREENSHOTS_BUCKET = "payment-screenshots";
 
@@ -51,6 +52,7 @@ export function PaymentOcrPicker({ bookingId, onExtracted }: Props) {
     }
     setBusy(true);
     try {
+      file = await compressUploadImage(file);
       const ext = (file.name.match(/\.([a-z0-9]+)$/i)?.[1] || "jpg").toLowerCase();
       const path = `${bookingId ?? "_orphan"}/${crypto.randomUUID()}.${ext}`;
       const up = await supabase.storage

@@ -4,6 +4,50 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Brief branded reveal; does not capture clicks or hold up the application. */
+.startup-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: var(--background);
+  pointer-events: none;
+  animation: startup-splash-exit 1.7s ease forwards;
+}
+.startup-splash-mark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  animation: startup-crest-reveal 0.75s ease-out both;
+}
+.startup-splash-mark .font-display { letter-spacing: 0; }
+.startup-splash-line {
+  height: 1px;
+  width: 5rem;
+  background: var(--gold);
+  transform-origin: center;
+  animation: startup-line-reveal 1s ease-out both;
+}
+@keyframes startup-crest-reveal {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes startup-line-reveal {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes startup-splash-exit {
+  0%, 70% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .startup-splash, .startup-splash-mark, .startup-splash-line { animation: none; }
+}
+@media print { .startup-splash { display: none; } }
+
 /*
  * Hotel Excella — Boutique Luxury Design System
  * Black + subtle gold. Ultra premium. Editorial spacing.

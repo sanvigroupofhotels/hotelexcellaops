@@ -19,6 +19,7 @@ import {
 } from "@/lib/portal.functions";
 import { useUserRole } from "@/hooks/use-role";
 import { useAuth } from "@/lib/auth";
+import { compressUploadImage } from "@/lib/compress-upload-image";
 
 type Mode = "checkin" | "manage";
 
@@ -39,6 +40,7 @@ interface Props {
 }
 
 async function fileToBase64(file: File): Promise<{ name: string; mime: string; base64: string }> {
+  file = await compressUploadImage(file);
   const buf = await file.arrayBuffer();
   // Convert ArrayBuffer → base64 in the browser without Buffer.
   let binary = "";
@@ -47,7 +49,7 @@ async function fileToBase64(file: File): Promise<{ name: string; mime: string; b
   for (let i = 0; i < bytes.length; i += chunk) {
     binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
   }
-  const base64 = typeof btoa !== "undefined" ? btoa(binary) : Buffer.from(binary, "binary").toString("base64");
+  const base64 = btoa(binary);
   return { name: file.name, mime: file.type || "image/jpeg", base64 };
 }
 

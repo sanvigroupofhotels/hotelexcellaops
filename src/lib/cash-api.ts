@@ -1,6 +1,7 @@
 import type { Db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeOrThrow } from "@/lib/phone";
+import { compressUploadImage } from "@/lib/compress-upload-image";
 
 /** Canonicalize a guest_mobile in-place. Empty/undefined passes through. Invalid throws. */
 function canonicalizeCashPhone<T extends { guest_mobile?: string | null }>(input: T): T {
@@ -270,6 +271,8 @@ async function logCashAttachmentActivity(
 export async function uploadCashTxAttachment(txId: string, file: File): Promise<CashTxAttachment> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
+  const originalName = file.name;
+  file = await compressUploadImage(file);
   const ext = (file.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
   const path = `${user.id}/${txId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const up = await supabase.storage.from(CASH_TX_ATTACHMENT_BUCKET).upload(path, file, {
@@ -288,7 +291,7 @@ export async function uploadCashTxAttachment(txId: string, file: File): Promise<
     storage_path: path,
     mime_type: file.type || "application/octet-stream",
     file_size: file.size ?? null,
-    original_filename: file.name ?? null,
+    original_filename: originalName,
     uploaded_by: user.id,
     uploaded_by_name: uploader_name,
   } as any).select().single();
