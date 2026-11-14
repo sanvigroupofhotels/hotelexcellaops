@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Loader2, LogIn } from "lucide-react";
-import crest from "@/assets/excella-crown-white-bg.webp.asset.json";
+import crest from "@/assets/excella-crown-white-complete.webp.asset.json";
 
 function isSameOriginRelative(path: unknown): path is string {
   return typeof path === "string" && path.startsWith("/") && !path.startsWith("//");
