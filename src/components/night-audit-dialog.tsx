@@ -133,7 +133,7 @@ export function NightAuditDialog({ open, onClose, inline = false }: { open: bool
   const Outer: any = inline ? "div" : "div";
   const outerClass = inline
     ? ""
-    : "fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm";
+    : "fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm";
   const innerClass = inline
     ? "p-5 space-y-4"
     : "luxe-card rounded-xl w-full max-w-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto";

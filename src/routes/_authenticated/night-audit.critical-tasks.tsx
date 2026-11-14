@@ -121,11 +121,15 @@ function CriticalTasksPage() {
       await setBookingStatus(coId, "Checked-Out" as any, { allowOverride: canManage });
       await logBookingActivity({ booking_id: coId, action: "status_changed", summary: "Checked-Out from Critical Tasks" } as any);
       toast.success("Guest checked out");
+      const doneId = coId;
       setCoId(null);
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["night-audit-pending"] }),
-        qc.invalidateQueries({ queryKey: ["bookings"] }),
-      ]);
+      try {
+        const { refreshAfterBookingMutation } = await import("@/lib/booking-pricing-sync");
+        await refreshAfterBookingMutation(qc, doneId, { skipPricing: true });
+      } catch { /* fallbacks below */ }
+      for (const k of ["night-audit-pending", "bookings", "booking-items-all", "in-house-items", "house-view", "booking-room-assignments-all", "all-charge-totals"]) {
+        qc.invalidateQueries({ queryKey: [k] });
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "Could not check out");
     } finally { setBusy(false); }
@@ -243,7 +247,14 @@ function CriticalTasksPage() {
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button size="sm" className="bg-gold text-charcoal hover:bg-gold/90" onClick={() => setCoId(row.id)} disabled={busy}>
+                  <Button size="sm" className="bg-gold text-charcoal hover:bg-gold/90" onClick={() => {
+                    if (dueAmt > 0 && !canManage && b) {
+                      toast.info(`Balance due ${inr(dueAmt)} — record payment to continue check-out`);
+                      setPayFor({ id: row.id, customerId: b.customer_id, maxAmount: dueAmt });
+                      return;
+                    }
+                    setCoId(row.id);
+                  }} disabled={busy}>
                     Check-Out
                   </Button>
                   {dueAmt > 0 && b && (
@@ -321,9 +332,11 @@ function CriticalTasksPage() {
           customerId={payFor.customerId}
           maxAmount={payFor.maxAmount}
           onClose={() => setPayFor(null)}
-          onSaved={() => {
+          onSaved={async () => {
+            const paidId = payFor.id;
             setPayFor(null);
-            qc.invalidateQueries({ queryKey: ["bookings"] });
+            await qc.invalidateQueries({ queryKey: ["bookings"] });
+            setCoId(paidId);
             qc.invalidateQueries({ queryKey: ["all-charge-totals"] });
           }}
         />
