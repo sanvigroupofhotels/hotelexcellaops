@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import crest from "@/assets/excella-crown-transparent.webp.asset.json";
+import crest from "@/assets/excella-crown-white-bg.webp.asset.json";
 import { claimStartupReveal, startupRevealAllowed } from "@/lib/startup-reveal";
 
 /** A visual reveal only: never delays auth, navigation or background loading. */

@@ -12,6 +12,7 @@ import { z } from "zod";
 import { normalizeOrThrow } from "@/lib/phone";
 import { applyTaxes } from "@/lib/pricing";
 import { buildRoomTypeAvailability, normalizeRoomTypeKey } from "@/lib/room-type-availability-core";
+import { buildEngineRoomLines } from "@/lib/whatsapp-booking-timing";
 
 
 const DRAFT_TTL_MIN = 15;
@@ -254,21 +255,22 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       email: z.string().trim().email().max(255).optional().or(z.literal("")),
       special_requests: z.string().trim().max(2000).optional().or(z.literal("")),
       rooms: z.number().int().min(1).max(20).optional(),
+      early_check_in_slot: z.enum(["10-13", "8-10", "6-8", "before-6"]).nullable().optional(),
+      late_check_out_slot: z.enum(["upto-2pm", "2-4pm", "after-4pm"]).nullable().optional(),
     }).parse(input),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // Multi-room requests (WhatsApp form) hold N rooms via one booking_items line.
+    // WhatsApp requests persist per-room lines through the canonical allocation and pricing engines.
     const holdRooms = async (bookingId: string, subtotal: number, nights: number) => {
-      const n = data.rooms ?? 1;
-      if (n <= 1) return;
-      await supabaseAdmin.from("booking_items" as any).delete().eq("booking_id", bookingId);
-      const rate = Math.round(subtotal / Math.max(1, nights));
-      const { error } = await supabaseAdmin.from("booking_items" as any).insert({
-        booking_id: bookingId, position: 0, room_type: data.room_type, rooms: n,
-        adults: data.guests, children: 0, check_in: data.check_in, check_out: data.check_out,
-        rate, subtotal: rate * nights * n,
-      } as any);
+      if (data.rooms === undefined && data.early_check_in_slot === undefined && data.late_check_out_slot === undefined) return;
+      const { error: deleteError } = await supabaseAdmin.from("booking_items" as any).delete().eq("booking_id", bookingId);
+      if (deleteError) throw deleteError;
+      const rows = buildEngineRoomLines({
+        ...data, rooms: data.rooms ?? 1, rate: subtotal / nights,
+        early: data.early_check_in_slot, late: data.late_check_out_slot,
+      }).map((item) => ({ ...item, booking_id: bookingId }));
+      const { error } = await supabaseAdmin.from("booking_items" as any).insert(rows as any);
       if (error) throw error;
     };
 
@@ -367,6 +369,11 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       subtotal += rate;
     }
     // Shared pricing engine — no inline tax arithmetic (single source of truth).
+    const roomSubtotal = subtotal;
+    if (data.rooms !== undefined || data.early_check_in_slot !== undefined || data.late_check_out_slot !== undefined) {
+      subtotal = buildEngineRoomLines({ ...data, rooms: data.rooms ?? 1, rate: roomSubtotal / nights, early: data.early_check_in_slot, late: data.late_check_out_slot })
+        .reduce((sum, item) => sum + item.subtotal, 0);
+    }
     const { taxes, total } = applyTaxes(subtotal, tax_rate);
 
     if (total <= 0) throw new Error("Pricing unavailable for the selected dates. Please contact the hotel.");
@@ -422,7 +429,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
         .select("id, booking_reference")
         .single();
       if (uErr) throw uErr;
-      await holdRooms((upd as any).id, subtotal, nights);
+      await holdRooms((upd as any).id, roomSubtotal, nights);
       return {
         booking_id: (upd as any).id,
         reference: (upd as any).booking_reference,
@@ -464,7 +471,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       notes: `Created from Booking Engine`,
     } as any).select("id, booking_reference").single();
     if (bErr) throw bErr;
-    await holdRooms((ins as any).id, subtotal, nights);
+    await holdRooms((ins as any).id, roomSubtotal, nights);
 
     return {
       booking_id: (ins as any).id,

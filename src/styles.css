@@ -6,7 +6,7 @@
 
 /* One authentic brand reveal; the app continues loading underneath. */
 :root {
-  --brand-reveal-canvas: oklch(0.09 0.002 30);
+  --brand-reveal-canvas: oklch(1 0 0);
   --brand-reveal-glow: oklch(0.82 0.13 82 / 0.16);
 }
 .startup-splash {
@@ -29,7 +29,6 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  mix-blend-mode: screen;
   filter: drop-shadow(0 0 16px var(--brand-reveal-glow));
 }
 .startup-crown-sheen {

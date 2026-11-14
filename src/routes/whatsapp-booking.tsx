@@ -8,6 +8,9 @@ import { Card } from "@/components/ui/card";
 import { getAvailability, createDraftBooking, confirmPayAtHotel } from "@/lib/booking-engine.functions";
 import { upsertLeadFromBookingEngine } from "@/lib/leads.functions";
 import { RECEPTION_WA, waLink } from "@/lib/whatsapp-pitch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EARLY_CHECK_IN_SLOTS, LATE_CHECK_OUT_SLOTS, type EarlyCheckInSlot, type LateCheckOutSlot } from "@/lib/mock-data";
+import { bookingTimingLabels } from "@/lib/whatsapp-booking-timing";
 
 export const Route = createFileRoute("/whatsapp-booking")({
   head: () => ({
@@ -40,6 +43,8 @@ function WhatsAppBooking() {
   const [checkOut, setCheckOut] = useState(iso(1));
   const [guestsStr, setGuestsStr] = useState("2");
   const [roomsStr, setRoomsStr] = useState("1");
+  const [earlySlot, setEarlySlot] = useState<EarlyCheckInSlot | null>(null);
+  const [lateSlot, setLateSlot] = useState<LateCheckOutSlot | null>(null);
   const guests = Math.max(1, Math.min(10, parseInt(guestsStr) || 1));
   const roomsReq = Math.max(1, Math.min(20, parseInt(roomsStr) || 1));
   const [types, setTypes] = useState<Avail[]>([]);
@@ -73,14 +78,15 @@ function WhatsAppBooking() {
     const label = types.find((t) => t.room_type_key === roomType)?.type ?? roomType;
     setBusy(true);
     try {
+      const timing = bookingTimingLabels(earlySlot, lateSlot);
       upsertLeadFromBookingEngine({
-        data: { guest_name: name.trim(), phone: intl, check_in: checkIn, check_out: checkOut, adults: guests, room_type_name: label, notes: `WhatsApp booking form — ${roomsReq} room(s) for ${guests} guest(s)` },
+        data: { guest_name: name.trim(), phone: intl, check_in: checkIn, check_out: checkOut, adults: guests, rooms: roomsReq, room_type_name: label, notes: `WhatsApp booking form — ${roomsReq} room(s) for ${guests} guest(s); Check-in: ${timing.checkIn}; Check-out: ${timing.checkOut}` },
       }).catch(() => {});
       const draft = await createDraftBooking({
-        data: { room_type: roomType, check_in: checkIn, check_out: checkOut, guests, rooms: roomsReq, guest_name: name.trim(), phone: intl, special_requests: `Via WhatsApp booking form — ${roomsReq} room(s) requested for ${guests} guest(s); rate to be confirmed by front desk` },
+        data: { room_type: roomType, check_in: checkIn, check_out: checkOut, guests, rooms: roomsReq, early_check_in_slot: earlySlot, late_check_out_slot: lateSlot, guest_name: name.trim(), phone: intl, special_requests: `Via WhatsApp booking form — ${roomsReq} room(s) requested for ${guests} guest(s); Check-in: ${timing.checkIn}; Check-out: ${timing.checkOut}; rate to be confirmed by front desk` },
       });
       const conf = await confirmPayAtHotel({ data: { booking_id: draft.booking_id } });
-      const msg = `Hi Hotel Excella, I just reserved via WhatsApp booking.\nRef: ${conf.reference}\nName: ${name.trim()}\nMobile: ${digits}\nStay: ${checkIn} to ${checkOut}\nRoom: ${label}\nGuests: ${guests}\nPlease confirm my best direct price.`;
+      const msg = `Hi Hotel Excella, I just reserved via WhatsApp booking.\nRef: ${conf.reference}\nName: ${name.trim()}\nMobile: ${digits}\nStay: ${checkIn} to ${checkOut}\nRoom: ${label}\nGuests: ${guests}\nCheck-in: ${timing.checkIn}\nCheck-out: ${timing.checkOut}\nPlease confirm my best direct price.`;
       const link = waLink(RECEPTION_WA, msg);
       setDone({ ref: conf.reference, link });
       window.location.href = link;
@@ -102,7 +108,7 @@ function WhatsAppBooking() {
         <Card className="luxe-card p-4 flex items-start gap-3 border-primary/40">
           <BadgeCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div>
-            <p className="font-display text-base">Best Direct Price Guarantee</p>
+            <p className="font-display text-base">Best Price Assured</p>
             <p className="text-xs text-muted-foreground">Reserve now — our front desk shares your exclusive direct rate on WhatsApp.</p>
           </div>
         </Card>
@@ -121,6 +127,27 @@ function WhatsAppBooking() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />Check-in</Label><Input type="date" min={iso(0)} value={checkIn} onChange={(e) => { setCheckIn(e.target.value); if (checkOut <= e.target.value) { const d = new Date(e.target.value + "T00:00:00"); d.setDate(d.getDate() + 1); setCheckOut(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`); } }} /></div>
               <div className="space-y-1.5"><Label className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />Check-out</Label><Input type="date" min={checkIn} value={checkOut} onChange={(e) => setCheckOut(e.target.value)} /></div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="arrival-slot">Expected check-in time</Label>
+              <Select value={earlySlot ?? "standard"} onValueChange={(value) => setEarlySlot(value === "standard" ? null : value as EarlyCheckInSlot)}>
+                <SelectTrigger id="arrival-slot" className="w-full h-auto min-h-10 text-left whitespace-normal [&>span]:line-clamp-none"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard (1:00 PM onwards) · Included</SelectItem>
+                  {EARLY_CHECK_IN_SLOTS.map((slot) => <SelectItem key={slot.value} value={slot.value}>{slot.label.replace(/\s*\(.*\)/, "")} · {slot.fee === null ? "+Full day room charge" : `+₹${slot.fee.toLocaleString("en-IN")}`}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="departure-slot">Expected check-out time</Label>
+              <Select value={lateSlot ?? "standard"} onValueChange={(value) => setLateSlot(value === "standard" ? null : value as LateCheckOutSlot)}>
+                <SelectTrigger id="departure-slot" className="w-full h-auto min-h-10 text-left whitespace-normal [&>span]:line-clamp-none"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard (by 11:00 AM) · Included</SelectItem>
+                  {LATE_CHECK_OUT_SLOTS.map((slot) => <SelectItem key={slot.value} value={slot.value}>{slot.label.replace(/\s*\(.*\)/, "")} · {slot.fee === null ? "+Full day room charge" : `+₹${slot.fee.toLocaleString("en-IN")}`}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Early check-in and late check-out charges are per room, subject to availability. Best Price Assured.</p>
             </div>
             <div className="space-y-1.5"><Label className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />Guests</Label><Input type="number" inputMode="numeric" min={1} max={10} value={guestsStr} onChange={(e) => setGuestsStr(e.target.value.replace(/\D/g, "").slice(0, 2))} onBlur={() => setGuestsStr(String(guests))} /></div>
             <div className="space-y-1.5">
