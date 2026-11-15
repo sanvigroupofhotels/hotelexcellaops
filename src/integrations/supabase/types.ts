@@ -1999,6 +1999,30 @@ export type Database = {
           },
         ]
       }
+      integration_processed_messages: {
+        Row: {
+          external_ref: string | null
+          integration_id: string
+          message_id: string
+          outcome: string | null
+          processed_at: string
+        }
+        Insert: {
+          external_ref?: string | null
+          integration_id: string
+          message_id: string
+          outcome?: string | null
+          processed_at?: string
+        }
+        Update: {
+          external_ref?: string | null
+          integration_id?: string
+          message_id?: string
+          outcome?: string | null
+          processed_at?: string
+        }
+        Relationships: []
+      }
       integration_runs: {
         Row: {
           created_count: number

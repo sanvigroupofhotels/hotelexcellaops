@@ -1,0 +1,4 @@
+UPDATE public.customers SET email = NULL WHERE lower(email) LIKE '%@fabhotels.com' OR lower(email) LIKE '%@hotelzify.com';
+UPDATE public.bookings SET email = NULL WHERE lower(email) LIKE '%@fabhotels.com' OR lower(email) LIKE '%@hotelzify.com';
+UPDATE public.customers SET guest_name = 'Dharmateja Vuriti' WHERE id = '97a5e2da-8684-464f-8e33-119a669f3e0b';
+UPDATE public.customers c SET total_bookings = (SELECT count(*) FROM public.bookings b WHERE b.customer_id = c.id) WHERE c.id IN ('97a5e2da-8684-464f-8e33-119a669f3e0b','ea60cb4d-640f-48b1-bdfd-75fbf40dc9b8','ea368878-05cc-4a7d-aa35-a03c9057557a');

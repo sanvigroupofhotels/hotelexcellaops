@@ -73,7 +73,7 @@ export async function getPendingForAudit(businessDate?: string, client: Db = db(
   pendingCheckOuts: PendingBooking[];
 }> {
   const bd = businessDate ?? (await getBusinessDate(client));
-  const SELECT = "id,booking_reference,guest_name,phone,check_in,check_out,status,room_id";
+  const SELECT = "id,booking_reference,guest_name,phone,check_in,check_out,status,room_id,customer_id";
 
   const [{ data: ci }, { data: co }, { data: rooms }] = await Promise.all([
     // Candidate arrivals — parent arrival on/before the business date and not

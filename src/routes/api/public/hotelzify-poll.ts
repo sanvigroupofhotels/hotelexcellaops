@@ -12,6 +12,7 @@
  *   - Dedupe via external_bookings (integration_id, external_ref).
  */
 import { createFileRoute } from "@tanstack/react-router";
+import { isOtaSystemEmail, normalizeExternalRef } from "@/lib/ota-domains";
 import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
 
 const GMAIL_BASE = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
@@ -203,7 +204,7 @@ function pickGuestEmail(labelCandidates: string[], scanTexts: string[], blockedE
     ...labelCandidates.flatMap(emailMatches),
     ...scanTexts.flatMap(emailMatches),
   ]).map((e) => e.toLowerCase());
-  return candidates.find((e) => !blocked.has(e)) ?? null;
+  return candidates.find((e) => !blocked.has(e) && !isOtaSystemEmail(e)) ?? null;
 }
 
 const MONTH_MAP: Record<string, number> = {
@@ -396,7 +397,7 @@ function contactPatchFromParsed(current: { phone?: string | null; email?: string
   const currentEmail = current?.email?.trim().toLowerCase() ?? "";
   const blocked = new Set(blockedEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   if (parsed.phone && (!current?.phone || isReceptionPhone(current.phone))) patch.phone = parsed.phone;
-  if (parsed.email && (!currentEmail || blocked.has(currentEmail))) patch.email = parsed.email;
+  if (parsed.email && !isOtaSystemEmail(parsed.email) && (!currentEmail || blocked.has(currentEmail) || isOtaSystemEmail(currentEmail))) patch.email = parsed.email;
   return patch;
 }
 
@@ -659,7 +660,27 @@ async function processIntegration(
       ]) result.diagnostic_searches.push(await runDiagnosticSearch(q, gatewayKey, connectionKey));
     }
 
+    // Idempotency ledger: Gmail message IDs already processed are skipped instantly.
+    const forceReprocess = cfg.force_reprocess === true;
+    let processedIds = new Set<string>();
+    if (!forceReprocess && messages.length > 0) {
+      const { data: done } = await supabaseAdmin
+        .from("integration_processed_messages" as any)
+        .select("message_id")
+        .eq("integration_id", intg.id)
+        .in("message_id", messages.map((x: any) => x.id));
+      processedIds = new Set(((done ?? []) as any[]).map((d) => d.message_id));
+    }
+    const markProcessed = async (messageId: string, outcome: string, ref?: string | null) => {
+      if (dryRun) return;
+      await supabaseAdmin.from("integration_processed_messages" as any).upsert(
+        { integration_id: intg.id, message_id: messageId, outcome, external_ref: ref ?? null } as any,
+        { onConflict: "integration_id,message_id" },
+      );
+    };
+
     for (const m of messages) {
+      if (processedIds.has(m.id)) { (result as any).skipped_already_processed = ((result as any).skipped_already_processed ?? 0) + 1; continue; }
       try {
         let msg: any;
         try {
@@ -690,16 +711,20 @@ async function processIntegration(
         if (!parseRes.booking) {
           const reason = parseRes.errors.join("; ") || "parse failed";
           result.parser_errors.push(`msg ${m.id} ("${subject.slice(0, 60)}"): ${reason}`);
+          await markProcessed(m.id, "unparsed");
           continue;
         }
         const parsed = parseRes.booking;
+        parsed.external_ref = normalizeExternalRef(parsed.external_ref) || parsed.external_ref;
+        if (parsed.email && isOtaSystemEmail(parsed.email)) parsed.email = null as any;
         result.parsed++;
 
         const { data: existing } = await supabaseAdmin
           .from("bookings")
-          .select("id, phone, email, customer_id")
-          .eq("integration_id", intg.id)
+          .select("id, phone, email, customer_id, advance_paid, status")
           .eq("external_ref", parsed.external_ref)
+          .order("created_at", { ascending: true })
+          .limit(1)
           .maybeSingle();
 
         let customerId: string | null = existing?.customer_id ?? null;
@@ -873,6 +898,11 @@ async function processIntegration(
             // Exception: safely fill contact fields that are currently empty, because
             // staff cannot use imported bookings when mobile/email were lost in an older run.
             contactRepairPayload = contactPatchFromParsed(existing, parsed, blockedEmails);
+            // Follow-up OTA emails (e.g. FabHotels payment update) may only RAISE the
+            // advance collected; staff-owned fields are never touched.
+            const incomingAdv = Number(bookingPayload.advance_paid ?? 0);
+            const currentAdv = Number((existing as any).advance_paid ?? 0);
+            if (incomingAdv > currentAdv) (contactRepairPayload as any).advance_paid = incomingAdv;
             if (Object.keys(contactRepairPayload).length > 0 && !dryRun) {
               const { error: repairErr } = await supabaseAdmin
                 .from("bookings")
@@ -925,8 +955,10 @@ async function processIntegration(
                 total_override: staffEdited && currentBooking?.total_override != null
                   ? currentBooking.total_override
                   : bookingPayload.total_override,
-                advance_paid: bookingPayload.advance_paid,
-                status: bookingPayload.status,
+                advance_paid: Math.max(Number(bookingPayload.advance_paid ?? 0), Number((existing as any).advance_paid ?? 0)),
+                status: ["Checked-In", "Checked-Out", "Stay Completed", "No-Show", "Cancelled"].includes(String((existing as any).status))
+                  ? (existing as any).status
+                  : bookingPayload.status,
                 special_requests: bookingPayload.special_requests,
                 ...contactPatchFromParsed(existing, parsed, blockedEmails),
               } as any).eq("id", existing.id);
@@ -953,6 +985,15 @@ async function processIntegration(
               .single();
             if (insertBookingErr) throw insertBookingErr;
             bookingIdForExternal = insertedBooking.id;
+            await supabaseAdmin.from("booking_activities").insert({
+              booking_id: insertedBooking.id,
+              actor_name: `System (${leadSource} Sync)`,
+              actor_role: "system",
+              action: "booking_created",
+              to_status: bookingPayload.status,
+              notes: `Imported via ${leadSource} · Booking #${parsed.external_ref}`,
+              metadata: { source: "ota_import", integration_id: intg.id, gmail_message_id: m.id },
+            } as any);
             // Insert synthetic line item so the Pricing Summary shows Room Charges,
             // Subtotal, Discount, Taxable Amount, and Tax derived from one consistent base.
             const { error: itemErr } = await supabaseAdmin
@@ -974,7 +1015,18 @@ async function processIntegration(
             booking_id: bookingIdForExternal,
             state: "processed",
           } as any, { onConflict: "integration_id,external_ref" });
+          if (existing && bookingIdForExternal && Object.keys(contactRepairPayload).length > 0) {
+            await supabaseAdmin.from("booking_activities").insert({
+              booking_id: bookingIdForExternal,
+              actor_name: `System (${leadSource} Sync)`,
+              actor_role: "system",
+              action: "booking_updated",
+              notes: `Follow-up email from ${leadSource} applied`,
+              metadata: { source: "ota_import", changes: contactRepairPayload, gmail_message_id: m.id },
+            } as any);
+          }
         }
+        await markProcessed(m.id, existing ? "updated" : "created", parsed.external_ref);
       } catch (e: any) {
         if (result.gmail_access_mode === "metadata_only" && result.fatal) {
           throw e;

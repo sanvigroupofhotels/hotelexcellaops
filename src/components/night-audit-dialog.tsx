@@ -13,6 +13,8 @@ import { useCheckInController } from "@/lib/check-in-flow";
 import { useUserRole } from "@/hooks/use-role";
 import { BOOKING_CANCELLATION_DENIED } from "@/lib/booking-cancellation-access";
 import { Button } from "@/components/ui/button";
+import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
+import { refreshAfterBookingMutation } from "@/lib/booking-pricing-sync";
 
 /**
  * Night Audit dialog.
@@ -29,6 +31,12 @@ export function NightAuditDialog({ open, onClose, inline = false }: { open: bool
   const [busyId, setBusyId] = useState<string | null>(null);
   const { canManage } = useUserRole();
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
+  const [payFor, setPayFor] = useState<{ id: string; customerId: string | null; maxAmount: number } | null>(null);
+  const refreshAll = () => {
+    for (const k of ["bookings", "night-audit-pending", "booking-items-all", "in-house-items", "house-view", "booking-room-assignments-all", "all-charge-totals"]) {
+      qc.invalidateQueries({ queryKey: [k] });
+    }
+  };
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["night-audit-pending"],
@@ -64,15 +72,26 @@ export function NightAuditDialog({ open, onClose, inline = false }: { open: bool
       });
     },
     onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: ["bookings"] });
-      qc.invalidateQueries({ queryKey: ["night-audit-pending"] });
+      refreshAll();
+      void refreshAfterBookingMutation(qc, vars.id, { skipPricing: true }).catch(() => {});
+      if (vars.status === "Checked-Out") toast.success("Checked-Out Successfully");
       if (vars.status === "No-Show") toast.success("Marked as No-Show");
       else if (vars.status === "Cancelled") toast.success("Booking cancelled");
       else if (vars.status === "Checked-In") toast.success("Checked-In Successfully");
       refetch();
     },
     onSettled: () => setBusyId(null),
-    onError: (e: any) => toast.error(e?.message ?? "Could not update booking"),
+    onError: (e: any, vars) => {
+      const msg: string = e?.message ?? "Could not update booking";
+      const m = vars.status === "Checked-Out" ? msg.match(/Balance due ₹([\d,.]+)/) : null;
+      if (m) {
+        const row = ((data?.pendingCheckOuts ?? []) as any[]).find((r) => r.id === vars.id);
+        toast.info(`${msg.split("—")[0].trim()} — record payment to continue check-out`);
+        setPayFor({ id: vars.id, customerId: row?.customer_id ?? null, maxAmount: Number(m[1].replace(/,/g, "")) });
+        return;
+      }
+      toast.error(msg);
+    },
   });
 
   const bulk = useMutation({
@@ -294,6 +313,20 @@ export function NightAuditDialog({ open, onClose, inline = false }: { open: bool
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    {payFor && (
+      <AddBookingPaymentModal
+        bookingId={payFor.id}
+        customerId={payFor.customerId}
+        maxAmount={payFor.maxAmount}
+        onClose={() => setPayFor(null)}
+        onSaved={async () => {
+          const paidId = payFor.id;
+          setPayFor(null);
+          refreshAll();
+          setStatus.mutate({ id: paidId, status: "Checked-Out" });
+        }}
+      />
+    )}
     </>
   );
 }

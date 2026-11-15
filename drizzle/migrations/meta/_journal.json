@@ -36,6 +36,20 @@
       "when": 1791776558449,
       "tag": "0004_restrict_booking_cancellation_to_owner_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794710831333,
+      "tag": "0005_ota_processed_messages_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794710856916,
+      "tag": "0006_ota_email_data_correction",
+      "breakpoints": true
     }
   ]
 }
