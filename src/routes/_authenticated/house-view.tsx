@@ -746,7 +746,7 @@ function HouseView() {
         </button>
       )}
       {searchQ.trim() && searchMatches.length > 0 && (
-        <div className={cn("absolute z-40 mt-1 luxe-card rounded-md max-h-80 overflow-auto shadow-xl", variant === "desktop" ? "right-0 w-[26rem]" : "left-0 right-0")}>
+        <div className={cn("absolute z-40 mt-1 luxe-card rounded-md max-h-80 overflow-auto shadow-xl", variant === "desktop" ? "left-0 w-[22rem] max-w-[80vw]" : "left-0 right-0")}>
           {searchMatches.map((m) => (
             <button key={m.id} onClick={() => openBooking(m)}
               className="w-full text-left px-3 py-2 border-b border-border last:border-b-0 hover:bg-gold-soft/20">
@@ -767,7 +767,7 @@ function HouseView() {
         </div>
       )}
       {searchQ.trim() && searchMatches.length === 0 && (
-        <div className={cn("absolute z-40 mt-1 luxe-card rounded-md p-3 text-xs text-muted-foreground", variant === "desktop" ? "right-0 w-64" : "left-0 right-0")}>No matching bookings.</div>
+        <div className={cn("absolute z-40 mt-1 luxe-card rounded-md p-3 text-xs text-muted-foreground", variant === "desktop" ? "left-0 w-64" : "left-0 right-0")}>No matching bookings.</div>
       )}
     </div>
   );
@@ -797,10 +797,11 @@ function HouseView() {
       <Topbar title="House View" subtitle={`Business Date: ${todayLabel}${businessDate && businessDate !== dateKey(new Date()) ? ` · System: ${systemLabel}` : ""}`}
         search={<div className="flex items-center gap-1.5">
           <button onClick={() => setStatsOpen(true)} title="House Overview Stats"
-            className="shrink-0 flex px-2.5 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 items-center gap-1.5">
-            <Hotel className="h-3.5 w-3.5" /> Stats
+            aria-label="House Overview Stats"
+            className="shrink-0 h-9 w-9 rounded-md border border-gold/40 bg-gold-soft/30 hover:bg-gold-soft/50 flex items-center justify-center">
+            <BarChart3 className="h-4 w-4 text-gold" />
           </button>
-          <div className="w-56 xl:w-72">{renderSearch("desktop")}</div>
+          <div className="w-40 lg:w-52 xl:w-64">{renderSearch("desktop")}</div>
         </div>}
         toolbar={renderNav("desktop")}
         action={
@@ -827,6 +828,29 @@ function HouseView() {
           <div className="flex-1 min-w-0">{renderSearch("mobile")}</div>
         </div>
         <div className="md:hidden">{renderNav("mobile")}</div>
+        <div>
+          <button type="button" onClick={() => setLegendOpen((v) => !v)} aria-expanded={legendOpen}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-xs text-muted-foreground hover:border-gold/40 hover:text-foreground">
+            Legend <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", legendOpen && "rotate-180")} />
+          </button>
+          {legendOpen && (
+            <div className="luxe-card rounded-xl p-3 mt-1.5">
+              <div className="font-display text-sm text-foreground mb-2">House View Legend</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
+                <Legend cls="bg-white border-gray-500" label="Pending / Confirmed" />
+                <Legend cls="bg-blue-500/85 border-blue-700" label="Confirmed & Committed" />
+                <Legend cls="bg-green-500/85 border-green-700" label="Checked-In" />
+                <Legend cls="bg-gray-400/70 border-gray-600" label="Checked-Out / Stay Completed" />
+                <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />
+                <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
+                <div className="flex items-center gap-1.5"><UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast included</div>
+                <div className="flex items-center gap-1.5"><span>💳</span> Balance due</div>
+                <div className="flex items-center gap-1.5"><span className="font-semibold text-foreground">*</span> Unassigned / Unconfirmed Booking</div>
+                <div className="flex items-center gap-1.5"><span>🐾</span> Pet-Friendly Booking</div>
+              </div>
+            </div>
+          )}
+        </div>
         <NightAuditDialog open={auditOpen} onClose={() => setAuditOpen(false)} />
 
 
@@ -1163,43 +1187,8 @@ function HouseView() {
             </table>
           </div>
         )}
-
-        {/* Legend (bottom fallback — kept for desktop) */}
-        <div className="hidden md:flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-          <Legend cls="bg-white border-gray-500" label="Pending / Confirmed" />
-          <Legend cls="bg-blue-500/85 border-blue-700" label="Confirmed & Committed" />
-          <Legend cls="bg-green-500/85 border-green-700" label="Checked-In" />
-          <Legend cls="bg-gray-400/70 border-gray-600" label="Checked-Out / Stay Completed" />
-          <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />
-          <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
-          <div className="flex items-center gap-1.5"><UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast included</div>
-          <div className="flex items-center gap-1.5"><span>💳</span> Balance due</div>
-          <div className="flex items-center gap-1.5"><span className="font-semibold text-foreground">*</span> Unassigned / Unconfirmed Booking</div>
-          <div className="flex items-center gap-1.5"><span>🐾</span> Pet-Friendly Booking</div>
-        </div>
       </div>
 
-      {/* Header-launched legend dialog (mobile-first; works on desktop too) */}
-      <Dialog open={legendOpen} onOpenChange={setLegendOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>House View Legend</DialogTitle>
-            <DialogDescription>Booking pill colours and icons.</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-2 text-xs text-foreground">
-            <Legend cls="bg-white border-gray-500" label="Pending / Confirmed" />
-            <Legend cls="bg-blue-500/85 border-blue-700" label="Confirmed & Committed" />
-            <Legend cls="bg-green-500/85 border-green-700" label="Checked-In" />
-            <Legend cls="bg-gray-400/70 border-gray-600" label="Checked-Out / Stay Completed" />
-            <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />
-            <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
-            <div className="flex items-center gap-2"><UtensilsCrossed className="h-3.5 w-3.5 text-gold" /> Breakfast included</div>
-            <div className="flex items-center gap-2"><span>💳</span> Balance due</div>
-            <div className="flex items-center gap-2"><span className="font-semibold text-foreground w-3 text-center">*</span> Unassigned / Unconfirmed Booking</div>
-            <div className="flex items-center gap-2"><span>🐾</span> Pet-Friendly Booking</div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {selected && <BookingPopover b={selected} onClose={() => setSelected(null)} rooms={rooms}
         hasBreakfast={!!breakfastByBooking.get(selected.id)} businessDate={todayKey} />}
