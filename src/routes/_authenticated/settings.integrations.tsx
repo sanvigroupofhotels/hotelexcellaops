@@ -102,6 +102,7 @@ function AddIntegrationDialog({ onClose }: { onClose: () => void }) {
     mutationFn: () => createIntegration({ name: name.trim(), provider, type }),
     onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["integrations"] });
+      qc.invalidateQueries({ queryKey: ["master-data"] });
       toast.success("Integration created");
       onClose();
       navigate({ to: "/settings/integrations/$id", params: { id: row.id } });

@@ -8,7 +8,14 @@ export type BookingActivityAction =
   | "checkout_override"
   | "cancelled"
   | "no_show"
-  | "reactivated";
+  | "reactivated"
+  | "booking_created"
+  | "booking_updated"
+  | "room_assigned"
+  | "room_changed"
+  | "payment_added"
+  | "payment_refunded"
+  | "status_changed";
 
 export interface BookingActivityRow {
   id: string;

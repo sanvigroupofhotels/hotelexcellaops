@@ -834,6 +834,9 @@ function BookingDetail() {
                         a.action.startsWith("revert") && "text-gold",
                         a.action === "checkout_override" && "text-warning",
                         a.action === "cancelled" && "text-destructive",
+                        a.action === "payment_added" && "text-success",
+                        a.action === "payment_refunded" && "text-warning",
+                        (a.action === "booking_created" || a.action === "booking_updated") && "text-gold",
                       )}>{formatActivity(a)}</span>
                       <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
                         {new Date(a.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
@@ -1151,7 +1154,14 @@ function formatActivity(a: any): string {
     case "cancelled": return "Cancelled";
     case "no_show": return "Marked No-Show";
     case "reactivated": return `Status → ${a.to_status}`;
-    default: return a.action;
+    case "booking_created": return `Booking Created${a.metadata?.source === "ota_import" ? " · OTA Sync" : ""}`;
+    case "booking_updated": return "Booking Updated";
+    case "room_assigned": return "Room Assigned";
+    case "room_changed": return "Room Changed";
+    case "payment_added": return `Payment Added · ₹${Number(a.metadata?.amount || 0).toLocaleString("en-IN")}`;
+    case "payment_refunded": return `Refund · ₹${Number(a.metadata?.amount || 0).toLocaleString("en-IN")}`;
+    case "status_changed": return a.summary ?? `Status → ${a.to_status ?? ""}`;
+    default: return String(a.action).replace(/_/g, " ");
   }
 }
 

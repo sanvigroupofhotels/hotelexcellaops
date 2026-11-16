@@ -994,6 +994,16 @@ async function processIntegration(
               notes: `Imported via ${leadSource} · Booking #${parsed.external_ref}`,
               metadata: { source: "ota_import", integration_id: intg.id, gmail_message_id: m.id },
             } as any);
+            await supabaseAdmin.from("notifications").insert({
+              type: "booking_created",
+              title: `New Booking · ${leadSource} (#${parsed.external_ref})`,
+              body: [`Guest: ${(bookingPayload as any).guest_name ?? "—"}`, `Phone: ${(bookingPayload as any).phone ?? "—"}`,
+                `Check-In: ${(bookingPayload as any).check_in ?? "—"}`, `Check-Out: ${(bookingPayload as any).check_out ?? "—"}`,
+                (bookingPayload as any).amount ? `Value: ₹${(bookingPayload as any).amount}` : null, `Source: ${leadSource}`].filter(Boolean).join("\n"),
+              entity_type: "booking", entity_id: insertedBooking.id, entity_reference: parsed.external_ref,
+              priority: "normal", audience_role: "operations", status: "unread",
+              metadata: { booking_id: insertedBooking.id, source: leadSource, integration_id: intg.id },
+            } as any).then(({ error }: any) => { if (error) console.warn("[ota notify]", error.message); });
             // Insert synthetic line item so the Pricing Summary shows Room Charges,
             // Subtotal, Discount, Taxable Amount, and Tax derived from one consistent base.
             const { error: itemErr } = await supabaseAdmin
@@ -1024,6 +1034,17 @@ async function processIntegration(
               notes: `Follow-up email from ${leadSource} applied`,
               metadata: { source: "ota_import", changes: contactRepairPayload, gmail_message_id: m.id },
             } as any);
+            const adv = (contactRepairPayload as any).advance_paid;
+            if (adv != null) {
+              await supabaseAdmin.from("notifications").insert({
+                type: "payment_received",
+                title: `Payment Updated · ${leadSource} (#${parsed.external_ref})`,
+                body: `Advance paid updated to ₹${adv} via ${leadSource} follow-up email.`,
+                entity_type: "booking", entity_id: bookingIdForExternal, entity_reference: parsed.external_ref,
+                priority: "normal", audience_role: "operations", status: "unread",
+                metadata: { booking_id: bookingIdForExternal, source: leadSource, advance_paid: adv },
+              } as any).then(({ error }: any) => { if (error) console.warn("[ota notify]", error.message); });
+            }
           }
         }
         await markProcessed(m.id, existing ? "updated" : "created", parsed.external_ref);

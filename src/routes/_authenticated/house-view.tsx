@@ -785,12 +785,6 @@ function HouseView() {
             if (!isNaN(d.getTime())) { d.setHours(0,0,0,0); d.setDate(d.getDate() - 1); setAnchor(d); }
           }}
           className="bg-input/60 border border-border rounded-md px-2 py-1 text-xs md:text-sm" />
-        {variant === "desktop" && (
-          <button onClick={() => setStatsOpen(true)}
-            className="flex px-2.5 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 items-center gap-1.5">
-            <Hotel className="h-3.5 w-3.5" /> Stats
-          </button>
-        )}
       </div>
       <button onClick={() => setAnchor((d) => addDays(d, 1))} aria-label="Next day" className="p-1.5 rounded-md border border-border hover:border-gold/40 shrink-0"><ChevronRight className="h-4 w-4" /></button>
     </div>
@@ -801,7 +795,13 @@ function HouseView() {
       <LongPressDebugOverlay />
 
       <Topbar title="House View" subtitle={`Business Date: ${todayLabel}${businessDate && businessDate !== dateKey(new Date()) ? ` · System: ${systemLabel}` : ""}`}
-        search={<div className="w-56 xl:w-72">{renderSearch("desktop")}</div>}
+        search={<div className="flex items-center gap-1.5">
+          <button onClick={() => setStatsOpen(true)} title="House Overview Stats"
+            className="shrink-0 flex px-2.5 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 items-center gap-1.5">
+            <Hotel className="h-3.5 w-3.5" /> Stats
+          </button>
+          <div className="w-56 xl:w-72">{renderSearch("desktop")}</div>
+        </div>}
         toolbar={renderNav("desktop")}
         action={
           <button onClick={() => setAuditOpen(true)}

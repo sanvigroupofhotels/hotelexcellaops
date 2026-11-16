@@ -91,7 +91,25 @@ export async function createIntegration(input: {
     .select()
     .single();
   if (error) throw error;
+  await ensureLeadSource(input.name).catch((e) => console.warn("lead source sync failed", e));
   return data as unknown as IntegrationRow;
+}
+
+export const normalizeLeadSource = (v: string) => v.trim().toLowerCase().replace(/\s+/g, " ");
+
+/** Create a lead_source entry for `name` unless one exists (case/space-insensitive). Returns true if created. */
+export async function ensureLeadSource(name: string): Promise<boolean> {
+  const label = name.trim().replace(/\s+/g, " ");
+  if (!label) return false;
+  const key = normalizeLeadSource(label);
+  const { LEAD_SOURCES } = await import("@/lib/mock-data");
+  if ((LEAD_SOURCES as readonly string[]).some((l) => normalizeLeadSource(String(l)) === key)) return false;
+  const { data, error: readErr } = await supabase.from("master_data" as any).select("value,label").eq("category", "lead_source");
+  if (readErr) throw readErr;
+  if ((data ?? []).some((r: any) => normalizeLeadSource(String(r.value ?? "")) === key || normalizeLeadSource(String(r.label ?? "")) === key)) return false;
+  const { error } = await supabase.from("master_data" as any).insert({ category: "lead_source", value: label, label, active: true } as any);
+  if (error) throw error;
+  return true;
 }
 
 export async function updateIntegration(

@@ -137,7 +137,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
     })();
   `;
   return (
-    <html lang="en" className="light">
+    <html lang="en" className="light" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />

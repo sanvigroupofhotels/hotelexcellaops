@@ -166,6 +166,23 @@ function EditBooking() {
           page: "Edit Booking",
         });
       }
+      if (b) {
+        const changes: Record<string, { from: any; to: any }> = {};
+        const cmp: [string, any, any][] = [
+          ["check_in", b.check_in, stay.check_in], ["check_out", b.check_out, stay.check_out],
+          ["guest_name", b.guest_name, stay.guest_name], ["phone", b.phone, stay.phone], ["email", (b as any).email, stay.email],
+          ["guests", (b as any).guests, stay.guests], ["amount", Number(b.amount), amount],
+        ];
+        for (const [k, f, t] of cmp) if ((f ?? "") !== (t ?? "")) changes[k] = { from: f ?? null, to: t ?? null };
+        if (Object.keys(changes).length) {
+          const { logBookingActivity } = await import("@/lib/booking-activities-api");
+          void logBookingActivity({
+            booking_id: id, action: "booking_updated",
+            notes: Object.entries(changes).map(([k, v]) => `${k}: ${v.from ?? "—"} → ${v.to ?? "—"}`).join(" · "),
+            metadata: { changes },
+          }).catch(() => {});
+        }
+      }
       // Remaining fields (guest info, pricing, payment flags) — never dates/room.
       await updateBooking(id, {
         guest_name: stay.guest_name, phone: stay.phone, email: stay.email,
