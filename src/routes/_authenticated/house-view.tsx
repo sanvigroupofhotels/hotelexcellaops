@@ -10,7 +10,7 @@ import { listBookingItems } from "@/lib/booking-items-api";
 import { supabase } from "@/integrations/supabase/client";
 import { updateBookingStay } from "@/lib/booking-stay";
 import { listAvailableRoomsForStay, type AvailableRoomRow } from "@/lib/room-availability";
-import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck, Move, BarChart3, HelpCircle, ChevronDown, BedDouble } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, Phone, Hotel, UtensilsCrossed, AlertTriangle, FileText, Plus, Ban, MessageCircle, Link2, ShieldCheck, Move, BarChart3, ChevronDown, BedDouble } from "lucide-react";
 import { NightAuditDialog } from "@/components/night-audit-dialog";
 import { useOpsTimeLabels } from "@/lib/check-times";
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
@@ -196,6 +196,7 @@ function HouseView() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
   // Mobile move-booking dialog (long-press fallback for drag-and-drop)
   const isMobile = useIsMobile();
@@ -725,11 +726,12 @@ function HouseView() {
   const systemLabel = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
   // Single shared search box (same search service + results) used in the
-  // desktop header and the mobile row — only one is visible per breakpoint.
+  // desktop control bar and the mobile row — only one is visible per breakpoint.
   const renderSearch = (variant: "desktop" | "mobile") => (
     <div className="relative">
       <input
         type="text"
+        aria-label="Search House View bookings"
         value={searchQ}
         onChange={(e) => setSearchQ(e.target.value)}
         onKeyDown={(e) => {
@@ -737,7 +739,7 @@ function HouseView() {
           if (e.key === "Escape") setSearchQ("");
         }}
         placeholder={variant === "desktop" ? "Search guest, mobile, ref, room…" : "Search guest, occupant, mobile, reference, room, company…"}
-        className="w-full bg-input/60 border border-border rounded-md pl-8 pr-8 py-1.5 md:py-2 text-sm placeholder:text-muted-foreground/60"
+        className="w-full min-w-0 h-9 md:h-10 bg-input/60 border border-border md:border-gold/40 rounded-md pl-8 pr-8 text-sm placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
       />
       <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
       {searchQ && (
@@ -746,7 +748,7 @@ function HouseView() {
         </button>
       )}
       {searchQ.trim() && searchMatches.length > 0 && (
-        <div className={cn("absolute z-40 mt-1 luxe-card rounded-md max-h-80 overflow-auto shadow-xl", variant === "desktop" ? "left-0 w-[22rem] max-w-[80vw]" : "left-0 right-0")}>
+        <div className="absolute left-0 right-0 z-40 mt-1 luxe-card rounded-md max-h-80 overflow-auto shadow-xl">
           {searchMatches.map((m) => (
             <button key={m.id} onClick={() => openBooking(m)}
               className="w-full text-left px-3 py-2 border-b border-border last:border-b-0 hover:bg-gold-soft/20">
@@ -767,26 +769,27 @@ function HouseView() {
         </div>
       )}
       {searchQ.trim() && searchMatches.length === 0 && (
-        <div className={cn("absolute z-40 mt-1 luxe-card rounded-md p-3 text-xs text-muted-foreground", variant === "desktop" ? "left-0 w-64" : "left-0 right-0")}>No matching bookings.</div>
+        <div className="absolute left-0 right-0 z-40 mt-1 luxe-card rounded-md p-3 text-xs text-muted-foreground">No matching bookings.</div>
       )}
     </div>
   );
 
   const goToday = () => { const d = businessDate ? new Date(businessDate + "T00:00:00") : new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - 1); setAnchor(d); };
   const renderNav = (variant: "desktop" | "mobile") => (
-    <div className={cn("flex items-center gap-1.5", variant === "mobile" ? "luxe-card rounded-xl p-1.5 justify-between" : "")}>
-      <button onClick={() => setAnchor((d) => addDays(d, -1))} aria-label="Previous day" className="p-1.5 rounded-md border border-border hover:border-gold/40 shrink-0"><ChevronLeft className="h-4 w-4" /></button>
-      <div className="flex items-center gap-1.5 justify-center">
-        <button onClick={goToday} className="px-2.5 py-1.5 rounded-md border border-border text-xs hover:border-gold/40">Today</button>
+    <div className={cn("flex min-w-0 items-center gap-1.5", variant === "mobile" ? "luxe-card rounded-xl p-1.5 justify-between" : "shrink-0")}>
+      <Button variant="outline" size="icon" onClick={() => setAnchor((d) => addDays(d, -1))} aria-label="Previous day" className="h-9 w-8 shrink-0 hover:border-gold/40"><ChevronLeft className="h-4 w-4" /></Button>
+      <div className="flex min-w-0 items-center gap-1.5 justify-center">
+        <Button variant="outline" onClick={goToday} className="h-9 px-2.5 text-xs hover:border-gold/40">Today</Button>
         <input type="date"
+          aria-label="House View date"
           value={dateKey(addDays(anchor, 1))}
           onChange={(e) => {
             const d = new Date(e.target.value);
             if (!isNaN(d.getTime())) { d.setHours(0,0,0,0); d.setDate(d.getDate() - 1); setAnchor(d); }
           }}
-          className="bg-input/60 border border-border rounded-md px-2 py-1 text-xs md:text-sm" />
+          className="h-9 min-w-0 w-36 bg-input/60 border border-border rounded-md px-2 py-1 text-xs md:text-sm" />
       </div>
-      <button onClick={() => setAnchor((d) => addDays(d, 1))} aria-label="Next day" className="p-1.5 rounded-md border border-border hover:border-gold/40 shrink-0"><ChevronRight className="h-4 w-4" /></button>
+      <Button variant="outline" size="icon" onClick={() => setAnchor((d) => addDays(d, 1))} aria-label="Next day" className="h-9 w-8 shrink-0 hover:border-gold/40"><ChevronRight className="h-4 w-4" /></Button>
     </div>
   );
 
@@ -795,63 +798,61 @@ function HouseView() {
       <LongPressDebugOverlay />
 
       <Topbar title="House View" subtitle={`Business Date: ${todayLabel}${businessDate && businessDate !== dateKey(new Date()) ? ` · System: ${systemLabel}` : ""}`}
-        search={<div className="flex items-center gap-1.5">
-          <button onClick={() => setStatsOpen(true)} title="House Overview Stats"
-            aria-label="House Overview Stats"
-            className="shrink-0 h-9 w-9 rounded-md border border-gold/40 bg-gold-soft/30 hover:bg-gold-soft/50 flex items-center justify-center">
-            <BarChart3 className="h-4 w-4 text-gold" />
-          </button>
-          <div className="w-40 lg:w-52 xl:w-64">{renderSearch("desktop")}</div>
-        </div>}
-        toolbar={renderNav("desktop")}
+        search={false}
         action={
-          <button onClick={() => setAuditOpen(true)}
-            className="px-3 py-1.5 rounded-md border border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 flex items-center gap-1.5"
+          <Button variant="outline" onClick={() => setAuditOpen(true)}
+            className="h-9 px-3 border-gold/40 bg-gold-soft/30 text-xs hover:bg-gold-soft/50 gap-1.5"
             title="Perform Night Audit">
             <ShieldCheck className="h-3.5 w-3.5" /> Night Audit
-          </button>
+          </Button>
         } />
       <div className="px-3 md:px-6 pt-1.5 md:pt-3 pb-6 md:pb-4 max-w-[1600px] space-y-1.5 md:space-y-3">
 
         <NightAuditPendingBanner onOpen={() => setAuditOpen(true)} businessDate={businessDate} />
 
-        {/* Mobile only: Stats + Search, then date navigation. Desktop uses the header. */}
-        <div className="md:hidden flex items-stretch gap-2">
-          <button
+        {/* Mobile controls retain their existing order. */}
+        <div className="md:hidden grid grid-cols-[auto_minmax(0,1fr)] items-stretch gap-2">
+          <Button variant="outline" size="icon"
             onClick={() => setStatsOpen(true)}
             className="shrink-0 h-9 w-9 rounded-md border border-gold/40 bg-gold-soft/30 hover:bg-gold-soft/50 flex items-center justify-center"
             title="House Overview Stats"
             aria-label="House Overview Stats"
           >
             <BarChart3 className="h-4 w-4 text-gold" />
-          </button>
+          </Button>
           <div className="flex-1 min-w-0">{renderSearch("mobile")}</div>
         </div>
         <div className="md:hidden">{renderNav("mobile")}</div>
-        <div>
-          <button type="button" onClick={() => setLegendOpen((v) => !v)} aria-expanded={legendOpen}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-xs text-muted-foreground hover:border-gold/40 hover:text-foreground">
+        <div className="hidden md:block" data-house-desktop-controls>
+          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3">
+          <Button variant="outline" type="button" onClick={() => setLegendOpen((v) => !v)} aria-expanded={legendOpen} aria-controls="house-view-desktop-legend"
+            className="h-9 gap-1.5 px-2.5 text-xs text-muted-foreground hover:border-gold/40 hover:text-foreground">
             Legend <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", legendOpen && "rotate-180")} />
-          </button>
+          </Button>
+          <div className="col-span-2 lg:col-span-1 justify-self-start">{renderNav("desktop")}</div>
+          <div className="col-span-2 lg:col-span-1 min-w-0">{renderSearch("desktop")}</div>
+          <Button variant="outline" size="icon" onClick={() => setStatsOpen(true)} title="House Overview Stats" aria-label="House Overview Stats"
+            className="h-10 w-10 shrink-0 border-gold/40 bg-gold-soft/30 hover:bg-gold-soft/50">
+            <BarChart3 className="h-5 w-5 text-gold" />
+          </Button>
+          </div>
           {legendOpen && (
-            <div className="luxe-card rounded-xl p-3 mt-1.5">
+            <div id="house-view-desktop-legend" className="border-y border-border py-3 mt-2">
               <div className="font-display text-sm text-foreground mb-2">House View Legend</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
-                <Legend cls="bg-white border-gray-500" label="Pending / Confirmed" />
-                <Legend cls="bg-blue-500/85 border-blue-700" label="Confirmed & Committed" />
-                <Legend cls="bg-green-500/85 border-green-700" label="Checked-In" />
-                <Legend cls="bg-gray-400/70 border-gray-600" label="Checked-Out / Stay Completed" />
-                <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />
-                <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
-                <div className="flex items-center gap-1.5"><UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast included</div>
-                <div className="flex items-center gap-1.5"><span>💳</span> Balance due</div>
-                <div className="flex items-center gap-1.5"><span className="font-semibold text-foreground">*</span> Unassigned / Unconfirmed Booking</div>
-                <div className="flex items-center gap-1.5"><span>🐾</span> Pet-Friendly Booking</div>
-              </div>
+              <HouseViewLegendContent />
             </div>
           )}
         </div>
         <NightAuditDialog open={auditOpen} onClose={() => setAuditOpen(false)} />
+        <Dialog open={legendDialogOpen} onOpenChange={setLegendDialogOpen}>
+          <DialogContent className="max-w-xl max-h-[85dvh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>House View Legend</DialogTitle>
+              <DialogDescription className="sr-only">Booking statuses and room indicators</DialogDescription>
+            </DialogHeader>
+            <HouseViewLegendContent />
+          </DialogContent>
+        </Dialog>
 
 
         {/* Grid */}
@@ -869,17 +870,17 @@ function HouseView() {
                     className="sticky left-0 top-0 z-[35] bg-card border-b-2 border-r-2 border-border px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground text-center shadow-[2px_0_4px_-2px_rgba(0,0,0,0.45)]"
                     style={{ width: ROOM_COL_W, minWidth: ROOM_COL_W, height: DATE_HEADER_H }}
                   >
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="flex flex-col items-center justify-center gap-0.5">
                       <span>Room</span>
-                      <button
+                      <Button variant="ghost"
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setLegendOpen(true); }}
-                        className="p-0.5 rounded-full text-muted-foreground hover:text-gold hover:bg-gold-soft/30"
+                        onClick={(e) => { e.stopPropagation(); setLegendDialogOpen(true); }}
+                        className="md:hidden h-4 gap-0 p-0 text-[9px] normal-case tracking-normal text-muted-foreground hover:text-gold hover:bg-gold-soft/30"
                         title="Show legend"
                         aria-label="Show legend"
                       >
-                        <HelpCircle className="h-3 w-3" />
-                      </button>
+                        Legend <ChevronDown className="h-2.5 w-2.5" />
+                      </Button>
                     </div>
                   </th>
                   {days.map((d, i) => {
@@ -1321,6 +1322,21 @@ function Stat({ label, value }: { label: string; value: any }) {
 }
 function Legend({ cls, label }: { cls: string; label: string }) {
   return <div className="flex items-center gap-1.5"><span className={cn("inline-block h-3 w-6 rounded-full border-2", cls)} />{label}</div>;
+}
+
+function HouseViewLegendContent() {
+  return <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-2 text-[11px] text-muted-foreground">
+    <Legend cls={blockClasses({ status: "Pending" })} label="Pending / Confirmed" />
+    <Legend cls={blockClasses({ status: "Advance Paid" })} label="Confirmed & Committed" />
+    <Legend cls={blockClasses({ status: "Checked-In" })} label="Checked-In" />
+    <Legend cls={blockClasses({ status: "Checked-Out" })} label="Checked-Out / Stay Completed" />
+    <Legend cls="bg-amber-700 border-amber-900" label="Blocked / Maintenance" />
+    <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
+    <div className="flex items-center gap-1.5"><UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast included</div>
+    <div className="flex items-center gap-1.5"><span>💳</span> Balance due</div>
+    <div className="flex items-center gap-1.5"><span className="font-semibold text-foreground">*</span> Unassigned / Unconfirmed Booking</div>
+    <div className="flex items-center gap-1.5"><span>🐾</span> Pet-Friendly Booking</div>
+  </div>;
 }
 
 function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: any; onClose: () => void; rooms: any[]; hasBreakfast: boolean; businessDate?: string }) {

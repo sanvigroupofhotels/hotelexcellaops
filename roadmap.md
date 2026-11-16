@@ -1,5 +1,8 @@
 # Roadmap
 
+- [x] House View: desktop second row with Legend, date navigation, wide Search and Stats last; mobile Legend in ROOM opens a shared-content dialog. Preview build OK and 38 occupancy/display regression tests pass; hotel operations unchanged.
+- [ ] Verify the revised House View desktop/mobile controls with live bookings — blocked on preview sign-in; own-account session mint found no matching user, and multiple users prevent automatic selection.
+
 - [x] Replace the earlier opening sequence with one authentic crown-logo reveal and matching login branding; desktop/mobile rendering, once-per-session playback, reduced motion and 10 safeguards verified.
 
 - [x] Add automatic browser-side photo compression to guest IDs, staff documents, receipts, and payment screenshots; six safeguards pass, real browser sample shrank 91% with readable text, PDFs unchanged.
