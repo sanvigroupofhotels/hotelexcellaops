@@ -391,7 +391,7 @@ function BookingDetail() {
   const unassignRoom = useMutation({
     mutationFn: async (assignmentId: string) => {
       await removeAssignment(id, assignmentId);
-      await logBookingActivity({ booking_id: id, action: "reactivated", from_status: b?.status ?? null, to_status: b?.status ?? null, notes: `Room unassigned` });
+      await logBookingActivity({ booking_id: id, action: "room_unassigned", from_status: b?.status ?? null, to_status: b?.status ?? null, notes: `Room unassigned` });
     },
     onSuccess: () => { invalidateAll(); refetchAssignments(); toast.success("Room unassigned"); },
     onError: (e: any) => toast.error(e?.message ?? "Could not unassign room"),
@@ -1158,6 +1158,7 @@ function formatActivity(a: any): string {
     case "booking_updated": return "Booking Updated";
     case "room_assigned": return "Room Assigned";
     case "room_changed": return "Room Changed";
+    case "room_unassigned": return "Room Unassigned";
     case "payment_added": return `Payment Added · ₹${Number(a.metadata?.amount || 0).toLocaleString("en-IN")}`;
     case "payment_refunded": return `Refund · ₹${Number(a.metadata?.amount || 0).toLocaleString("en-IN")}`;
     case "status_changed": return a.summary ?? `Status → ${a.to_status ?? ""}`;

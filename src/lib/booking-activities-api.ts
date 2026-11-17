@@ -13,6 +13,7 @@ export type BookingActivityAction =
   | "booking_updated"
   | "room_assigned"
   | "room_changed"
+  | "room_unassigned"
   | "payment_added"
   | "payment_refunded"
   | "status_changed";

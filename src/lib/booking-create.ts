@@ -84,7 +84,7 @@ export async function submitNewBooking(input: SubmitNewBookingInput): Promise<Su
     advance_paid: 0,
   };
 
-  const booking = await createBooking(payload);
+  const booking = await createBooking(payload, { skipCreatedActivity: true });
 
   // v1.1 UAT-029 — Booking Creation audit trail. Emit BEFORE items /
   // advance / carry-forward / HK hooks so this is always the first entry

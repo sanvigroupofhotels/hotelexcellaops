@@ -37,6 +37,7 @@ import { type LineItem, nightsOf } from "@/components/line-items-editor";
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
 import { useRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { submitNewBooking } from "@/lib/booking-create";
+import { useDuplicateBookingGuard } from "@/components/duplicate-booking-warning-dialog";
 import { updateBooking, type BookingInput } from "@/lib/bookings-api";
 import { usePaymentModes } from "@/hooks/use-payment-modes";
 import { updateBookingStay } from "@/lib/booking-stay";
@@ -224,6 +225,11 @@ function QuickBookingPage() {
   // ---- Booking creation (shared submitNewBooking helper) ----
   const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
   const [createdCustomerId, setCreatedCustomerId] = useState<string | null>(null);
+
+  const dupGuard = useDuplicateBookingGuard();
+  const confirmNotDuplicate = () => dupGuard.confirm({
+    phone: normalizedPhone, customerId: linkedCustomer?.id ?? null, checkIn, checkOut,
+  });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -428,6 +434,7 @@ function QuickBookingPage() {
       return;
     }
     if (errors.length > 0) { toast.error(errors[0]); return; }
+    if (!(await confirmNotDuplicate())) return;
     const b = await save.mutateAsync().catch(() => null);
     if (b?.id) open(b.id);
   }
@@ -436,6 +443,7 @@ function QuickBookingPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {dupGuard.dialog}
       <Topbar title="Quick Booking" subtitle="Fast Reception flow · shared pricing & inventory" />
       <div className="md:hidden sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-card/95 backdrop-blur px-3 py-2">
         <span className="font-display text-sm">Quick Booking</span>
@@ -651,7 +659,7 @@ function QuickBookingPage() {
           {!createdBookingId ? (
             <button
               type="button"
-              onClick={() => save.mutate()}
+              onClick={async () => { if (await confirmNotDuplicate()) save.mutate(); }}
               disabled={save.isPending || errors.length > 0}
               className="flex-[1.2] inline-flex items-center justify-center gap-1.5 rounded-md gold-gradient text-charcoal text-sm py-2.5 font-medium disabled:opacity-50"
             >

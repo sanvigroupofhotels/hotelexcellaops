@@ -8,6 +8,7 @@ import { useExistingCustomerByContact } from "@/lib/customer-resolution";
 import { getQuote } from "@/lib/quotes-api";
 import { type BookingInput } from "@/lib/bookings-api";
 import { submitNewBooking } from "@/lib/booking-create";
+import { useDuplicateBookingGuard } from "@/components/duplicate-booking-warning-dialog";
 import { applyClonedOccupants, buildBookingClonePrefill } from "@/lib/booking-clone";
 import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
 import { listQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
@@ -263,6 +264,11 @@ function NewBooking() {
     toast.success(`Using existing customer: ${matchedCustomer.guest_name}`);
   };
 
+  const dupGuard = useDuplicateBookingGuard();
+  const confirmNotDuplicate = () => dupGuard.confirm({
+    phone: stay.phone, customerId: linkedCustomerId ?? null, checkIn: stay.check_in, checkOut: stay.check_out,
+  });
+
   const save = useMutation({
     mutationFn: async () => {
       const primary = primaryToLineItem(stay, resolvedRate);
@@ -365,6 +371,7 @@ function NewBooking() {
 
   return (
     <>
+      {dupGuard.dialog}
       <Topbar title={fromBookingId ? "Clone Booking" : "New Booking"} subtitle={fromQuoteId ? "Converting quote to booking" : fromBookingId ? `Cloned from ${clonePrefill?.sourceReference ?? "booking"} — nothing is copied except commercial details` : "Create a direct booking"} />
       <div className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] pb-56 lg:pb-8">
         <Link to="/bookings" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
@@ -474,7 +481,7 @@ function NewBooking() {
                 </div>
               </div>
             )}
-            <button onClick={() => save.mutate()} disabled={save.isPending || !stay.guest_name.trim() || !stay.phone.trim()}
+            <button onClick={async () => { if (await confirmNotDuplicate()) save.mutate(); }} disabled={save.isPending || !stay.guest_name.trim() || !stay.phone.trim()}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] disabled:opacity-60">
               {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               <BedDouble className="h-4 w-4" /> Create Booking
@@ -491,7 +498,7 @@ function NewBooking() {
           onOverrideChange={setTotalOverride}
           onTaxesIncludedChange={setTaxesIncluded}
           actions={
-            <button onClick={() => save.mutate()} disabled={save.isPending || !stay.guest_name.trim() || !stay.phone.trim()}
+            <button onClick={async () => { if (await confirmNotDuplicate()) save.mutate(); }} disabled={save.isPending || !stay.guest_name.trim() || !stay.phone.trim()}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60">
               {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Create Booking

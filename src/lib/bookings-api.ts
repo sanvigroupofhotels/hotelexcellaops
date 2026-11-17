@@ -118,7 +118,7 @@ export async function getBooking(id: string) {
   return data as unknown as BookingRow | null;
 }
 
-export async function createBooking(input: BookingInput) {
+export async function createBooking(input: BookingInput, opts: { skipCreatedActivity?: boolean } = {}) {
   if (isRestrictedBookingStatus(input.status)) await assertBookingCancellationAllowed();
   validateBookingInput(input);
   const { data: { user } } = await supabase.auth.getUser();
@@ -140,6 +140,21 @@ export async function createBooking(input: BookingInput) {
     .from("bookings" as any).insert(row).select().single();
   if (error) throw error;
   const created = data as unknown as BookingRow;
+  // Fallback audit: every direct createBooking caller records booking_created.
+  // submitNewBooking opts out because it logs a richer entry itself.
+  if (!opts.skipCreatedActivity) {
+    try {
+      const { logBookingActivity } = await import("@/lib/booking-activities-api");
+      await logBookingActivity({
+        booking_id: created.id,
+        action: "booking_created",
+        from_status: null,
+        to_status: (created as any).status ?? "Pending",
+        notes: `Booking Created · ${(created as any).booking_reference ?? ""}`.trim(),
+        metadata: { source: (created as any).source ?? null, booking_reference: (created as any).booking_reference ?? null },
+      });
+    } catch (e) { console.warn("booking_created activity log failed", e); }
+  }
   // Fan-out via Notification Engine (in-app + push + email).
   // Skip Draft bookings — they're auto-created by abandoned-lead flow and
   // emit their own dedicated notification.

@@ -256,7 +256,7 @@ export function RoomAssignmentDialog({
         const newStr = Object.entries(desiredMix).map(([t, n]) => `${t} × ${n}`).join(", ");
         await logBookingActivity({
           booking_id: bookingId,
-          action: "reactivated",
+          action: "room_changed",
           from_status: booking?.status ?? null,
           to_status: booking?.status ?? null,
           notes: `Room Category Changed · ${oldStr} → ${newStr}`,
@@ -284,7 +284,7 @@ export function RoomAssignmentDialog({
         }
         await logBookingActivity({
           booking_id: bookingId,
-          action: "reactivated",
+          action: "room_changed",
           from_status: booking?.status ?? null,
           to_status: booking?.status ?? null,
           notes: `Room Changed: ${changingRoom?.room_number ?? "?"} → ${newRoom?.room_number ?? "?"} (segment split)`,
@@ -293,7 +293,7 @@ export function RoomAssignmentDialog({
         await addAssignment(bookingId, pickedRoomId, { item_id: targetItemId ?? null });
         await logBookingActivity({
           booking_id: bookingId,
-          action: "reactivated",
+          action: "room_assigned",
           from_status: booking?.status ?? null,
           to_status: booking?.status ?? null,
           notes: `Room Assigned: ${newRoom?.room_number ?? "?"}`,
