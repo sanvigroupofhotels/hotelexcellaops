@@ -155,6 +155,7 @@ function PreviewCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; o
   const p = m.preview!;
   const d = p.draft;
   const short = p.available < d.rooms;
+  const dups = p.duplicates ?? [];
   return (
     <div className="mt-2 rounded-xl border border-border bg-card p-3 text-sm space-y-1.5">
       <div className="font-display text-base">{d.guest_name}</div>
@@ -164,6 +165,17 @@ function PreviewCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; o
       <div>{inr(p.rate)}/night{p.totalOverride != null ? (p.taxesIncluded ? " (incl. GST)" : " + GST") : " (rack)"} · Taxes {inr(p.taxes)}</div>
       <div className="font-semibold text-gold">Total {inr(p.total)}</div>
       <div className={short ? "text-destructive text-xs" : "text-muted-foreground text-xs"}>{p.available} {d.room_type} available</div>
+      {dups.length > 0 && m.status !== "created" && m.status !== "dismissed" && (
+        <div role="alert" className="rounded-lg border border-gold/50 bg-gold/10 p-2 text-xs space-y-1">
+          <div className="font-semibold text-gold">Guest already has an active stay for overlapping dates</div>
+          {dups.map((b) => (
+            <div key={b.id} className="flex items-center justify-between gap-2">
+              <span>#{b.booking_reference ?? b.id.slice(0, 8)} · {b.check_in} → {b.check_out}{b.rooms.length ? ` · Room ${b.rooms.join(", ")}` : ""}</span>
+              <Link to="/bookings/$id" params={{ id: b.id }} onClick={onOpen} className="shrink-0 text-primary underline">View Booking</Link>
+            </div>
+          ))}
+        </div>
+      )}
       {m.status === "created" && m.bookingId ? (
         <Link to="/bookings/$id" params={{ id: m.bookingId }} onClick={onOpen} className="inline-block text-primary underline text-sm">Open booking</Link>
       ) : m.status === "dismissed" ? (
@@ -171,7 +183,7 @@ function PreviewCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; o
       ) : (
         <div className="flex gap-2 pt-1">
           <Button size="sm" disabled={busy || short} onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}>
-            {busy && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />} Confirm & Create
+            {busy && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />} {dups.length ? "Proceed Anyway & Create" : "Confirm & Create"}
           </Button>
           <Button size="sm" variant="ghost" disabled={busy} onClick={onDismiss}>Cancel</Button>
         </div>

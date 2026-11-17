@@ -13,6 +13,7 @@ import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
 import { submitNewBooking } from "@/lib/booking-create";
 import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
 import type { LineItem } from "@/components/line-items-editor";
+import { checkBookingDuplicates, type DuplicateBookingMatch } from "@/lib/booking-duplicates-api";
 
 export type CopilotPreview = {
   draft: Required<{ [K in keyof CopilotDraft]: NonNullable<CopilotDraft[K]> }>;
@@ -28,6 +29,8 @@ export type CopilotPreview = {
   /** Staff-agreed total (all rooms × nights); null = rack rate. */
   totalOverride: number | null;
   taxesIncluded: boolean;
+  /** Active bookings for the same phone on overlapping nights (advisory). */
+  duplicates: DuplicateBookingMatch[];
 };
 
 export async function buildCopilotPreview(d: CopilotDraft): Promise<CopilotPreview> {
@@ -37,10 +40,11 @@ export async function buildCopilotPreview(d: CopilotDraft): Promise<CopilotPrevi
     room_type: d.room_type ?? "Oak Room", rooms: Math.max(1, d.rooms ?? 1),
     agreed_rate: d.agreed_rate ?? 0, gst_included: !!d.gst_included,
   } as CopilotPreview["draft"];
-  const [rates, overrides, avail] = await Promise.all([
+  const [rates, overrides, avail, duplicates] = await Promise.all([
     listRoomRates(),
     listRateOverrides({ from: draft.check_in, to: draft.check_out }),
     getRoomTypeAvailability({ check_in: draft.check_in, check_out: draft.check_out }),
+    checkBookingDuplicates({ phone: draft.phone, checkIn: draft.check_in, checkOut: draft.check_out }).catch(() => []),
   ]);
   const rate = resolveAverageRate(draft.room_type, draft.check_in, draft.check_out, rates, overrides) ?? getRoomRate(draft.room_type, false);
   const inv = maxSelectableRooms(avail, draft.room_type, 0);
@@ -57,7 +61,7 @@ export async function buildCopilotPreview(d: CopilotDraft): Promise<CopilotPrevi
   const totalOverride = draft.agreed_rate > 0 ? draft.agreed_rate * nights * draft.rooms : null;
   const taxesIncluded = totalOverride != null && draft.gst_included;
   const p = computePricing(items, 0, DEFAULT_TAX_RATE, { totalOverride, taxesIncluded });
-  return { totalOverride, taxesIncluded, draft, rate: draft.agreed_rate > 0 ? draft.agreed_rate : rate, nights, available: inv.available, total: p.total, subtotal: p.subtotal, taxes: p.taxes, taxRate: p.taxRate, discount: p.discount ?? 0, items };
+  return { duplicates, totalOverride, taxesIncluded, draft, rate: draft.agreed_rate > 0 ? draft.agreed_rate : rate, nights, available: inv.available, total: p.total, subtotal: p.subtotal, taxes: p.taxes, taxRate: p.taxRate, discount: p.discount ?? 0, items };
 }
 
 export async function createCopilotBooking(pv: CopilotPreview) {

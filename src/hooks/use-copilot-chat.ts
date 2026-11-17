@@ -104,7 +104,8 @@ export function useCopilotChat() {
           push({ role: "assistant", text: `Couldn't check availability: ${e?.message ?? e}` });
         }
       }
-      push({ role: "assistant", text: r.reply || (preview ? "Here's the booking. Tap Confirm to create." : "Okay."), preview, status: preview ? "pending" : undefined });
+      const dupNote = preview?.duplicates?.length ? " Note: an active booking already exists for this guest on overlapping dates. You can review it or proceed anyway." : "";
+      push({ role: "assistant", text: (r.reply || (preview ? "Here's the booking. Tap Confirm to create." : "Okay.")) + dupNote, preview, status: preview ? "pending" : undefined });
     } catch (e: any) {
       push({ role: "assistant", text: `Sorry, something went wrong: ${e?.message ?? "try again"}` });
     } finally {
