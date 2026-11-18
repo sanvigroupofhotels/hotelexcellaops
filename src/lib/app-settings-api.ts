@@ -1,4 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
+import { DEFAULT_HOTEL, DEFAULT_BRANDING, resolveBranding, type BrandingSettings, type HotelIdentity } from "@/lib/branding";
+import { saveBranding } from "@/lib/branding.functions";
+export { DEFAULT_HOTEL, DEFAULT_BRANDING };
+export type { BrandingSettings };
 
 export interface PaymentSettings {
   allow_full_payment: boolean;
@@ -34,28 +38,12 @@ export async function setPaymentSettings(value: PaymentSettings): Promise<void> 
 
 // ===== Generic app settings (hotel info, ops, branding, documents retention) =====
 
-export interface HotelSettings {
-  name: string;
-  logo_url: string;
-  address: string;
-  gstin: string;
-  phone: string;
-  email: string;
-}
+export type HotelSettings = HotelIdentity;
 export interface OpsSettings {
   check_in_time: string;
   check_out_time: string;
   currency: string;
   timezone: string;
-}
-export interface BrandingSettings {
-  portal_title: string;
-  welcome_message: string;
-  invoice_footer: string;
-  /** Base64 data URL of the authorised-signatory signature image. Empty = none. */
-  signature_url: string;
-  /** Free-text designation rendered beneath the signature (e.g. "Authorised Signatory · Hotel Excella"). */
-  signatory_designation: string;
 }
 /**
  * Documents Retention setting.
@@ -65,26 +53,11 @@ export interface DocumentsRetentionSettings {
   retention_days: number;
 }
 
-export const DEFAULT_HOTEL: HotelSettings = {
-  name: "Hotel Excella",
-  logo_url: "",
-  address: "Visakhapatnam, Andhra Pradesh",
-  gstin: "",
-  phone: "",
-  email: "",
-};
 export const DEFAULT_OPS: OpsSettings = {
   check_in_time: "13:00",
   check_out_time: "11:00",
   currency: "INR",
   timezone: "Asia/Kolkata",
-};
-export const DEFAULT_BRANDING: BrandingSettings = {
-  portal_title: "Welcome to Hotel Excella",
-  welcome_message: "Thank you for choosing us. We look forward to hosting you.",
-  invoice_footer: "Thank you for staying with us.",
-  signature_url: "",
-  signatory_designation: "Authorised Signatory · Hotel Excella",
 };
 export const DEFAULT_DOCUMENTS_RETENTION: DocumentsRetentionSettings = {
   retention_days: 60,
@@ -115,14 +88,22 @@ async function writeSetting<T>(key: string, value: T): Promise<void> {
   if (error) throw error;
 }
 
-export const getHotelSettings = () => readSetting("hotel", DEFAULT_HOTEL);
-export const setHotelSettings = (v: HotelSettings) => writeSetting("hotel", v);
+export const getHotelSettings = async (): Promise<HotelSettings> => {
+  const branding = await getBrandingSettings();
+  return Object.fromEntries(Object.keys(DEFAULT_HOTEL).map((key) => [key, branding[key as keyof HotelIdentity]])) as unknown as HotelSettings;
+};
+export const setHotelSettings = async (v: HotelSettings) => setBrandingSettings({ ...await getBrandingSettings(), ...v });
 
 export const getOpsSettings = () => readSetting("ops", DEFAULT_OPS);
 export const setOpsSettings = (v: OpsSettings) => writeSetting("ops", v);
 
-export const getBrandingSettings = () => readSetting("branding", DEFAULT_BRANDING);
-export const setBrandingSettings = (v: BrandingSettings) => writeSetting("branding", v);
+export async function getBrandingSettings(): Promise<BrandingSettings> {
+  const { data, error } = await supabase.from("app_settings" as any).select("key,value").in("key", ["hotel", "branding"]);
+  if (error) throw error;
+  const settings = new Map((data ?? []).map((row: any) => [row.key, row.value]));
+  return resolveBranding(settings.get("branding"), settings.get("hotel"));
+}
+export const setBrandingSettings = async (v: BrandingSettings): Promise<void> => { await saveBranding({ data: v }); };
 
 export const getDocumentsRetention = () =>
   readSetting("documents_retention", DEFAULT_DOCUMENTS_RETENTION);
