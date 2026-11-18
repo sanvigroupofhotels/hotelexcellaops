@@ -1163,3 +1163,21 @@ export const getPortalInvoice = createServerFn({ method: "POST" })
     return loadInvoiceData(supabaseAdmin, bookingId);
   });
 
+
+/** Guest self-service: save company name / GSTIN to the token's linked customer. */
+export const updatePortalInvoiceBilling = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({
+    token: z.string().min(6).max(128),
+    company_name: z.string().trim().max(200).optional().default(""),
+    gst_number: z.string().trim().toUpperCase().max(15).optional().default(""),
+  }).parse(input))
+  .handler(async ({ data }) => {
+    const { invoiceBillingSchema } = await import("@/lib/invoice-billing");
+    const parsed = invoiceBillingSchema.parse({ company_name: data.company_name, gst_number: data.gst_number });
+    const { supabaseAdmin, booking } = await resolvePortalRef(data.token);
+    if (!booking?.customer_id) throw new Error("Please ask reception to link your guest profile first.");
+    const patch = { company_name: parsed.company_name || null, gst_number: parsed.gst_number || null };
+    const { error } = await supabaseAdmin.from("customers").update(patch).eq("id", booking.customer_id);
+    if (error) throw new Error("Could not save company details");
+    return loadInvoiceData(supabaseAdmin, booking.id);
+  });

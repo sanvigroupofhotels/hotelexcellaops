@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Complete status-aware booking invoice action and company/GST editing in reception and guest invoice menus.
+- [x] Complete status-aware booking invoice action and company/GST editing in reception and guest invoice menus.
 - [ ] Remove synthetic adjustment rows by allocating recorded accommodation totals to room rates; preserve real extras, charges, discounts and tax.
 - [ ] Verify three real bookings, company billing read-back, PDF downloads and phone layout; save completed changes.
 

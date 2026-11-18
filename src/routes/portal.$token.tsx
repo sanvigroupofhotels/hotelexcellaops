@@ -1249,6 +1249,7 @@ function PortalInvoiceCard({ token }: { token: string }) {
             roomLabels: data.roomLabels,
             checkInTime: data.checkInTime,
             checkOutTime: data.checkOutTime,
+            portalToken: token,
           }}
           onClose={() => setOpen(false)}
         />

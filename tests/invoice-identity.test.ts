@@ -56,10 +56,20 @@ describe("approved unified invoice rules", () => {
     expect(doc.tableLines[0]?.rooms).toBe("201");
     expect(doc.tableLines[0]?.qty).toBe(2);
     expect(doc.tableLines[0]?.sac).toBe("996311");
-    expect(doc.tableLines[0]?.rate).toBe(2380.95);
+    expect(doc.tableLines[0]?.rate).toBe(2156);
   });
   it("billing edits reject malformed GSTIN before saving", () => {
     expect(invoiceBillingSchema.safeParse({ company_name: "Company", gst_number: "wrong" }).success).toBe(false);
     expect(invoiceBillingSchema.parse({ company_name: " Company ", gst_number: "37aaecl2341l1zf" }).gst_number).toBe("37AAECL2341L1ZF");
+  });
+  it("a negotiated stay total is absorbed into the room rate with no adjustment row (HEXB-86102E: 5,550 for 2 nights)", () => {
+    const nagesh = { ...booking, amount: 5550, taxes: 264.29, total_override: 5550, advance_paid: 0 };
+    const item = { id: "oak", room_type: "Oak", rooms: 1, rate: 2250, nights: 2, check_in: booking.check_in, check_out: booking.check_out, adults: 2, children: 0 } as any;
+    const doc = buildInvoiceDocument({ booking: nagesh, items: [item] });
+    expect(doc.tableLines).toHaveLength(1);
+    expect(doc.tableLines.some((r) => /adjustment/i.test(r.description))).toBe(false);
+    expect(doc.tableLines[0]?.amount).toBe(5286);
+    expect(doc.tableLines[0]?.rate).toBe(2643);
+    expect(doc.totals.total).toBe(5550);
   });
 });

@@ -307,12 +307,22 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
     description: c.label, sac: "", checkIn: "", checkOut: "", rooms: c.room,
     qty: c.qty, unit: "Units", rate: roundMoney(c.amount / c.qty), amount: c.amount,
   })));
-  // Reconcile stored overrides/legacy amounts without ever changing the folio total.
+  // Negotiated or overridden stay totals are absorbed into the room lines so the
+  // document never shows an artificial "adjustment" row. The folio total is
+  // unchanged: room amounts are scaled proportionally and rates re-derived.
+  const roomCount = roomLines.length;
   const adjustment = roundMoney(taxable + netDiscount - tableLines.reduce((s, r) => s + r.amount, 0));
-  if (Math.abs(adjustment) >= 0.01) tableLines.push({
-    description: "Booking amount / rounding adjustment", sac: "", checkIn: "", checkOut: "", rooms: "",
-    qty: 1, unit: "", rate: adjustment, amount: adjustment,
-  });
+  if (Math.abs(adjustment) >= 0.01 && roomCount) {
+    const roomRows = tableLines.slice(0, roomCount);
+    const roomSum = roomRows.reduce((s, r) => s + r.amount, 0);
+    let remaining = adjustment;
+    roomRows.forEach((r, i) => {
+      const share = i === roomCount - 1 ? remaining : roundMoney(roomSum > 0 ? adjustment * (r.amount / roomSum) : adjustment / roomCount);
+      remaining = roundMoney(remaining - share);
+      r.amount = roundMoney(r.amount + share);
+      r.rate = roundMoney(r.qty > 0 ? r.amount / r.qty : r.amount);
+    });
+  }
 
   return {
     kind: isFinal ? "TAX INVOICE" : "PROFORMA INVOICE",

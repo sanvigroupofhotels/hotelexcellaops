@@ -1,6 +1,6 @@
 import { openCopilot } from "@/components/copilot/copilot-drawer";
 import { bookingLabel } from "@/lib/copilot-update";
-import { BotMessageSquare } from "lucide-react";
+import { BotMessageSquare, Building2 } from "lucide-react";
 import { confirmEarlyCheckout, nightsRemaining } from "@/lib/early-checkout";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useRef, useState } from "react";
@@ -11,7 +11,7 @@ import { listBookingPayments, deleteBookingPayment, signedAttachmentUrl, type Bo
 import { listBookingPaymentActivities } from "@/lib/booking-payment-activities-api";
 import { listBookingActivities, logBookingActivity } from "@/lib/booking-activities-api";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
-import { InvoiceDialog } from "@/components/invoice-dialog";
+import { InvoiceDialog, CompanyBillingDialog } from "@/components/invoice-dialog";
 import { InHouseChargesSection } from "@/components/in-house-charges-section";
 import { type WhatsAppTemplate } from "@/components/whatsapp-menu";
 import {
@@ -316,6 +316,7 @@ function BookingDetail() {
 
   const cardRef = useRef<HTMLDivElement>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [billingOpen, setBillingOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [revertInOpen, setRevertInOpen] = useState(false);
@@ -528,9 +529,9 @@ function BookingDetail() {
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
               <Share2 className="h-4 w-4 text-gold" /> Share Image
             </button>
-            <button onClick={() => window.print()}
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm hover:border-gold/40">
-              <Printer className="h-4 w-4 text-gold" /> PDF
+            <button onClick={() => setInvoiceOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-gold/50 bg-card px-4 py-2.5 text-sm hover:border-gold">
+              <FileText className="h-4 w-4 text-gold" /> {isCheckedOut || b.status === "Stay Completed" ? "Invoice" : "Proforma Invoice"}
             </button>
             <button
               onClick={() => {
@@ -572,6 +573,9 @@ function BookingDetail() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setInvoiceOpen(true)} className="cursor-pointer">
                   <FileText className="h-3.5 w-3.5 mr-2" /> {isCheckedOut ? "Generate Invoice" : "Generate Proforma Invoice"}
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!b.customer_id} onClick={() => setBillingOpen(true)} className="cursor-pointer">
+                  <Building2 className="h-3.5 w-3.5 mr-2" /> Add Company Details (GST)
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={sharePaymentLink} className="cursor-pointer">
                   <Link2 className="h-3.5 w-3.5 mr-2" /> Share Guest Portal
@@ -865,6 +869,7 @@ function BookingDetail() {
         )}
       </div>
 
+      {billingOpen && <CompanyBillingDialog bookingId={id} customerId={b.customer_id ?? null} onClose={() => setBillingOpen(false)} />}
       {invoiceOpen && (
         <InvoiceDialog
           booking={b}

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { MoreVertical, Printer, Share2, Download, X, Pencil, Loader2, Save } from "lucide-react";
+import { MoreVertical, Printer, Share2, Download, X, Building2, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import type { BookingRow } from "@/lib/bookings-api";
 import type { BookingItemRow } from "@/lib/booking-items-api";
@@ -13,6 +13,7 @@ import { invoiceBillingSchema, type InvoiceBilling } from "@/lib/invoice-billing
 import { nodeToBlob } from "@/lib/share-quote";
 import { buildInvoiceDocument, invoiceMoney } from "@/lib/invoice-document";
 import { getStaffInvoice, updateInvoiceBilling } from "@/lib/invoice.functions";
+import { updatePortalInvoiceBilling } from "@/lib/portal.functions";
 import { downloadInvoicePdf, printInvoicePdf, prepareInvoicePdf } from "@/lib/invoice-pdf";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ interface Presentation {
   roomLabels?: Record<string, string>;
   checkInTime?: string;
   checkOutTime?: string;
+  /** Guest portal token — enables guest self-service company/GST edits. */
+  portalToken?: string;
 }
 
 /** Shared viewer. Staff reads the full folio; portal supplies the same token-scoped payload. */
@@ -32,6 +35,8 @@ export function InvoiceDialog({ booking, items = [], payments = [], charges = []
   booking: BookingRow; items?: BookingItemRow[]; payments?: BookingPaymentRow[]; charges?: BookingChargeRow[];
   presentation?: Presentation; onClose: () => void;
 }) {
+  const savePortalBilling = useServerFn(updatePortalInvoiceBilling);
+  const [portalBilling, setPortalBilling] = useState<InvoiceBilling | null | undefined>(undefined);
   const docRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
   const readInvoice = useServerFn(getStaffInvoice);
@@ -43,20 +48,25 @@ export function InvoiceDialog({ booking, items = [], payments = [], charges = []
   const invoice = useQuery({ queryKey: ["staff-invoice", booking.id], queryFn: () => readInvoice({ data: { booking_id: booking.id } }), enabled: !presentation, staleTime: 0 });
   const payload = invoice.data;
   const model = useMemo(() => buildInvoiceDocument(presentation
-    ? { booking, items, payments, charges, ...presentation }
-    : payload ?? { booking, items, payments, charges }), [booking, items, payments, charges, presentation, payload]);
+    ? { booking, items, payments, charges, ...presentation, ...(portalBilling !== undefined ? { billing: portalBilling } : {}) }
+    : payload ?? { booking, items, payments, charges }), [booking, items, payments, charges, presentation, payload, portalBilling]);
+  const canEditBilling = presentation ? !!presentation.portalToken : !!booking.customer_id;
   const ready = !!presentation || !!payload;
   const { kind, totals } = model;
   const mutation = useMutation({
     mutationFn: () => {
       const parsed = invoiceBillingSchema.parse({ company_name: company, gst_number: gst });
+      if (presentation?.portalToken) {
+        return savePortalBilling({ data: { token: presentation.portalToken, ...parsed } }).then((d: any) => { setPortalBilling(d?.billing ?? null); return d; });
+      }
       return saveBilling({ data: { booking_id: booking.id, ...parsed } });
     },
     onSuccess: async () => {
+      if (presentation) { setEditing(false); toast.success("Company details saved"); return; }
       await Promise.all([qc.invalidateQueries({ queryKey: ["staff-invoice", booking.id] }), qc.invalidateQueries({ queryKey: ["customer", booking.customer_id] }), qc.invalidateQueries({ queryKey: ["customers"] })]);
       setEditing(false); toast.success("Guest billing details saved");
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Could not save billing details"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? (e.message.startsWith("[") ? "Enter a valid 15-character GSTIN, or leave it blank." : e.message) : "Could not save company details"),
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -94,10 +104,9 @@ export function InvoiceDialog({ booking, items = [], payments = [], charges = []
         <div className="invoice-print-hide flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-3 sm:px-5">
           <div className="min-w-0 text-xs font-medium break-all">{model.number}</div>
           <div className="flex items-center gap-1">
-            {!presentation && <Button size="icon" variant="ghost" title="Edit GST / Company" aria-label="Edit GST / Company" disabled={!ready || !booking.customer_id} onClick={() => { setCompany(model.guest.company ?? ""); setGst(model.guest.gstin ?? ""); setEditing(!editing); }}><Pencil /></Button>}
             <Button size="sm" disabled={!ready || busy || mutation.isPending} onClick={() => void runPdf(false)}>{busy ? <Loader2 className="animate-spin" /> : <Download />} Download PDF</Button>
             <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Invoice actions" disabled={!ready || busy}><MoreVertical /></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => void handleShare()}><Share2 /> Share</DropdownMenuItem><DropdownMenuItem onClick={() => void runPdf(true)}><Printer /> Print</DropdownMenuItem></DropdownMenuContent>
+              <DropdownMenuContent align="end">{canEditBilling && <DropdownMenuItem onClick={() => { setCompany(model.guest.company ?? ""); setGst(model.guest.gstin ?? ""); setEditing(true); }}><Building2 /> Add / Edit Company Details (GST)</DropdownMenuItem>}<DropdownMenuItem onClick={() => void handleShare()}><Share2 /> Share</DropdownMenuItem><DropdownMenuItem onClick={() => void runPdf(true)}><Printer /> Print</DropdownMenuItem></DropdownMenuContent>
             </DropdownMenu>
             <Button size="icon" variant="ghost" aria-label="Close invoice" onClick={onClose}><X /></Button>
           </div>
@@ -105,7 +114,7 @@ export function InvoiceDialog({ booking, items = [], payments = [], charges = []
         {editing && <form className="invoice-print-hide grid gap-3 border-b border-border p-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
           <label className="space-y-1 text-xs">Company Name<input aria-label="Company Name" maxLength={200} className="block w-full rounded-md border border-input bg-background p-2 text-sm" value={company} onChange={(e) => setCompany(e.target.value)} /></label>
           <label className="space-y-1 text-xs">Guest GSTIN<input aria-label="Guest GSTIN" maxLength={15} className="block w-full rounded-md border border-input bg-background p-2 text-sm uppercase" value={gst} onChange={(e) => setGst(e.target.value.toUpperCase())} /></label>
-          <div className="flex justify-end gap-2 sm:col-span-2"><Button variant="ghost" size="sm" type="button" onClick={() => setEditing(false)}>Cancel</Button><Button size="sm" disabled={mutation.isPending}>{mutation.isPending ? <Loader2 className="animate-spin" /> : <Save />} Save Billing</Button></div>
+          <div className="flex justify-end gap-2 sm:col-span-2"><Button variant="ghost" size="sm" type="button" onClick={() => setEditing(false)}>Cancel</Button><Button size="sm" disabled={mutation.isPending}>{mutation.isPending ? <Loader2 className="animate-spin" /> : <Save />} Save Details</Button></div>
         </form>}
         {!ready ? <div className="flex min-h-48 items-center justify-center gap-2 p-5 text-sm">{invoice.isError ? <><span>Could not load invoice.</span><Button size="sm" variant="outline" onClick={() => void invoice.refetch()}>Retry</Button></> : <><Loader2 className="h-5 w-5 animate-spin" /> Loading invoice…</>}</div> :
         <div ref={docRef} className="invoice-document bg-invoice-paper p-4 text-invoice-ink sm:p-8" data-invoice-print>
@@ -125,3 +134,36 @@ export function InvoiceDialog({ booking, items = [], payments = [], charges = []
   );
 }
 function TotalRow({ label, value }: { label: string; value: number }) { return <div className="flex justify-between gap-3"><span>{label}</span><span className="whitespace-nowrap tabular-nums">{inr(value)}</span></div>; }
+
+/** Reception: add/edit the guest's company name and GSTIN without opening the invoice. */
+export function CompanyBillingDialog({ bookingId, customerId, onClose }: { bookingId: string; customerId: string | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const readInvoice = useServerFn(getStaffInvoice);
+  const saveBilling = useServerFn(updateInvoiceBilling);
+  const current = useQuery({ queryKey: ["staff-invoice", bookingId], queryFn: () => readInvoice({ data: { booking_id: bookingId } }), staleTime: 0 });
+  const [company, setCompany] = useState<string | null>(null);
+  const [gst, setGst] = useState<string | null>(null);
+  const companyValue = company ?? current.data?.billing?.company_name ?? "";
+  const gstValue = gst ?? current.data?.billing?.gst_number ?? "";
+  const mutation = useMutation({
+    mutationFn: () => saveBilling({ data: { booking_id: bookingId, ...invoiceBillingSchema.parse({ company_name: companyValue, gst_number: gstValue }) } }),
+    onSuccess: async () => {
+      await Promise.all([qc.invalidateQueries({ queryKey: ["staff-invoice", bookingId] }), qc.invalidateQueries({ queryKey: ["customer", customerId] }), qc.invalidateQueries({ queryKey: ["customers"] })]);
+      toast.success("Company details saved"); onClose();
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? (e.message.startsWith("[") ? "Enter a valid 15-character GSTIN, or leave it blank." : e.message) : "Could not save company details"),
+  });
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-invoice-overlay p-3" onClick={onClose}>
+      <form role="dialog" aria-modal="true" aria-label="Company Details (GST)" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="luxe-card w-full max-w-md space-y-4 rounded-xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between"><h2 className="font-display text-base flex items-center gap-2"><Building2 className="h-4 w-4 text-gold" /> Company Details (GST)</h2><Button size="icon" variant="ghost" type="button" aria-label="Close" onClick={onClose}><X /></Button></div>
+        <p className="text-xs text-muted-foreground">Saved to the guest profile and shown on every invoice for this guest.</p>
+        {current.isLoading ? <div className="flex justify-center py-6"><Loader2 className="animate-spin" /></div> : <>
+          <label className="block space-y-1 text-xs">Company Name<input aria-label="Company Name" maxLength={200} className="block w-full rounded-md border border-input bg-background p-2 text-sm" value={companyValue} onChange={(e) => setCompany(e.target.value)} /></label>
+          <label className="block space-y-1 text-xs">Guest GSTIN<input aria-label="Guest GSTIN" maxLength={15} className="block w-full rounded-md border border-input bg-background p-2 text-sm uppercase" value={gstValue} onChange={(e) => setGst(e.target.value.toUpperCase())} /></label>
+        </>}
+        <div className="flex justify-end gap-2"><Button variant="ghost" size="sm" type="button" onClick={onClose}>Cancel</Button><Button size="sm" disabled={mutation.isPending || current.isLoading || !customerId}>{mutation.isPending ? <Loader2 className="animate-spin" /> : <Save />} Save Details</Button></div>
+      </form>
+    </div>, document.body,
+  );
+}
