@@ -10,3 +10,4 @@
 - Upload photo compression uses one dynamically loaded browser-only helper immediately before transmission; preserve non-image originals and fall back on codec failure so uploads remain compatible.
 - Keep one shared display-only startup reveal, claimed once per browser session after hydration; exclude machine/OAuth endpoints and skip reduced motion so authentication and navigation never wait for it.
 - Public WhatsApp booking slot selections use canonical timing windows and per-room allocation/pricing; never fabricate exact expected timestamps from a pricing-window selection, which would imply an arrival time the guest did not provide.- Booking duplicate detection runs through one shared lookup (booking-duplicates-api) as an advisory confirm before creation; every channel reuses it so rules never diverge.
+- WhatsApp Inbox reads the leads table via listLeads and reuses checkBookingDuplicates for its active-stay banner; it never writes bookings directly.

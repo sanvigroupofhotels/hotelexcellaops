@@ -6,11 +6,13 @@ import {
   Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
   Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
   BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound, Moon, AlertTriangle, TrendingUp, CalendarDays,
-  Boxes, Truck, ListChecks,
+  Boxes, Truck, ListChecks, MessageCircle,
 } from "lucide-react";
 import { useNightAuditStatus } from "@/hooks/use-night-audit-status";
 
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/use-role";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -28,6 +30,7 @@ const nav: NavItem[] = [
   { to: "/calendar", label: "Calendar", icon: CalendarDays, adminOnly: true },
   // Bookings list — only Owner/Admin (Reception/Staff use House View).
   { to: "/bookings", label: "Bookings", icon: BedDouble, permission: "bookings.view" },
+  { to: "/whatsapp-inbox", label: "WhatsApp Inbox", icon: MessageCircle, permission: "customers.view" },
   // End of Day group is rendered inline below (between Bookings and Due Collection).
   { to: "/dues", label: "Due Collection", icon: Receipt, permission: "dues.view" },
   { to: "/cash", label: "CashBook", icon: Wallet, permission: "cash.view" },
@@ -187,6 +190,16 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   const { isAdmin, canManage, isHousekeeping } = useUserRole();
   const { has, hasAny, isLoading } = usePermissions();
   const naStatus = useNightAuditStatus();
+  const liveLeadsQ = useQuery({
+    queryKey: ["leads-live-count"],
+    enabled: !isHousekeeping && has("customers.view"),
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { count } = await supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "Interested");
+      return count ?? 0;
+    },
+  });
+  const liveLeads = liveLeadsQ.data ?? 0;
 
   // Housekeeping role: sidebar collapses to a single "Today's Tasks" entry.
   if (isHousekeeping) {
@@ -249,6 +262,9 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
                 )}
                 <Icon className={cn("relative h-4 w-4 shrink-0", active && "text-gold")} />
                 <span className="relative flex-1">{item.label}</span>
+                {item.to === "/whatsapp-inbox" && liveLeads > 0 && (
+                  <span className="relative rounded-full bg-gold px-1.5 text-[10px] font-semibold text-primary-foreground">{liveLeads}</span>
+                )}
               </Link>
             </motion.div>
             {(item.to === "/bookings"
