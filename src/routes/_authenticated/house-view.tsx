@@ -155,8 +155,9 @@ function blockClasses(b: { status: string; advance_paid?: number | null; pay_at_
     case "No-Show":
       return "bg-destructive/60 text-white border-destructive line-through";
     case "Confirmed":
-      // Confirmed + (advance paid OR pay-at-hotel) → committed (blue).
-      if (Number(b.advance_paid || 0) > 0 || b.pay_at_hotel === true) {
+      // Confirmed turns blue only once an advance is actually collected;
+      // Pay-at-Hotel with nothing paid stays white (unpaid).
+      if (Number(b.advance_paid || 0) > 0) {
         return "bg-blue-500/85 text-white border-blue-700";
       }
       return "bg-white text-gray-900 border-gray-500 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-400";
@@ -1334,6 +1335,7 @@ function HouseViewLegendContent() {
     <Legend cls="bg-card border-border border-dashed" label="Unassigned (shown in vacant room)" />
     <div className="flex items-center gap-1.5"><UtensilsCrossed className="h-3 w-3 text-gold" /> Breakfast included</div>
     <div className="flex items-center gap-1.5"><span>💳</span> Balance due</div>
+    <div className="flex items-center gap-1.5"><MessageCircle className="h-3 w-3 text-emerald-600" /> WhatsApp booking</div>
     <div className="flex items-center gap-1.5"><span className="font-semibold text-foreground">*</span> Unassigned / Unconfirmed Booking</div>
     <div className="flex items-center gap-1.5"><span>🐾</span> Pet-Friendly Booking</div>
   </div>;
@@ -1992,6 +1994,7 @@ const BookingChip = memo(function BookingChip(props: BookingChipProps) {
       {hasBreakfast && <UtensilsCrossed className="h-3 w-3 shrink-0 opacity-90" />}
       {hasPet && <span className="shrink-0" aria-label="Pet">🐾</span>}
       {balanceDue > 0 && <span className="shrink-0" aria-label="Balance due">💳</span>}
+      {/whatsapp/i.test(`${b.lead_source ?? ""} ${b.source_channel ?? ""} ${b.special_requests ?? ""} ${b.notes ?? ""}`) && <MessageCircle className="h-3 w-3 shrink-0 text-emerald-600" aria-label="WhatsApp booking" />}
       {/* Booker + per-room occupant (multi-room bookings). */}
       <span className="truncate font-medium">
         {b.guest_name}
