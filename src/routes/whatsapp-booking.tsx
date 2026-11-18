@@ -79,13 +79,13 @@ function WhatsAppBooking() {
     setBusy(true);
     try {
       const timing = bookingTimingLabels(earlySlot, lateSlot);
-      upsertLeadFromBookingEngine({
-        data: { guest_name: name.trim(), phone: intl, check_in: checkIn, check_out: checkOut, adults: guests, rooms: roomsReq, room_type_name: label, notes: `WhatsApp booking form — ${roomsReq} room(s) for ${guests} guest(s); Check-in: ${timing.checkIn}; Check-out: ${timing.checkOut}` },
-      }).catch(() => {});
       const draft = await createDraftBooking({
         data: { room_type: roomType, check_in: checkIn, check_out: checkOut, guests, rooms: roomsReq, early_check_in_slot: earlySlot, late_check_out_slot: lateSlot, guest_name: name.trim(), phone: intl, special_requests: `Via WhatsApp booking form — ${roomsReq} room(s) requested for ${guests} guest(s); Check-in: ${timing.checkIn}; Check-out: ${timing.checkOut}; rate to be confirmed by front desk` },
       });
       const conf = await confirmPayAtHotel({ data: { booking_id: draft.booking_id } });
+      await upsertLeadFromBookingEngine({
+        data: { guest_name: name.trim(), phone: intl, check_in: checkIn, check_out: checkOut, adults: guests, rooms: roomsReq, room_type_name: label, source_channel: "WhatsApp", booking_id: draft.booking_id, notes: `WhatsApp booking form — ${roomsReq} room(s) for ${guests} guest(s); Check-in: ${timing.checkIn}; Check-out: ${timing.checkOut}` },
+      }).catch(() => {});
       const msg = `Hi Hotel Excella, I just reserved via WhatsApp booking.\nRef: ${conf.reference}\nName: ${name.trim()}\nMobile: ${digits}\nStay: ${checkIn} to ${checkOut}\nRoom: ${label}\nGuests: ${guests}\nCheck-in: ${timing.checkIn}\nCheck-out: ${timing.checkOut}\nPlease confirm my best direct price.`;
       const link = waLink(RECEPTION_WA, msg);
       setDone({ ref: conf.reference, link });

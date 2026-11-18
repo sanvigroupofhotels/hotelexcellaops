@@ -635,6 +635,22 @@ export const confirmBookingEnginePayment = createServerFn({ method: "POST" })
       booking_id: (b as any).id, token, scope: "pay", expires_at: expires, user_id: (b as any).user_id,
     } as any);
 
+    const { data: full } = await supabaseAdmin.from("bookings")
+      .select("guest_name,phone,check_in,check_out,amount,special_requests").eq("id", (b as any).id).maybeSingle();
+    const f: any = full ?? {};
+    const isWa = String(f.special_requests ?? "").includes("WhatsApp");
+    const src = isWa ? "WhatsApp" : "Booking Engine";
+    const { error: nErr } = await supabaseAdmin.from("notifications").insert({
+      type: "booking_created",
+      title: `New Booking · ${src} (${(b as any).booking_reference})`,
+      body: [`Guest: ${f.guest_name ?? "—"}`, `Phone: ${f.phone ?? "—"}`, `Check-In: ${f.check_in ?? "—"}`,
+        `Check-Out: ${f.check_out ?? "—"}`, f.amount ? `Value: ₹${f.amount}` : null, `Payment: Pay at Hotel (unpaid)`, `Source: ${src}`].filter(Boolean).join("\n"),
+      entity_type: "booking", entity_id: (b as any).id, entity_reference: (b as any).booking_reference,
+      priority: "normal", audience_role: "operations", status: "unread",
+      metadata: { booking_id: (b as any).id, source: src },
+    } as any);
+    if (nErr) console.warn("[pay-at-hotel notify]", nErr.message);
+
     return { reference: (b as any).booking_reference, token };
   });
 

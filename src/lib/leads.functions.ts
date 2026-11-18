@@ -109,6 +109,8 @@ export const upsertLeadFromBookingEngine = createServerFn({ method: "POST" })
       room_type_name: z.string().trim().optional(),
       estimated_total: z.number().nonnegative().optional(),
       notes: z.string().optional(),
+      source_channel: z.enum(["BookingEngine", "WhatsApp"]).optional(),
+      booking_id: z.string().uuid().optional(),
     }).parse(input),
   )
   .handler(async ({ data }) => {
@@ -129,14 +131,15 @@ export const upsertLeadFromBookingEngine = createServerFn({ method: "POST" })
       room_type_name: data.room_type_name ?? null,
       estimated_total: data.estimated_total ?? null,
       notes: data.notes ?? null,
-      source_channel: "BookingEngine",
+      source_channel: data.source_channel ?? "BookingEngine",
       last_activity_at: new Date().toISOString(),
+      ...(data.booking_id ? { booking_id: data.booking_id } : {}),
     } as any;
 
     if (existing) {
       // If Converted, don't reopen — guest already has a booking.
       // Just refresh fields without changing status.
-      if (existing.status === "Converted") {
+      if (existing.status === "Converted" && !data.booking_id) {
         await supabaseAdmin.from("leads").update({ ...patch }).eq("id", existing.id);
         return { lead_id: existing.id as string, status: existing.status as string, reopened: false };
       }
@@ -148,7 +151,7 @@ export const upsertLeadFromBookingEngine = createServerFn({ method: "POST" })
         next.lost_at = null;
         next.lost_reason = null;
         next.abandoned_at = null;
-      } else if (existing.status === "Abandoned") {
+      } else if (existing.status === "Abandoned" || existing.status === "Converted") {
         next.status = "Interested";
         next.abandoned_at = null;
       }

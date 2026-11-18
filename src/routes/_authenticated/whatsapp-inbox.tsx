@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, AlertTriangle, Plus, Archive } from "lucide-react";
+import { MessageCircle, AlertTriangle, MessageSquareText, Archive } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
@@ -128,11 +128,10 @@ function LeadWorkspace({ lead, onLost }: { lead: Lead; onLost: () => void }) {
       </div>
       <Textarea rows={5} value={text} onChange={(e) => setText(e.target.value)} />
       <div className="flex flex-wrap gap-2">
-        <Button asChild><a href={waLink(lead.phone, text)} target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4 mr-1" />Reply on WhatsApp</a></Button>
-        {lead.booking_id ? (
+        <Button asChild><a href={waLink(lead.phone, text)} target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4 mr-1" />Reply with Template</a></Button>
+        <Button asChild variant="outline"><a href={`https://web.whatsapp.com/send?phone=${lead.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"><MessageSquareText className="h-4 w-4 mr-1" />Open Live Chat</a></Button>
+        {lead.booking_id && (
           <Button asChild variant="outline"><Link to="/bookings/$id" params={{ id: lead.booking_id }}>View Booking</Link></Button>
-        ) : (
-          <Button asChild variant="outline"><Link to="/bookings/quick"><Plus className="h-4 w-4 mr-1" />Create Booking</Link></Button>
         )}
         {LIVE.includes(lead.status) && (
           <Button variant="ghost" disabled={lost.isPending} onClick={() => { const r = window.prompt("Reason for archiving?", "No response"); if (r) lost.mutate(r); }}>
