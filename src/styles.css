@@ -8,6 +8,16 @@
 :root {
   --brand-reveal-canvas: oklch(1 0 0);
   --brand-reveal-glow: oklch(0.82 0.13 82 / 0.16);
+  --invoice-paper: #ffffff;
+  --invoice-ink: #252525;
+  --invoice-muted: #666666;
+  --invoice-rule: #d5d5d5;
+  --invoice-band: #f1f1f1;
+  --invoice-overlay: oklch(0 0 0 / 0.7);
+  --invoice-pdf-ink: 37, 37, 37;
+  --invoice-pdf-muted: 102, 102, 102;
+  --invoice-pdf-rule: 213, 213, 213;
+  --invoice-pdf-band: 241, 241, 241;
 }
 .startup-splash {
   position: fixed;
@@ -102,6 +112,12 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-invoice-paper: var(--invoice-paper);
+  --color-invoice-ink: var(--invoice-ink);
+  --color-invoice-muted: var(--invoice-muted);
+  --color-invoice-rule: var(--invoice-rule);
+  --color-invoice-band: var(--invoice-band);
+  --color-invoice-overlay: var(--invoice-overlay);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -340,6 +356,9 @@
   .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background: oklch(0.3 0.008 70 / 0.5); border-radius: 3px; }
 }
+
+.invoice-document { font-family: Arial, Helvetica, sans-serif; letter-spacing: 0; }
+.signature-checker { background: repeating-conic-gradient(var(--invoice-rule) 0% 25%, var(--invoice-paper) 0% 50%) 50% / 12px 12px; }
 
 /* A4 print layout for quote PDFs */
 @media print {

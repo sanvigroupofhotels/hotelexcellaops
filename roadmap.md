@@ -1,8 +1,9 @@
 # Roadmap
 
-- [ ] Upgrade the shared invoice model, PDF and viewer across reception, House View, guest portal and read-only integrations.
-- [ ] Centralize editable hotel/legal identity, contact, logo, signature and footer in Branding, preserving existing settings.
-- [ ] Add guest company/GST editing through the existing customer profile; verify financial safeguards and saved invoices on desktop/mobile.
+- [x] Upgrade the shared invoice model, PDF and viewer across reception, House View, guest portal and read-only integrations; verified real booking invoice download and 29 financial/identity safeguards.
+- [x] Centralize editable hotel/legal identity, contact, logo, signature and footer in Branding, preserving existing settings.
+- [x] Add guest company/GST editing through the existing customer profile; verified saved billing details and desktop PDF with the supplied crown and existing signature.
+- [x] Fix the existing notification-bell hook-order crash encountered while checking phone invoices; no notification operations changed.
 
 - [x] House View: desktop second row with Legend, date navigation, wide Search and Stats last; mobile Legend in ROOM opens a shared-content dialog. Preview build OK and 38 occupancy/display regression tests pass; hotel operations unchanged.
 - [ ] Verify the revised House View desktop/mobile controls with live bookings — blocked on preview sign-in; own-account session mint found no matching user, and multiple users prevent automatic selection.

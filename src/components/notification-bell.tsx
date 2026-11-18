@@ -94,8 +94,6 @@ export function NotificationBell({
     };
   }, [qc, active, variant]);
 
-  if (!active) return null;
-
   const invalidate = () => qc.invalidateQueries({ queryKey: ["notifications"] });
   const broadcast = () => {
     try {
@@ -123,6 +121,9 @@ export function NotificationBell({
     onSuccess: afterMutate,
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
+
+  // Both mounted viewport variants must call the same hooks before hiding.
+  if (!active) return null;
 
   // Popover shows only the 8 most recent — heavy lifting lives in the
   // Notifications workspace inside Follow-ups.

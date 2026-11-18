@@ -38,8 +38,12 @@ export const Route = createFileRoute("/portal/$token")({
   component: GuestPortal,
   head: () => ({
     meta: [
-      { title: "Complete Your Booking" },
-      { name: "description", content: "Review your booking and complete your payment securely." },
+      { title: "Guest Portal — Hotel Excella" },
+      { name: "description", content: "Hotel Excella guest booking, payments, documents and tax invoices." },
+      { property: "og:title", content: "Guest Portal — Hotel Excella" },
+      { property: "og:description", content: "Hotel Excella guest booking, payments, documents and tax invoices." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   errorComponent: ({ error }) => (
@@ -1241,6 +1245,8 @@ function PortalInvoiceCard({ token }: { token: string }) {
           charges={data.charges}
           presentation={{
             branding: data.branding,
+            billing: data.billing,
+            roomLabels: data.roomLabels,
             checkInTime: data.checkInTime,
             checkOutTime: data.checkOutTime,
           }}

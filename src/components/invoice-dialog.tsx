@@ -1,336 +1,127 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useQuery } from "@tanstack/react-query";
-import { MoreVertical, Printer, Share2, Download, X } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { MoreVertical, Printer, Share2, Download, X, Pencil, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import type { BookingRow } from "@/lib/bookings-api";
 import type { BookingItemRow } from "@/lib/booking-items-api";
 import type { BookingPaymentRow } from "@/lib/booking-payments-api";
 import type { BookingChargeRow } from "@/lib/booking-charges-api";
+import type { BrandingSettings } from "@/lib/branding";
+import { invoiceBillingSchema, type InvoiceBilling } from "@/lib/invoice-billing";
 import { nodeToBlob } from "@/lib/share-quote";
-import { useOpsTimeLabels } from "@/lib/check-times";
-import { getBrandingSettings } from "@/lib/app-settings-api";
-import { buildInvoiceDocument } from "@/lib/invoice-document";
-import { downloadInvoicePdf, printInvoicePdf } from "@/lib/invoice-pdf";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+import { buildInvoiceDocument, invoiceMoney } from "@/lib/invoice-document";
+import { getStaffInvoice, updateInvoiceBilling } from "@/lib/invoice.functions";
+import { downloadInvoicePdf, printInvoicePdf, prepareInvoicePdf } from "@/lib/invoice-pdf";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
-const fmtDate = (s: string) =>
-  new Date(s + (s.length === 10 ? "T00:00:00" : "")).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-const fmtDateTime = (s: string) =>
-  new Date(s).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" });
-const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
+const fmtDate = (s: string) => new Date(s + (s.length === 10 ? "T00:00:00" : "")).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+const inr = (n: number) => `₹${invoiceMoney(n)}`;
+interface Presentation {
+  branding?: BrandingSettings | null;
+  billing?: InvoiceBilling | null;
+  roomLabels?: Record<string, string>;
+  checkInTime?: string;
+  checkOutTime?: string;
+}
 
-/**
- * Invoice / Proforma viewer for a booking.
- *
- * The document content comes from the shared invoice engine
- * (`invoice-document.ts`), so this modal, the downloaded A4 PDF and the printed
- * copy are always the same document. Actions live in a single ⋮ menu:
- *   Share (image, existing HEOS share flow) · Print (prints the PDF) ·
- *   Download PDF (saves a real PDF — never window.print()).
- */
-export function InvoiceDialog({
-  booking, items = [], payments = [], charges = [], presentation, onClose,
-}: {
-  booking: BookingRow;
-  items?: BookingItemRow[];
-  payments?: BookingPaymentRow[];
-  charges?: BookingChargeRow[];
-  presentation?: {
-    branding?: { invoice_footer?: string | null; signature_url?: string | null; signatory_designation?: string | null } | null;
-    checkInTime?: string;
-    checkOutTime?: string;
-  };
-  onClose: () => void;
+/** Shared viewer. Staff reads the full folio; portal supplies the same token-scoped payload. */
+export function InvoiceDialog({ booking, items = [], payments = [], charges = [], presentation, onClose }: {
+  booking: BookingRow; items?: BookingItemRow[]; payments?: BookingPaymentRow[]; charges?: BookingChargeRow[];
+  presentation?: Presentation; onClose: () => void;
 }) {
   const docRef = useRef<HTMLDivElement>(null);
-  const checkTimes = useOpsTimeLabels(!presentation);
-  const { data: branding } = useQuery({
-    queryKey: ["branding-settings"],
-    queryFn: getBrandingSettings,
-    enabled: !presentation,
+  const qc = useQueryClient();
+  const readInvoice = useServerFn(getStaffInvoice);
+  const saveBilling = useServerFn(updateInvoiceBilling);
+  const [editing, setEditing] = useState(false);
+  const [company, setCompany] = useState("");
+  const [gst, setGst] = useState("");
+  const [busy, setBusy] = useState(false);
+  const invoice = useQuery({ queryKey: ["staff-invoice", booking.id], queryFn: () => readInvoice({ data: { booking_id: booking.id } }), enabled: !presentation, staleTime: 0 });
+  const payload = invoice.data;
+  const model = useMemo(() => buildInvoiceDocument(presentation
+    ? { booking, items, payments, charges, ...presentation }
+    : payload ?? { booking, items, payments, charges }), [booking, items, payments, charges, presentation, payload]);
+  const ready = !!presentation || !!payload;
+  const { kind, totals } = model;
+  const mutation = useMutation({
+    mutationFn: () => {
+      const parsed = invoiceBillingSchema.parse({ company_name: company, gst_number: gst });
+      return saveBilling({ data: { booking_id: booking.id, ...parsed } });
+    },
+    onSuccess: async () => {
+      await Promise.all([qc.invalidateQueries({ queryKey: ["staff-invoice", booking.id] }), qc.invalidateQueries({ queryKey: ["customer", booking.customer_id] }), qc.invalidateQueries({ queryKey: ["customers"] })]);
+      setEditing(false); toast.success("Guest billing details saved");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Could not save billing details"),
   });
-
-  const effectiveBranding = presentation?.branding ?? branding;
-  const model = useMemo(
-    () => buildInvoiceDocument({
-      booking, items, payments, charges, branding: effectiveBranding,
-      checkInTime: presentation?.checkInTime ?? checkTimes.checkIn,
-      checkOutTime: presentation?.checkOutTime ?? checkTimes.checkOut,
-    }),
-    [booking, items, payments, charges, effectiveBranding, presentation?.checkInTime, presentation?.checkOutTime, checkTimes.checkIn, checkTimes.checkOut],
-  );
-  const { kind, isFinal, totals } = model;
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  const handleDownload = () => {
+  const runPdf = async (print: boolean) => {
+    setBusy(true);
     try {
-      downloadInvoicePdf(model);
-      toast.success(`${isFinal ? "Invoice" : "Proforma invoice"} PDF downloaded`);
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not generate PDF");
-    }
+      const prepared = await prepareInvoicePdf(model);
+      if (print) printInvoicePdf(prepared); else { downloadInvoicePdf(prepared); toast.success("Invoice PDF downloaded"); }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Could not generate PDF"); }
+    finally { setBusy(false); }
   };
-
-  const handlePrint = () => {
-    try {
-      printInvoicePdf(model);
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not open print");
-    }
-  };
-
   const handleShare = async () => {
     if (!docRef.current) return;
+    setBusy(true);
     try {
       const blob = await nodeToBlob(docRef.current);
       if (!blob) throw new Error("Could not render invoice");
-      const filename = `${model.number}.png`;
-      const file = new File([blob], filename, { type: "image/png" });
-      const navAny = navigator as any;
-      const canShareFile =
-        typeof navAny.share === "function" &&
-        typeof navAny.canShare === "function" &&
-        navAny.canShare({ files: [file] });
-      if (canShareFile) {
-        try {
-          await navAny.share({
-            files: [file],
-            title: `${model.hotel.name} · ${kind} · ${booking.booking_reference}`,
-            text: `${kind} for ${booking.guest_name} · ${booking.booking_reference}`,
-          });
-          return;
-        } catch (e: any) {
-          if (e?.name === "AbortError") return;
-        }
+      const file = new File([blob], `${model.number}.png`, { type: "image/png" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `${model.hotel.name} · ${model.number}` });
+      } else {
+        const url = URL.createObjectURL(blob); const a = document.createElement("a");
+        a.href = url; a.download = file.name; a.click(); URL.revokeObjectURL(url); toast.success("Invoice image saved");
       }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-      toast.success("Invoice image saved");
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to share");
-    }
+    } catch (e: unknown) {
+      if (!(e instanceof Error && e.name === "AbortError")) toast.error(e instanceof Error ? e.message : "Could not share invoice");
+    } finally { setBusy(false); }
   };
 
-  const node = (
-    <div
-      className="invoice-print-portal fixed inset-0 z-[100] flex items-start justify-center overflow-auto bg-black/70 backdrop-blur-sm p-4"
-      onClick={onClose}
-    >
-      <div
-        className="invoice-modal-shell luxe-card rounded-2xl w-full max-w-3xl my-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Toolbar — one ⋮ menu keeps Booking Detail clean (hidden on print) */}
-        <div className="invoice-print-hide flex items-center justify-between gap-2 px-4 py-3 border-b border-border">
-          <div className="text-sm font-medium">{kind} · {model.number}</div>
+  return createPortal(
+    <div className="invoice-print-portal fixed inset-0 z-[100] flex items-start justify-center overflow-auto bg-invoice-overlay p-2 sm:p-5" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={`${kind} ${model.number}`} className="invoice-modal-shell my-3 w-full max-w-4xl rounded-md border border-border bg-card" onClick={(e) => e.stopPropagation()}>
+        <div className="invoice-print-hide flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-3 sm:px-5">
+          <div className="min-w-0 text-xs font-medium break-all">{model.number}</div>
           <div className="flex items-center gap-1">
-            <button onClick={handleDownload}
-              className="inline-flex items-center gap-2 rounded-md gold-gradient px-3 py-2 text-xs font-medium text-charcoal">
-              <Download className="h-3.5 w-3.5" /> Download PDF
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="p-2 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:border-gold/40"
-                  aria-label="Invoice actions">
-                  <MoreVertical className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem onClick={handleShare}>
-                  <Share2 className="h-3.5 w-3.5 text-gold" /> Share
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handlePrint}>
-                  <Printer className="h-3.5 w-3.5 text-gold" /> Print
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleDownload}>
-                  <Download className="h-3.5 w-3.5 text-gold" /> Download PDF
-                </DropdownMenuItem>
-              </DropdownMenuContent>
+            {!presentation && <Button size="icon" variant="ghost" title="Edit GST / Company" aria-label="Edit GST / Company" disabled={!ready || !booking.customer_id} onClick={() => { setCompany(model.guest.company ?? ""); setGst(model.guest.gstin ?? ""); setEditing(!editing); }}><Pencil /></Button>}
+            <Button size="sm" disabled={!ready || busy || mutation.isPending} onClick={() => void runPdf(false)}>{busy ? <Loader2 className="animate-spin" /> : <Download />} Download PDF</Button>
+            <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Invoice actions" disabled={!ready || busy}><MoreVertical /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => void handleShare()}><Share2 /> Share</DropdownMenuItem><DropdownMenuItem onClick={() => void runPdf(true)}><Printer /> Print</DropdownMenuItem></DropdownMenuContent>
             </DropdownMenu>
-            <button onClick={onClose} className="p-2 text-muted-foreground hover:text-foreground" aria-label="Close">
-              <X className="h-4 w-4" />
-            </button>
+            <Button size="icon" variant="ghost" aria-label="Close invoice" onClick={onClose}><X /></Button>
           </div>
         </div>
-
-        {/* Document body — compact single-page layout, mirrors the PDF */}
-        <div ref={docRef} className="p-5 md:p-7 bg-card text-foreground text-sm" data-invoice-print>
-          {/* Header */}
-          <div className="flex items-start justify-between gap-4 pb-3 border-b border-border">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-md gold-gradient flex items-center justify-center shrink-0">
-                <span className="font-display text-lg font-semibold text-charcoal">H</span>
-              </div>
-              <div className="leading-tight">
-                <div className="font-display text-base">{model.hotel.name}</div>
-                <div className="text-[10px] text-muted-foreground">{model.hotel.address} · {model.hotel.phone}</div>
-                <div className="text-[10px] text-muted-foreground">{model.hotel.email} · GSTIN: {model.hotel.gstin}</div>
-              </div>
-            </div>
-            <div className="text-right leading-tight">
-              <h2 className="font-display text-xl gold-text-gradient">{kind}</h2>
-              <div className="text-[10px] text-muted-foreground">No: {model.number}</div>
-              <div className="text-[10px] text-muted-foreground">Date: {fmtDate(model.issuedAt)}</div>
-            </div>
+        {editing && <form className="invoice-print-hide grid gap-3 border-b border-border p-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
+          <label className="space-y-1 text-xs">Company Name<input aria-label="Company Name" maxLength={200} className="block w-full rounded-md border border-input bg-background p-2 text-sm" value={company} onChange={(e) => setCompany(e.target.value)} /></label>
+          <label className="space-y-1 text-xs">Guest GSTIN<input aria-label="Guest GSTIN" maxLength={15} className="block w-full rounded-md border border-input bg-background p-2 text-sm uppercase" value={gst} onChange={(e) => setGst(e.target.value.toUpperCase())} /></label>
+          <div className="flex justify-end gap-2 sm:col-span-2"><Button variant="ghost" size="sm" type="button" onClick={() => setEditing(false)}>Cancel</Button><Button size="sm" disabled={mutation.isPending}>{mutation.isPending ? <Loader2 className="animate-spin" /> : <Save />} Save Billing</Button></div>
+        </form>}
+        {!ready ? <div className="flex min-h-48 items-center justify-center gap-2 p-5 text-sm">{invoice.isError ? <><span>Could not load invoice.</span><Button size="sm" variant="outline" onClick={() => void invoice.refetch()}>Retry</Button></> : <><Loader2 className="h-5 w-5 animate-spin" /> Loading invoice…</>}</div> :
+        <div ref={docRef} className="invoice-document bg-invoice-paper p-4 text-invoice-ink sm:p-8" data-invoice-print>
+          <div className="flex flex-col gap-4 border-b border-invoice-rule pb-5 sm:flex-row sm:items-start">
+            {model.hotel.logo_url && <img src={model.hotel.logo_url} alt={`${model.hotel.name} logo`} className="h-16 w-24 shrink-0 object-contain" />}
+            <div className="min-w-0 space-y-1 text-xs break-words"><h2 className="text-lg font-bold sm:text-xl">{model.hotel.legal_name || model.hotel.name}</h2>{model.hotel.legal_name && <p className="text-sm">(Unit: {model.hotel.name})</p>}<p className="max-w-xl text-invoice-muted">{model.hotel.address}</p><p>{model.hotel.gstin && `GSTIN: ${model.hotel.gstin}`}{model.hotel.phone && ` · Ph: ${model.hotel.phone}`}</p><p className="text-invoice-muted">{[model.hotel.email, model.hotel.website].filter(Boolean).join(" · ")}</p></div>
           </div>
-
-          {/* Guest + Stay — two columns, no repeated room info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 py-3 border-b border-border">
-            <div>
-              <h4 className="text-[9px] uppercase tracking-[0.22em] text-gold mb-1">Billed To</h4>
-              <div className="font-medium">{model.guest.name}</div>
-              <div className="text-[11px] text-muted-foreground">
-                {[model.guest.phone, model.guest.email].filter(Boolean).join(" · ")}
-              </div>
-              <div className="text-[11px] text-muted-foreground">Booking Ref: {booking.booking_reference}</div>
-            </div>
-            <div>
-              <h4 className="text-[9px] uppercase tracking-[0.22em] text-gold mb-1">Stay Details</h4>
-              <div className="font-medium">
-                {fmtDate(model.stay.checkIn)} → {fmtDate(model.stay.checkOut)} ({model.stay.nights}N)
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                {model.stay.adults} Adult{model.stay.adults === 1 ? "" : "s"}
-                {model.stay.children > 0 ? ` + ${model.stay.children} Child${model.stay.children === 1 ? "" : "ren"}` : ""}
-                {" · "}In {checkTimes.checkIn} · Out {checkTimes.checkOut}
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                {model.roomLines.map((r) => `${r.qty} × ${r.label}`).join(", ")}
-              </div>
-            </div>
-          </div>
-
-          {/* Charges */}
-          <div className="py-3 border-b border-border">
-            <h4 className="text-[9px] uppercase tracking-[0.22em] text-gold mb-1.5">Accommodation</h4>
-            <table className="w-full">
-              <tbody>
-                {model.roomLines.map((r, i) => (
-                  <tr key={`rm-${i}`} className="border-b border-border/40">
-                    <td className="py-1">
-                      {r.qty > 1 ? `${r.qty} × ` : ""}{r.label}
-                      <span className="text-muted-foreground text-[11px]">
-                        {r.nights ? ` · ${r.nights}N` : ""}{r.rate ? ` · ${inr(r.rate)}/night` : ""}
-                      </span>
-                      {r.detail && <div className="text-[10px] text-muted-foreground">{r.detail}</div>}
-                    </td>
-                    <td className="py-1 text-right tabular-nums">{inr(r.amount)}</td>
-                  </tr>
-                ))}
-                {model.extraLines.length > 0 && (
-                  <tr><td className="pt-2 pb-0.5 text-[9px] uppercase tracking-[0.22em] text-gold" colSpan={2}>Additional Stay Charges</td></tr>
-                )}
-                {model.extraLines.map((e, i) => (
-                  <tr key={`ex-${i}`} className="border-b border-border/40">
-                    <td className="py-1 pl-3 text-muted-foreground">{e.label}</td>
-                    <td className="py-1 text-right tabular-nums">{inr(e.value)}</td>
-                  </tr>
-                ))}
-                {model.chargeLines.length > 0 && (
-                  <tr><td className="pt-2 pb-0.5 text-[9px] uppercase tracking-[0.22em] text-gold" colSpan={2}>In-House Charges (tax incl.)</td></tr>
-                )}
-                {model.chargeLines.map((c, i) => (
-                  <tr key={`ch-${i}`} className="border-b border-border/40">
-                    <td className="py-1 pl-3 text-muted-foreground">
-                      {c.label}{c.qty !== 1 ? ` × ${c.qty}` : ""}{c.room ? ` — ${c.room}` : ""}
-                    </td>
-                    <td className="py-1 text-right tabular-nums">{inr(c.amount)}</td>
-                  </tr>
-                ))}
-                <tr className="border-b border-border/40">
-                  <td className="py-1 font-medium">Gross Charges</td>
-                  <td className="py-1 text-right tabular-nums">{inr(totals.subtotal)}</td>
-                </tr>
-                {totals.discount > 0 && (
-                  <tr className="border-b border-border/40">
-                    <td className="py-1">Discount</td>
-                    <td className="py-1 text-right tabular-nums">-{inr(totals.discount)}</td>
-                  </tr>
-                )}
-                <tr className="border-b border-border/40">
-                  <td className="py-1 text-muted-foreground">Taxable Amount</td>
-                  <td className="py-1 text-right tabular-nums">{inr(totals.taxable)}</td>
-                </tr>
-                <tr className="border-b border-border/40">
-                  <td className="py-1 text-muted-foreground">Tax{totals.taxRate > 0 ? ` (${Math.round(totals.taxRate * 100)}%)` : ""}</td>
-                  <td className="py-1 text-right tabular-nums">{inr(totals.taxes)}</td>
-                </tr>
-                <tr>
-                  <td className="pt-2 font-medium">{isFinal ? "Total Invoice Amount" : "Total Payable"}</td>
-                  <td className="pt-2 text-right font-display text-base gold-text-gradient tabular-nums">{inr(totals.total)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Payments + balance */}
-          <div className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-            <div>
-              <h4 className="text-[9px] uppercase tracking-[0.22em] text-gold mb-1.5">
-                {isFinal ? "Payment Summary" : "Payments Received"}
-              </h4>
-              {model.payments.length > 0 ? (
-                <table className="w-full text-[12px]">
-                  <tbody>
-                    {model.payments.map((p, i) => (
-                      <tr key={`p-${i}`} className="border-b border-border/40">
-                        <td className="py-0.5 text-muted-foreground tabular-nums">{fmtDateTime(p.date)}</td>
-                        <td className="py-0.5 text-muted-foreground">{p.mode}</td>
-                        <td className="py-0.5 text-right tabular-nums">{inr(p.amount)}</td>
-                      </tr>
-                    ))}
-                    <tr>
-                      <td className="pt-1 font-medium" colSpan={2}>Total Paid</td>
-                      <td className="pt-1 text-right tabular-nums">{inr(model.paymentsTotal)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              ) : (
-                <p className="text-[12px] text-muted-foreground italic">No payments recorded yet.</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1 self-start">
-              <div className="flex justify-between"><span className="text-muted-foreground">Total Amount</span><span className="tabular-nums">{inr(totals.total)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Amount Paid</span><span className="tabular-nums">{inr(totals.paid)}</span></div>
-              <div className="flex justify-between border-t border-border pt-1.5">
-                <span className="font-medium">{totals.isCredit ? "Guest Credit" : (isFinal ? "Outstanding Balance" : "Balance Due")}</span>
-                <span className={cn("font-display text-base tabular-nums", totals.isCredit ? "text-success" : "gold-text-gradient")}>
-                  {inr(Math.abs(totals.balance))}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer + signature — reserved, always on the same page as the PDF */}
-          <div className="pt-3 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-            <div className="text-[10px] text-muted-foreground">{model.footer}</div>
-            <div className="text-right text-[10px] text-muted-foreground">
-              {model.signature.url ? (
-                <img src={model.signature.url} alt="Authorised signature"
-                  className="ml-auto mb-1 h-12 w-auto max-w-[160px] object-contain bg-white rounded p-1" />
-              ) : (
-                <div className="ml-auto mb-1 h-12 w-[150px] border-b border-dashed border-border" />
-              )}
-              <div className="text-foreground font-medium">{model.signature.designation}</div>
-              <div>{model.hotel.name}</div>
-            </div>
-          </div>
-        </div>
+          <div className="flex flex-col-reverse justify-between gap-3 border-b border-invoice-rule py-4 sm:flex-row sm:items-center"><div className="space-y-1 text-xs"><p><b>Invoice No:</b> {model.number}</p><p><b>Invoice Date:</b> {fmtDate(model.issuedAt)}</p><p><b>Booking Ref:</b> {booking.booking_reference}</p></div><h1 className="text-2xl font-bold sm:text-right">{kind}</h1></div>
+          <div className="grid gap-4 py-5 text-xs sm:grid-cols-2"><div className="space-y-1 break-words"><h3 className="mb-2 font-bold">BILL TO</h3><p className="text-sm font-semibold">{model.guest.name}</p>{model.guest.company && <p>{model.guest.company}</p>}{model.guest.address && <p>{model.guest.address}</p>}{model.guest.gstin && <p>GSTIN: {model.guest.gstin}</p>}<p className="text-invoice-muted">{[model.guest.phone, model.guest.email].filter(Boolean).join(" · ")}</p></div><div className="space-y-1"><h3 className="mb-2 font-bold">STAY DETAILS</h3><p>Check In: {fmtDate(model.stay.checkIn)} · {model.stay.checkInTime}</p><p>Check Out: {fmtDate(model.stay.checkOut)} · {model.stay.checkOutTime}</p><p>{model.stay.nights} night(s) · {model.stay.adults} adult(s){model.stay.children > 0 && ` · ${model.stay.children} child(ren)`}</p></div></div>
+          <div className="overflow-x-auto"><table className="w-full min-w-[650px] table-fixed border-collapse border border-invoice-rule text-[10px]"><colgroup><col className="w-[4%]" /><col className="w-[29%]" /><col className="w-[11%]" /><col className="w-[11%]" /><col className="w-[9%]" /><col className="w-[9%]" /><col className="w-[13%]" /><col className="w-[14%]" /></colgroup><thead className="bg-invoice-band"><tr>{["#", "Description / SAC", "Check In", "Check Out", "Room(s)", "Days / Qty", "Rate", "Amount"].map((h) => <th key={h} className="border border-invoice-rule p-2 text-left last:text-right">{h}</th>)}</tr></thead><tbody>{model.tableLines.map((r, i) => <tr key={i}><td className="border border-invoice-rule p-2 align-top">{i + 1}</td><td className="border border-invoice-rule p-2 break-words align-top">{r.description}{r.sac && <p className="mt-1 text-invoice-muted">SAC: {r.sac}</p>}</td><td className="border border-invoice-rule p-2 align-top">{r.checkIn ? fmtDate(r.checkIn) : "—"}</td><td className="border border-invoice-rule p-2 align-top">{r.checkOut ? fmtDate(r.checkOut) : "—"}</td><td className="border border-invoice-rule p-2 break-words align-top">{r.rooms || "—"}</td><td className="border border-invoice-rule p-2 align-top">{r.qty}<p className="text-[9px] text-invoice-muted">{r.unit}</p></td><td className="border border-invoice-rule p-2 text-right align-top tabular-nums">{invoiceMoney(r.rate)}</td><td className="border border-invoice-rule p-2 text-right align-top tabular-nums">{invoiceMoney(r.amount)}</td></tr>)}</tbody></table></div>
+          <div className="grid gap-6 py-5 sm:grid-cols-2"><div className="space-y-4 text-xs"><div><h3 className="mb-1 font-bold">TOTAL IN WORDS</h3><p className="leading-relaxed">{model.amountInWords}</p></div><div><h3 className="mb-1 font-bold">NOTES</h3>{!model.isFinal && <p className="mb-2">This proforma is not a tax invoice. Final invoice is issued after checkout.</p>}<p className="leading-relaxed text-invoice-muted">{model.footer}</p></div></div><div className="space-y-2 text-xs"><TotalRow label="Sub Total" value={totals.subtotal} />{totals.discount > 0 && <TotalRow label="Discount" value={-totals.discount} />}<TotalRow label="Taxable Amount" value={totals.taxable} />{model.taxLines.map((t) => <TotalRow key={t.label} label={`${t.label} (${t.rate}%)`} value={t.amount} />)}<div className="border-y border-invoice-rule bg-invoice-band px-2 py-3 text-sm font-bold"><TotalRow label="Total" value={totals.total} /></div><TotalRow label="Payment Made" value={totals.paid} /><div className="border-t border-invoice-rule pt-2 font-bold"><TotalRow label={totals.isCredit ? "Guest Credit" : "Balance Due"} value={Math.abs(totals.balance)} /></div></div></div>
+          <div className="grid items-end gap-6 border-t border-invoice-rule pt-5 text-xs sm:grid-cols-2"><div><h3 className="mb-2 font-bold">PAYMENTS RECEIVED</h3>{model.payments.length ? <div className="space-y-1">{model.payments.map((p, i) => <div key={i} className="flex flex-wrap justify-between gap-x-3"><span className="text-invoice-muted">{fmtDate(p.date)} · {p.mode}</span><span className="tabular-nums">{inr(p.amount)}</span></div>)}</div> : <p className="text-invoice-muted">No payments recorded.</p>}</div><div className="text-right">{model.signature.url ? <img src={model.signature.url} alt="Authorised signature" className="mb-1 ml-auto h-14 w-40 object-contain" /> : <div className="mb-2 ml-auto h-12 w-40 border-b border-invoice-rule" />}<p className="font-semibold">{model.signature.designation}</p><p className="mt-1 text-invoice-muted">{model.hotel.legal_name || model.hotel.name}</p></div></div>
+          <p className="mt-6 border-t border-invoice-rule pt-3 text-[10px] text-invoice-muted">All amounts in INR · {model.number}</p>
+        </div>}
       </div>
-    </div>
+    </div>, document.body,
   );
-
-  return createPortal(node, document.body);
 }
+function TotalRow({ label, value }: { label: string; value: number }) { return <div className="flex justify-between gap-3"><span>{label}</span><span className="whitespace-nowrap tabular-nums">{inr(value)}</span></div>; }

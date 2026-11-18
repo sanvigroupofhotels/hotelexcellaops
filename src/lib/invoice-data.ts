@@ -15,7 +15,7 @@ export async function loadInvoiceData(client: Db, bookingId: string) {
     client.from("booking_payments" as any).select("*").eq("booking_id", bookingId).order("occurred_at"),
     client.from("booking_charges" as any).select("*").eq("booking_id", bookingId).order("created_at"),
     client.from("app_settings" as any).select("key,value").in("key", ["hotel", "branding", "ops"]),
-    client.from("booking_room_assignments" as any).select("booking_item_id,room_id,rooms(room_number)").eq("booking_id", bookingId),
+    client.from("booking_room_assignments" as any).select("item_id,room_id,rooms(room_number)").eq("booking_id", bookingId),
   ]);
   for (const result of results) if (result.error) throw result.error;
   const booking = results[0].data as unknown as BookingRow | null;
@@ -36,7 +36,7 @@ export async function loadInvoiceData(client: Db, bookingId: string) {
   const roomLabels: Record<string, string> = {};
   for (const item of items) {
     const labels = (results[5].data ?? [] as any[])
-      .filter((a: any) => a.booking_item_id === item.id)
+      .filter((a: any) => a.item_id === item.id)
       .map((a: any) => a.rooms?.room_number).filter(Boolean);
     const assigned = item.assigned_room_id ? roomById.get(item.assigned_room_id) : null;
     if (assigned) labels.unshift(assigned);

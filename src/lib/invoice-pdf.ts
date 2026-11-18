@@ -1,398 +1,184 @@
-/**
- * A4 single-page PDF renderer for the shared invoice document model.
- *
- * This is the ONLY PDF implementation in HEOS — Invoice and Proforma Invoice
- * both render through `renderInvoicePdf(model)`; the model's `kind` flag drives
- * the title and terms. Download saves this file directly (never window.print),
- * and Print prints this very same PDF so screen, download and print never drift.
- *
- * Fitting strategy (layout-first, not "shrink the font"):
- *   1. Rooms of identical type/rate/dates are already folded upstream.
- *   2. Row leading steps down through a small, still-readable range.
- *   3. Payment rows collapse to per-mode summaries, then to a single Total Paid.
- *   4. Long charge lists fold their tail into one "Other charges (N)" row.
- * The signature block sits at a reserved, fixed position at the bottom of the
- * page, so it can never be pushed to a second page.
- */
+/** The single A4 renderer for downloads and printing across all invoice surfaces. */
 import { jsPDF } from "jspdf";
-import type { InvoiceDocModel, InvoicePaymentLine, InvoiceChargeLine } from "@/lib/invoice-document";
+import { invoiceMoney, type InvoiceDocModel, type InvoicePaymentLine, type InvoiceChargeLine, type InvoiceTableLine } from "@/lib/invoice-document";
 
-const PAGE_W = 595.28;
-const PAGE_H = 841.89;
-const M = 34;
-const GOLD: [number, number, number] = [176, 141, 66];
-const INK: [number, number, number] = [26, 26, 26];
-const MUTED: [number, number, number] = [110, 110, 110];
-const RULE: [number, number, number] = [214, 214, 214];
-
-/** Reserved band at the bottom of the page for footer + signature. */
-const SIGNATURE_BAND_H = 96;
-
-const inr = (n: number) => `Rs. ${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
+const W = 595.28, H = 841.89, M = 32;
+const inr = (n: number) => `INR ${invoiceMoney(n)}`;
 const fmtDate = (s: string) => {
-  const d = new Date(s + (s?.length === 10 ? "T00:00:00" : ""));
-  return isNaN(d.getTime()) ? String(s ?? "") : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const d = new Date(s + (s.length === 10 ? "T00:00:00" : ""));
+  return isNaN(d.getTime()) ? s : d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
 };
-const fmtDateTime = (s: string) => {
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? String(s ?? "") : d.toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" });
-};
+const clean = (s: string) => s.replace(/₹/g, "INR ").replace(/[–—→]/g, "-").replace(/×/g, "x").replace(/−/g, "-").replace(/[^\x20-\x7e\n]/g, " ");
 
-type Row =
-  | { t: "section"; label: string }
-  | { t: "row"; label: string; sub?: string; right: string; bold?: boolean; muted?: boolean }
-  | { t: "rule" };
-
-/** Collapse payments by mode — keeps the financial total identical. */
-export function summarisePaymentsByMode(payments: InvoicePaymentLine[]): InvoicePaymentLine[] {
-  const byMode = new Map<string, number>();
-  for (const p of payments) byMode.set(p.mode, (byMode.get(p.mode) ?? 0) + p.amount);
-  return [...byMode.entries()].map(([mode, amount]) => ({ date: "", mode, amount }));
+/** CSS print tokens drive the browser; grayscale fallbacks allow server/test rendering. */
+function color(role: string, fallback: number): [number, number, number] {
+  if (typeof document !== "undefined" && typeof getComputedStyle === "function") {
+    const parts = getComputedStyle(document.documentElement).getPropertyValue(`--invoice-pdf-${role}`).split(",").map(Number);
+    const [r, g, b] = parts;
+    if (parts.length === 3 && r !== undefined && g !== undefined && b !== undefined && parts.every(Number.isFinite)) return [r, g, b];
+  }
+  return [fallback, fallback, fallback];
 }
-
-/** Fold the tail of a long charge list into one aggregate row. */
+export function summarisePaymentsByMode(payments: InvoicePaymentLine[]): InvoicePaymentLine[] {
+  const modes = new Map<string, number>();
+  for (const p of payments) modes.set(p.mode, (modes.get(p.mode) ?? 0) + p.amount);
+  return [...modes].map(([mode, amount]) => ({ date: "", mode, amount }));
+}
 export function foldChargeTail(lines: InvoiceChargeLine[], keep: number): InvoiceChargeLine[] {
   if (lines.length <= keep) return lines;
-  const head = lines.slice(0, keep);
-  const tail = lines.slice(keep);
-  head.push({
-    label: `Other charges (${tail.length} items)`,
-    room: "",
-    qty: 1,
-    amount: tail.reduce((s, c) => s + c.amount, 0),
-    itemId: null,
-  });
-  return head;
+  return [...lines.slice(0, keep), { label: `Other charges (${lines.length - keep} items)`, room: "", qty: 1, amount: lines.slice(keep).reduce((s, c) => s + c.amount, 0), itemId: null }];
 }
 
-/**
- * Build the ordered rows for a given density variant.
- * `tail` (settlement block) is anchored to the bottom of the body area so short
- * invoices read as a designed document rather than a top-heavy fragment.
- */
-function buildRows(
-  m: InvoiceDocModel,
-  variant: { payments: "full" | "byMode" | "total"; chargeKeep: number },
-): { body: Row[]; tail: Row[] } {
-  const rows: Row[] = [];
-  rows.push({ t: "section", label: "Accommodation" });
-  for (const r of m.roomLines) {
-    rows.push({
-      t: "row",
-      label: `${r.qty > 1 ? `${r.qty} × ` : ""}${r.label}${r.nights ? `  ·  ${r.nights}N` : ""}${r.rate ? `  ·  ${inr(r.rate)}/night` : ""}`,
-      sub: r.detail || undefined,
-      right: inr(r.amount),
-    });
-  }
-  if (m.extraLines.length) {
-    rows.push({ t: "section", label: "Additional Stay Charges" });
-    for (const e of m.extraLines) rows.push({ t: "row", label: e.label, right: inr(e.value), muted: true });
-  }
-  const charges = foldChargeTail(m.chargeLines, variant.chargeKeep);
-  if (charges.length) {
-    rows.push({ t: "section", label: "In-House Charges (tax incl.)" });
-    for (const c of charges) {
-      rows.push({
-        t: "row",
-        label: `${c.label}${c.qty !== 1 ? ` × ${c.qty}` : ""}${c.room ? `  —  ${c.room}` : ""}`,
-        right: inr(c.amount),
-        muted: true,
-      });
-    }
-  }
-
-  rows.push({ t: "rule" });
-  rows.push({ t: "row", label: "Gross Charges", right: inr(m.totals.subtotal) });
-  if (m.totals.discount > 0) rows.push({ t: "row", label: "Discount", right: `- ${inr(m.totals.discount)}` });
-  rows.push({ t: "row", label: "Taxable Amount", right: inr(m.totals.taxable), muted: true });
-  rows.push({
-    t: "row",
-    label: `Tax${m.totals.taxRate > 0 ? ` (${Math.round(m.totals.taxRate * 100)}%)` : ""}`,
-    right: inr(m.totals.taxes),
-    muted: true,
-  });
-  rows.push({ t: "row", label: m.isFinal ? "Total Invoice Amount" : "Total Payable", right: inr(m.totals.total), bold: true });
-
-  rows.push({ t: "section", label: m.isFinal ? "Payment Summary" : "Payments Received" });
-  if (!m.payments.length) {
-    rows.push({ t: "row", label: "No payments recorded yet.", right: inr(0), muted: true });
-  } else if (variant.payments === "total") {
-    rows.push({ t: "row", label: `Total Paid (${m.payments.length} payments)`, right: inr(m.paymentsTotal) });
-  } else {
-    const list = variant.payments === "byMode" ? summarisePaymentsByMode(m.payments) : m.payments;
-    for (const p of list) {
-      rows.push({
-        t: "row",
-        label: p.date ? `${fmtDateTime(p.date)}  ·  ${p.mode}` : p.mode,
-        right: inr(p.amount),
-        muted: true,
-      });
-    }
-    rows.push({ t: "row", label: "Total Paid", right: inr(m.paymentsTotal) });
-  }
-
-  const tail: Row[] = [
-    { t: "rule" },
-    { t: "row", label: "Total Amount", right: inr(m.totals.total) },
-    { t: "row", label: "Amount Paid", right: inr(m.totals.paid) },
-    {
-      t: "row",
-      label: m.totals.isCredit ? "Guest Credit" : m.isFinal ? "Outstanding Balance" : "Balance Due",
-      right: inr(Math.abs(m.totals.balance)),
-      bold: true,
-    },
-  ];
-  return { body: rows, tail };
-}
-
-function rowHeight(r: Row, leading: number) {
-  if (r.t === "rule") return leading * 0.55;
-  if (r.t === "section") return leading * 1.5;
-  return r.sub ? leading + 8 : leading;
-}
-
-/** Header + guest/stay meta block. Returns the y where the body may start. */
-function drawHead(doc: jsPDF, m: InvoiceDocModel) {
-  let y = M + 4;
-  // Brand mark
-  doc.setFillColor(...GOLD);
-  doc.roundedRect(M, y - 2, 30, 30, 4, 4, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold").setFontSize(16);
-  doc.text("H", M + 11, y + 18);
-
-  doc.setTextColor(...INK).setFont("helvetica", "bold").setFontSize(13);
-  doc.text(m.hotel.name, M + 38, y + 8);
-  doc.setFont("helvetica", "normal").setFontSize(7.4).setTextColor(...MUTED);
-  doc.text(`${m.hotel.address}  ·  ${m.hotel.phone}`, M + 38, y + 18);
-  doc.text(`${m.hotel.email}  ·  GSTIN: ${m.hotel.gstin}`, M + 38, y + 27);
-
-  // Title block (right)
-  doc.setTextColor(...GOLD).setFont("helvetica", "bold").setFontSize(m.isFinal ? 18 : 15);
-  doc.text(m.kind, PAGE_W - M, y + 10, { align: "right" });
-  doc.setFont("helvetica", "normal").setFontSize(7.6).setTextColor(...MUTED);
-  doc.text(`No: ${m.number}`, PAGE_W - M, y + 21, { align: "right" });
-  doc.text(`Date: ${fmtDate(m.issuedAt)}`, PAGE_W - M, y + 30, { align: "right" });
-
-  y += 40;
-  doc.setDrawColor(...RULE).setLineWidth(0.6);
-  doc.line(M, y, PAGE_W - M, y);
-  y += 13;
-
-  // Guest / booking / stay — two compact columns, no repeated room info.
-  const colR = M + (PAGE_W - 2 * M) / 2 + 6;
-  const label = (t: string, x: number, yy: number) => {
-    doc.setFont("helvetica", "bold").setFontSize(6.8).setTextColor(...GOLD);
-    doc.text(t.toUpperCase(), x, yy);
-  };
-  const line = (t: string, x: number, yy: number, bold = false) => {
-    doc.setFont("helvetica", bold ? "bold" : "normal").setFontSize(8.4).setTextColor(...INK);
-    doc.text(t, x, yy);
-  };
-  label("Billed To", M, y);
-  label("Stay Details", colR, y);
-  let ly = y + 11;
-  line(m.guest.name, M, ly, true);
-  line(
-    `${fmtDate(m.stay.checkIn)}  to  ${fmtDate(m.stay.checkOut)}   (${m.stay.nights}N)`,
-    colR, ly, true,
-  );
-  ly += 10;
-  const contact = [m.guest.phone, m.guest.email].filter(Boolean).join("  ·  ");
-  if (contact) line(contact, M, ly);
-  const times = [m.stay.checkInTime && `In ${m.stay.checkInTime}`, m.stay.checkOutTime && `Out ${m.stay.checkOutTime}`]
-    .filter(Boolean).join("  ·  ");
-  const guests = `${m.stay.adults} Adult${m.stay.adults === 1 ? "" : "s"}${m.stay.children ? ` + ${m.stay.children} Child${m.stay.children === 1 ? "" : "ren"}` : ""}`;
-  line([guests, times].filter(Boolean).join("   ·   "), colR, ly);
-  ly += 10;
-  doc.setFont("helvetica", "normal").setFontSize(7.6).setTextColor(...MUTED);
-  doc.text(`Booking Ref: ${m.number.replace(/^(INV|PI)-/, "")}`, M, ly);
-  const roomsSummary = m.roomLines.map((r) => `${r.qty} × ${r.label}`).join(", ");
-  doc.text(roomsSummary.length > 70 ? `${roomsSummary.slice(0, 67)}...` : roomsSummary, colR, ly);
-
-  ly += 8;
-  doc.setDrawColor(...RULE);
-  doc.line(M, ly, PAGE_W - M, ly);
-  return ly + 12;
-}
-
-function drawSignatureBand(doc: jsPDF, m: InvoiceDocModel) {
-  const top = PAGE_H - M - SIGNATURE_BAND_H;
-  doc.setDrawColor(...RULE).setLineWidth(0.6);
-  doc.line(M, top, PAGE_W - M, top);
-
-  // Footer / terms (left)
-  doc.setFont("helvetica", "normal").setFontSize(7.2).setTextColor(...MUTED);
-  const footer = doc.splitTextToSize(m.footer, (PAGE_W - 2 * M) * 0.55);
-  doc.text(footer.slice(0, 4), M, top + 14);
-
-  // Signature (right) — reserved space, always on this page.
-  const rightX = PAGE_W - M;
-  const sigBaseline = top + 56;
-  if (m.signature.url) {
-    try {
-      doc.addImage(m.signature.url, "PNG", rightX - 130, top + 8, 130, 44, undefined, "FAST");
-    } catch { /* unreadable signature image — fall back to the ruled line */ }
-  }
-  doc.setDrawColor(150, 150, 150).setLineWidth(0.5);
-  doc.line(rightX - 130, sigBaseline, rightX, sigBaseline);
-  doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(...INK);
-  doc.text(m.signature.designation, rightX, sigBaseline + 12, { align: "right" });
-  doc.setFont("helvetica", "normal").setFontSize(7.2).setTextColor(...MUTED);
-  doc.text(m.hotel.name, rightX, sigBaseline + 21, { align: "right" });
-  doc.text(
-    `${m.hotel.website}  ·  This is a computer generated document.`,
-    M, PAGE_H - M + 2,
-  );
-}
-
-function drawRows(doc: jsPDF, rows: Row[], startY: number, leading: number) {
-  let y = startY;
-  const rightX = PAGE_W - M;
-  for (const r of rows) {
-    if (r.t === "rule") {
-      doc.setDrawColor(...RULE).setLineWidth(0.5);
-      doc.line(M, y - leading * 0.35, rightX, y - leading * 0.35);
-      y += rowHeight(r, leading);
-      continue;
-    }
-    if (r.t === "section") {
-      doc.setFont("helvetica", "bold").setFontSize(6.8).setTextColor(...GOLD);
-      doc.text(r.label.toUpperCase(), M, y + leading * 0.35);
-      y += rowHeight(r, leading);
-      continue;
-    }
-    const size = r.bold ? 10 : 8.6;
-    doc.setFont("helvetica", r.bold ? "bold" : "normal").setFontSize(size);
-    doc.setTextColor(...(r.muted ? MUTED : INK));
-    const labelMax = (PAGE_W - 2 * M) * 0.68;
-    let label = r.label;
-    while (doc.getTextWidth(label) > labelMax && label.length > 8) label = `${label.slice(0, -5)}...`;
-    doc.text(label, M, y);
-    if (r.bold) doc.setTextColor(...GOLD);
-    doc.text(r.right, rightX, y, { align: "right" });
-    if (r.sub) {
-      doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(...MUTED);
-      doc.text(r.sub, M + 8, y + 8);
-    }
-    y += rowHeight(r, leading);
-  }
-  return y;
-}
-
-/**
- * Render the invoice/proforma as a single-page A4 jsPDF document.
- * Guaranteed one page: the body is fitted between the header and the reserved
- * signature band before anything is drawn.
- */
 export function renderInvoicePdf(m: InvoiceDocModel): jsPDF {
   const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
-  const bodyTop = drawHead(doc, m);
-  const bodyBottom = PAGE_H - M - SIGNATURE_BAND_H - 10;
-  const available = bodyBottom - bodyTop;
+  doc.setProperties({ title: `${m.kind} ${m.number}`, subject: "Accommodation invoice", author: m.hotel.legal_name || m.hotel.name });
+  const ink = color("ink", 37), muted = color("muted", 102), rule = color("rule", 213), band = color("band", 241);
+  const text = (s: string, x: number, y: number, size = 9, bold = false, align: "left" | "right" = "left") => {
+    doc.setTextColor(...ink).setFont("helvetica", bold ? "bold" : "normal").setFontSize(size);
+    doc.text(clean(s), x, y, { align });
+  };
+  const wrapped = (s: string, width: number, size = 9) => {
+    doc.setFont("helvetica", "normal").setFontSize(size);
+    return doc.splitTextToSize(clean(s), width) as string[];
+  };
+  const ruleAt = (y: number) => { doc.setDrawColor(...rule).setLineWidth(0.55); doc.line(M, y, W - M, y); };
+  const image = (url: string | null, x: number, y: number, w: number, h: number) => {
+    if (!url?.startsWith("data:image/")) return;
+    try {
+      const props = doc.getImageProperties(url);
+      const factor = Math.min(w / props.width, h / props.height);
+      doc.addImage(url, props.fileType, x + (w - props.width * factor) / 2, y + (h - props.height * factor) / 2, props.width * factor, props.height * factor);
+    } catch { /* Keep the authorized-signatory line if an image is unreadable. */ }
+  };
+  image(m.hotel.logo_url, M, 32, 72, 52);
+  const hx = m.hotel.logo_url ? M + 84 : M;
+  const entityWidth = W - M - hx;
+  const entity = wrapped(m.hotel.legal_name || m.hotel.name, entityWidth, 15);
+  let y = 45;
+  for (const line of entity) { text(line, hx, y, 15, true); y += 17; }
+  if (m.hotel.legal_name && m.hotel.name) { text(`(Unit: ${m.hotel.name})`, hx, y, 10); y += 14; }
+  for (const line of wrapped(m.hotel.address, entityWidth, 8.5)) { text(line, hx, y, 8.5); y += 11; }
+  text([m.hotel.gstin && `GSTIN: ${m.hotel.gstin}`, m.hotel.phone && `Ph: ${m.hotel.phone}`].filter(Boolean).join("   |   "), hx, y, 8.5); y += 12;
+  for (const line of wrapped([m.hotel.email, m.hotel.website].filter(Boolean).join("   |   "), entityWidth, 8)) { text(line, hx, y, 8); y += 10; }
+  y = Math.max(y + 12, 118);
+  ruleAt(y); y += 22;
+  text(m.kind, W - M, y, 21, true, "right");
+  text(`Invoice No: ${m.number}`, M, y, 9, true); y += 15;
+  text(`Invoice Date: ${fmtDate(m.issuedAt)}`, M, y, 9);
+  text(`Booking Ref: ${m.number.replace(/^(INV|PI)-/, "")}`, W - M, y, 9, false, "right"); y += 16;
+  ruleAt(y); y += 16;
+  text("BILL TO", M, y, 8, true);
+  text("STAY DETAILS", 340, y, 8, true); y += 14;
+  const billLines = [m.guest.name, m.guest.company, m.guest.address, m.guest.gstin && `GSTIN: ${m.guest.gstin}`, [m.guest.phone, m.guest.email].filter(Boolean).join(" | ")].filter((v): v is string => !!v).flatMap((v) => wrapped(v, 286, 9));
+  for (let i = 0; i < billLines.length; i++) text(billLines[i] ?? "", M, y + i * 12, 9, i === 0);
+  text(`Check In: ${fmtDate(m.stay.checkIn)}`, 340, y, 9);
+  text(`Check Out: ${fmtDate(m.stay.checkOut)}`, 340, y + 13, 9);
+  text(`${m.stay.nights} night(s) | ${m.stay.adults} adult(s)${m.stay.children ? ` | ${m.stay.children} child(ren)` : ""}`, 340, y + 26, 8);
+  text(`In ${m.stay.checkInTime ?? ""} | Out ${m.stay.checkOutTime ?? ""}`, 340, y + 39, 8);
+  y += Math.max(56, billLines.length * 12 + 10);
 
-  const variants: { payments: "full" | "byMode" | "total"; chargeKeep: number }[] = [
-    { payments: "full", chargeKeep: 40 },
-    { payments: "byMode", chargeKeep: 40 },
-    { payments: "byMode", chargeKeep: 14 },
-    { payments: "total", chargeKeep: 10 },
-    { payments: "total", chargeKeep: 6 },
-  ];
-  // Largest leading first: short invoices breathe and fill the page naturally,
-  // dense ones step down to the tightest still-readable spacing.
-  const leadings = [17, 15.5, 14, 13, 12.2, 11.4, 10.6, 10];
-
-  const height = (rows: Row[], leading: number) => rows.reduce((s2, r) => s2 + rowHeight(r, leading), 0);
-  let chosen = { ...buildRows(m, variants[0]!), leading: leadings[0]! };
-  let fits = false;
-  outer: for (const v of variants) {
-    const built = buildRows(m, v);
-    for (const leading of leadings) {
-      if (height(built.body, leading) + height(built.tail, leading) <= available) {
-        chosen = { ...built, leading }; fits = true; break outer;
-      }
-    }
+  const cols = [M, M + 22, M + 187, M + 241, M + 295, M + 339, M + 384, M + 453, W - M];
+  const header = () => {
+    doc.setFillColor(...band).setDrawColor(...rule); doc.rect(M, y, W - M * 2, 28, "FD");
+    ["#", "Description / SAC", "Check In", "Check Out", "Room(s)", "Days / Qty", "Rate", "Amount"].forEach((s, i) => text(s, (cols[i] ?? M) + 4, y + 17, 7, true));
+    y += 28;
+  };
+  const newPage = () => {
+    doc.addPage(); y = M; text(`${m.kind} - ${m.number} (continued)`, M, y, 10, true); y += 16; header();
+  };
+  let rows = m.tableLines;
+  const makeLines = (r: InvoiceTableLine) => wrapped(`${r.description}${r.sac ? `\nSAC: ${r.sac}` : ""}`, 155, 7.8);
+  const rowHeight = (r: InvoiceTableLine) => Math.max(30, Math.max(makeLines(r).length * 10, wrapped(r.rooms || "-", 36, 7).length * 9) + 10);
+  // Keep normal invoices single-page, preserving the original aggregate-tail convention for long charge lists.
+  if (rows.reduce((s, r) => s + rowHeight(r), 0) > H - y - 300 && m.chargeLines.length > 4) {
+    const folded = foldChargeTail(m.chargeLines, 3);
+    const head = m.tableLines.slice(0, m.roomLines.length + m.extraLines.length);
+    const adjustment = m.tableLines.slice(m.roomLines.length + m.extraLines.length + m.chargeLines.length);
+    rows = [...head, ...folded.map((c) => ({ description: c.label, sac: "", checkIn: "", checkOut: "", rooms: c.room, qty: c.qty, unit: "Units", rate: c.amount / c.qty, amount: c.amount })), ...adjustment];
   }
-  if (!fits) {
-    chosen = { ...buildRows(m, variants[variants.length - 1]!), leading: leadings[leadings.length - 1]! };
+  header();
+  rows.forEach((r, index) => {
+    const lines = makeLines(r);
+    const height = rowHeight(r);
+    if (y + height > H - M - 18) newPage();
+    doc.setDrawColor(...rule).setLineWidth(0.4); doc.rect(M, y, W - M * 2, height);
+    for (const x of cols.slice(1, -1)) doc.line(x, y, x, y + height);
+    text(String(index + 1), M + 5, y + 13, 7.5);
+    lines.forEach((line, j) => text(line, M + 27, y + 13 + j * 10, 7.8));
+    text(r.checkIn ? fmtDate(r.checkIn) : "-", M + 191, y + 13, 7);
+    text(r.checkOut ? fmtDate(r.checkOut) : "-", M + 245, y + 13, 7);
+    wrapped(r.rooms || "-", 36, 7).forEach((line, j) => text(line, M + 299, y + 13 + j * 9, 7));
+    text(String(r.qty), M + 374, y + 13, 7.5, false, "right");
+    text(r.unit, M + 343, y + 24, 6);
+    text(invoiceMoney(r.rate), M + 449, y + 13, 7.5, false, "right");
+    text(invoiceMoney(r.amount), W - M - 5, y + 13, 8, true, "right");
+    y += height;
+  });
+  if (y + 270 > H - M) { doc.addPage(); y = M; text(`${m.number} - Settlement`, M, y, 11, true); y += 18; }
+  y += 15;
+  const totalsTop = y;
+  text("TOTAL IN WORDS", M, y, 8, true);
+  wrapped(m.amountInWords, 280, 9).forEach((line, i) => text(line, M, y + 15 + i * 12, 9));
+  text("NOTES", M, y + 64, 8, true);
+  const notes = `${!m.isFinal ? "This proforma is not a tax invoice. Final invoice is issued after checkout. " : ""}${m.footer}`;
+  wrapped(notes, 275, 8).forEach((line, i) => text(line, M, y + 78 + i * 11, 8));
+  let ty = y;
+  const totalLine = (label: string, amount: number, bold = false) => {
+    text(label, 342, ty, 8.5, bold); text(inr(amount), W - M, ty, 9, bold, "right"); ty += 17;
+  };
+  totalLine("Sub Total", m.totals.subtotal);
+  if (m.totals.discount > 0) totalLine("Discount", -m.totals.discount);
+  totalLine("Taxable Amount", m.totals.taxable);
+  m.taxLines.forEach((t) => totalLine(`${t.label} (${t.rate}%)`, t.amount));
+  totalLine("Total", m.totals.total, true);
+  totalLine("Payment Made", m.totals.paid);
+  totalLine(m.totals.isCredit ? "Guest Credit" : "Balance Due", Math.abs(m.totals.balance), true);
+  const paymentTop = Math.max(totalsTop + 120, ty + 8);
+  text("PAYMENTS RECEIVED", M, paymentTop, 8, true);
+  const payments = m.payments.length > 3 ? summarisePaymentsByMode(m.payments) : m.payments;
+  let py = paymentTop + 14;
+  if (!payments.length) text("No payments recorded.", M, py, 8);
+  for (const p of payments) { text(`${p.date ? `${fmtDate(p.date)} | ` : ""}${p.mode}: ${inr(p.amount)}`, M, py, 8); py += 11; }
+  const sigY = Math.min(H - M - 64, paymentTop + 12);
+  image(m.signature.url, W - M - 148, sigY - 8, 148, 42);
+  doc.setDrawColor(...rule); doc.line(W - M - 148, sigY + 38, W - M, sigY + 38);
+  wrapped(m.signature.designation, 160, 8).forEach((line, i) => text(line, W - M, sigY + 50 + i * 10, 8, true, "right"));
+  text(m.hotel.legal_name || m.hotel.name, W - M, sigY + 70, 7.5, false, "right");
+  for (let page = 1; page <= doc.getNumberOfPages(); page++) {
+    doc.setPage(page); doc.setTextColor(...muted).setFontSize(7);
+    doc.text(`All amounts in INR | ${m.number}`, M, H - 18);
+    doc.text(`Page ${page} of ${doc.getNumberOfPages()}`, W - M, H - 18, { align: "right" });
   }
-
-  // Frame the charge/settlement area so the invoice reads as a designed
-  // document at any density and residual whitespace looks intentional.
-  doc.setDrawColor(...RULE).setLineWidth(0.6);
-  doc.roundedRect(M - 10, bodyTop - 10, PAGE_W - 2 * M + 20, bodyBottom - bodyTop + 18, 6, 6, "S");
-
-  const bodyEnd = drawRows(doc, chosen.body, bodyTop + chosen.leading, chosen.leading);
-  const tailH = height(chosen.tail, chosen.leading);
-  const tailTop = Math.max(bodyEnd, bodyBottom - tailH);
-
-  // Terms fill the space between the charges block and the settlement block, so
-  // a short invoice never leaves a large blank hole in the middle of the page.
-  if (tailTop - bodyEnd > 40) {
-    doc.setFont("helvetica", "bold").setFontSize(6.8).setTextColor(...GOLD);
-    doc.text("TERMS & NOTES", M, bodyEnd + 6);
-    doc.setFont("helvetica", "normal").setFontSize(7.4).setTextColor(...MUTED);
-    const terms = doc.splitTextToSize(INVOICE_TERMS(m), PAGE_W - 2 * M);
-    doc.text(terms.slice(0, Math.max(1, Math.floor((tailTop - bodyEnd - 20) / 10))), M, bodyEnd + 18, { lineHeightFactor: 1.35 });
-  }
-
-  drawRows(doc, chosen.tail, tailTop, chosen.leading);
-  drawSignatureBand(doc, m);
   return doc;
 }
 
-/** Standard terms — proforma wording differs, engine does not. */
-function INVOICE_TERMS(m: InvoiceDocModel) {
-  const base = [
-    "All charges are in Indian Rupees (INR). Taxes are levied as per prevailing GST regulations.",
-    "In-house charges shown are inclusive of applicable taxes and are attributed to the respective room where applicable.",
-    "Please verify the details above; discrepancies must be reported to reception before departure.",
-  ];
-  const proforma = "This Proforma Invoice is an estimate of charges for the stay and is not a tax invoice. The final GST invoice is issued on checkout.";
-  return (m.isFinal ? base : [proforma, ...base]).join("  ");
+/** Resolve configured images before PDF creation, preserving their original pixels. */
+export async function prepareInvoicePdf(m: InvoiceDocModel): Promise<InvoiceDocModel> {
+  const convert = async (url: string | null) => {
+    if (!url || url.startsWith("data:image/png") || url.startsWith("data:image/jpeg")) return url;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Could not load invoice image. Please retry.");
+    const blob = await response.blob();
+    const bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas"); canvas.width = bitmap.width; canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) { bitmap.close(); throw new Error("Could not prepare invoice image."); }
+    ctx.drawImage(bitmap, 0, 0); bitmap.close(); return canvas.toDataURL("image/png");
+  };
+  const [logo, signature] = await Promise.all([convert(m.hotel.logo_url), convert(m.signature.url)]);
+  return { ...m, hotel: { ...m.hotel, logo_url: logo ?? "" }, signature: { ...m.signature, url: signature } };
 }
-
-export function invoiceFileName(m: InvoiceDocModel) {
-  return `${m.number}.pdf`;
-}
-
-/** Number of pages in the rendered PDF — used by regression tests. */
-export function invoicePdfPageCount(m: InvoiceDocModel) {
-  return renderInvoicePdf(m).getNumberOfPages();
-}
-
-/** Download the PDF directly. Never invokes window.print(). */
-export function downloadInvoicePdf(m: InvoiceDocModel) {
-  const doc = renderInvoicePdf(m);
-  doc.save(invoiceFileName(m));
-}
-
-export function invoicePdfBlob(m: InvoiceDocModel): Blob {
-  return renderInvoicePdf(m).output("blob");
-}
-
-/** Print the exact same PDF through a hidden iframe (separate from Download). */
+export const invoiceFileName = (m: InvoiceDocModel) => `${m.number}.pdf`;
+export const invoicePdfPageCount = (m: InvoiceDocModel) => renderInvoicePdf(m).getNumberOfPages();
+export function downloadInvoicePdf(m: InvoiceDocModel) { renderInvoicePdf(m).save(invoiceFileName(m)); }
+export const invoicePdfBlob = (m: InvoiceDocModel): Blob => renderInvoicePdf(m).output("blob");
 export function printInvoicePdf(m: InvoiceDocModel) {
   const url = URL.createObjectURL(invoicePdfBlob(m));
   const frame = document.createElement("iframe");
-  frame.style.position = "fixed";
-  frame.style.right = "0";
-  frame.style.bottom = "0";
-  frame.style.width = "0";
-  frame.style.height = "0";
-  frame.style.border = "0";
-  frame.src = url;
+  frame.hidden = true; frame.src = url;
   frame.onload = () => {
-    try {
-      frame.contentWindow?.focus();
-      frame.contentWindow?.print();
-    } catch {
-      window.open(url, "_blank");
-    }
-    setTimeout(() => {
-      frame.remove();
-      URL.revokeObjectURL(url);
-    }, 60_000);
+    try { frame.contentWindow?.focus(); frame.contentWindow?.print(); } catch { window.open(url, "_blank"); }
+    setTimeout(() => { frame.remove(); URL.revokeObjectURL(url); }, 60_000);
   };
   document.body.appendChild(frame);
 }

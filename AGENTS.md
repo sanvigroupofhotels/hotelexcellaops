@@ -11,3 +11,6 @@
 - Keep one shared display-only startup reveal, claimed once per browser session after hydration; exclude machine/OAuth endpoints and skip reduced motion so authentication and navigation never wait for it.
 - Public WhatsApp booking slot selections use canonical timing windows and per-room allocation/pricing; never fabricate exact expected timestamps from a pricing-window selection, which would imply an arrival time the guest did not provide.- Booking duplicate detection runs through one shared lookup (booking-duplicates-api) as an advisory confirm before creation; every channel reuses it so rules never diverge.
 - WhatsApp Inbox reads the leads table via listLeads and reuses checkBookingDuplicates for its active-stay banner; it never writes bookings directly.
+- All invoice surfaces use loadInvoiceData after caller/token authorization, buildInvoiceDocument, and one PDF renderer; this prevents omitted charges, identity, room numbers or guest billing from diverging.
+- Branding is the authoritative editable document identity; legacy hotel settings are read-only fallback data so older settings remain compatible without competing editors.
+- Invoice presentation preserves stored folio totals and canonical pricing, splits existing accommodation GST at the hotel place of supply, and saves billing only to the linked customer through caller-scoped access.

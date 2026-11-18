@@ -6,8 +6,19 @@ import { toast } from "sonner";
 import { Loader2, Upload, X, RefreshCw, Check, Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fileToDataURL, processSignature, type SignatureProcessResult } from "@/lib/signature-processor";
+import { Button } from "@/components/ui/button";
+import { brandingSchema } from "@/lib/branding.functions";
+import crest from "@/assets/excella-crown-white-complete.webp.asset.json";
 
-export const Route = createFileRoute("/_authenticated/settings/branding")({ component: BrandingPage });
+export const Route = createFileRoute("/_authenticated/settings/branding")({ component: BrandingPage,
+  head: () => ({ meta: [
+    { title: "Branding & Invoice Identity — Hotel Excella Operations" },
+    { name: "description", content: "Hotel Excella legal identity, logo, signature and invoice settings." },
+    { property: "og:title", content: "Branding & Invoice Identity — Hotel Excella Operations" },
+    { property: "og:description", content: "Hotel Excella legal identity, logo, signature and invoice settings." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
+});
 
 const inputCls = "w-full bg-input/60 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40";
 const labelCls = "text-[11px] uppercase tracking-wider text-muted-foreground";
@@ -24,8 +35,8 @@ function BrandingPage() {
   useEffect(() => { if (data) setDraft(data); }, [data]);
 
   const save = useMutation({
-    mutationFn: () => setBrandingSettings(draft!),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["branding-settings"] }); toast.success("Saved"); },
+    mutationFn: () => { if (!draft) throw new Error("Settings not loaded"); return setBrandingSettings(brandingSchema.parse(draft)); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["branding-settings"] }); qc.invalidateQueries({ queryKey: ["hotel-settings"] }); qc.invalidateQueries({ queryKey: ["staff-invoice"] }); toast.success("Saved"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -62,29 +73,39 @@ function BrandingPage() {
 
   if (isLoading || !draft) return <div className="luxe-card rounded-xl p-8 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>;
   return (
-    <div className="luxe-card rounded-xl p-5 space-y-4">
-      <h3 className="font-display text-lg md:text-xl">Branding</h3>
+    <div className="space-y-4 py-1">
+      <h3 className="font-display text-lg md:text-xl">Branding & Invoice Identity</h3>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Legal Entity Name"><input aria-label="Legal Entity Name" className={inputCls} maxLength={200} value={draft.legal_name} onChange={(e) => setDraft({ ...draft, legal_name: e.target.value })} /></Field>
+        <Field label="Unit / Hotel Name"><input aria-label="Unit / Hotel Name" className={inputCls} maxLength={150} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
+        <Field label="GSTIN"><input aria-label="Hotel GSTIN" className={inputCls} maxLength={15} value={draft.gstin} onChange={(e) => setDraft({ ...draft, gstin: e.target.value.toUpperCase() })} /></Field>
+        <Field label="Contact Number"><input aria-label="Contact Number" className={inputCls} maxLength={32} value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} /></Field>
+        <Field label="Email"><input aria-label="Hotel Email" type="email" className={inputCls} maxLength={255} value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></Field>
+        <Field label="Website"><input aria-label="Hotel Website" className={inputCls} maxLength={255} value={draft.website} onChange={(e) => setDraft({ ...draft, website: e.target.value })} /></Field>
+      </div>
+      <Field label="Official Address"><textarea aria-label="Official Address" className={cn(inputCls, "min-h-[80px]")} maxLength={1000} value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} /></Field>
+      <div className="space-y-2 border-t border-border pt-4"><div className={labelCls}>Hotel Logo</div><div className="flex flex-wrap items-center gap-3">
+        {draft.logo_url && <img src={draft.logo_url} alt="Hotel logo" className="h-20 w-32 rounded-md bg-invoice-paper object-contain" />}
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-xs"><Upload className="h-4 w-4" /> Upload Logo<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; e.currentTarget.value = ""; if (!file) return; if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > MAX_UPLOAD_BYTES) { toast.error("Use a PNG, JPG or WebP under 4 MB."); return; } try { setDraft({ ...draft, logo_url: await fileToDataURL(file) }); } catch { toast.error("Could not load logo"); } }} /></label>
+        <Button variant="outline" size="sm" onClick={() => setDraft({ ...draft, logo_url: crest.url })}>Use Hotel Crown</Button>
+        {draft.logo_url && <Button variant="ghost" size="icon" aria-label="Remove logo" onClick={() => setDraft({ ...draft, logo_url: "" })}><X /></Button>}
+      </div></div>
       <Field label="Guest Portal Title"><input className={inputCls} value={draft.portal_title} onChange={(e) => setDraft({ ...draft, portal_title: e.target.value })} /></Field>
       <Field label="Welcome Message"><textarea className={cn(inputCls, "min-h-[80px]")} value={draft.welcome_message} onChange={(e) => setDraft({ ...draft, welcome_message: e.target.value })} /></Field>
       <Field label="Invoice Footer"><textarea className={cn(inputCls, "min-h-[80px]")} value={draft.invoice_footer} onChange={(e) => setDraft({ ...draft, invoice_footer: e.target.value })} /></Field>
 
       <div className="space-y-1.5 pt-2 border-t border-border">
         <div className={labelCls}>Authorised Signature (Invoice + Proforma)</div>
-        <p className="text-[11px] text-muted-foreground">
-          Upload any signature — HEOS automatically removes the paper background, trims the whitespace,
-          and produces a clean transparent PNG for every printed document. You'll review the result before it's saved.
-        </p>
         <div className="flex items-start gap-4 flex-wrap">
           {draft.signature_url ? (
             <div className="relative">
               <img src={draft.signature_url} alt="Authorised signature"
-                className="h-20 w-auto max-w-[220px] rounded border border-border object-contain p-1"
-                style={{ background: "repeating-conic-gradient(#e5e7eb 0% 25%, #ffffff 0% 50%) 50% / 12px 12px" }} />
-              <button onClick={() => setDraft({ ...draft, signature_url: "" })}
+                className="signature-checker h-20 w-auto max-w-[220px] rounded border border-border object-contain p-1" />
+              <Button size="icon" variant="destructive" onClick={() => setDraft({ ...draft, signature_url: "" })}
                 className="absolute -top-2 -right-2 rounded-full bg-destructive text-destructive-foreground p-0.5 shadow"
                 title="Remove signature">
                 <X className="h-3 w-3" />
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="h-20 w-[220px] rounded border border-dashed border-border flex items-center justify-center text-[11px] text-muted-foreground">
@@ -108,10 +129,10 @@ function BrandingPage() {
       </Field>
 
       <div className="flex justify-end pt-2">
-        <button onClick={() => save.mutate()} disabled={save.isPending}
+        <Button onClick={() => save.mutate()} disabled={save.isPending}
           className="inline-flex items-center gap-1.5 gold-gradient text-charcoal rounded-md px-5 py-2 text-xs font-medium disabled:opacity-60">
           {save.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
-        </button>
+        </Button>
       </div>
 
       {reviewOpen && reviewData && (
@@ -229,7 +250,8 @@ function CropSelector({ src, onConfirm, onCancel }: {
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
 
   const toLocal = (e: React.PointerEvent) => {
-    const el = wrapRef.current!;
+    const el = wrapRef.current;
+    if (!el) return { x: 0, y: 0 };
     const r = el.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };

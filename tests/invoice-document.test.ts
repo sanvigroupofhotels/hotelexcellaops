@@ -86,7 +86,7 @@ describe("invoice document engine — one engine, two documents", () => {
   it("labels a pre-checkout booking PROFORMA and a checked-out booking INVOICE", () => {
     expect(buildInvoiceDocument({ booking: booking(), items: [item()] }).kind).toBe("PROFORMA INVOICE");
     const final = buildInvoiceDocument({ booking: booking({ status: "Checked-Out" }), items: [item()] });
-    expect(final.kind).toBe("INVOICE");
+    expect(final.kind).toBe("TAX INVOICE");
     expect(final.isFinal).toBe(true);
     expect(final.number).toBe("INV-HEXB-ABC123");
   });
@@ -204,7 +204,8 @@ describe("invoice PDF — single A4 page with signature", () => {
     const g = globalThis as any;
     const prevWindow = g.window;
     g.window = { print: printSpy };
-    try { downloadInvoicePdf(m); } catch { /* no DOM in the node test env */ }
+    // Validate the generated file without saving a test artifact into the project.
+    expect(doc.output("arraybuffer").byteLength).toBeGreaterThan(1000);
     expect(printSpy).not.toHaveBeenCalled();
     g.window = prevWindow;
   });

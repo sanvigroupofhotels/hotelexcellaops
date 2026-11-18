@@ -13,6 +13,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { formatHotelTime } from "@/lib/time-format";
+import { loadInvoiceData } from "@/lib/invoice-data";
 
 const TOKEN_TTL_DAYS = 30;
 
@@ -1158,23 +1159,7 @@ export const getPortalInvoice = createServerFn({ method: "POST" })
     const { supabaseAdmin, booking: tokBk } = await resolvePortalRef(data.token);
     const bookingId = (tokBk as any).id as string;
 
-    const [{ data: booking }, { data: items }, { data: payments }, { data: charges }, presentation] = await Promise.all([
-      supabaseAdmin.from("bookings").select("*").eq("id", bookingId).maybeSingle(),
-      supabaseAdmin.from("booking_items").select("*").eq("booking_id", bookingId).order("created_at", { ascending: true }),
-      supabaseAdmin.from("booking_payments").select("*").eq("booking_id", bookingId).order("occurred_at", { ascending: false }),
-      supabaseAdmin.from("booking_charges").select("*").eq("booking_id", bookingId).order("created_at", { ascending: true }),
-      getPortalPresentationSettings(supabaseAdmin),
-    ]);
-
-    if (!booking) throw new Error("Booking not found");
-    return {
-      booking,
-      items: items ?? [],
-      payments: payments ?? [],
-      charges: charges ?? [],
-      branding: presentation.branding,
-      checkInTime: presentation.checkInTime,
-      checkOutTime: presentation.checkOutTime,
-    };
+    // Token authorization is already resolved; the shared read stays scoped to this booking.
+    return loadInvoiceData(supabaseAdmin, bookingId);
   });
 

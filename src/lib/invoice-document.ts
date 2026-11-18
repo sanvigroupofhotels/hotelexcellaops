@@ -20,16 +20,35 @@ import { rowToLineItem } from "@/lib/booking-items-api";
 import type { BookingPaymentRow } from "@/lib/booking-payments-api";
 import type { BookingChargeRow } from "@/lib/booking-charges-api";
 import { computePricing } from "@/lib/pricing";
+import { resolveBranding, type BrandingSettings, type HotelIdentity } from "@/lib/branding";
+import type { InvoiceBilling } from "@/lib/invoice-billing";
 
-export const INVOICE_HOTEL = {
-  name: "HOTEL EXCELLA",
-  tagline: "Boutique · Luxury · Stay",
-  address: "Hotel Excella, Goa, India",
-  phone: "+91 88594 44555",
-  email: "stay@hotelexcella.in",
-  website: "hotelexcella.in",
-  gstin: "—",
-} as const;
+export const ACCOMMODATION_SAC = "996311";
+export const invoiceMoney = (n: number) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const roundMoney = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+const small = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+function integerWords(n: number): string {
+  if (n < 20) return small[n] ?? "Zero";
+  if (n < 100) return [tens[Math.floor(n / 10)], n % 10 ? integerWords(n % 10) : ""].filter(Boolean).join(" ");
+  for (const [size, name] of [[10000000, "Crore"], [100000, "Lakh"], [1000, "Thousand"], [100, "Hundred"]] as const) {
+    if (n >= size) return `${integerWords(Math.floor(n / size))} ${name}${n % size ? ` ${size === 100 ? "and " : ""}${integerWords(n % size)}` : ""}`;
+  }
+  return "Zero";
+}
+export function numberToWordsINR(amount: number): string {
+  const paise = Math.round(Math.abs(amount) * 100);
+  return `Indian Rupee ${integerWords(Math.floor(paise / 100))}${paise % 100 ? ` and ${integerWords(paise % 100)} Paise` : ""} Only`;
+}
+
+/** Accommodation place of supply is the hotel, not the guest's GST state. */
+export function splitInvoiceGst(taxes: number, rate: number) {
+  const cgst = roundMoney(taxes / 2);
+  return [
+    { label: "CGST", rate: rate * 50, amount: cgst },
+    { label: "SGST", rate: rate * 50, amount: roundMoney(taxes - cgst) },
+  ];
+}
 
 export interface InvoiceRoomLine {
   /** e.g. "Maple Room" */
@@ -43,6 +62,9 @@ export interface InvoiceRoomLine {
   detail: string;
   /** Booking item ids folded into this line — attribution is preserved. */
   itemIds: string[];
+  checkIn: string;
+  checkOut: string;
+  roomNumbers: string[];
 }
 
 export interface InvoiceChargeLine {
@@ -65,14 +87,17 @@ export interface InvoicePaymentLine {
 }
 
 export interface InvoiceDocModel {
-  kind: "INVOICE" | "PROFORMA INVOICE";
+  kind: "TAX INVOICE" | "PROFORMA INVOICE";
   isFinal: boolean;
   /** Invoice number — booking reference based, stable per booking. */
   number: string;
   /** ISO date the document was issued. */
   issuedAt: string;
-  hotel: typeof INVOICE_HOTEL;
-  guest: { name: string; phone: string | null; email: string | null };
+  hotel: HotelIdentity;
+  guest: { name: string; phone: string | null; email: string | null; company: string | null; gstin: string | null; address: string | null };
+  taxLines: { label: string; rate: number; amount: number }[];
+  amountInWords: string;
+  tableLines: InvoiceTableLine[];
   stay: {
     checkIn: string;
     checkOut: string;
@@ -110,13 +135,19 @@ export interface BuildInvoiceInput {
   items?: BookingItemRow[];
   payments?: BookingPaymentRow[];
   charges?: BookingChargeRow[];
-  branding?: { invoice_footer?: string | null; signature_url?: string | null; signatory_designation?: string | null } | null;
+  branding?: Partial<{ [K in keyof BrandingSettings]: BrandingSettings[K] | null }> | null;
+  billing?: InvoiceBilling | null;
   checkInTime?: string;
   checkOutTime?: string;
   /** Optional map of booking_item id → room number label, for charge attribution. */
   roomLabels?: Record<string, string>;
   /** Override issue timestamp (tests). */
   now?: Date;
+}
+
+export interface InvoiceTableLine {
+  description: string; sac: string; checkIn: string; checkOut: string;
+  rooms: string; qty: number; unit: string; rate: number; amount: number;
 }
 
 const num = (v: unknown) => Number(v) || 0;
@@ -148,6 +179,7 @@ export function buildRoomLines(
       existing.qty += qty;
       existing.amount += rate * nights * qty;
       existing.itemIds.push(it.id);
+      if (roomLabels?.[it.id]) existing.roomNumbers.push(roomLabels[it.id]);
       if (detailBits.length) existing.detail = [existing.detail, detailBits.join(" ")].filter(Boolean).join(", ");
     } else {
       groups.set(key, {
@@ -158,6 +190,9 @@ export function buildRoomLines(
         amount: rate * nights * qty,
         detail: detailBits.join(" "),
         itemIds: [it.id],
+        checkIn: it.check_in,
+        checkOut: it.check_out,
+        roomNumbers: roomLabels?.[it.id] ? [roomLabels[it.id]] : [],
       });
     }
   }
@@ -199,15 +234,16 @@ export function buildChargeLines(
  * shared pricing engine so the document always matches Booking Detail.
  */
 export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel {
-  const { booking, items = [], payments = [], charges = [], branding, roomLabels } = input;
-  const isFinal = (booking.status as string) === "Checked-Out";
+  const { booking, items = [], payments = [], charges = [], branding, roomLabels, billing } = input;
+  const identity = resolveBranding(branding);
+  const isFinal = ["Checked-Out", "Stay Completed"].includes(booking.status as string);
   const discount = num((booking as any).discount);
   const taxRate = num((booking as any).tax_rate);
 
   let pricing: ReturnType<typeof computePricing> | null = null;
   if (items.length) {
     try {
-      pricing = computePricing(items.map(rowToLineItem), discount, taxRate, {
+      pricing = computePricing(items.filter((i) => i.item_status !== "Removed" && i.item_status !== "Cancelled").map(rowToLineItem), discount, taxRate, {
         totalOverride: (booking as any).total_override ?? null,
         taxesIncluded: !!(booking as any).taxes_included,
       });
@@ -228,7 +264,7 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
   const effectiveDiscount = pricing ? pricing.discount : discount;
   // Taxable includes post-stay charges so that Taxable + Tax = Total on the
   // document, matching the booking-level arithmetic exactly.
-  const taxable = (pricing?.subtotal ?? Math.max(0, bookingAmount - taxes)) + chargesTotal;
+  const taxable = roundMoney(bookingAmount - taxes + chargesTotal);
 
 
   const roomLines = buildRoomLines(items, roomLabels);
@@ -239,20 +275,56 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
       label: booking.room_details || "Accommodation",
       qty: 1,
       nights: num(booking.nights) || 1,
-      rate: itemsTotal,
+      rate: itemsTotal / (num(booking.nights) || 1),
       amount: itemsTotal,
       detail: "",
       itemIds: [],
+      checkIn: booking.check_in,
+      checkOut: booking.check_out,
+      roomNumbers: [],
     });
   }
 
+  const extraLines = (pricing?.additionalLineItems ?? []).map((x) => ({
+    label: (x.discount ?? 0) > 0
+      ? `${x.label} · Negotiated (Std INR ${invoiceMoney(x.standardValue ?? x.value)}, Disc INR ${invoiceMoney(x.discount ?? 0)})`
+      : x.label,
+    value: x.value,
+  }));
+  const chargeLines = buildChargeLines(charges, items, roomLabels);
+  const netFactor = booking.taxes_included ? 1 / (1 + taxRate) : 1;
+  const netDiscount = roundMoney(effectiveDiscount * netFactor);
+  const tableLines: InvoiceTableLine[] = roomLines.map((r) => ({
+    description: `${r.label}${r.detail ? ` · ${r.detail}` : ""}`,
+    sac: ACCOMMODATION_SAC, checkIn: r.checkIn, checkOut: r.checkOut,
+    rooms: [...new Set(r.roomNumbers)].join(", "), qty: r.qty * r.nights, unit: "Room-days",
+    rate: roundMoney(r.rate * netFactor), amount: roundMoney(r.amount * netFactor),
+  }));
+  tableLines.push(...extraLines.map((e) => ({
+    description: e.label, sac: ACCOMMODATION_SAC, checkIn: "", checkOut: "", rooms: "",
+    qty: 1, unit: "Service", rate: roundMoney(e.value * netFactor), amount: roundMoney(e.value * netFactor),
+  })), ...chargeLines.map((c) => ({
+    description: c.label, sac: "", checkIn: "", checkOut: "", rooms: c.room,
+    qty: c.qty, unit: "Units", rate: roundMoney(c.amount / c.qty), amount: c.amount,
+  })));
+  // Reconcile stored overrides/legacy amounts without ever changing the folio total.
+  const adjustment = roundMoney(taxable + netDiscount - tableLines.reduce((s, r) => s + r.amount, 0));
+  if (Math.abs(adjustment) >= 0.01) tableLines.push({
+    description: "Booking amount / rounding adjustment", sac: "", checkIn: "", checkOut: "", rooms: "",
+    qty: 1, unit: "", rate: adjustment, amount: adjustment,
+  });
+
   return {
-    kind: isFinal ? "INVOICE" : "PROFORMA INVOICE",
+    kind: isFinal ? "TAX INVOICE" : "PROFORMA INVOICE",
     isFinal,
     number: isFinal ? `INV-${booking.booking_reference}` : `PI-${booking.booking_reference}`,
     issuedAt: (input.now ?? new Date()).toISOString(),
-    hotel: INVOICE_HOTEL,
-    guest: { name: booking.guest_name, phone: booking.phone ?? null, email: booking.email ?? null },
+    hotel: identity,
+    guest: { name: booking.guest_name, phone: booking.phone ?? null, email: booking.email ?? null,
+      company: billing?.company_name ?? null, gstin: billing?.gst_number ?? null, address: billing?.company_address ?? null },
+    taxLines: splitInvoiceGst(taxes, taxRate),
+    amountInWords: numberToWordsINR(total),
+    tableLines,
     stay: {
       checkIn: booking.check_in,
       checkOut: booking.check_out,
@@ -264,17 +336,13 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
     },
     roomLines,
     // Negotiated extras keep the same Standard → Discount → Net presentation.
-    extraLines: (pricing?.additionalLineItems ?? []).map((x) =>
-      (x as any).discount > 0
-        ? { label: `${x.label} · Negotiated (Std ₹${Math.round((x as any).standardValue).toLocaleString("en-IN")}, Disc −₹${Math.round((x as any).discount).toLocaleString("en-IN")})`, value: x.value }
-        : { label: x.label, value: x.value },
-    ),
-    chargeLines: buildChargeLines(charges, items, roomLabels),
+    extraLines,
+    chargeLines,
     totals: {
       itemsTotal,
       chargesTotal,
-      subtotal: itemsTotal + chargesTotal,
-      discount: effectiveDiscount,
+      subtotal: roundMoney(taxable + netDiscount),
+      discount: netDiscount,
       taxable,
       taxRate,
       taxes,
