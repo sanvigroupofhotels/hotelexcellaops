@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Complete status-aware booking invoice action and company/GST editing in reception and guest invoice menus.
+- [ ] Remove synthetic adjustment rows by allocating recorded accommodation totals to room rates; preserve real extras, charges, discounts and tax.
+- [ ] Verify three real bookings, company billing read-back, PDF downloads and phone layout; save completed changes.
+
 - [x] Upgrade the shared invoice model, PDF and viewer across reception, House View, guest portal and read-only integrations; verified real booking invoice download and 29 financial/identity safeguards.
 - [x] Centralize editable hotel/legal identity, contact, logo, signature and footer in Branding, preserving existing settings.
 - [x] Add guest company/GST editing through the existing customer profile; verified saved billing details and desktop PDF with the supplied crown and existing signature.
