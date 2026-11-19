@@ -44,7 +44,7 @@ export interface PricingBreakdown {
    * Check-Out lines that Reception negotiated below the standard price, so
    * every surface can present Standard → Discount → Net.
    */
-  additionalLineItems: { label: string; value: number; standardValue?: number; discount?: number }[];
+  additionalLineItems: { label: string; value: number; quantity: number; unit: string; standardValue?: number; discount?: number }[];
   /** Total negotiated discount on Early/Late services (already inside `value`s). */
   extrasDiscount: number;
   /** True when staff has manually overridden the Final Amount. */
@@ -68,8 +68,8 @@ function lineRoomCharges(item: LineItem): number {
 }
 
 /** Per-line itemised extras (Early CI / Late CO / Pet / Extra Adults / Drivers). */
-function lineExtraItems(item: LineItem): { label: string; value: number; standardValue?: number; discount?: number }[] {
-  const out: { label: string; value: number; standardValue?: number; discount?: number }[] = [];
+function lineExtraItems(item: LineItem): { key: string; label: string; quantity: number; unit: string; value: number; standardValue?: number; discount?: number }[] {
+  const out: ReturnType<typeof lineExtraItems> = [];
   const n = nightsOf(item);
   const rooms = Math.max(1, item.rooms || 1);
   const rate = Number(item.rate) || 0;
@@ -78,7 +78,8 @@ function lineExtraItems(item: LineItem): { label: string; value: number; standar
     const standardUnit = s?.fee != null ? s.fee : rate;
     const fin = chargeFinancials(standardUnit, item.early_check_in_override ?? null);
     out.push({
-      label: `Early Check-In (${s?.label ?? item.early_check_in_slot}) × ${rooms} room${rooms > 1 ? "s" : ""}`,
+      key: `early|${item.early_check_in_slot}`,
+      label: `Early Check-In (${s?.label ?? item.early_check_in_slot})`, quantity: rooms, unit: "room",
       value: fin.final * rooms,
       standardValue: fin.standard * rooms,
       discount: fin.discount * rooms,
@@ -89,19 +90,20 @@ function lineExtraItems(item: LineItem): { label: string; value: number; standar
     const standardUnit = s?.fee != null ? s.fee : rate;
     const fin = chargeFinancials(standardUnit, item.late_check_out_override ?? null);
     out.push({
-      label: `Late Check-Out (${s?.label ?? item.late_check_out_slot}) × ${rooms} room${rooms > 1 ? "s" : ""}`,
+      key: `late|${item.late_check_out_slot}`,
+      label: `Late Check-Out (${s?.label ?? item.late_check_out_slot})`, quantity: rooms, unit: "room",
       value: fin.final * rooms,
       standardValue: fin.standard * rooms,
       discount: fin.discount * rooms,
     });
   }
   const pet = PET_RATES[item.pet_size] ?? 0;
-  if (pet > 0) out.push({ label: `Pet Stay (${item.pet_size}) · ${n}N`, value: pet * n });
+  if (pet > 0) out.push({ key: `pet|${item.pet_size}|${n}`, label: `Pet Stay (${item.pet_size}) · ${n}N`, quantity: 1, unit: "pet", value: pet * n });
   if ((item.extra_adults || 0) > 0) {
     const ear = extraAdultRateOf(item);
-    out.push({ label: `Extra Adults × ${item.extra_adults} · ${n}N${ear !== EXTRA_ADULT_RATE ? ` (@ ₹${ear}/n)` : ""}`, value: (item.extra_adults || 0) * ear * n });
+    out.push({ key: `adult|${n}|${ear}`, label: `Extra Adults · ${n}N${ear !== EXTRA_ADULT_RATE ? ` (@ ₹${ear}/n)` : ""}`, quantity: item.extra_adults, unit: "adult", value: (item.extra_adults || 0) * ear * n });
   }
-  if ((item.drivers || 0) > 0) out.push({ label: `Drivers × ${item.drivers} · ${n}N`, value: (item.drivers || 0) * DRIVER_RATE * n });
+  if ((item.drivers || 0) > 0) out.push({ key: `driver|${n}`, label: `Drivers · ${n}N`, quantity: item.drivers, unit: "driver", value: (item.drivers || 0) * DRIVER_RATE * n });
   return out;
 }
 
@@ -147,22 +149,23 @@ export function computePricing(
   const items = rawItems.map(normalizeLineGuests);
   const itemsTotal = lineItemsTotal(items);
   let mainStayCharges = 0;
-  const aggregated = new Map<string, { label: string; value: number; standardValue: number; discount: number }>();
+  const aggregated = new Map<string, { label: string; quantity: number; unit: string; value: number; standardValue: number; discount: number }>();
   for (const it of items) {
     mainStayCharges += lineRoomCharges(it);
     for (const x of lineExtraItems(it)) {
-      const cur = aggregated.get(x.label) ?? { label: x.label, value: 0, standardValue: 0, discount: 0 };
+      const cur = aggregated.get(x.key) ?? { label: x.label, quantity: 0, unit: x.unit, value: 0, standardValue: 0, discount: 0 };
+      cur.quantity += x.quantity;
       cur.value += x.value;
       cur.standardValue += x.standardValue ?? x.value;
       cur.discount += x.discount ?? 0;
-      aggregated.set(x.label, cur);
+      aggregated.set(x.key, cur);
     }
   }
-  const additionalLineItems = [...aggregated.values()].map((x) =>
-    x.discount > 0
-      ? { label: x.label, value: x.value, standardValue: x.standardValue, discount: x.discount }
-      : { label: x.label, value: x.value },
-  );
+  const additionalLineItems = [...aggregated.values()].map((x) => {
+    const suffix = x.unit === "room" ? ` × ${x.quantity} room${x.quantity === 1 ? "" : "s"}` : ` × ${x.quantity}`;
+    return { label: x.label + suffix, value: x.value, quantity: x.quantity, unit: x.unit,
+      ...(x.discount > 0 ? { standardValue: x.standardValue, discount: x.discount } : {}) };
+  });
   const additionalStayCharges = additionalLineItems.reduce((s, x) => s + x.value, 0);
   const extrasDiscount = [...aggregated.values()].reduce((s, x) => s + x.discount, 0);
 

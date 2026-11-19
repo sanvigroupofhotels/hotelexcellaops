@@ -1,5 +1,14 @@
 # Roadmap
 
+## Phase 1 — guest bookings, breakdowns and alerts
+- [x] Correct multi-room early check-in, late check-out and extra-adult quantities through shared pricing; verified BE-261118-5RIC in reception, proforma and guest portal.
+- [x] Add zero-default room-category selectors, children, live rates and sticky estimated total; require at least one room. Desktop and 390px phone layouts verified.
+- [x] Persist mixed-category requests with canonical allocation and atomic server-side inventory validation; verified Oak + Mapple and child allocation.
+- [x] Ensure unpaid WhatsApp bookings reach the linked inbox and notification bell; verified real test submission and signed-in read-back.
+- [x] Repair operational push audience targeting and subscription recovery; authenticated dispatch accepted by both registered devices (sent 2, pruned 0).
+- [x] Run 236 regression tests and verify guest submission, saved rooms, inbox and alerts end-to-end; remove test booking data.
+- [ ] Phase 1 release and physical-phone checks: publish latest changes, then verify notification display with app closed/backgrounded and after reinstall — requires publication and access to the user's phone.
+
 - [x] Complete status-aware booking invoice action and company/GST editing in reception and guest invoice menus.
 - [ ] Remove synthetic adjustment rows by allocating recorded accommodation totals to room rates; preserve real extras, charges, discounts and tax.
 - [ ] Verify three real bookings, company billing read-back, PDF downloads and phone layout; save completed changes.

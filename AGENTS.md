@@ -14,3 +14,6 @@
 - All invoice surfaces use loadInvoiceData after caller/token authorization, buildInvoiceDocument, and one PDF renderer; this prevents omitted charges, identity, room numbers or guest billing from diverging.
 - Branding is the authoritative editable document identity; legacy hotel settings are read-only fallback data so older settings remain compatible without competing editors.
 - Invoice presentation preserves stored folio totals and canonical pricing, splits existing accommodation GST at the hotel place of supply, and saves billing only to the linked customer through caller-scoped access.
+- WhatsApp mixed-category requests share one allocation/estimate planner and an atomic service-only inventory transaction; this keeps estimates, persisted guests and room holds aligned.
+- Additional stay breakdowns aggregate typed quantities in shared pricing; portal and invoices consume them without independent fee formulas.
+- Push dispatch resolves operational audiences from current user roles rather than a cached single subscription role; role changes must immediately change delivery eligibility.

@@ -25,6 +25,7 @@ export const Route = createFileRoute("/_authenticated/whatsapp-inbox")({
 
 type Lead = Awaited<ReturnType<typeof listLeads>>[number];
 const LIVE = ["Interested", "Abandoned"];
+const roomSummary = (lead: Lead) => lead.room_type_name?.includes("×") ? lead.room_type_name : `${lead.room_type_name ?? "Room"} × ${lead.rooms ?? 1}`;
 
 function ago(iso: string) {
   const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -37,7 +38,7 @@ function templates(l: Lead) {
   const name = l.guest_name?.split(" ")[0] ?? "";
   const stay = l.check_in ? ` for ${l.check_in} to ${l.check_out}` : "";
   return [
-    { key: "quote", label: "Rate Quote", text: `Hello ${name}, thank you for your enquiry at Hotel Excella${stay}. ${l.room_type_name ?? "Room"} x${l.rooms ?? 1}${l.estimated_total ? `: ₹${Number(l.estimated_total).toLocaleString("en-IN")} incl. taxes` : ""}. Reply to confirm and we will hold your room.` },
+    { key: "quote", label: "Rate Quote", text: `Hello ${name}, thank you for your enquiry at Hotel Excella${stay}. ${roomSummary(l)}${l.estimated_total ? `: ₹${Number(l.estimated_total).toLocaleString("en-IN")} incl. taxes` : ""}. ${l.booking_id ? "Your reservation is recorded; please reply to confirm your arrival." : "Reply to confirm and we will hold your room."}` },
     { key: "location", label: "Location", text: `Hello ${name}, Hotel Excella, Visakhapatnam. Directions: https://maps.google.com/?q=Hotel+Excella+Visakhapatnam . Call reception: +91 9985908131.` },
     { key: "portal", label: "Guest Portal", text: `Hello ${name}, complete your check-in details here: https://guest.hotelexcella.in` },
     { key: "custom", label: "Custom", text: `Hello ${name}, ` },
@@ -48,7 +49,7 @@ function WhatsAppInbox() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<"live" | "history">("live");
   const [selId, setSelId] = useState<string | null>(null);
-  const leads = useQuery({ queryKey: ["leads"], queryFn: () => listLeads() });
+  const leads = useQuery({ queryKey: ["leads"], queryFn: () => listLeads(), refetchInterval: 15000 });
   const rows = useMemo(() => (leads.data ?? []).filter((l) => (tab === "live") === LIVE.includes(l.status)), [leads.data, tab]);
   const sel = rows.find((l) => l.id === selId) ?? rows[0] ?? null;
 
@@ -75,7 +76,7 @@ function WhatsAppInbox() {
                 </div>
                 <div className="text-xs text-muted-foreground">{l.phone} · {l.source_channel}</div>
                 <div className="text-xs mt-1 flex justify-between">
-                  <span>{l.check_in ? `${l.check_in} → ${l.check_out}` : "Dates not chosen"} · {l.room_type_name ?? "—"} x{l.rooms ?? 1}</span>
+                  <span>{l.check_in ? `${l.check_in} → ${l.check_out}` : "Dates not chosen"} · {roomSummary(l)}</span>
                   <span className="rounded-full border border-border px-2">{l.status}</span>
                 </div>
               </button>
@@ -95,7 +96,10 @@ function LeadWorkspace({ lead, onLost }: { lead: Lead; onLost: () => void }) {
   const dups = useQuery({
     queryKey: ["lead-dups", lead.id, lead.check_in, lead.check_out],
     enabled: !!lead.check_in && !!lead.check_out,
-    queryFn: () => checkBookingDuplicates({ phone: lead.phone, customerId: lead.customer_id, checkIn: lead.check_in!, checkOut: lead.check_out! }),
+    queryFn: () => {
+      if (!lead.check_in || !lead.check_out) return [];
+      return checkBookingDuplicates({ phone: lead.phone, customerId: lead.customer_id, checkIn: lead.check_in, checkOut: lead.check_out });
+    },
   });
   const lost = useMutation({
     mutationFn: (reason: string) => markLeadLost({ data: { id: lead.id, reason } }),
@@ -109,7 +113,7 @@ function LeadWorkspace({ lead, onLost }: { lead: Lead; onLost: () => void }) {
       <div>
         <h2 className="font-display text-xl">{lead.guest_name}</h2>
         <p className="text-sm text-muted-foreground">{lead.phone}{lead.email ? ` · ${lead.email}` : ""}</p>
-        <p className="text-sm mt-1">{lead.check_in ? `${lead.check_in} → ${lead.check_out}` : "Dates not chosen"} · {lead.adults ?? 1} adults{lead.children ? `, ${lead.children} children` : ""} · {lead.room_type_name ?? "—"} x{lead.rooms ?? 1}{lead.estimated_total ? ` · ₹${Number(lead.estimated_total).toLocaleString("en-IN")}` : ""}</p>
+        <p className="text-sm mt-1">{lead.check_in ? `${lead.check_in} → ${lead.check_out}` : "Dates not chosen"} · {lead.adults ?? 1} adults{lead.children ? `, ${lead.children} children` : ""} · {roomSummary(lead)}{lead.estimated_total ? ` · ₹${Number(lead.estimated_total).toLocaleString("en-IN")}` : ""}</p>
         {lead.notes && <p className="text-sm text-muted-foreground mt-1">{lead.notes}</p>}
       </div>
       {matches.length > 0 && (

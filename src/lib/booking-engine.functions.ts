@@ -13,6 +13,7 @@ import { normalizeOrThrow } from "@/lib/phone";
 import { applyTaxes } from "@/lib/pricing";
 import { buildRoomTypeAvailability, normalizeRoomTypeKey } from "@/lib/room-type-availability-core";
 import { buildEngineRoomLines } from "@/lib/whatsapp-booking-timing";
+import { planWhatsAppRooms, roomSelectionsSchema } from "@/lib/whatsapp-booking-selection";
 
 
 const DRAFT_TTL_MIN = 15;
@@ -229,6 +230,47 @@ export const getAvailability = createServerFn({ method: "POST" })
     return { nights, results };
   });
 
+// Mixed-category WhatsApp drafts use the same availability, allocation and pricing engines.
+export const createWhatsAppDraft = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({
+    selections: roomSelectionsSchema,
+    check_in: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    adults: z.number().int().min(1).max(60), children: z.number().int().min(0).max(40),
+    guest_name: z.string().trim().min(2).max(120), phone: z.string().trim().min(8).max(20),
+    early: z.enum(["10-13", "8-10", "6-8", "before-6"]).nullable(),
+    late: z.enum(["upto-2pm", "2-4pm", "after-4pm"]).nullable(),
+  }).parse(input))
+  .handler(async ({ data }) => {
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    if (data.check_in < today || data.check_out <= data.check_in || nightsBetween(data.check_in, data.check_out) > 365) throw new Error("Please choose valid stay dates.");
+    const availability = await getAvailability({ data: { check_in: data.check_in, check_out: data.check_out, guests: 2 } });
+    const plan = planWhatsAppRooms({ ...data, categories: availability.results });
+    const phone = normalizeOrThrow(data.phone);
+    const userId = await getSystemUserId();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: customer, error: customerError } = await supabaseAdmin.from("customers").select("id").eq("phone", phone).limit(1).maybeSingle();
+    if (customerError) throw customerError;
+    let customerId = customer?.id;
+    if (!customerId) {
+      const { data: created, error } = await supabaseAdmin.from("customers").insert({ user_id: userId, guest_name: data.guest_name, phone, lead_source: "Direct" }).select("id").single();
+      if (error) throw error;
+      customerId = created.id;
+    }
+    const reference = genReference();
+    const expires = new Date(Date.now() + DRAFT_TTL_MIN * 60000).toISOString();
+    const booking = {
+      user_id: userId, customer_id: customerId, booking_reference: reference, guest_name: data.guest_name, phone,
+      check_in: data.check_in, check_out: data.check_out, adults: data.adults, children: data.children, guests: data.adults + data.children,
+      room_details: plan.summary, subtotal: plan.pricing.subtotal, taxes: plan.pricing.taxes, tax_rate: plan.pricing.taxRate, amount: plan.pricing.total,
+      status: "Draft", source_channel: SOURCE, lead_source: "WhatsApp", draft_expires_at: expires,
+      special_requests: "Via WhatsApp booking form", notes: "Created from WhatsApp booking form",
+    };
+    // One transaction locks inventory, validates every night and writes all room rows.
+    const { data: bookingId, error } = await supabaseAdmin.rpc("create_whatsapp_room_draft" as any, { p_booking: booking, p_items: plan.items } as any);
+    if (error) throw new Error(error.message);
+    return { booking_id: String(bookingId), reference, total: plan.pricing.total };
+  });
+
 // ----------------------------------------------------------------------------
 // Helper: pick a system user_id (the first admin)
 // ----------------------------------------------------------------------------
@@ -351,7 +393,7 @@ export const createDraftBooking = createServerFn({ method: "POST" })
       includeDraftHolds: true,
     });
     const available = Object.values(availability.byType).find((row) => normalizeRoomTypeKey(row.room_type) === normalizeRoomTypeKey(roomsRoomType))?.available ?? 0;
-    if (available <= 0) throw new Error("Sorry, the last room of this type was just booked. Please try different dates or another room.");
+    if (available < (data.rooms ?? 1)) throw new Error("Sorry, the last room of this type was just booked. Please try different dates or another room.");
 
 
     // Price the stay
@@ -644,12 +686,12 @@ export const confirmBookingEnginePayment = createServerFn({ method: "POST" })
       type: "booking_created",
       title: `New Booking · ${src} (${(b as any).booking_reference})`,
       body: [`Guest: ${f.guest_name ?? "—"}`, `Phone: ${f.phone ?? "—"}`, `Check-In: ${f.check_in ?? "—"}`,
-        `Check-Out: ${f.check_out ?? "—"}`, f.amount ? `Value: ₹${f.amount}` : null, `Payment: Pay at Hotel (unpaid)`, `Source: ${src}`].filter(Boolean).join("\n"),
+        `Check-Out: ${f.check_out ?? "—"}`, f.amount ? `Value: ₹${f.amount}` : null, `Payment: Online payment received`, `Source: ${src}`].filter(Boolean).join("\n"),
       entity_type: "booking", entity_id: (b as any).id, entity_reference: (b as any).booking_reference,
       priority: "normal", audience_role: "operations", status: "unread",
       metadata: { booking_id: (b as any).id, source: src },
     } as any);
-    if (nErr) console.warn("[pay-at-hotel notify]", nErr.message);
+    if (nErr) console.warn("[booking payment notify]", nErr.message);
 
     return { reference: (b as any).booking_reference, token };
   });
@@ -667,7 +709,7 @@ export const confirmPayAtHotel = createServerFn({ method: "POST" })
 
     const { data: b } = await supabaseAdmin
       .from("bookings")
-      .select("id,user_id,booking_reference,status,source_channel,draft_expires_at,amount,subtotal,taxes,notes")
+      .select("id,user_id,customer_id,booking_reference,status,source_channel,draft_expires_at,amount,subtotal,taxes,notes,guest_name,phone,check_in,check_out,adults,children,room_details,special_requests")
       .eq("id", data.booking_id).maybeSingle();
     if (!b) throw new Error("Booking not found");
     if ((b as any).source_channel !== SOURCE) throw new Error("Invalid booking source");
@@ -696,7 +738,28 @@ export const confirmPayAtHotel = createServerFn({ method: "POST" })
       update.notes = ((b as any).notes ? (b as any).notes + "\n" : "") + note;
     }
 
-    await supabaseAdmin.from("bookings").update(update as any).eq("id", (b as any).id);
+    const isWhatsApp = String(b.special_requests ?? "").includes("WhatsApp");
+    if (isWhatsApp) {
+      const { data: items, error: itemsError } = await supabaseAdmin.from("booking_items").select("rooms").eq("booking_id", b.id);
+      if (itemsError) throw itemsError;
+      const { upsertLeadFromBookingEngine } = await import("@/lib/leads.functions");
+      await upsertLeadFromBookingEngine({ data: {
+        guest_name: b.guest_name, phone: b.phone ?? "", check_in: b.check_in, check_out: b.check_out,
+        adults: b.adults, children: b.children, rooms: (items ?? []).reduce((sum, row) => sum + (row.rooms ?? 1), 0),
+        room_type_name: b.room_details ?? "", estimated_total: Number(update.amount ?? b.amount), source_channel: "WhatsApp", booking_id: b.id,
+      } });
+    }
+    const { data: promoted, error: promoteError } = await supabaseAdmin.from("bookings").update(update as any).eq("id", b.id).eq("status", "Draft").select("id").maybeSingle();
+    if (promoteError) throw promoteError;
+    if (!promoted) throw new Error("This booking has already been confirmed.");
+    const src = isWhatsApp ? "WhatsApp" : "Booking Engine";
+    const { error: notificationError } = await supabaseAdmin.from("notifications").insert({
+      type: "booking_created", title: `New Booking · ${src} (${b.booking_reference})`,
+      body: `Guest: ${b.guest_name}\nStay: ${b.check_in} to ${b.check_out}\nRooms: ${b.room_details ?? ""}\nValue: ₹${update.amount ?? b.amount}\nPayment: Pay at Hotel (unpaid)\nSource: ${src}`,
+      entity_type: "booking", entity_id: b.id, entity_reference: b.booking_reference, priority: "normal", audience_role: "operations", status: "unread",
+      metadata: { booking_id: b.id, source: src },
+    });
+    if (notificationError) console.warn("[booking confirmation notification]", notificationError.message);
 
     const token = randomToken();
     const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();

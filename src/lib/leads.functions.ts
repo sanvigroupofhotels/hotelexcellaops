@@ -103,9 +103,9 @@ export const upsertLeadFromBookingEngine = createServerFn({ method: "POST" })
       email: z.string().trim().email().optional().or(z.literal("")),
       check_in: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-      adults: z.number().int().min(0).max(20).optional(),
-      children: z.number().int().min(0).max(20).optional(),
-      rooms: z.number().int().min(1).max(10).optional(),
+      adults: z.number().int().min(0).max(60).optional(),
+      children: z.number().int().min(0).max(40).optional(),
+      rooms: z.number().int().min(1).max(20).optional(),
       room_type_name: z.string().trim().optional(),
       estimated_total: z.number().nonnegative().optional(),
       notes: z.string().optional(),
@@ -155,7 +155,8 @@ export const upsertLeadFromBookingEngine = createServerFn({ method: "POST" })
         next.status = "Interested";
         next.abandoned_at = null;
       }
-      await supabaseAdmin.from("leads").update(next).eq("id", existing.id);
+      const { error: updateError } = await supabaseAdmin.from("leads").update(next).eq("id", existing.id);
+      if (updateError) throw updateError;
       // Fire email if reopened
       if (reopen) {
         const { data: lead } = await supabaseAdmin.from("leads").select("*").eq("id", existing.id).single();

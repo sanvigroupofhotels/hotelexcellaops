@@ -289,7 +289,7 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
     label: (x.discount ?? 0) > 0
       ? `${x.label} · Negotiated (Std INR ${invoiceMoney(x.standardValue ?? x.value)}, Disc INR ${invoiceMoney(x.discount ?? 0)})`
       : x.label,
-    value: x.value,
+    value: x.value, quantity: x.quantity, unit: x.unit,
   }));
   const chargeLines = buildChargeLines(charges, items, roomLabels);
   const netFactor = booking.taxes_included ? 1 / (1 + taxRate) : 1;
@@ -302,7 +302,7 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
   }));
   tableLines.push(...extraLines.map((e) => ({
     description: e.label, sac: ACCOMMODATION_SAC, checkIn: "", checkOut: "", rooms: "",
-    qty: 1, unit: "Service", rate: roundMoney(e.value * netFactor), amount: roundMoney(e.value * netFactor),
+    qty: e.quantity, unit: e.unit, rate: roundMoney(e.value * netFactor / e.quantity), amount: roundMoney(e.value * netFactor),
   })), ...chargeLines.map((c) => ({
     description: c.label, sac: "", checkIn: "", checkOut: "", rooms: c.room,
     qty: c.qty, unit: "Units", rate: roundMoney(c.amount / c.qty), amount: c.amount,

@@ -193,10 +193,18 @@ export function usePushNotifications(options: { autoRegister?: boolean } = {}) {
         try {
           const existing = await reg.pushManager.getSubscription();
           await existing?.unsubscribe();
-        } catch { /* noop */ }
+          const keyBytes = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+          const ab = new ArrayBuffer(keyBytes.byteLength);
+          new Uint8Array(ab).set(keyBytes);
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: ab });
+        } catch {
+          update({ status: "subscribe_failed", errorDetail: msg });
+          return "subscribe_failed";
+        }
+      } else {
+        update({ status: "subscribe_failed", errorDetail: msg });
+        return "subscribe_failed";
       }
-      update({ status: "subscribe_failed", errorDetail: msg });
-      return "subscribe_failed";
     }
 
     // Persist
@@ -236,6 +244,13 @@ export function usePushNotifications(options: { autoRegister?: boolean } = {}) {
 
   // Initial probe on mount
   useEffect(() => { void probe(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  useEffect(() => {
+    const resume = () => { if (document.visibilityState === "visible") void probe(); };
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
+    return () => { document.removeEventListener("visibilitychange", resume); window.removeEventListener("online", resume); };
+  }, [probe]);
 
   // Optional auto-resync when caller explicitly opts in (e.g. layout-level)
   useEffect(() => {

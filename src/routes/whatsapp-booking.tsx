@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { BadgeCheck, CalendarDays, MessageCircle, PlayCircle, Users } from "lucide-react";
+import { BadgeCheck, CalendarDays, MessageCircle, PlayCircle, Users, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { getAvailability, createDraftBooking, confirmPayAtHotel } from "@/lib/booking-engine.functions";
-import { upsertLeadFromBookingEngine } from "@/lib/leads.functions";
+import { getAvailability, createWhatsAppDraft, confirmPayAtHotel } from "@/lib/booking-engine.functions";
+import { planWhatsAppRooms, type EngineCategory } from "@/lib/whatsapp-booking-selection";
+import { fmtINR } from "@/lib/pricing";
 import { RECEPTION_WA, waLink } from "@/lib/whatsapp-pitch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EARLY_CHECK_IN_SLOTS, LATE_CHECK_OUT_SLOTS, type EarlyCheckInSlot, type LateCheckOutSlot } from "@/lib/mock-data";
@@ -29,43 +30,57 @@ export const Route = createFileRoute("/whatsapp-booking")({
 const TOUR = "https://drive.google.com/file/d/18KMWmFBZO2KnUArLgPYTsn0WICHBPi1h/view?usp=drivesdk";
 
 function iso(days: number) {
-  const d = new Date();
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const d = new Date(today + "T00:00:00");
   d.setDate(d.getDate() + days);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-type Avail = { type: string; room_type_key: string; available: number };
+function Counter({ label, value, min = 0, max, onChange }: { label: string; value: number; min?: number; max: number; onChange: (value: number) => void }) {
+  return <div className="flex items-center gap-2 shrink-0">
+    <Button type="button" variant="outline" size="icon" aria-label={`Decrease ${label}`} disabled={value <= min} onClick={() => onChange(value - 1)}><Minus className="h-4 w-4" /></Button>
+    <output aria-label={`${label} count`} className="w-7 text-center tabular-nums font-semibold">{value}</output>
+    <Button type="button" variant="outline" size="icon" aria-label={`Increase ${label}`} disabled={value >= max} onClick={() => onChange(value + 1)}><Plus className="h-4 w-4" /></Button>
+  </div>;
+}
 
 function WhatsAppBooking() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [checkIn, setCheckIn] = useState(iso(0));
   const [checkOut, setCheckOut] = useState(iso(1));
-  const [guestsStr, setGuestsStr] = useState("2");
-  const [roomsStr, setRoomsStr] = useState("1");
+  const [adults, setAdults] = useState(2);
+  const [children, setChildren] = useState(0);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [earlySlot, setEarlySlot] = useState<EarlyCheckInSlot | null>(null);
   const [lateSlot, setLateSlot] = useState<LateCheckOutSlot | null>(null);
-  const guests = Math.max(1, Math.min(10, parseInt(guestsStr) || 1));
-  const roomsReq = Math.max(1, Math.min(20, parseInt(roomsStr) || 1));
-  const [types, setTypes] = useState<Avail[]>([]);
-  const [roomType, setRoomType] = useState("");
+  const [types, setTypes] = useState<EngineCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [availabilityError, setAvailabilityError] = useState("");
+  const selections = types.map((type) => ({ room_type: type.room_type_key, rooms: counts[type.room_type_key] ?? 0 }));
+  const roomsReq = selections.reduce((sum, row) => sum + row.rooms, 0);
+  let estimate: ReturnType<typeof planWhatsAppRooms> | null = null;
+  let selectionError = "";
+  if (roomsReq > 0 && !loading) {
+    try { estimate = planWhatsAppRooms({ selections, categories: types, adults, children, check_in: checkIn, check_out: checkOut, early: earlySlot, late: lateSlot }); }
+    catch (e) { selectionError = e instanceof Error ? e.message : "Please check your room selection."; }
+  }
   const [busy, setBusy] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<{ booking_id: string; total: number } | null>(null);
   const [error, setError] = useState("");
   const [done, setDone] = useState<{ ref: string; link: string } | null>(null);
 
   useEffect(() => {
-    if (checkOut <= checkIn) return;
-    getAvailability({ data: { check_in: checkIn, check_out: checkOut, guests } })
-      .then((r) => {
-        const list = r.results as Avail[];
-        setTypes(list);
-        if (!list.find((t) => t.room_type_key === roomType && t.available > 0)) {
-          setRoomType(list.find((t) => t.available > 0)?.room_type_key ?? "");
-        }
-      })
-      .catch(() => setTypes([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkIn, checkOut, guests]);
+    let active = true;
+    setLoading(true);
+    setAvailabilityError("");
+    if (checkOut <= checkIn) { setLoading(false); return; }
+    getAvailability({ data: { check_in: checkIn, check_out: checkOut, guests: 2 } })
+      .then((r) => { if (active) setTypes(r.results); })
+      .catch(() => { if (active) { setTypes([]); setAvailabilityError("Availability could not be loaded. Please try again."); } })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [checkIn, checkOut]);
 
   async function submit() {
     setError("");
@@ -73,20 +88,19 @@ function WhatsAppBooking() {
     if (name.trim().length < 2) return setError("Please enter your name.");
     if (digits.length < 10) return setError("Please enter a valid 10-digit mobile number.");
     if (checkOut <= checkIn) return setError("Check-out must be after check-in.");
-    if (!roomType) return setError("No rooms available for these dates. Please message us on WhatsApp.");
+    if (roomsReq < 1) return setError("Please select at least one room.");
+    if (!estimate || loading) return setError(selectionError || "Please wait for room availability.");
     const intl = "+" + (digits.length === 10 ? "91" + digits : digits);
-    const label = types.find((t) => t.room_type_key === roomType)?.type ?? roomType;
+    const label = estimate.summary;
     setBusy(true);
     try {
       const timing = bookingTimingLabels(earlySlot, lateSlot);
-      const draft = await createDraftBooking({
-        data: { room_type: roomType, check_in: checkIn, check_out: checkOut, guests, rooms: roomsReq, early_check_in_slot: earlySlot, late_check_out_slot: lateSlot, guest_name: name.trim(), phone: intl, special_requests: `Via WhatsApp booking form — ${roomsReq} room(s) requested for ${guests} guest(s); Check-in: ${timing.checkIn}; Check-out: ${timing.checkOut}; rate to be confirmed by front desk` },
+      const draft = pendingDraft ?? await createWhatsAppDraft({
+        data: { selections, check_in: checkIn, check_out: checkOut, adults, children, early: earlySlot, late: lateSlot, guest_name: name.trim(), phone: intl },
       });
+      setPendingDraft(draft);
       const conf = await confirmPayAtHotel({ data: { booking_id: draft.booking_id } });
-      await upsertLeadFromBookingEngine({
-        data: { guest_name: name.trim(), phone: intl, check_in: checkIn, check_out: checkOut, adults: guests, rooms: roomsReq, room_type_name: label, source_channel: "WhatsApp", booking_id: draft.booking_id, notes: `WhatsApp booking form — ${roomsReq} room(s) for ${guests} guest(s); Check-in: ${timing.checkIn}; Check-out: ${timing.checkOut}` },
-      }).catch(() => {});
-      const msg = `Hi Hotel Excella, I just reserved via WhatsApp booking.\nRef: ${conf.reference}\nName: ${name.trim()}\nMobile: ${digits}\nStay: ${checkIn} to ${checkOut}\nRoom: ${label}\nGuests: ${guests}\nCheck-in: ${timing.checkIn}\nCheck-out: ${timing.checkOut}\nPlease confirm my best direct price.`;
+      const msg = `Hi Hotel Excella, I just reserved via WhatsApp booking.\nRef: ${conf.reference}\nName: ${name.trim()}\nMobile: ${digits}\nStay: ${checkIn} to ${checkOut}\nRoom: ${label}\nGuests: ${adults} adults, ${children} children\nEstimated total: ${fmtINR(draft.total)}\nCheck-in: ${timing.checkIn}\nCheck-out: ${timing.checkOut}\nPlease confirm my best direct price.`;
       const link = waLink(RECEPTION_WA, msg);
       setDone({ ref: conf.reference, link });
       window.location.href = link;
@@ -122,6 +136,7 @@ function WhatsAppBooking() {
           </Card>
         ) : (
           <Card className="luxe-card p-5 space-y-4">
+            <fieldset disabled={busy || !!pendingDraft} className="space-y-4 border-0 p-0 m-0 min-w-0">
             <div className="space-y-1.5"><Label>Full name</Label><Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></div>
             <div className="space-y-1.5"><Label>Mobile number</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="10-digit mobile" /></div>
             <div className="grid grid-cols-2 gap-3">
@@ -149,35 +164,39 @@ function WhatsAppBooking() {
               </Select>
               <p className="text-xs text-muted-foreground">Early check-in and late check-out charges are per room, subject to availability. Best Price Assured.</p>
             </div>
-            <div className="space-y-1.5"><Label className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />Guests</Label><Input type="number" inputMode="numeric" min={1} max={10} value={guestsStr} onChange={(e) => setGuestsStr(e.target.value.replace(/\D/g, "").slice(0, 2))} onBlur={() => setGuestsStr(String(guests))} /></div>
-            <div className="space-y-1.5">
-              <Label>Room type</Label>
-              <div className="grid gap-2">
-                {types.length === 0 && <p className="text-xs text-muted-foreground">Checking availability…</p>}
-                {types.map((t) => (
-                  <button
-                    key={t.room_type_key}
-                    disabled={t.available <= 0}
-                    onClick={() => setRoomType(t.room_type_key)}
-                    className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm text-left disabled:opacity-40 ${roomType === t.room_type_key ? "border-primary bg-primary/10" : "border-border"}`}
-                  >
-                    <span>{t.type} <span className="text-xs text-muted-foreground">— {t.available > 0 ? `${t.available} available` : "sold out"}</span></span>
-                    <a href={TOUR} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-primary flex items-center gap-1"><PlayCircle className="h-3.5 w-3.5" />Tour</a>
-                  </button>
-                ))}
-              </div>
+            <div className="space-y-3">
+              <Label className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />Guests</Label>
+              <div className="flex items-center justify-between"><span className="text-sm">Adults</span><Counter label="adults" value={adults} min={1} max={60} onChange={setAdults} /></div>
+              <div className="flex items-center justify-between"><span className="text-sm">Children</span><Counter label="children" value={children} max={40} onChange={setChildren} /></div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Number of rooms</Label>
-              <Input type="number" inputMode="numeric" min={1} value={roomsStr} onChange={(e) => setRoomsStr(e.target.value.replace(/\D/g, "").slice(0, 2))} onBlur={() => setRoomsStr(String(roomsReq))} />
-              {(() => { const sel = types.find((t) => t.room_type_key === roomType); return sel ? (
-                <p className="text-xs text-muted-foreground">{sel.type}: {sel.available} room(s) available for these dates{roomsReq > sel.available ? " — we'll confirm the extra rooms with you on WhatsApp." : ""}</p>
-              ) : null; })()}
+            <div className="space-y-3">
+              <Label>Rooms</Label>
+              {loading && <p className="text-xs text-muted-foreground" role="status">Checking availability…</p>}
+              {availabilityError && <p className="text-sm text-destructive" role="alert">{availabilityError}</p>}
+              {types.map((t) => <div key={t.room_type_key} className="border-b border-border py-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0"><p className="font-medium">{t.type}</p><p className="text-xs text-muted-foreground">{t.available} available · {fmtINR(t.subtotal / t.nights)} / night</p></div>
+                  <Counter label={t.type} value={counts[t.room_type_key] ?? 0} max={Math.min(t.available, 20)} onChange={(value) => setCounts((old) => ({ ...old, [t.room_type_key]: value }))} />
+                </div>
+                <a href={TOUR} target="_blank" rel="noreferrer" className="text-xs text-primary inline-flex items-center gap-1"><PlayCircle className="h-3.5 w-3.5" />Room tour</a>
+              </div>)}
+              {!roomsReq && <p className="text-xs text-muted-foreground">Select at least one room.</p>}
+              {selectionError && <p className="text-sm text-destructive" role="alert">{selectionError}</p>}
             </div>
+            {estimate && <div className="border-t border-border pt-3 space-y-2 text-sm" aria-label="Booking estimate">
+              <div className="flex justify-between gap-2"><span>Room charges · {roomsReq} rooms</span><span>{fmtINR(estimate.pricing.mainStayCharges)}</span></div>
+              {estimate.pricing.additionalLineItems.map((line) => <div key={line.label} className="flex justify-between gap-3"><span>{line.label}</span><span className="shrink-0">{fmtINR(line.value)}</span></div>)}
+              <div className="flex justify-between"><span>GST ({Math.round(estimate.pricing.taxRate * 100)}%)</span><span>{fmtINR(estimate.pricing.taxes)}</span></div>
+              <div className="flex justify-between text-base font-semibold"><span>Estimated total</span><span>{fmtINR(estimate.pricing.total)}</span></div>
+            </div>}
+            </fieldset>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button className="w-full" onClick={submit} disabled={busy}>
+            <div className="sticky bottom-0 bg-card border-t border-border pt-3 pb-1 space-y-2">
+            {estimate && <div className="flex justify-between text-sm font-semibold"><span>Estimated total</span><span>{fmtINR(estimate.pricing.total)}</span></div>}
+            <Button className="w-full whitespace-normal h-auto min-h-10" onClick={submit} disabled={busy || loading || !estimate}>
               <MessageCircle className="h-4 w-4 mr-1" /> {busy ? "Reserving…" : "Reserve & continue on WhatsApp"}
             </Button>
+            </div>
           </Card>
         )}
       </div>

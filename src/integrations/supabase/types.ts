@@ -4248,6 +4248,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_whatsapp_room_draft: {
+        Args: { p_booking: Json; p_items: Json }
+        Returns: string
+      }
       current_actor: {
         Args: never
         Returns: {

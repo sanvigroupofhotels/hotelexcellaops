@@ -10,6 +10,7 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { resolveNotificationRoute } from "@/lib/notification-routing";
+import { pushAudienceMatches } from "@/lib/push-audience";
 
 // `web-push` is a Node-only library; load lazily so route module never crashes
 // the worker bundle if the package fails to resolve.
@@ -52,9 +53,15 @@ export const Route = createFileRoute("/api/public/push-dispatch")({
           // Fetch subscriptions: targeted user OR role audience OR all (broadcast).
           let query = supabaseAdmin.from("push_subscriptions" as any).select("*");
           if (notif.user_id) query = query.eq("user_id", notif.user_id);
-          else if (notif.audience_role) query = query.eq("audience_role", notif.audience_role);
-          const { data: subs = [], error: sErr } = await query;
+          const { data: candidates = [], error: sErr } = await query;
           if (sErr) return Response.json({ ok: false, error: sErr.message });
+          // Resolve against current roles, not the stale single role cached at signup.
+          const ids = [...new Set((candidates as any[]).map((s) => s.user_id))];
+          const { data: roles, error: roleError } = ids.length
+            ? await supabaseAdmin.from("user_roles").select("user_id,role").in("user_id", ids)
+            : { data: [], error: null };
+          if (roleError) return Response.json({ ok: false, error: roleError.message });
+          const subs = (candidates as any[]).filter((s) => notif.user_id || pushAudienceMatches(notif.audience_role, (roles ?? []).filter((r) => r.user_id === s.user_id).map((r) => String(r.role))));
 
           const vapidPublic = process.env.VAPID_PUBLIC_KEY;
           const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
