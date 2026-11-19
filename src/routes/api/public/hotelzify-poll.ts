@@ -569,10 +569,11 @@ async function processIntegration(
               // If the booking has anything other than a single synthetic row
               // (multi-room, breakfast/pet/extra-bed/late-checkout charges,
               // custom rates), preserve them and skip the line-item refresh.
-              const { data: existingItems } = await supabaseAdmin
+              const { data: existingItems, error: existingItemsError } = await supabaseAdmin
                 .from("booking_items")
-                .select("id, position, room_type, rooms, adults, children, breakfast_included, extra_bed, extra_adults, drivers, early_check_in, late_check_out, pet_size, notes, room_id, item_status")
+                .select("id, position, room_type, rooms, adults, children, breakfast_included, extra_bed, extra_adults, drivers, early_check_in, late_check_out, pet_size, notes, assigned_room_id, item_status, checked_in_at, checked_out_at")
                 .eq("booking_id", existing.id);
+              if (existingItemsError) throw existingItemsError;
               const items = existingItems ?? [];
               const looksSynthetic =
                 items.length === 1 &&
@@ -586,7 +587,7 @@ async function processIntegration(
                 ((items[0].pet_size ?? "none") === "none");
               const { data: assignments, error: assignmentError } = await supabaseAdmin.from("booking_room_assignments").select("id").eq("booking_id", existing.id).limit(1);
               if (assignmentError) throw assignmentError;
-              const staffEdited = items.length > 0 && (!looksSynthetic || items.some((item: any) => item.room_id || !["Pending", "Confirmed"].includes(item.item_status)) || (assignments ?? []).length > 0 || ["Checked-In", "Checked-Out", "Stay Completed", "Cancelled", "No-Show"].includes(existing.status));
+              const staffEdited = !looksSynthetic || items.some((item: { assigned_room_id: string | null; checked_in_at: string | null; checked_out_at: string | null; item_status: string | null }) => item.assigned_room_id || item.checked_in_at || item.checked_out_at || !["Pending", "Confirmed"].includes(item.item_status ?? "Confirmed")) || (assignments ?? []).length > 0 || ["Checked-In", "Checked-Out", "Stay Completed", "Cancelled", "No-Show"].includes(existing.status);
 
               // Patch financial + status fields. Never overwrite guest identity,
               // phone, room assignment, or staff notes — those are owned by the PMS once created.
@@ -615,12 +616,10 @@ async function processIntegration(
               if (updateBookingError) throw updateBookingError;
               // Only refresh the synthetic line item when staff haven't customized it.
               if (!staffEdited) {
-                const { error: deleteError } = await supabaseAdmin.from("booking_items").delete().eq("booking_id", existing.id);
-                if (deleteError) throw deleteError;
-                const { error: itemErr } = await supabaseAdmin.from("booking_items").insert(syntheticItems.map((item) => ({ booking_id: existing.id, ...item })) as any);
-                if (itemErr) {
-                  throw itemErr;
-                }
+                const { error: itemErr } = await supabaseAdmin.rpc("refresh_unassigned_ota_items", {
+                  p_booking_id: existing.id, p_items: syntheticItems as any,
+                });
+                if (itemErr) throw itemErr;
               }
             }
             result.updated++;

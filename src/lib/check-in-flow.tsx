@@ -214,6 +214,10 @@ export function useCheckInController(
   ) => {
     try {
       const targetItemId = opts2?.itemId ?? itemId ?? null;
+      // Repair only this live booking's unlinked room holds under caller RLS.
+      // Never ask for another physical room while its existing room is reserved.
+      const { error: linkError } = await supabase.rpc("reconcile_checkin_room_links", { p_booking_id: id });
+      if (linkError) throw linkError;
       const [b, items, docs, assignments] = await Promise.all([
         getBooking(id),
         listBookingItems(id),
@@ -286,6 +290,7 @@ export function useCheckInController(
           open
           onClose={reset}
           mode="checkin-flow"
+          targetItemId={itemId}
           onAllAssigned={reEvaluate}
         />
       )}

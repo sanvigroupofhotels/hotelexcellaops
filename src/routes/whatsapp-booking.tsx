@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { EARLY_CHECK_IN_SLOTS, LATE_CHECK_OUT_SLOTS, type EarlyCheckInSlot, type LateCheckOutSlot } from "@/lib/mock-data";
 import { bookingTimingLabels } from "@/lib/whatsapp-booking-timing";
 import { upsertLeadFromBookingEngine } from "@/lib/leads.functions";
-import { canCaptureWhatsAppLead } from "@/lib/whatsapp-lead-capture";
+import { canCaptureWhatsAppLead, canShowWhatsAppPrice } from "@/lib/whatsapp-lead-capture";
+import { normalizeOrThrow } from "@/lib/phone";
 
 export const Route = createFileRoute("/whatsapp-booking")({
   head: () => ({
@@ -72,19 +73,27 @@ function WhatsAppBooking() {
   const [error, setError] = useState("");
   const [done, setDone] = useState<{ ref: string; link: string } | null>(null);
   const captureQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const [capturedPayload, setCapturedPayload] = useState<string | null>(null);
+  const [captureError, setCaptureError] = useState("");
   const leadPayload = estimate && canCaptureWhatsAppLead(name, phone, roomsReq, checkIn, checkOut) ? JSON.stringify({
-    guest_name: name.trim(), phone, check_in: checkIn, check_out: checkOut, adults, children, rooms: roomsReq,
+    guest_name: name.trim().length >= 2 ? name.trim() : "WhatsApp enquiry", phone, check_in: checkIn, check_out: checkOut, adults, children, rooms: roomsReq,
     room_type_name: estimate.summary, estimated_total: estimate.pricing.total, source_channel: "WhatsApp",
     notes: `Unsubmitted WhatsApp quote request. ${bookingTimingLabels(earlySlot, lateSlot).checkIn}; ${bookingTimingLabels(earlySlot, lateSlot).checkOut}`,
   }) : null;
+  const showPrice = canShowWhatsAppPrice(phone, roomsReq) && !!leadPayload && capturedPayload === leadPayload;
   useEffect(() => {
     if (!leadPayload || done || busy || pendingDraft) return;
+    let active = true;
+    setCaptureError("");
     const timer = window.setTimeout(() => {
-      captureQueue.current = captureQueue.current.catch(() => undefined).then(() => upsertLeadFromBookingEngine({ data: JSON.parse(leadPayload) }));
+      captureQueue.current = captureQueue.current.catch(() => undefined).then(async () => {
+        await upsertLeadFromBookingEngine({ data: JSON.parse(leadPayload) });
+        if (active) setCapturedPayload(leadPayload);
+      });
       // A failed background capture must not block a guest's booking submission.
-      void captureQueue.current.catch(() => undefined);
+      void captureQueue.current.catch(() => { if (active) setCaptureError("Your enquiry could not be saved. Please try again or send your WhatsApp request."); });
     }, 400);
-    return () => window.clearTimeout(timer);
+    return () => { active = false; window.clearTimeout(timer); };
   }, [leadPayload, done, busy, pendingDraft]);
 
   useEffect(() => {
@@ -103,11 +112,11 @@ function WhatsAppBooking() {
     setError("");
     const digits = phone.replace(/\D/g, "");
     if (name.trim().length < 2) return setError("Please enter your name.");
-    if (digits.length < 10) return setError("Please enter a valid 10-digit mobile number.");
+    if (!canShowWhatsAppPrice(phone, roomsReq) && roomsReq > 0) return setError("Please enter a valid mobile number.");
     if (checkOut <= checkIn) return setError("Check-out must be after check-in.");
     if (roomsReq < 1) return setError("Please select at least one room.");
     if (!estimate || loading) return setError(selectionError || "Please wait for room availability.");
-    const intl = "+" + (digits.length === 10 ? "91" + digits : digits);
+    const intl = normalizeOrThrow(phone);
     const label = estimate.summary;
     setBusy(true);
     try {
@@ -201,7 +210,10 @@ function WhatsAppBooking() {
               {!roomsReq && <p className="text-xs text-muted-foreground">Select at least one room.</p>}
               {selectionError && <p className="text-sm text-destructive" role="alert">{selectionError}</p>}
             </div>
-            {estimate && <div className="border-t border-border pt-3 space-y-2 text-sm" aria-label="Booking estimate">
+            {estimate && !canShowWhatsAppPrice(phone, roomsReq) && <p className="text-xs text-muted-foreground">Enter a valid mobile number to view your stay total.</p>}
+            {leadPayload && !showPrice && !captureError && <p className="text-xs text-muted-foreground" role="status">Saving your enquiry…</p>}
+            {captureError && <p className="text-sm text-destructive" role="alert">{captureError}</p>}
+            {estimate && showPrice && <div className="border-t border-border pt-3 space-y-2 text-sm" aria-label="Booking estimate">
               <div className="flex justify-between gap-2"><span>Published tariff · {roomsReq} {roomsReq === 1 ? "room" : "rooms"} (incl. GST)</span><span>{fmtINR(estimate.pricing.mainStayCharges)}</span></div>
               {estimate.pricing.additionalLineItems.map((line) => <div key={line.label} className="flex justify-between gap-3"><span>{line.label}</span><span className="shrink-0">{fmtINR(line.value)}</span></div>)}
               <div className="flex justify-between text-muted-foreground"><span>Base tariff</span><span>{fmtINR(estimate.pricing.subtotal)}</span></div>
@@ -212,7 +224,7 @@ function WhatsAppBooking() {
             </fieldset>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="sticky bottom-0 bg-card border-t border-border pt-3 pb-1 space-y-2">
-            {estimate && <div className="flex justify-between text-sm font-semibold"><span>Published rate (incl. GST)</span><span>{fmtINR(estimate.pricing.total)}</span></div>}
+            {estimate && showPrice && <div className="flex justify-between text-sm font-semibold"><span>Published rate (incl. GST)</span><span>{fmtINR(estimate.pricing.total)}</span></div>}
             <Button className="w-full whitespace-normal h-auto min-h-10" onClick={submit} disabled={busy || loading || !estimate}>
               <MessageCircle className="h-4 w-4 mr-1" /> {busy ? "Sending request…" : "Get Best Quote on WhatsApp"}
             </Button>

@@ -4331,6 +4331,10 @@ export type Database = {
         Args: { p_item_id: string }
         Returns: number
       }
+      reconcile_checkin_room_links: {
+        Args: { p_booking_id: string }
+        Returns: undefined
+      }
       record_ota_prepaid: {
         Args: {
           p_booking_id: string
@@ -4339,6 +4343,10 @@ export type Database = {
           p_total: number
         }
         Returns: number
+      }
+      refresh_unassigned_ota_items: {
+        Args: { p_booking_id: string; p_items: Json }
+        Returns: boolean
       }
       resolve_username_to_email: {
         Args: { _username: string }

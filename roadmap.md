@@ -1,5 +1,10 @@
 # Roadmap
 
+## Current request — consistent assignments and contact-first WhatsApp pricing
+- [x] Prevent detached room assignments in OTA refresh and shared check-in; leave past bookings unchanged.
+- [x] Require valid mobile and selected rooms, and save a contactable enquiry before revealing WhatsApp prices.
+- [x] Run regression tests and verify phone/desktop pricing and signed-in assignment handling: 258 tests passed; temporary booking reused its original room through check-in; contact-only enquiry appeared in inbox; verification records removed. Full House View screen replay remains a live-verification task below.
+
 ## Current request — Owner access and five-minute abandonment
 - [x] Sweep shared page/sidebar gates, operational controls, settings, reports, staff aliases, MCP, push audience, live policies/functions and abandonment capture/sweep/notifications. Corrected Owner permission previews/effective lookup, notification administration guard and shared stay-edit role guard; verified named Owner pages and 22 focused tests. No settled records or unrelated settings changed.
 - [x] Give Owner/Admin full page access through authenticated roles and permissions; named owner verified on user management, roles, access, settings, calendar, owner reports, housekeeping and laundry with no runtime errors and no missing admin permissions.
