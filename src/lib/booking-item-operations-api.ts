@@ -118,6 +118,9 @@ export async function checkInBookingItem(
   itemId: string,
   opts: { allowOverride?: boolean } = {},
 ) {
+  const initial = await getItem(itemId);
+  const { error: linkError } = await supabase.rpc("reconcile_checkin_room_links", { p_booking_id: initial.booking_id });
+  if (linkError) throw linkError;
   const item = await getItem(itemId);
   if (!item.assigned_room_id) throw new Error("Assign a room before item check-in.");
   if (!opts.allowOverride) {

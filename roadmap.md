@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Current request — consistent assignments and contact-first WhatsApp pricing
+- [x] Cross-app sweep: staff edits preserve item IDs; assigned/history-bearing room removal is refused; direct/bulk check-in and every assignment caller reconcile live links; duplicate assignment is rejected. Read House View/placement, in-house rooms, availability, stay resize, night-audit pending/close, moves, OTA refresh, WhatsApp capture/inbox and abandonment functions. 262 tests pass and authenticated temporary direct check-in plus staff edit preserve the original room/item. Full House View replay, published verification and physical-phone delivery remain unverified; no settled records/settings/permissions changed.
 - [x] Prevent detached room assignments in OTA refresh and shared check-in; leave past bookings unchanged.
 - [x] Require valid mobile and selected rooms, and save a contactable enquiry before revealing WhatsApp prices.
 - [x] Run regression tests and verify phone/desktop pricing and signed-in assignment handling: 258 tests passed; temporary booking reused its original room through check-in; contact-only enquiry appeared in inbox; verification records removed. Full House View screen replay remains a live-verification task below.

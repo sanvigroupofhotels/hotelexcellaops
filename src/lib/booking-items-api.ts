@@ -4,6 +4,7 @@ import { getRoomRate, type EarlyCheckInSlot, type LateCheckOutSlot, type PetSize
 import { lineSubtotal, nightsOf, type LineItem } from "@/components/line-items-editor";
 import type { QuoteItemRow } from "@/lib/quote-items-api";
 import { expandLineToRooms } from "@/lib/guest-allocation";
+import { planBookingItemEdit } from "@/lib/booking-item-edit-plan";
 
 export interface BookingItemRow {
   id: string;
@@ -148,110 +149,43 @@ export async function addBookingItems(booking_id: string, items: BookingItemInpu
   return (data ?? []) as unknown as BookingItemRow[];
 }
 
-/**
- * Operational (per-room) state that belongs to the PHYSICAL room stay, not to
- * the priced line. Editing a booking rewrites the priced lines by delete +
- * re-insert, so this state must be carried across or reception silently loses
- * room assignments, occupant names and per-room check-in/out history.
- */
-type CarriedItemState = {
-  assigned_room_id: string | null;
-  primary_occupant_name: string | null;
-  primary_phone: string | null;
-  item_status: string | null;
-  checked_in_at: string | null;
-  checked_out_at: string | null;
-  added_during_stay: boolean | null;
-  operational_notes?: string | null;
-};
-
-function hasOperationalState(s: CarriedItemState) {
-  return !!(s.assigned_room_id || s.primary_occupant_name || s.primary_phone
-    || s.checked_in_at || s.checked_out_at
-    || (s.item_status && s.item_status !== "Confirmed"));
-}
-
-const normType = (v?: string | null) => String(v ?? "").trim().toLowerCase();
-
+/** Update priced fields in place so room-history foreign keys never detach. */
 export async function replaceBookingItems(booking_id: string, items: BookingItemInput[]) {
-  // Snapshot the per-room operational state BEFORE the destructive rewrite.
-  const previous = await listBookingItems(booking_id).catch(() => [] as BookingItemRow[]);
-  const carryPool = new Map<string, CarriedItemState[]>();
-  for (const it of [...previous].sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0))) {
-    const state: CarriedItemState = {
-      assigned_room_id: it.assigned_room_id ?? null,
-      primary_occupant_name: it.primary_occupant_name ?? null,
-      primary_phone: it.primary_phone ?? null,
-      item_status: (it.item_status as string | undefined) ?? null,
-      checked_in_at: it.checked_in_at ?? null,
-      checked_out_at: it.checked_out_at ?? null,
-      added_during_stay: it.added_during_stay ?? null,
-      operational_notes: (it as any).operational_notes ?? null,
-    };
-    if (!hasOperationalState(state)) continue;
-    const key = normType(it.room_type);
-    const arr = carryPool.get(key) ?? [];
-    arr.push(state);
-    carryPool.set(key, arr);
-  }
-
-  await supabase.from("booking_items" as any).delete().eq("booking_id", booking_id);
-  const created = await addBookingItems(booking_id, items);
-
-  // Re-attach the carried state, matching room type first, then any leftover.
-  if (carryPool.size) {
-    const takeState = (roomType: string): CarriedItemState | null => {
-      const exact = carryPool.get(normType(roomType));
-      if (exact?.length) return exact.shift()!;
-      for (const [, arr] of carryPool) if (arr.length) return arr.shift()!;
-      return null;
-    };
-    for (const row of created) {
-      const state = takeState(row.room_type);
-      if (!state) continue;
-      const patch: Record<string, unknown> = {
-        assigned_room_id: state.assigned_room_id,
-        primary_occupant_name: state.primary_occupant_name,
-        primary_phone: state.primary_phone,
-        checked_in_at: state.checked_in_at,
-        checked_out_at: state.checked_out_at,
-      };
-      if (state.item_status) patch.item_status = state.item_status;
-      if (state.added_during_stay != null) patch.added_during_stay = state.added_during_stay;
-      if (state.operational_notes != null) patch.operational_notes = state.operational_notes;
-      await supabase.from("booking_items" as any).update(patch as any).eq("id", row.id);
-      // Segments lost their item_id when the old row was deleted
-      // (ON DELETE SET NULL) — relink by room so occupancy history, House View
-      // colouring and the occupant label all keep pointing at the right room.
-      if (state.assigned_room_id) {
-        await supabase.from("booking_room_assignments" as any)
-          .update({ item_id: row.id } as any)
-          .eq("booking_id", booking_id)
-          .eq("room_id", state.assigned_room_id)
-          .is("item_id", null);
+  const { error: linkError } = await supabase.rpc("reconcile_checkin_room_links", { p_booking_id: booking_id });
+  if (linkError) throw linkError;
+  const previous = await listBookingItems(booking_id);
+  const { data: segments, error: segmentError } = await supabase.from("booking_room_assignments" as any)
+    .select("item_id").eq("booking_id", booking_id);
+  if (segmentError) throw segmentError;
+  const linkedIds = new Set<string>((segments ?? []).flatMap((segment: any) => segment.item_id ? [String(segment.item_id)] : []));
+  const expanded = items.flatMap((item) => expandLineToRooms(item));
+  const plan = planBookingItemEdit(previous, expanded.map((item) => item.room_type), linkedIds);
+  for (let position = 0; position < expanded.length; position++) {
+    const line = expanded[position];
+    const existing = plan.matched[position];
+    if (!existing) {
+      const added = await addBookingItems(booking_id, [line]);
+      for (const row of added) {
+        const { error } = await supabase.from("booking_items" as any).update({ position } as any).eq("id", row.id);
+        if (error) throw error;
       }
+      continue;
     }
+    const { error } = await supabase.from("booking_items" as any).update({
+      ...line, rooms: 1, position,
+      subtotal: computeBookingItemSubtotal(line),
+      early_check_in_slot: line.early_check_in ? line.early_check_in_slot : null,
+      late_check_out_slot: line.late_check_out ? line.late_check_out_slot : null,
+      early_check_in_override: line.early_check_in ? (line.early_check_in_override ?? null) : null,
+      late_check_out_override: line.late_check_out ? (line.late_check_out_override ?? null) : null,
+    } as any).eq("id", existing.id).eq("booking_id", booking_id);
+    if (error) throw error;
   }
-
-  try {
-    // Scoped to THIS booking only — the un-scoped variant rewrites item_status
-    // for every booking in the property, silently reverting per-room check-ins
-    // and check-outs made via the Room Management flows.
-    await supabase.rpc("backfill_booking_item_segment_links_for_booking" as any, {
-      p_booking_id: booking_id,
-    });
-  } catch {
-    /* older deployments may not have the helper yet; assignment flows still work */
+  if (plan.removableIds.length) {
+    const { error } = await supabase.from("booking_items" as any).delete().in("id", plan.removableIds).eq("booking_id", booking_id);
+    if (error) throw error;
   }
-  // A shrinking room mix must release the rooms it no longer needs, otherwise
-  // the orphaned open segment keeps that physical room unassignable.
-  try {
-    const { pruneSurplusAssignments } = await import("@/lib/booking-room-assignments-api");
-    await pruneSurplusAssignments(booking_id);
-  } catch {
-    /* non-blocking */
-  }
-  return created;
+  return listBookingItems(booking_id);
 }
 
 

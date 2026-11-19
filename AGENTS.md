@@ -21,4 +21,5 @@
 - WhatsApp pre-submit selections capture leads without inventory holds; reuse the CRM inactivity sweep and notification routing so abandoned enquiries remain contactable without reserving rooms.
 - WhatsApp prices reveal only after valid contact and selected rooms are persisted as an enquiry; a missing name uses a neutral enquiry label so contact capture does not depend on name entry.
 - OTA item refresh uses a booking-locked transaction that refuses assigned/lifecycle rows; assignment writes share the lock, and check-in reconnects unlinked live holds through caller RLS before evaluating room gates.
+- Staff booking edits update matched item IDs in place and refuse removing linked or lifecycle-bearing items; direct and bulk check-in share caller-scoped link reconciliation so no entry point detaches physical-stay history.
 - Administrator page access derives only from protected roles; Owner inheritance must match shared UI/server checks, access previews and database permission functions/policies, while explicit permission denies remain effective.

@@ -59,6 +59,8 @@ export async function addAssignment(
 ) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
+  const { error: linkError } = await supabase.rpc("reconcile_checkin_room_links", { p_booking_id: booking_id });
+  if (linkError) throw linkError;
 
   let start_date = opts?.start_date;
   let end_date = opts?.end_date;
@@ -101,26 +103,38 @@ export async function addAssignment(
 
   let item_id = opts?.item_id ?? null;
   if (!item_id) {
-    const { data: item } = await supabase
+    const { data: item, error: itemError } = await supabase
       .from("booking_items" as any)
       .select("id")
       .eq("booking_id", booking_id)
       .is("assigned_room_id", null)
+      .in("item_status", ["Confirmed", "Checked-In"])
       .order("position", { ascending: true })
       .limit(1)
       .maybeSingle();
+    if (itemError) throw itemError;
     item_id = (item as any)?.id ?? null;
   }
+  if (!item_id) throw new Error("No unassigned room entry remains. Refresh the booking or use Change Room.");
+  const { data: target, error: targetError } = await supabase.from("booking_items" as any)
+    .select("assigned_room_id,item_status").eq("id", item_id).eq("booking_id", booking_id).single();
+  if (targetError) throw targetError;
+  if ((target as any).assigned_room_id) {
+    if ((target as any).assigned_room_id === room_id) return;
+    throw new Error("This room entry already has a room. Use Change Room instead of assigning another.");
+  }
+  if (!["Confirmed", "Checked-In"].includes((target as any).item_status)) throw new Error("This room entry is no longer active.");
 
   const { error } = await supabase.from("booking_room_assignments" as any)
     .insert({ booking_id, room_id, user_id: user.id, start_date, end_date, item_id } as any);
   if (error) throw error;
 
   if (item_id) {
-    await supabase
+    const { error: itemUpdateError } = await supabase
       .from("booking_items" as any)
       .update({ assigned_room_id: room_id } as any)
       .eq("id", item_id);
+    if (itemUpdateError) throw itemUpdateError;
   }
 
   await syncLegacyBookingRoom(booking_id);

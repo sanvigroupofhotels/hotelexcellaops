@@ -99,6 +99,13 @@
       "when": 1795068242127,
       "tag": "0013_protect_ota_room_links",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795068769582,
+      "tag": "0014_respect_generated_ota_stay_length",
+      "breakpoints": true
     }
   ]
 }
