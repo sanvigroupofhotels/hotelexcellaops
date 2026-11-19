@@ -175,7 +175,7 @@ function WhatsAppBooking() {
               {availabilityError && <p className="text-sm text-destructive" role="alert">{availabilityError}</p>}
               {types.map((t) => <div key={t.room_type_key} className="border-b border-border py-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0"><p className="font-medium">{t.type}</p><p className="text-xs text-muted-foreground">{t.available} available · {fmtINR(t.subtotal / t.nights)} / night incl. GST</p></div>
+                  <div className="min-w-0"><p className="font-medium">{t.type}</p><p className="text-xs text-muted-foreground">{t.available} available</p></div>
                   <Counter label={t.type} value={counts[t.room_type_key] ?? 0} max={Math.min(t.available, 20)} onChange={(value) => setCounts((old) => ({ ...old, [t.room_type_key]: value }))} />
                 </div>
                 <a href={TOUR} target="_blank" rel="noreferrer" className="text-xs text-primary inline-flex items-center gap-1"><PlayCircle className="h-3.5 w-3.5" />Room tour</a>
@@ -189,7 +189,7 @@ function WhatsAppBooking() {
               <div className="flex justify-between text-muted-foreground"><span>Base tariff</span><span>{fmtINR(estimate.pricing.subtotal)}</span></div>
               <div className="flex justify-between text-muted-foreground"><span>GST ({Math.round(estimate.pricing.taxRate * 100)}%) included</span><span>{fmtINR(estimate.pricing.taxes)}</span></div>
               <div className="flex justify-between text-base font-semibold"><span>Published rate (incl. GST)</span><span>{fmtINR(estimate.pricing.total)}</span></div>
-              <p className="rounded-lg border border-primary/40 bg-primary/10 p-3 text-xs">This is a request for our best quote. Once you send the WhatsApp message, our Front Desk Reservation Team will reply with an exclusive direct discount for your stay.</p>
+              <p className="rounded-lg border border-primary/40 bg-primary/10 p-3 text-xs">This is a request form with actual prices, once you submit the request, our Front Desk Team will reply you with a best direct discount for your stay.</p>
             </div>}
             </fieldset>
             {error && <p className="text-sm text-destructive">{error}</p>}

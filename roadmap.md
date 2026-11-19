@@ -1,5 +1,9 @@
 # Roadmap
 
+## Current request — WhatsApp booking form only
+- [x] Hide room-category tariffs before selection and use the approved actual-prices request notice; verified live phone/desktop selection and deselection, GST-inclusive ₹2,500 breakdown and 15 regression tests; full WhatsApp message unchanged.
+- FabHotels/OTA pricing, payments, multi-room allocation and recovery are deferred to a separate request.
+
 ## Phase 1 — guest bookings, breakdowns and alerts
 - [x] Correct multi-room early check-in, late check-out and extra-adult quantities through shared pricing; verified BE-261118-5RIC in reception, proforma and guest portal.
 - [x] Add zero-default room-category selectors, children, live rates and sticky estimated total; require at least one room. Desktop and 390px phone layouts verified.
