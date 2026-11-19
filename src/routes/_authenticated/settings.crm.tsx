@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { getCrmSettings, updateCrmSettings } from "@/lib/leads.functions";
+import { DEFAULT_ABANDON_MINUTES } from "@/lib/access-policy";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +21,17 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Plus, X, Mail } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/settings/crm")({ component: SettingsCrm });
+export const Route = createFileRoute("/_authenticated/settings/crm")({
+  head: () => ({ meta: [
+    { title: "CRM & Lead Notifications — Hotel Excella" },
+    { name: "description", content: "Manage Hotel Excella enquiry recovery and notification preferences." },
+    { property: "og:title", content: "CRM & Lead Notifications — Hotel Excella" },
+    { property: "og:description", content: "Manage enquiry recovery and notification preferences." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
+  component: SettingsCrm,
+});
 
 function SettingsCrm() {
   const qc = useQueryClient();
@@ -28,7 +39,7 @@ function SettingsCrm() {
   const saveSettings = useServerFn(updateCrmSettings);
   const { data, isLoading } = useQuery({ queryKey: ["crm-settings"], queryFn: () => fetchSettings() });
 
-  const [abandonMins, setAbandonMins] = useState(10);
+  const [abandonMins, setAbandonMins] = useState(DEFAULT_ABANDON_MINUTES);
   const [emails, setEmails] = useState<string[]>([]);
   const [newEmail, setNewEmail] = useState("");
   const [onLead, setOnLead] = useState(true);
@@ -120,7 +131,7 @@ function SettingsCrm() {
       <Card className="p-4 space-y-3">
         <p className="font-display text-base">Send notifications when…</p>
         <Toggle label="New lead is created" v={onLead} on={setOnLead} />
-        <Toggle label="Lead is abandoned (10-min inactivity)" v={onAbandon} on={setOnAbandon} />
+        <Toggle label={`Lead is abandoned (${abandonMins}-min inactivity)`} v={onAbandon} on={setOnAbandon} />
         <Toggle label="Lead converts to a booking" v={onConverted} on={setOnConverted} />
         <Toggle label="Lead is marked Lost" v={onLost} on={setOnLost} />
       </Card>

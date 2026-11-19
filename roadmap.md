@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Current request — Owner access and five-minute abandonment
-- [ ] Give Owner/Admin full page access through authenticated roles and permissions; verify the named owner account.
-- [ ] Set abandonment to five minutes and check each minute; verify settings and regression tests.
+- [x] Give Owner/Admin full page access through authenticated roles and permissions; named owner verified on user management, roles, access, settings, calendar, owner reports, housekeeping and laundry with no runtime errors and no missing admin permissions.
+- [x] Set abandonment to five minutes and check each minute; saved settings and active schedule verified, 29 focused regressions passed.
 
 ## Current request — configurable OTA imports and WhatsApp abandonment
 - [x] Add configurable room-count, payment-mode and category mappings with generic provider parsing.
