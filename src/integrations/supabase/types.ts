@@ -472,6 +472,7 @@ export type Database = {
           ocr_data: Json | null
           ocr_extracted_text: string | null
           ocr_image_path: string | null
+          ota_import_key: string | null
           paid_to: string | null
           payment_mode: string
           razorpay_method: string | null
@@ -497,6 +498,7 @@ export type Database = {
           ocr_data?: Json | null
           ocr_extracted_text?: string | null
           ocr_image_path?: string | null
+          ota_import_key?: string | null
           paid_to?: string | null
           payment_mode: string
           razorpay_method?: string | null
@@ -522,6 +524,7 @@ export type Database = {
           ocr_data?: Json | null
           ocr_extracted_text?: string | null
           ocr_image_path?: string | null
+          ota_import_key?: string | null
           paid_to?: string | null
           payment_mode?: string
           razorpay_method?: string | null
@@ -4326,6 +4329,15 @@ export type Database = {
       }
       recompute_inventory_stock: {
         Args: { p_item_id: string }
+        Returns: number
+      }
+      record_ota_prepaid: {
+        Args: {
+          p_booking_id: string
+          p_external_ref: string
+          p_provider: string
+          p_total: number
+        }
         Returns: number
       }
       resolve_username_to_email: {

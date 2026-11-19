@@ -11,8 +11,18 @@ import {
 import { ArrowLeft, ChevronDown, ChevronRight, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { DEFAULT_OTA_CATEGORY_MAP, otaCategoryMapSchema } from "@/lib/ota-import-rules";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/settings_/integrations/$id")({
+  head: () => ({ meta: [
+    { title: "OTA Integration Settings — Hotel Excella" },
+    { name: "description", content: "Configure OTA email fields, room categories and booking sync." },
+    { property: "og:title", content: "OTA Integration Settings — Hotel Excella" },
+    { property: "og:description", content: "Manage room mappings and OTA booking imports." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
   component: IntegrationDetailPage,
 });
 
@@ -54,6 +64,8 @@ const FIELD_KEYS: { key: string; label: string; defaults: string }[] = [
   { key: "check_out", label: "Check-Out", defaults: "Check Out, Check-Out, Departure, Departure Date" },
   { key: "guests", label: "Guest Count", defaults: "Guests, Adults, Guest Count" },
   { key: "room_details", label: "Room Name", defaults: "Room Name, Room Type, Room Details" },
+  { key: "rooms", label: "Number of Rooms", defaults: "Number of Rooms, Rooms, No of Rooms, Total Rooms, Room Count" },
+  { key: "payment_mode", label: "Payment Mode", defaults: "Payment Mode, Payment Type, Mode of Payment, Payment Method" },
   { key: "room_charges", label: "Room Charges", defaults: "Room Charges, Room Total, Room Tariff, Room Price" },
   { key: "subtotal", label: "Subtotal", defaults: "Subtotal, Sub Total, Sub-Total" },
   { key: "discount", label: "Discount", defaults: "Discount, Discount Amount, Coupon Discount" },
@@ -91,6 +103,7 @@ function Content({ id }: { id: string }) {
   const [allowUpdates, setAllowUpdates] = useState(false);
   const [taxRate, setTaxRate] = useState<number>(5);
   const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
+  const [categoryMap, setCategoryMap] = useState<[string, string][]>([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
   const [rawConfig, setRawConfig] = useState("{}");
@@ -118,6 +131,7 @@ function Content({ id }: { id: string }) {
       normalized[f.key] = Array.isArray(v) ? v.join(", ") : (typeof v === "string" ? v : "");
     }
     setFieldLabels(normalized);
+    setCategoryMap(Object.entries(cfg.room_category_mappings ?? DEFAULT_OTA_CATEGORY_MAP));
     setRawConfig(JSON.stringify(cfg, null, 2));
   }, [row]);
 
@@ -128,6 +142,7 @@ function Content({ id }: { id: string }) {
       if (arr.length) fl[f.key] = arr;
     }
     return {
+      ...(row?.config ?? {}),
       sender_email: senderEmail.trim() || undefined,
       inbox_email: inboxEmail.trim() || undefined,
       lookback_days: lookbackDays,
@@ -136,6 +151,7 @@ function Content({ id }: { id: string }) {
       allow_updates: allowUpdates,
       tax_rate: Number.isFinite(taxRate) ? Number((taxRate / 100).toFixed(4)) : 0.05,
       field_labels: fl,
+      room_category_mappings: otaCategoryMapSchema.parse(Object.fromEntries(categoryMap.filter(([label]) => label.trim()))),
     };
   };
 
@@ -147,7 +163,8 @@ function Content({ id }: { id: string }) {
 
   const runSync = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/public/hotelzify-poll?debug=1&integration_id=${id}`, { method: "POST" });
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/public/hotelzify-poll?debug=1&integration_id=${id}`, { method: "POST", headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } });
       const data = await res.json().catch(() => ({}));
       if (data?.gmail_access_mode === "metadata_only") return data as SyncDebugResponse;
       if (!res.ok || !data.ok) throw new Error(data.error || `Sync failed (${res.status})`);
@@ -170,7 +187,8 @@ function Content({ id }: { id: string }) {
   // Update" counts so staff can decide whether to import for real.
   const runPreview = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/public/hotelzify-poll?debug=1&dryRun=1&integration_id=${id}`, { method: "POST" });
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/public/hotelzify-poll?debug=1&dryRun=1&integration_id=${id}`, { method: "POST", headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } });
       const data = await res.json().catch(() => ({}));
       if (data?.gmail_access_mode === "metadata_only") return data as SyncDebugResponse & { dryRun: boolean };
       if (!res.ok || !data.ok) throw new Error(data.error || `Preview failed (${res.status})`);
@@ -260,6 +278,15 @@ function Content({ id }: { id: string }) {
                       placeholder={f.defaults} />
                   </Field>
                 ))}
+              </div>
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm">Room category mappings</h4>
+                {categoryMap.map(([external, internal], index) => <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                  <input aria-label={`OTA room label ${index + 1}`} className={inputCls} value={external} onChange={(e) => setCategoryMap((old) => old.map((entry, i) => i === index ? [e.target.value, entry[1]] : entry))} />
+                  <input aria-label={`Hotel room category ${index + 1}`} className={inputCls} value={internal} onChange={(e) => setCategoryMap((old) => old.map((entry, i) => i === index ? [entry[0], e.target.value] : entry))} />
+                  <Button variant="ghost" size="icon" aria-label={`Remove room mapping ${index + 1}`} onClick={() => setCategoryMap((old) => old.filter((_, i) => i !== index))}>×</Button>
+                </div>)}
+                <Button variant="outline" size="sm" onClick={() => setCategoryMap((old) => [...old, ["", ""]])}>Add room mapping</Button>
               </div>
             </div>
           )}

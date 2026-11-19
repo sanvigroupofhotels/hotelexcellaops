@@ -26,6 +26,9 @@ const NULLISH = (v: unknown): v is string =>
 
 export function resolveNotificationRoute(n: NotificationLike): string {
   const m = (n.metadata ?? {}) as Record<string, any>;
+  if (m.source_channel === "WhatsApp" && NULLISH(m.lead_id) && !NULLISH(m.booking_id) && !NULLISH(m.draft_booking_id)) {
+    return "/whatsapp-inbox";
+  }
 
   // 1. Booking — direct entity OR metadata reference
   if (n.entity_type === "booking" && NULLISH(n.entity_id)) {

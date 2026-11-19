@@ -98,17 +98,17 @@ function leadHumanSummary(l: any): string {
 export const upsertLeadFromBookingEngine = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z.object({
-      guest_name: z.string().trim().min(2),
-      phone: z.string().trim().min(8),
-      email: z.string().trim().email().optional().or(z.literal("")),
+      guest_name: z.string().trim().min(2).max(120),
+      phone: z.string().trim().min(8).max(20),
+      email: z.string().trim().email().max(255).optional().or(z.literal("")),
       check_in: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       adults: z.number().int().min(0).max(60).optional(),
       children: z.number().int().min(0).max(40).optional(),
       rooms: z.number().int().min(1).max(20).optional(),
-      room_type_name: z.string().trim().optional(),
+      room_type_name: z.string().trim().max(500).optional(),
       estimated_total: z.number().nonnegative().optional(),
-      notes: z.string().optional(),
+      notes: z.string().max(2000).optional(),
       source_channel: z.enum(["BookingEngine", "WhatsApp"]).optional(),
       booking_id: z.string().uuid().optional(),
     }).parse(input),
@@ -140,7 +140,7 @@ export const upsertLeadFromBookingEngine = createServerFn({ method: "POST" })
       // If Converted, don't reopen — guest already has a booking.
       // Just refresh fields without changing status.
       if (existing.status === "Converted" && !data.booking_id) {
-        await supabaseAdmin.from("leads").update({ ...patch }).eq("id", existing.id);
+        // Anonymous browsing must never alter an already-booked guest's linked enquiry.
         return { lead_id: existing.id as string, status: existing.status as string, reopened: false };
       }
       // If Lost → reopen to Interested. Otherwise keep current status.
@@ -171,9 +171,14 @@ export const upsertLeadFromBookingEngine = createServerFn({ method: "POST" })
     }
 
     // Insert new lead
+    // Public requests have no auth.uid(); the customer-link trigger requires attribution.
+    const { data: systemUser, error: systemError } = await supabaseAdmin.from("user_roles")
+      .select("user_id").eq("role", "admin").limit(1).maybeSingle();
+    if (systemError || !systemUser?.user_id) throw new Error("Guest enquiries are temporarily unavailable.");
     const { data: created, error } = await supabaseAdmin
       .from("leads")
       .insert({
+        user_id: systemUser.user_id,
         guest_name: data.guest_name,
         phone,
         ...patch,

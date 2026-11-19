@@ -17,3 +17,5 @@
 - WhatsApp mixed-category requests share one allocation/estimate planner and an atomic service-only inventory transaction; this keeps estimates, persisted guests and room holds aligned.
 - Additional stay breakdowns aggregate typed quantities in shared pricing; portal and invoices consume them without independent fee formulas.
 - Push dispatch resolves operational audiences from current user roles rather than a cached single subscription role; role changes must immediately change delivery eligibility.
+- OTA imports share browser-safe email parsing and pure room/category/payment rules; preserve config extensions, staff-assigned room rows and existing receipts, and use a locked idempotent payment operation so re-sync cannot duplicate prepaid credits.
+- WhatsApp pre-submit selections capture leads without inventory holds; reuse the CRM inactivity sweep and notification routing so abandoned enquiries remain contactable without reserving rooms.

@@ -1,6 +1,12 @@
 # Roadmap
 
-## Current request — WhatsApp booking form only
+## Current request — configurable OTA imports and WhatsApp abandonment
+- [x] Add configurable room-count, payment-mode and category mappings with generic provider parsing.
+- [x] Preserve GST-inclusive OTA totals, record prepaid payments only, expand rooms and recover orphan imports; TU7C6I restored with three rooms, five guests and ₹14,601 inclusive total. Preserve staff-assigned/check-in room rows and existing receipts.
+- [x] Hide all pre-selection WhatsApp charges and capture unfinished room selections in leads/inbox/notifications; valid guest contact required, existing 10-minute abandonment window verified.
+- [x] Run 250 rule regressions and verify public capture, signed-in inbox, abandoned alert, configurable parser preview, live OTA recovery and idempotent prepaid replay; temporary data removed.
+
+## Previous request — WhatsApp booking form only
 - [x] Hide room-category tariffs before selection and use the approved actual-prices request notice; verified live phone/desktop selection and deselection, GST-inclusive ₹2,500 breakdown and 15 regression tests; full WhatsApp message unchanged.
 - FabHotels/OTA pricing, payments, multi-room allocation and recovery are deferred to a separate request.
 

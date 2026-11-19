@@ -13,35 +13,16 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { isOtaSystemEmail, normalizeExternalRef } from "@/lib/ota-domains";
-import { normalizePhoneNumber, validatePhoneNumber } from "@/lib/phone";
+import { buildOtaImport, otaCategoryMapSchema } from "@/lib/ota-import-rules";
+import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
+import { createClient } from "@supabase/supabase-js";
+
+import { PARSERS, parseGeneric, HOTELZIFY_DEFAULTS, isReceptionPhone, type ParsedBooking } from "@/lib/ota-email-parser";
 
 const GMAIL_BASE = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
 
-type ParsedBooking = {
-  external_ref: string;
-  guest_name: string;
-  phone: string | null;
-  email: string | null;
-  check_in: string;
-  check_out: string;
-  guests: number;
-  room_details: string;
-  room_charges: number;
-  subtotal: number;
-  discount: number;
-  taxable_amount: number;
-  tax: number;
-  total_amount: number;
-  amount_paid: number;
-  balance_due: number;
-  payment_mode: string | null;
-  booking_status: string;
-  special_requests: string | null;
-};
-
 type HeaderSample = { id?: string; date: string; from: string; subject: string };
 type DiagnosticSearch = { query: string; count: number; resultSizeEstimate: number; samples: HeaderSample[]; error?: string };
-type ParserOptions = { blockedEmails?: string[] };
 type ImportTrace = {
   external_ref: string;
   gmail_message_id: string;
@@ -77,300 +58,6 @@ function extractTextFromPayload(payload: any): string {
   text = text.replace(/[ \t]+/g, " ").replace(/\n{2,}/g, "\n").trim();
   return text;
 }
-
-function pick(text: string, re: RegExp): string | null {
-  const m = text.match(re);
-  return m ? m[1].trim() : null;
-}
-
-function escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function labelRegex(labels: string[]): RegExp | null {
-  if (!labels.length) return null;
-  const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
-  // Strict match:
-  //   - Label must not be followed by another alphanumeric char
-  //     ("Discount" must NOT match "Discounted Total")
-  //   - Separator [:|\-] is REQUIRED (prevents bare-label numeric grabs)
-  //   - Optional parenthetical between label and separator (e.g. "Tax (5%):")
-  return new RegExp(`(?:${alt})(?![A-Za-z0-9])(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*([^\\n|]+?)(?=\\n|\\||$)`, "i");
-}
-
-function pickByLabels(text: string, labels: string[]): string | null {
-  const re = labelRegex(labels);
-  return re ? pick(text, re) : null;
-}
-
-function pickAllByLabels(text: string, labels: string[]): string[] {
-  if (!labels.length) return [];
-  const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
-  const re = new RegExp(`(?:${alt})(?![A-Za-z0-9])(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*([^\\n|]+?)(?=\\n|\\||$)`, "gi");
-  const out: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) out.push(m[1].trim());
-  return out;
-}
-
-function pickAllLineByLabels(text: string, labels: string[]): string[] {
-  if (!labels.length) return [];
-  const alt = labels.map((l) => escapeRe(l).replace(/\s+/g, "\\s*[-\\s]*")).join("|");
-  const re = new RegExp(`^\\s*(?:${alt})(?![A-Za-z0-9])(?:\\s*\\([^)]*\\))?\\s*[:|\\-]\\s*(.+?)\\s*$`, "i");
-  return text
-    .split("\n")
-    .map((line) => line.match(re)?.[1]?.trim() ?? null)
-    .filter((v): v is string => !!v);
-}
-
-function uniqueStrings(values: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const v of values) {
-    const key = v.trim().toLowerCase();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(v.trim());
-  }
-  return out;
-}
-
-function extractGuestDetailsSection(text: string): string | null {
-  const lines = text.split("\n");
-  const start = lines.findIndex((line) => /^\s*guest\s+(details|information)\s*:?\s*$/i.test(line));
-  if (start < 0) return null;
-  const end = lines.findIndex((line, i) => (
-    i > start &&
-    /^\s*(booking|room|stay|payment|tariff|price|fare|property|hotel|cancellation|terms)\b.*:?\s*$/i.test(line) &&
-    !/guest/i.test(line)
-  ));
-  return lines.slice(start + 1, end > start ? end : Math.min(lines.length, start + 24)).join("\n").trim() || null;
-}
-
-function pickFirstByLabelsFromTexts(texts: string[], labels: string[]): string | null {
-  for (const text of texts) {
-    const lineMatch = pickAllLineByLabels(text, labels)[0];
-    if (lineMatch) return lineMatch;
-    const fallback = pickByLabels(text, labels);
-    if (fallback) return fallback;
-  }
-  return null;
-}
-
-function pickAllByLabelsFromTexts(texts: string[], labels: string[]): string[] {
-  const values: string[] = [];
-  for (const text of texts) {
-    values.push(...pickAllLineByLabels(text, labels));
-    values.push(...pickAllByLabels(text, labels));
-  }
-  return uniqueStrings(values);
-}
-
-const RECEPTION_NUMBERS = new Set(["9985908131", "09985908131", "+919985908131", "919985908131"]);
-
-function last10Digits(input: string): string {
-  return input.replace(/\D/g, "").slice(-10);
-}
-
-function isReceptionPhone(input: string): boolean {
-  const digits = last10Digits(input);
-  return [...RECEPTION_NUMBERS].some((n) => last10Digits(n) === digits);
-}
-
-function phoneMatches(input: string): string[] {
-  return input.match(/\+\s*91[\s-]?\d{5}[\s-]?\d{5}|\+\s*91[\s-]?\d{10}|\b[6-9]\d{9}\b/g) ?? [];
-}
-
-function pickGuestPhone(labelCandidates: string[], scanTexts: string[]): string | null {
-  const candidates = uniqueStrings([
-    ...labelCandidates.flatMap(phoneMatches),
-    ...scanTexts.flatMap(phoneMatches),
-  ]);
-  for (const candidate of candidates) {
-    if (isReceptionPhone(candidate)) continue;
-    const n = normalizePhoneNumber(candidate.replace(/[^+\d]/g, ""));
-    if (validatePhoneNumber(n)) return n;
-  }
-  return null;
-}
-
-function emailMatches(input: string): string[] {
-  return input.match(/[\w.+-]+@[\w.-]+\.\w+/g) ?? [];
-}
-
-function pickGuestEmail(labelCandidates: string[], scanTexts: string[], blockedEmails: string[] = []): string | null {
-  const blocked = new Set(blockedEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
-  const candidates = uniqueStrings([
-    ...labelCandidates.flatMap(emailMatches),
-    ...scanTexts.flatMap(emailMatches),
-  ]).map((e) => e.toLowerCase());
-  return candidates.find((e) => !blocked.has(e) && !isOtaSystemEmail(e)) ?? null;
-}
-
-const MONTH_MAP: Record<string, number> = {
-  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
-};
-
-function normalizeDate(input: string | null): string | null {
-  if (!input) return null;
-  const s = input.trim().replace(/,/g, "");
-  let m = s.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
-  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
-  m = s.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
-  if (m) {
-    const y = m[3].length === 2 ? `20${m[3]}` : m[3];
-    return `${y}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-  }
-  // FabHotels style: "15 JUN 26" or "15 Jun 2026"
-  m = s.match(/(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{2,4})/);
-  if (m) {
-    const mon = MONTH_MAP[m[2].toLowerCase()];
-    if (mon) {
-      const y = m[3].length === 2 ? `20${m[3]}` : m[3];
-      return `${y}-${String(mon).padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-    }
-  }
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-}
-
-function parseMoney(input: string | null): number {
-  if (!input) return 0;
-  const cleaned = input.replace(/[^0-9.]/g, "");
-  return cleaned ? parseFloat(cleaned) : 0;
-}
-
-// ---------- Provider parsers ----------
-
-const HOTELZIFY_DEFAULTS: Record<string, string[]> = {
-  booking_id: ["Booking ID", "Booking Id", "Booking Reference", "Booking Ref", "Booking No", "Booking Number", "Confirmation Number"],
-  guest_name: ["Guest Name", "Name"],
-  mobile: ["Mobile", "Phone", "Contact", "Mobile No", "Phone No", "Mobile Number"],
-  email: ["Email"],
-  check_in: ["Check In", "Check-In", "Check in", "Arrival", "Arrival Date", "Checkin"],
-  check_out: ["Check Out", "Check-Out", "Check out", "Departure", "Departure Date", "Checkout"],
-  guests: ["Guest Count", "Guests", "Adults", "No of Guests", "Number of Guests"],
-  room_details: ["Room Name", "Room Type", "Room Details", "Room"],
-  room_charges: ["Room Charges", "Room Total", "Room Tariff", "Room Price", "Room Amount"],
-  subtotal: ["Subtotal", "Sub Total", "Sub-Total"],
-  discount: ["Discount", "Discount Amount", "Coupon Discount"],
-  taxable_amount: ["Taxable Amount", "Taxable Value", "Net Amount"],
-  tax: ["Tax", "Taxes", "GST", "Total Tax", "Total Taxes"],
-  total_amount: ["Discounted Total", "Total Amount", "Grand Total", "Total Price", "Total Booking Amount"],
-  amount_paid: ["Amount Paid", "Paid", "Advance Paid", "Advance"],
-  balance_due: ["Amount To Pay", "Balance Due", "Balance", "Amount Due", "Due Amount"],
-  payment_mode: ["Payment Mode", "Mode of Payment", "Payment Method"],
-  booking_status: ["Booking Status", "Status"],
-  special_requests: ["Special Requests", "Special Request", "Guest Requests", "Notes"],
-};
-
-const FABHOTELS_DEFAULTS: Record<string, string[]> = {
-  booking_id: ["Booking ID", "Booking Id"],
-  guest_name: ["NAME OF GUEST", "Name of Guest", "Guest Name"],
-  mobile: ["Mobile", "Phone", "Contact"],
-  email: ["Email"],
-  check_in: ["CHECKIN DATE", "Checkin Date", "Check-in Date", "Check In", "Arrival Date"],
-  check_out: ["CHECKOUT DATE", "Checkout Date", "Check-out Date", "Check Out", "Departure Date"],
-  guests: ["TOTAL GUESTS", "Total Guests", "Number Of Guests", "Guests"],
-  room_details: ["TYPE OF ROOM", "Type Of Room", "Room Type", "Room Name"],
-  total_amount: ["TOTAL BOOKING AMOUNT", "Total Booking Amount", "Total Amount", "Total"],
-  amount_paid: ["Amount Paid", "Paid"],
-  payment_mode: ["PAYMENT MODE", "Payment Mode"],
-  booking_status: ["Booking Status", "Status"],
-  special_requests: ["SPECIAL REQUEST", "Special Request", "Special Requests", "Notes"],
-  hotel_name: ["HOTEL NAME & ADDRESS", "Hotel Name"],
-};
-
-function parseGeneric(
-  text: string,
-  subject: string,
-  defaults: Record<string, string[]>,
-  fieldLabels: Record<string, string[]>,
-  opts?: { statusFromSubject?: boolean } & ParserOptions,
-): { booking: ParsedBooking | null; errors: string[] } {
-  const lbl = (k: string) => (fieldLabels[k]?.length ? fieldLabels[k] : defaults[k] ?? []);
-  const guestSection = extractGuestDetailsSection(text);
-  const identityTexts = [guestSection, text].filter((v): v is string => !!v);
-
-  const bookingId =
-    pickByLabels(text, lbl("booking_id")) ??
-    pick(subject, /Booking\s*(?:ID|Id|No|Number|Reference)[^A-Z0-9]*([A-Z0-9-]*\d[A-Z0-9-]*)/i) ??
-    pick(subject, /Booking[^A-Z0-9]*([A-Z0-9-]*\d[A-Z0-9-]*)/i);
-  const name = pickFirstByLabelsFromTexts(identityTexts, lbl("guest_name"));
-  const mobileCandidates = pickAllByLabelsFromTexts(identityTexts, lbl("mobile"));
-  const emailCandidates = pickAllByLabelsFromTexts(identityTexts, lbl("email"));
-  const checkInRaw = pickByLabels(text, lbl("check_in"));
-  const checkOutRaw = pickByLabels(text, lbl("check_out"));
-  const checkIn = normalizeDate(checkInRaw);
-  const checkOut = normalizeDate(checkOutRaw);
-  const guestCount = pickByLabels(text, lbl("guests"));
-  const paymentMode = pickByLabels(text, lbl("payment_mode")) ?? pick(text, /Payment\s*Mode\s*[:\-|]\s*([^\n|]+?)(?=\n|\||$)/i);
-  const subjectLc = subject.toLowerCase();
-  let bookingStatus = pickByLabels(text, lbl("booking_status"));
-  if (!bookingStatus && opts?.statusFromSubject) {
-    if (subjectLc.includes("cancel")) bookingStatus = "Cancelled";
-    else if (subjectLc.includes("confirm") || subjectLc.includes("reservation")) bookingStatus = "Confirmed";
-    else bookingStatus = "Pending Confirmation";
-  }
-  // Money fields — pick the LAST occurrence to skip table-column-header false matches
-  // (e.g. "Total Price" appearing in a `<th>` before the actual labelled value).
-  const lastMoney = (key: string): string | null => {
-    const all = pickAllByLabels(text, lbl(key)).filter((v) => /\d/.test(v));
-    return all.length ? all[all.length - 1] : null;
-  };
-  const totalAmount = lastMoney("total_amount");
-  const amountPaid = lastMoney("amount_paid");
-  const balanceDue = lastMoney("balance_due");
-  const roomCharges = lastMoney("room_charges");
-  const subtotalRaw = lastMoney("subtotal");
-  const taxableRaw = lastMoney("taxable_amount");
-  const discount = lastMoney("discount");
-  const tax = lastMoney("tax");
-  const specialReq = pickByLabels(text, lbl("special_requests"));
-  const roomDetails = pickByLabels(text, lbl("room_details")) ?? "";
-
-  const errors: string[] = [];
-  if (!bookingId) errors.push("missing booking id");
-  if (!name) errors.push("missing guest name");
-  if (!checkIn) errors.push(`missing/invalid check-in${checkInRaw ? ` (${checkInRaw})` : ""}`);
-  if (!checkOut) errors.push(`missing/invalid check-out${checkOutRaw ? ` (${checkOutRaw})` : ""}`);
-  if (!bookingId || !name || !checkIn || !checkOut) return { booking: null, errors };
-
-  const guestPhone = pickGuestPhone(mobileCandidates, identityTexts);
-  const guestEmail = pickGuestEmail(emailCandidates, identityTexts, opts?.blockedEmails);
-
-  return {
-    booking: {
-      external_ref: bookingId,
-      guest_name: name.replace(/\s*\([^)]*\)\s*$/, "").trim(),
-      phone: guestPhone,
-      email: guestEmail,
-      check_in: checkIn,
-      check_out: checkOut,
-      guests: guestCount ? parseInt(guestCount, 10) || 1 : 1,
-      room_details: roomDetails.trim(),
-      room_charges: parseMoney(roomCharges),
-      subtotal: parseMoney(subtotalRaw),
-      discount: parseMoney(discount),
-      taxable_amount: parseMoney(taxableRaw),
-      tax: parseMoney(tax),
-      total_amount: parseMoney(totalAmount),
-      amount_paid: parseMoney(amountPaid),
-      balance_due: parseMoney(balanceDue),
-      payment_mode: paymentMode?.trim() ?? null,
-      booking_status: (bookingStatus ?? "Pending Confirmation").trim(),
-      special_requests: specialReq && !/^none$/i.test(specialReq) ? specialReq.trim() : null,
-    },
-    errors: [],
-  };
-}
-
-type ProviderParser = (text: string, subject: string, fieldLabels: Record<string, string[]>, opts?: ParserOptions) => { booking: ParsedBooking | null; errors: string[] };
-
-const PARSERS: Record<string, ProviderParser> = {
-  hotelzify: (text, subject, fl, opts) => parseGeneric(text, subject, HOTELZIFY_DEFAULTS, fl, { statusFromSubject: true, ...opts }),
-  fabhotels: (text, subject, fl, opts) => parseGeneric(text, subject, FABHOTELS_DEFAULTS, fl, { statusFromSubject: true, ...opts }),
-};
 
 function maskPhone(value: unknown): unknown {
   if (typeof value !== "string" || !value) return value;
@@ -542,7 +229,7 @@ async function processIntegration(
   dryRun: boolean = false,
 ): Promise<RunResult> {
   const provider: string = intg.provider;
-  const parser = PARSERS[provider];
+  const parser = PARSERS[provider] ?? ((text, subject, fl, opts) => parseGeneric(text, subject, HOTELZIFY_DEFAULTS, fl, { statusFromSubject: true, ...opts }));
 
   const cfg = (intg.config ?? {}) as any;
   const sender: string | undefined = cfg.sender_email?.trim() || undefined;
@@ -559,7 +246,7 @@ async function processIntegration(
   // missing or polluted. Used as fallback and as a sanity clamp.
   const configuredTaxRate: number = (() => {
     const raw = cfg.tax_rate;
-    if (typeof raw === "number" && raw >= 0 && raw <= 1) return raw;
+    if (typeof raw === "number" && raw >= 0 && raw <= 100) return raw > 1 ? raw / 100 : raw;
     if (typeof raw === "string" && raw.trim()) {
       const n = parseFloat(raw);
       if (Number.isFinite(n)) return n > 1 ? n / 100 : n;
@@ -649,6 +336,21 @@ async function processIntegration(
       return result;
     }
     const messages: { id: string }[] = list.messages ?? [];
+    // Recover upcoming orphan imports even if their emails are outside the lookback.
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const { data: orphans, error: orphanError } = await supabaseAdmin.from("external_bookings")
+      .select("raw_payload,parsed,booking_id").eq("integration_id", intg.id);
+    if (orphanError) throw orphanError;
+    const recoveryIds = new Set<string>();
+    for (const orphan of orphans ?? []) {
+      const saved = orphan.parsed as any;
+      const id = (orphan.raw_payload as any)?.gmail_message_id;
+      if (typeof id !== "string" || !saved?.check_out || saved.check_out < today || /cancel|no.show/i.test(saved.booking_status ?? "")) continue;
+      // Apply corrected inclusive-total semantics once to active old imports.
+      if (orphan.booking_id && (orphan.raw_payload as any)?.import_rules_version === 2) continue;
+      recoveryIds.add(id);
+      if (!messages.some((message) => message.id === id)) messages.push({ id });
+    }
     result.scanned = messages.length;
 
     if (messages.length === 0 && debug && sender) {
@@ -680,7 +382,7 @@ async function processIntegration(
     };
 
     for (const m of messages) {
-      if (processedIds.has(m.id)) { (result as any).skipped_already_processed = ((result as any).skipped_already_processed ?? 0) + 1; continue; }
+      if (processedIds.has(m.id) && !recoveryIds.has(m.id)) { (result as any).skipped_already_processed = ((result as any).skipped_already_processed ?? 0) + 1; continue; }
       try {
         let msg: any;
         try {
@@ -773,7 +475,8 @@ async function processIntegration(
               .insert(customerPayload as any)
               .select("id, phone, email").single();
             if (custErr) throw custErr;
-            customerId = newCust!.id;
+            if (!newCust) throw new Error("Customer creation failed");
+            customerId = newCust.id;
             customerRow = newCust;
           }
         } else if (customerId && !dryRun) {
@@ -790,47 +493,12 @@ async function processIntegration(
           }
         }
 
-        // Pricing breakdown reconciliation.
-        //
-        // Rules (in priority order — direct extraction beats reverse-calc):
-        //   1. roomChargesBase  ← parsed.room_charges  (else parsed.subtotal+discount,
-        //                          else totalPayable − tax + discount, else totalPayable)
-        //   2. discountAmount   ← parsed.discount
-        //   3. taxableBase      ← parsed.taxable_amount (else parsed.subtotal,
-        //                          else roomChargesBase − discountAmount)
-        //   4. taxAmount        ← parsed.tax (if it equals taxableBase × configuredTaxRate
-        //                          within ±2% tolerance OR is clearly < taxableBase),
-        //                          else round(taxableBase × configuredTaxRate). This guards
-        //                          against the Hotelzify "Tax = total" template bug.
-        //   5. totalPayable     ← parsed.total_amount (authoritative — already verified correct)
-        const totalPayable = parsed.total_amount || 0;
-        const checkInDate = new Date(parsed.check_in);
-        const checkOutDate = new Date(parsed.check_out);
-        const nights = Math.max(
-          1,
-          Math.round((checkOutDate.getTime() - checkInDate.getTime()) / 86_400_000),
-        );
-        const discountAmount = parsed.discount > 0 && parsed.discount < totalPayable ? parsed.discount : 0;
-        const roomChargesBase = (() => {
-          if (parsed.room_charges > 0) return parsed.room_charges;
-          if (parsed.subtotal > 0) return parsed.subtotal + discountAmount;
-          const back = totalPayable - (parsed.tax || 0) + discountAmount;
-          return back > 0 ? back : totalPayable;
-        })();
-        const taxableBase = (() => {
-          if (parsed.taxable_amount > 0) return parsed.taxable_amount;
-          if (parsed.subtotal > 0) return parsed.subtotal;
-          return Math.max(0, roomChargesBase - discountAmount);
-        })();
-        const expectedTax = Math.round(taxableBase * configuredTaxRate);
-        const parsedTaxLooksValid =
-          parsed.tax > 0 &&
-          parsed.tax < taxableBase &&
-          Math.abs(parsed.tax - expectedTax) / Math.max(1, expectedTax) <= 0.05;
-        const taxAmount = parsedTaxLooksValid ? parsed.tax : expectedTax;
-        const effectiveTaxRate =
-          taxableBase > 0 ? Number((taxAmount / taxableBase).toFixed(4)) : configuredTaxRate;
-        const perNightRate = Math.max(0, Math.round(roomChargesBase / nights));
+        const plan = buildOtaImport(parsed, configuredTaxRate, cfg.room_category_mappings == null ? undefined : otaCategoryMapSchema.parse(cfg.room_category_mappings));
+        const totalPayable = plan.pricing.total;
+        const roomChargesBase = plan.pricing.subtotal;
+        const taxAmount = plan.pricing.taxes;
+        const effectiveTaxRate = plan.pricing.taxRate;
+        const discountAmount = 0; // Email total is authoritative, already after OTA discounts.
 
         const bookingPayload = {
           user_id: systemUserId,
@@ -848,9 +516,9 @@ async function processIntegration(
           discount: discountAmount,
           taxes: taxAmount,
           tax_rate: effectiveTaxRate,
-          taxes_included: false,
-          total_override: null,
-          advance_paid: parsed.amount_paid || 0,
+          taxes_included: true,
+          total_override: totalPayable,
+          advance_paid: existing?.advance_paid ?? 0,
           status: mapStatus(parsed.booking_status),
           lead_source: leadSource,
           integration_id: intg.id,
@@ -858,34 +526,14 @@ async function processIntegration(
           special_requests: parsed.special_requests,
           notes: `Imported from ${leadSource} · Booking #${parsed.external_ref}${parsed.payment_mode ? ` · ${parsed.payment_mode}` : ""}`,
         };
-        const syntheticItem = {
-          position: 0,
-          room_type: parsed.room_details?.trim() || "Imported Room",
-          rooms: 1,
-          adults: Math.max(1, parsed.guests || 1),
-          children: 0,
-          check_in: parsed.check_in,
-          check_out: parsed.check_out,
-          breakfast_included: false,
-          extra_bed: 0,
-          rate: perNightRate,
-          subtotal: perNightRate * nights,
-          notes: null,
-          early_check_in: false,
-          early_check_in_slot: null,
-          late_check_out: false,
-          late_check_out_slot: null,
-          pet_size: "none",
-          extra_adults: 0,
-          drivers: 0,
-        };
+        const syntheticItems = plan.items;
         const trace: ImportTrace = {
           external_ref: parsed.external_ref,
           gmail_message_id: m.id,
           subject,
           action: existing ? (allowUpdates ? "update" : "skip") : "create",
           parsed_payload: maskedParsedPayload(parsed),
-          database_payload: maskedDatabasePayload({ ...bookingPayload, _booking_item: syntheticItem }),
+          database_payload: maskedDatabasePayload({ ...bookingPayload, _booking_items: syntheticItems }),
           customer_payload: customerPayload ? maskedDatabasePayload(customerPayload) : (Object.keys(customerContactPatch).length > 0 ? maskedDatabasePayload(customerContactPatch) : null),
         };
         if (debug) result.traces?.push(trace);
@@ -923,7 +571,7 @@ async function processIntegration(
               // custom rates), preserve them and skip the line-item refresh.
               const { data: existingItems } = await supabaseAdmin
                 .from("booking_items")
-                .select("id, position, room_type, rooms, adults, children, breakfast_included, extra_bed, extra_adults, drivers, early_check_in, late_check_out, pet_size")
+                .select("id, position, room_type, rooms, adults, children, breakfast_included, extra_bed, extra_adults, drivers, early_check_in, late_check_out, pet_size, notes, room_id, item_status")
                 .eq("booking_id", existing.id);
               const items = existingItems ?? [];
               const looksSynthetic =
@@ -936,7 +584,9 @@ async function processIntegration(
                 !items[0].early_check_in &&
                 !items[0].late_check_out &&
                 ((items[0].pet_size ?? "none") === "none");
-              const staffEdited = items.length > 0 && !looksSynthetic;
+              const { data: assignments, error: assignmentError } = await supabaseAdmin.from("booking_room_assignments").select("id").eq("booking_id", existing.id).limit(1);
+              if (assignmentError) throw assignmentError;
+              const staffEdited = items.length > 0 && (!looksSynthetic || items.some((item: any) => item.room_id || !["Pending", "Confirmed"].includes(item.item_status)) || (assignments ?? []).length > 0 || ["Checked-In", "Checked-Out", "Stay Completed", "Cancelled", "No-Show"].includes(existing.status));
 
               // Patch financial + status fields. Never overwrite guest identity,
               // phone, room assignment, or staff notes — those are owned by the PMS once created.
@@ -945,7 +595,7 @@ async function processIntegration(
               const { data: currentBooking } = staffEdited
                 ? await supabaseAdmin.from("bookings").select("total_override").eq("id", existing.id).single()
                 : { data: null as { total_override: number | null } | null };
-              await supabaseAdmin.from("bookings").update({
+              const { error: updateBookingError } = await supabaseAdmin.from("bookings").update({
                 amount: bookingPayload.amount,
                 subtotal: bookingPayload.subtotal,
                 discount: bookingPayload.discount,
@@ -962,15 +612,14 @@ async function processIntegration(
                 special_requests: bookingPayload.special_requests,
                 ...contactPatchFromParsed(existing, parsed, blockedEmails),
               } as any).eq("id", existing.id);
+              if (updateBookingError) throw updateBookingError;
               // Only refresh the synthetic line item when staff haven't customized it.
               if (!staffEdited) {
-                await supabaseAdmin.from("booking_items").delete().eq("booking_id", existing.id);
-                const { error: itemErr } = await supabaseAdmin.from("booking_items").insert({
-                  booking_id: existing.id,
-                  ...syntheticItem,
-                } as any);
+                const { error: deleteError } = await supabaseAdmin.from("booking_items").delete().eq("booking_id", existing.id);
+                if (deleteError) throw deleteError;
+                const { error: itemErr } = await supabaseAdmin.from("booking_items").insert(syntheticItems.map((item) => ({ booking_id: existing.id, ...item })) as any);
                 if (itemErr) {
-                  result.parser_errors.push(`msg ${m.id}: line item refresh failed (${itemErr.message?.slice(0, 120)})`);
+                  throw itemErr;
                 }
               }
             }
@@ -1008,23 +657,30 @@ async function processIntegration(
             // Subtotal, Discount, Taxable Amount, and Tax derived from one consistent base.
             const { error: itemErr } = await supabaseAdmin
               .from("booking_items")
-              .insert({ booking_id: insertedBooking.id, ...syntheticItem } as any);
+              .insert(syntheticItems.map((item) => ({ booking_id: insertedBooking.id, ...item })) as any);
             if (itemErr) {
-              result.parser_errors.push(`msg ${m.id}: booking created but line item failed (${itemErr.message?.slice(0, 120)})`);
+              throw itemErr;
             }
           }
           result.created++;
         }
 
         if (!dryRun) {
-          await supabaseAdmin.from("external_bookings").upsert({
+          if (bookingIdForExternal && plan.advance > 0 && !["Cancelled", "No-Show", "Checked-Out", "Stay Completed"].includes(existing?.status ?? "")) {
+            const { error: paymentError } = await supabaseAdmin.rpc("record_ota_prepaid" as any, {
+              p_booking_id: bookingIdForExternal, p_total: totalPayable, p_provider: leadSource, p_external_ref: parsed.external_ref,
+            } as any);
+            if (paymentError) throw paymentError;
+          }
+          const { error: externalError } = await supabaseAdmin.from("external_bookings").upsert({
             integration_id: intg.id,
             external_ref: parsed.external_ref,
-            raw_payload: { subject, parsed, gmail_message_id: m.id, trace },
+            raw_payload: { subject, parsed, gmail_message_id: m.id, trace, import_rules_version: 2 },
             parsed,
             booking_id: bookingIdForExternal,
             state: "processed",
           } as any, { onConflict: "integration_id,external_ref" });
+          if (externalError) throw externalError;
           if (existing && bookingIdForExternal && Object.keys(contactRepairPayload).length > 0) {
             await supabaseAdmin.from("booking_activities").insert({
               booking_id: bookingIdForExternal,
@@ -1122,6 +778,21 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const cronDenied = await authenticateCronRequest(request);
+        if (cronDenied) {
+          const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
+          const publicKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+          const dbUrl = process.env.SUPABASE_URL;
+          if (!token || !publicKey || !dbUrl) return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+          const caller = createClient(dbUrl, publicKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
+          const { data: claims, error: claimsError } = await caller.auth.getClaims(token);
+          if (claimsError || !claims?.claims?.sub) return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+          {
+            const { data: isAdmin, error } = await caller.rpc("has_role", { _user_id: claims.claims.sub, _role: "admin" });
+            const { data: isOwner } = await caller.rpc("has_role", { _user_id: claims.claims.sub, _role: "owner" });
+            if (error || (!isAdmin && !isOwner)) return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
+          }
+        }
         const gatewayKey = process.env.LOVABLE_API_KEY;
         const connectionKey = process.env.GOOGLE_MAIL_API_KEY;
         // Gmail is required ONLY for the email-fetch step of email-parser
@@ -1154,7 +825,7 @@ export const Route = createFileRoute("/api/public/hotelzify-poll")({
           .from("integrations")
           .select("*")
           .eq("type", "email_parser")
-          .in("status", ["connected", "draft", "disabled"]); // dry-run should also work on disabled integrations
+          .in("status", dryRun ? ["connected", "draft", "disabled"] : ["connected", "draft"]);
         if (integrationId) query = query.eq("id", integrationId);
         const { data: rows, error: intgErr } = await query.order("updated_at", { ascending: false });
 

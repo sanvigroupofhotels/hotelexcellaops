@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BadgeCheck, CalendarDays, MessageCircle, PlayCircle, Users, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import { RECEPTION_WA, waLink } from "@/lib/whatsapp-pitch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EARLY_CHECK_IN_SLOTS, LATE_CHECK_OUT_SLOTS, type EarlyCheckInSlot, type LateCheckOutSlot } from "@/lib/mock-data";
 import { bookingTimingLabels } from "@/lib/whatsapp-booking-timing";
+import { upsertLeadFromBookingEngine } from "@/lib/leads.functions";
+import { canCaptureWhatsAppLead } from "@/lib/whatsapp-lead-capture";
 
 export const Route = createFileRoute("/whatsapp-booking")({
   head: () => ({
@@ -69,6 +71,21 @@ function WhatsAppBooking() {
   const [pendingDraft, setPendingDraft] = useState<{ booking_id: string; total: number } | null>(null);
   const [error, setError] = useState("");
   const [done, setDone] = useState<{ ref: string; link: string } | null>(null);
+  const captureQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const leadPayload = estimate && canCaptureWhatsAppLead(name, phone, roomsReq, checkIn, checkOut) ? JSON.stringify({
+    guest_name: name.trim(), phone, check_in: checkIn, check_out: checkOut, adults, children, rooms: roomsReq,
+    room_type_name: estimate.summary, estimated_total: estimate.pricing.total, source_channel: "WhatsApp",
+    notes: `Unsubmitted WhatsApp quote request. ${bookingTimingLabels(earlySlot, lateSlot).checkIn}; ${bookingTimingLabels(earlySlot, lateSlot).checkOut}`,
+  }) : null;
+  useEffect(() => {
+    if (!leadPayload || done || busy || pendingDraft) return;
+    const timer = window.setTimeout(() => {
+      captureQueue.current = captureQueue.current.catch(() => undefined).then(() => upsertLeadFromBookingEngine({ data: JSON.parse(leadPayload) }));
+      // A failed background capture must not block a guest's booking submission.
+      void captureQueue.current.catch(() => undefined);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [leadPayload, done, busy, pendingDraft]);
 
   useEffect(() => {
     let active = true;
@@ -94,6 +111,7 @@ function WhatsAppBooking() {
     const label = estimate.summary;
     setBusy(true);
     try {
+      await captureQueue.current.catch(() => undefined);
       const timing = bookingTimingLabels(earlySlot, lateSlot);
       const draft = pendingDraft ?? await createWhatsAppDraft({
         data: { selections, check_in: checkIn, check_out: checkOut, adults, children, early: earlySlot, late: lateSlot, guest_name: name.trim(), phone: intl },
@@ -149,7 +167,7 @@ function WhatsAppBooking() {
                 <SelectTrigger id="arrival-slot" className="w-full h-auto min-h-10 text-left whitespace-normal [&>span]:line-clamp-none"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="standard">Standard (1:00 PM onwards) · Included</SelectItem>
-                  {EARLY_CHECK_IN_SLOTS.map((slot) => <SelectItem key={slot.value} value={slot.value}>{slot.label.replace(/\s*\(.*\)/, "")} · {slot.fee === null ? "+Full day room charge" : `+₹${slot.fee.toLocaleString("en-IN")}`}</SelectItem>)}
+                  {EARLY_CHECK_IN_SLOTS.map((slot) => <SelectItem key={slot.value} value={slot.value}>{slot.label.replace(/\s*\(.*\)/, "")}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -159,7 +177,7 @@ function WhatsAppBooking() {
                 <SelectTrigger id="departure-slot" className="w-full h-auto min-h-10 text-left whitespace-normal [&>span]:line-clamp-none"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="standard">Standard (by 11:00 AM) · Included</SelectItem>
-                  {LATE_CHECK_OUT_SLOTS.map((slot) => <SelectItem key={slot.value} value={slot.value}>{slot.label.replace(/\s*\(.*\)/, "")} · {slot.fee === null ? "+Full day room charge" : `+₹${slot.fee.toLocaleString("en-IN")}`}</SelectItem>)}
+                  {LATE_CHECK_OUT_SLOTS.map((slot) => <SelectItem key={slot.value} value={slot.value}>{slot.label.replace(/\s*\(.*\)/, "")}</SelectItem>)}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">Early check-in and late check-out charges are per room, subject to availability. Best Price Assured.</p>

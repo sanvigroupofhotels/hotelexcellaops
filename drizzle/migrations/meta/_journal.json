@@ -71,6 +71,13 @@
       "when": 1795050994007,
       "tag": "0009_use_generated_booking_nights",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795055808153,
+      "tag": "0010_idempotent_ota_prepaid",
+      "breakpoints": true
     }
   ]
 }
