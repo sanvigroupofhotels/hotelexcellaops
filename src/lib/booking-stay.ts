@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { splitAssignment } from "@/lib/booking-room-assignments-api";
+import { hasAdministratorAccess } from "@/lib/access-policy";
 
 /**
  * Single source of truth for stay mutations (room change / date change).
@@ -79,13 +80,13 @@ function ymdDiffDays(a: string, b: string): number {
 
 export const SUPER_ADMIN_EMAIL = "shobhan.india@gmail.com";
 
-/** True when the signed-in caller is Admin (role row) or the super admin email. */
+/** Fresh protected-role lookup, shared by all stay-edit entry points. */
 async function callerIsAdmin(): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
-  if ((user.email ?? "").toLowerCase() === SUPER_ADMIN_EMAIL) return true;
-  const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin" as any).maybeSingle();
-  return !!data;
+  const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+  if (error) return false;
+  return hasAdministratorAccess((data ?? []).map((row) => row.role));
 }
 
 /** Translate raw DB / trigger errors into friendly text. Never expose trigger names. */

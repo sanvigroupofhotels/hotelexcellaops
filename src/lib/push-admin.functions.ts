@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { hasAdministratorAccess } from "@/lib/access-policy";
 
 /**
  * Admin-only operations for the Push Notification framework.
@@ -8,15 +9,12 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  *   - configurePushDispatch:  one-click sync of env secret + URL into app_settings
  *   - sendTestPush:           insert a synthetic notification targeted at the caller
  *
- * All require the caller to hold the `admin` role.
+ * All require a protected Owner/Admin role.
  */
 
 async function assertAdmin(ctx: any) {
-  const { data, error } = await ctx.supabase.rpc("has_role", {
-    _user_id: ctx.userId,
-    _role: "admin",
-  });
-  if (error || !data) throw new Error("Forbidden — admin role required");
+  const { data, error } = await ctx.supabase.from("user_roles").select("role").eq("user_id", ctx.userId);
+  if (error || !hasAdministratorAccess((data ?? []).map((row: { role: string }) => row.role))) throw new Error("Forbidden — owner/admin role required");
 }
 
 export const getPushDispatchConfig = createServerFn({ method: "POST" })

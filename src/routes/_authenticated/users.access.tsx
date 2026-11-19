@@ -12,6 +12,7 @@ import {
 import { Loader2, KeyRound, ShieldCheck, Check, X, RotateCcw, Search, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { inheritedRolePermissions } from "@/lib/access-policy";
 
 /**
  * Access Management — per-user permission overrides.
@@ -29,6 +30,13 @@ import { cn } from "@/lib/utils";
  *   - "Reset"   → delete override                (back to role default)
  */
 export const Route = createFileRoute("/_authenticated/users/access")({
+  head: () => ({ meta: [
+    { title: "User Access Management — Hotel Excella" },
+    { name: "description", content: "Manage inherited and individual Hotel Excella user permissions." },
+    { property: "og:title", content: "User Access Management — Hotel Excella" },
+    { property: "og:description", content: "Manage inherited and individual user permissions." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
   component: AccessOverridesPage,
 });
 
@@ -54,15 +62,7 @@ function AccessOverridesPage() {
 
   const selectedUser = users.find((u) => u.id === selectedUserId) ?? null;
 
-  // Role -> set of permission keys
-  const roleGrants = useMemo(() => {
-    const m = new Map<string, Set<string>>();
-    for (const rp of matrix) {
-      if (!m.has(rp.role_key)) m.set(rp.role_key, new Set());
-      m.get(rp.role_key)!.add(rp.permission_key);
-    }
-    return m;
-  }, [matrix]);
+  const roleGrants = useMemo(() => inheritedRolePermissions(selectedUser?.role ?? "", matrix), [selectedUser?.role, matrix]);
 
   // user -> permission_key -> override
   const userOverrideMap = useMemo(() => {
@@ -171,7 +171,7 @@ function AccessOverridesPage() {
                     <tbody>
                       {modules.map(([mod, modPerms]) => (
                         <ModuleRows key={mod} mod={mod} perms={modPerms}
-                          roleGrants={roleGrants.get(selectedUser.role) ?? new Set()}
+                          roleGrants={roleGrants}
                           overrideForKey={(k) => userOverrideMap.get(selectedUser.id)?.get(k)}
                           onAllow={(k) => setMut.mutate({ user_id: selectedUser.id, permission_key: k, granted: true })}
                           onDeny={(k) => setMut.mutate({ user_id: selectedUser.id, permission_key: k, granted: false })}

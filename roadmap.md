@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Current request — Owner access and five-minute abandonment
+- [x] Sweep shared page/sidebar gates, operational controls, settings, reports, staff aliases, MCP, push audience, live policies/functions and abandonment capture/sweep/notifications. Corrected Owner permission previews/effective lookup, notification administration guard and shared stay-edit role guard; verified named Owner pages and 22 focused tests. No settled records or unrelated settings changed.
 - [x] Give Owner/Admin full page access through authenticated roles and permissions; named owner verified on user management, roles, access, settings, calendar, owner reports, housekeeping and laundry with no runtime errors and no missing admin permissions.
 - [x] Set abandonment to five minutes and check each minute; saved settings and active schedule verified, 29 focused regressions passed.
 

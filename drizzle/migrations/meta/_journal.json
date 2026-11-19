@@ -85,6 +85,13 @@
       "when": 1795056696678,
       "tag": "0011_owner_full_access_and_five_minute_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795056889600,
+      "tag": "0012_owner_effective_permissions_parity",
+      "breakpoints": true
     }
   ]
 }

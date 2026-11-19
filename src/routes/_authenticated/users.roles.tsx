@@ -13,6 +13,13 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/_authenticated/users/roles")({
+  head: () => ({ meta: [
+    { title: "Role Management — Hotel Excella" },
+    { name: "description", content: "Manage Hotel Excella role permissions and inherited administrator access." },
+    { property: "og:title", content: "Role Management — Hotel Excella" },
+    { property: "og:description", content: "Manage role permissions and inherited administrator access." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
   component: AccessSettingsPage,
 });
 
@@ -195,11 +202,14 @@ function Group({
             <div className="text-[10px] text-muted-foreground/60 font-mono">{p.key}</div>
           </td>
           {roles.map((r) => {
-            const granted = grantedSet.has(`${r.key}::${p.key}`);
+            const inherited = r.key === "owner" && grantedSet.has(`admin::${p.key}`);
+            const granted = inherited || grantedSet.has(`${r.key}::${p.key}`);
             return (
               <td key={r.key} className="px-4 py-2.5 text-center">
                 <Checkbox
                   checked={granted}
+                  disabled={inherited}
+                  aria-label={`${r.label}: ${p.label}${inherited ? " (inherited from Super Admin)" : ""}`}
                   onCheckedChange={(v) => onToggle(r.key, p.key, !!v)}
                 />
               </td>
