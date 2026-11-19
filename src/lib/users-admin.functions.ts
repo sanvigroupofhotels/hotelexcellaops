@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { hasAdministratorAccess } from "@/lib/access-policy";
 
 // Username: any non-empty trimmed string. No character/length restrictions per admin policy.
 const USERNAME_Z = z.string().trim().min(1).max(255);
@@ -16,10 +17,9 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
     .from("user_roles")
     .select("role")
     .eq("user_id", ctx.userId)
-    .eq("role", "admin")
-    .maybeSingle();
+    .in("role", ["admin", "owner"]);
   if (error) throw new Error(error.message);
-  if (!data) throw new Error("Forbidden: admin only");
+  if (!hasAdministratorAccess((data ?? []).map((row: { role: string }) => row.role))) throw new Error("Forbidden: owner/admin only");
 }
 
 export const createUserFn = createServerFn({ method: "POST" })

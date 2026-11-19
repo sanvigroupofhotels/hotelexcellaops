@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { hasAdministratorAccess } from "@/lib/access-policy";
 
 /**
  * Application roles — HEOS v1.0 (finalized 2026-07-09, Shipment 3).
  *
  * The four supported roles are:
  *   - admin        — full platform control (user management, masters)
- *   - owner        — read-everything + edit/deactivate any record
+ *   - owner        — same page and operational access as admin
  *   - fo_staff     — front-office (reception + hosting)
  *   - housekeeping — cleaning & service task engine
  *
@@ -62,13 +63,10 @@ export function useUserRole() {
     enabled: !!user,
     staleTime: 5 * 60_000,
   });
-  // Super admin safeguard (UX only — backend checks still apply). Future: move
-  // to a dedicated Super Admin role.
-  const isSuper = (user?.email ?? "").toLowerCase() === "shobhan.india@gmail.com";
-  const role = (isSuper ? "admin" : (data ?? "housekeeping")) as AppRole;
+  const role = data ?? "housekeeping";
   return {
     role,
-    isAdmin: role === "admin",
+    isAdmin: hasAdministratorAccess([role]),
     isOwner: role === "owner",
     isFoStaff: role === "fo_staff",
     isHousekeeping: role === "housekeeping",

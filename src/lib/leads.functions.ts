@@ -23,6 +23,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeOrThrow } from "@/lib/phone";
+import { DEFAULT_ABANDON_MINUTES } from "@/lib/access-policy";
 
 // ---------------------------------------------------------------------------
 // Internal: email dispatcher (best-effort).
@@ -341,7 +342,7 @@ export const getCrmSettings = createServerFn({ method: "GET" })
       .from("app_settings").select("value").eq("key", "crm").maybeSingle();
     const v: any = data?.value ?? {};
     return {
-      abandon_minutes: Number(v.abandon_minutes ?? 10),
+      abandon_minutes: Number(v.abandon_minutes ?? DEFAULT_ABANDON_MINUTES),
       notify_reception_emails: Array.isArray(v.notify_reception_emails)
         ? v.notify_reception_emails : ["hotelexcellaoperations@gmail.com"],
       notify_on_lead: v.notify_on_lead !== false,

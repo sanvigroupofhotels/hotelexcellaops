@@ -1,5 +1,9 @@
 # Roadmap
 
+## Current request — Owner access and five-minute abandonment
+- [ ] Give Owner/Admin full page access through authenticated roles and permissions; verify the named owner account.
+- [ ] Set abandonment to five minutes and check each minute; verify settings and regression tests.
+
 ## Current request — configurable OTA imports and WhatsApp abandonment
 - [x] Add configurable room-count, payment-mode and category mappings with generic provider parsing.
 - [x] Preserve GST-inclusive OTA totals, record prepaid payments only, expand rooms and recover orphan imports; TU7C6I restored with three rooms, five guests and ₹14,601 inclusive total. Preserve staff-assigned/check-in room rows and existing receipts.
