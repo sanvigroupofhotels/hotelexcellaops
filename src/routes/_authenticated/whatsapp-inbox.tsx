@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, AlertTriangle, MessageSquareText, Archive } from "lucide-react";
+import { MessageCircle, AlertTriangle, MessageSquareText, Archive, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ type Lead = Awaited<ReturnType<typeof listLeads>>[number];
 const LIVE = ["Interested", "Abandoned"];
 const roomSummary = (lead: Lead) => lead.room_type_name?.includes("×") ? lead.room_type_name : `${lead.room_type_name ?? "Room"} × ${lead.rooms ?? 1}`;
 
+const isMobile = () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+
 function ago(iso: string) {
   const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
   if (m < 60) return `${m}m ago`;
@@ -51,7 +53,7 @@ function WhatsAppInbox() {
   const [selId, setSelId] = useState<string | null>(null);
   const leads = useQuery({ queryKey: ["leads"], queryFn: () => listLeads(), refetchInterval: 15000 });
   const rows = useMemo(() => (leads.data ?? []).filter((l) => (tab === "live") === LIVE.includes(l.status)), [leads.data, tab]);
-  const sel = rows.find((l) => l.id === selId) ?? rows[0] ?? null;
+  const sel = selId === "__none__" ? null : rows.find((l) => l.id === selId) ?? rows[0] ?? null;
 
   return (
     <div>
@@ -65,11 +67,14 @@ function WhatsAppInbox() {
           ))}
         </div>
         <div className="grid md:grid-cols-[360px_1fr] gap-4">
-          <div className="luxe-card rounded-xl divide-y divide-border max-h-[70vh] overflow-auto">
+          <div className="luxe-card rounded-xl divide-y divide-border md:max-h-[70vh] md:overflow-auto">
             {leads.isLoading && <p className="p-4 text-sm text-muted-foreground">Loading…</p>}
             {!leads.isLoading && rows.length === 0 && <p className="p-4 text-sm text-muted-foreground">No enquiries here.</p>}
-            {rows.map((l) => (
-              <button key={l.id} onClick={() => setSelId(l.id)} className={cn("w-full text-left p-3 hover:bg-muted/50", sel?.id === l.id && "bg-muted")}>
+            {rows.map((l) => {
+              const open = sel?.id === l.id;
+              return (
+              <div key={l.id}>
+              <button aria-expanded={open} onClick={() => setSelId(open && isMobile() ? "__none__" : l.id)} className={cn("w-full text-left p-3 hover:bg-muted/50", open && "bg-muted")}>
                 <div className="flex justify-between gap-2">
                   <span className="font-medium truncate">{l.guest_name}</span>
                   <span className="text-xs text-muted-foreground shrink-0">{ago(l.last_activity_at)}</span>
@@ -77,13 +82,15 @@ function WhatsAppInbox() {
                 <div className="text-xs text-muted-foreground">{l.phone} · {l.source_channel}</div>
                 <div className="text-xs mt-1 flex justify-between">
                   <span>{l.check_in ? `${l.check_in} → ${l.check_out}` : "Dates not chosen"} · {roomSummary(l)}</span>
-                  <span className="rounded-full border border-border px-2">{l.status}</span>
+                  <span className="flex items-center gap-1"><span className="rounded-full border border-border px-2">{l.status}</span><ChevronDown className={cn("h-4 w-4 md:hidden transition-transform", open && "rotate-180")} /></span>
                 </div>
               </button>
-            ))}
+              {open && <div className="md:hidden p-2 bg-muted/30"><LeadWorkspace lead={l} onLost={() => qc.invalidateQueries({ queryKey: ["leads"] })} /></div>}
+              </div>
+            );})}
           </div>
-          {sel ? <LeadWorkspace key={sel.id} lead={sel} onLost={() => qc.invalidateQueries({ queryKey: ["leads"] })} /> :
-            <div className="luxe-card rounded-xl p-6 text-sm text-muted-foreground">Select an enquiry.</div>}
+          <div className="hidden md:block">{sel ? <LeadWorkspace key={sel.id} lead={sel} onLost={() => qc.invalidateQueries({ queryKey: ["leads"] })} /> :
+            <div className="luxe-card rounded-xl p-6 text-sm text-muted-foreground">Select an enquiry.</div>}</div>
         </div>
       </div>
     </div>

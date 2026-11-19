@@ -100,7 +100,7 @@ function WhatsAppBooking() {
       });
       setPendingDraft(draft);
       const conf = await confirmPayAtHotel({ data: { booking_id: draft.booking_id } });
-      const msg = `Hi Hotel Excella, I just reserved via WhatsApp booking.\nRef: ${conf.reference}\nName: ${name.trim()}\nMobile: ${digits}\nStay: ${checkIn} to ${checkOut}\nRoom: ${label}\nGuests: ${adults} adults, ${children} children\nEstimated total: ${fmtINR(draft.total)}\nCheck-in: ${timing.checkIn}\nCheck-out: ${timing.checkOut}\nPlease confirm my best direct price.`;
+      const msg = `Hi Hotel Excella, please send me your best direct quote.\nRef: ${conf.reference}\nName: ${name.trim()}\nMobile: ${digits}\nStay: ${checkIn} to ${checkOut}\nRoom: ${label}\nGuests: ${adults} adults, ${children} children\nPublished rate: ${fmtINR(draft.total)} (incl. GST)\nCheck-in: ${timing.checkIn}\nCheck-out: ${timing.checkOut}\nPlease share your best discounted price.`;
       const link = waLink(RECEPTION_WA, msg);
       setDone({ ref: conf.reference, link });
       window.location.href = link;
@@ -129,9 +129,9 @@ function WhatsAppBooking() {
 
         {done ? (
           <Card className="luxe-card p-5 space-y-3 text-center">
-            <p className="font-display text-xl">Your room is reserved</p>
+            <p className="font-display text-xl">Your quote request is ready</p>
             <p className="text-sm text-muted-foreground">Reference <span className="font-semibold text-foreground">{done.ref}</span></p>
-            <p className="text-sm">Please send the WhatsApp message so we can confirm your price.</p>
+            <p className="text-sm">Send the WhatsApp message and our Front Desk Reservation Team will reply with your best quote.</p>
             <Button asChild className="w-full"><a href={done.link}><MessageCircle className="h-4 w-4 mr-1" /> Chat on WhatsApp</a></Button>
           </Card>
         ) : (
@@ -175,7 +175,7 @@ function WhatsAppBooking() {
               {availabilityError && <p className="text-sm text-destructive" role="alert">{availabilityError}</p>}
               {types.map((t) => <div key={t.room_type_key} className="border-b border-border py-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0"><p className="font-medium">{t.type}</p><p className="text-xs text-muted-foreground">{t.available} available · {fmtINR(t.subtotal / t.nights)} / night</p></div>
+                  <div className="min-w-0"><p className="font-medium">{t.type}</p><p className="text-xs text-muted-foreground">{t.available} available · {fmtINR(t.subtotal / t.nights)} / night incl. GST</p></div>
                   <Counter label={t.type} value={counts[t.room_type_key] ?? 0} max={Math.min(t.available, 20)} onChange={(value) => setCounts((old) => ({ ...old, [t.room_type_key]: value }))} />
                 </div>
                 <a href={TOUR} target="_blank" rel="noreferrer" className="text-xs text-primary inline-flex items-center gap-1"><PlayCircle className="h-3.5 w-3.5" />Room tour</a>
@@ -184,17 +184,19 @@ function WhatsAppBooking() {
               {selectionError && <p className="text-sm text-destructive" role="alert">{selectionError}</p>}
             </div>
             {estimate && <div className="border-t border-border pt-3 space-y-2 text-sm" aria-label="Booking estimate">
-              <div className="flex justify-between gap-2"><span>Room charges · {roomsReq} rooms</span><span>{fmtINR(estimate.pricing.mainStayCharges)}</span></div>
+              <div className="flex justify-between gap-2"><span>Published tariff · {roomsReq} {roomsReq === 1 ? "room" : "rooms"} (incl. GST)</span><span>{fmtINR(estimate.pricing.mainStayCharges)}</span></div>
               {estimate.pricing.additionalLineItems.map((line) => <div key={line.label} className="flex justify-between gap-3"><span>{line.label}</span><span className="shrink-0">{fmtINR(line.value)}</span></div>)}
-              <div className="flex justify-between"><span>GST ({Math.round(estimate.pricing.taxRate * 100)}%)</span><span>{fmtINR(estimate.pricing.taxes)}</span></div>
-              <div className="flex justify-between text-base font-semibold"><span>Estimated total</span><span>{fmtINR(estimate.pricing.total)}</span></div>
+              <div className="flex justify-between text-muted-foreground"><span>Base tariff</span><span>{fmtINR(estimate.pricing.subtotal)}</span></div>
+              <div className="flex justify-between text-muted-foreground"><span>GST ({Math.round(estimate.pricing.taxRate * 100)}%) included</span><span>{fmtINR(estimate.pricing.taxes)}</span></div>
+              <div className="flex justify-between text-base font-semibold"><span>Published rate (incl. GST)</span><span>{fmtINR(estimate.pricing.total)}</span></div>
+              <p className="rounded-lg border border-primary/40 bg-primary/10 p-3 text-xs">This is a request for our best quote. Once you send the WhatsApp message, our Front Desk Reservation Team will reply with an exclusive direct discount for your stay.</p>
             </div>}
             </fieldset>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="sticky bottom-0 bg-card border-t border-border pt-3 pb-1 space-y-2">
-            {estimate && <div className="flex justify-between text-sm font-semibold"><span>Estimated total</span><span>{fmtINR(estimate.pricing.total)}</span></div>}
+            {estimate && <div className="flex justify-between text-sm font-semibold"><span>Published rate (incl. GST)</span><span>{fmtINR(estimate.pricing.total)}</span></div>}
             <Button className="w-full whitespace-normal h-auto min-h-10" onClick={submit} disabled={busy || loading || !estimate}>
-              <MessageCircle className="h-4 w-4 mr-1" /> {busy ? "Reserving…" : "Reserve & continue on WhatsApp"}
+              <MessageCircle className="h-4 w-4 mr-1" /> {busy ? "Sending request…" : "Get Best Quote on WhatsApp"}
             </Button>
             </div>
           </Card>

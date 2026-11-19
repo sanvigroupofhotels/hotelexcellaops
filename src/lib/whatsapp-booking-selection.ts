@@ -36,6 +36,9 @@ export function planWhatsAppRooms(input: {
   if (input.adults > adultCapacity || input.children > childCapacity) throw new Error("Please select more rooms for your guests.");
   const allocated = allocateGuestsToLines(lines, { adults: input.adults, children: input.children });
   const items = allocated.flatMap(expandLineToRooms).map((item, position) => ({ ...item, position, subtotal: lineSubtotal(item) }));
-  const pricing = computePricing(items, 0, input.categories[0]?.tax_rate ?? 0.05);
+  // Published tariffs and extras are GST-inclusive: the gross sum is the guest total and GST is split out of it.
+  const taxRate = input.categories[0]?.tax_rate ?? 0.05;
+  const gross = computePricing(items, 0, taxRate).subtotal;
+  const pricing = computePricing(items, 0, taxRate, { totalOverride: gross, taxesIncluded: true });
   return { items, pricing, rooms: items.length, summary: selections.map((row) => `${row.room_type} × ${row.rooms}`).join(", ") };
 }

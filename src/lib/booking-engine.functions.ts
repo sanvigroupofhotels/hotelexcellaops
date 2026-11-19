@@ -268,6 +268,8 @@ export const createWhatsAppDraft = createServerFn({ method: "POST" })
     // One transaction locks inventory, validates every night and writes all room rows.
     const { data: bookingId, error } = await supabaseAdmin.rpc("create_whatsapp_room_draft" as any, { p_booking: booking, p_items: plan.items } as any);
     if (error) throw new Error(error.message);
+    const { error: grossError } = await supabaseAdmin.from("bookings").update({ total_override: plan.pricing.total, taxes_included: true } as any).eq("id", String(bookingId));
+    if (grossError) throw new Error(grossError.message);
     return { booking_id: String(bookingId), reference, total: plan.pricing.total };
   });
 

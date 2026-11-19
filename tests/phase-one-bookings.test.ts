@@ -34,7 +34,7 @@ describe("Phase 1 room selection and pricing", () => {
     expect(plan.items).toHaveLength(2);
     expect(plan.items.reduce((sum, row) => sum + row.adults, 0)).toBe(4);
     expect(plan.items.reduce((sum, row) => sum + row.children, 0)).toBe(2);
-    expect(plan.pricing).toMatchObject({ subtotal: 23000, taxes: 1150, total: 24150 });
+    expect(plan.pricing).toMatchObject({ subtotal: 21905, taxes: 1095, total: 23000 });
   });
   it("blocks requests exceeding available rooms", () => {
     expect(() => planWhatsAppRooms({ ...stay, selections: [{ room_type: "Oak", rooms: 6 }], categories, adults: 2, children: 0 })).toThrow("Not enough");
