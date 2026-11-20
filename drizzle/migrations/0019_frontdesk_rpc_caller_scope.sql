@@ -1,0 +1,10 @@
+ALTER FUNCTION public.backfill_booking_item_segment_links_for_booking(uuid) SECURITY INVOKER;
+ALTER FUNCTION public.backfill_booking_item_segment_links() SECURITY INVOKER;
+ALTER FUNCTION public.recompute_customer_bookings(uuid) SECURITY INVOKER;
+ALTER FUNCTION public.recompute_booking_advance(uuid) SECURITY INVOKER;
+ALTER FUNCTION public.expire_guest_documents_for_booking(uuid) SECURITY INVOKER;
+ALTER FUNCTION public.sweep_expired_draft_bookings() SECURITY INVOKER;
+ALTER FUNCTION public.sweep_stay_completed() SECURITY INVOKER;
+ALTER FUNCTION public.split_room_assignment(uuid,uuid,uuid,date) SECURITY INVOKER;
+ALTER FUNCTION public.cleanup_expired_guest_documents() SECURITY INVOKER;
+ALTER FUNCTION public.sync_inventory_for_charge(uuid) SECURITY INVOKER;

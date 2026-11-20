@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { hasAdministratorAccess, DEFAULT_ABANDON_MINUTES, inheritedRolePermissions } from "@/lib/access-policy";
+import { hasAdministratorAccess, canAccessFrontdeskData, DEFAULT_ABANDON_MINUTES, inheritedRolePermissions } from "@/lib/access-policy";
 
 describe("Owner access and enquiry recovery", () => {
+  it("excludes Housekeeping and legacy staff from front-desk data", () => {
+    expect(canAccessFrontdeskData(["housekeeping"])).toBe(false);
+    expect(canAccessFrontdeskData(["staff"])).toBe(false);
+    expect(canAccessFrontdeskData([])).toBe(false);
+  });
+  it("retains protected Owner, Admin and Front Office access", () => {
+    for (const role of ["owner", "admin", "fo_staff", "reception"]) {
+      expect(canAccessFrontdeskData([role])).toBe(true);
+    }
+    expect(canAccessFrontdeskData(["housekeeping", "fo_staff"])).toBe(true);
+  });
   it("gives Owner/Admin the same administrator access as Super Admin", () => {
     expect(hasAdministratorAccess(["owner"])).toBe(true);
     expect(hasAdministratorAccess(["admin"])).toBe(true);

@@ -134,6 +134,13 @@
       "when": 1795187552695,
       "tag": "0018_secure_housekeeping_storage_and_alias",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795191180447,
+      "tag": "0019_frontdesk_rpc_caller_scope",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,11 @@ export function hasAdministratorAccess(roles: readonly string[]) {
   return roles.some((role) => role === "admin" || role === "owner");
 }
 
+/** Mirrors caller-scoped front-desk data access, including legacy role aliases. */
+export function canAccessFrontdeskData(roles: readonly string[]) {
+  return roles.some((role) => ["admin", "owner", "fo_staff", "reception"].includes(role));
+}
+
 export const DEFAULT_ABANDON_MINUTES = 5;
 
 export function inheritedRolePermissions(role: string, matrix: readonly { role_key: string; permission_key: string }[]) {
