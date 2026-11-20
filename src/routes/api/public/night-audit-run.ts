@@ -3,7 +3,7 @@
 //   POST /api/public/night-audit-run
 //   header: apikey: <SUPABASE_PUBLISHABLE_KEY>
 //
-// Scheduled by pg_cron at 00:30 UTC == 06:00 IST daily. It drives the SAME
+// Scheduled by pg_cron at 02:45 UTC == 08:15 IST daily. It drives the SAME
 // shared engine Reception uses (`night-audit-sessions-api.closeSession`) via
 // the injectable DB handle — there is no second audit implementation.
 //
@@ -29,7 +29,7 @@ export const Route = createFileRoute("/api/public/night-audit-run")({
 
         try {
           const result = await withDb(supabaseAdmin as any, () =>
-            runScheduledNightAudit({ actorName: "Automatic Night Audit (06:00 IST)" }),
+            runScheduledNightAudit({ actorName: "Automatic Night Audit (08:15 IST)" }),
           );
           console.log("[night-audit-run]", JSON.stringify(result));
           return new Response(JSON.stringify(result), {

@@ -2,7 +2,7 @@
  * Automatic Night Audit scheduler.
  *
  * ONE implementation, TWO callers:
- *   • pg_cron → POST /api/public/night-audit-run (06:00 IST daily)
+ *   • pg_cron → POST /api/public/night-audit-run (08:15 IST daily)
  *   • Reception → the same engine via the Night Audit screens
  *
  * It does NOT re-implement any audit logic. It drives the canonical shared
