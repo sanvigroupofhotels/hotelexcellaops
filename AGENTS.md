@@ -25,3 +25,4 @@
 - OTA item refresh uses a booking-locked transaction that refuses assigned/lifecycle rows; assignment writes share the lock, and check-in reconnects unlinked live holds through caller RLS before evaluating room gates.
 - Staff booking edits update matched item IDs in place and refuse removing linked or lifecycle-bearing items; direct and bulk check-in share caller-scoped link reconciliation so no entry point detaches physical-stay history.
 - Administrator page access derives only from protected roles; Owner inheritance must match shared UI/server checks, access previews and database permission functions/policies, while explicit permission denies remain effective.
+- Inbox offers, stages and staff notes use append-only caller-scoped lead activities; conversion opens the canonical booking form and payment sharing reuses the existing portal token and message so no parallel booking or payment engine is introduced.

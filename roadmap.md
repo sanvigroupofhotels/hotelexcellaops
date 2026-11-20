@@ -1,5 +1,11 @@
 # Roadmap
 
+## Agreed inbox tools and operational checks
+- [x] Direct-price quote, standard guest portal sharing, prefilled booking conversion, compact four-stage selector and authored internal notes; no staff assignments. Signed-in note/stage read-back, mixed-room conversion and standard portal message verified; 78 focused tests pass.
+- [x] Audit three real invoices without changing historical bookings: HEXB-962606, BE-261120-Z0AJ and HEXB-042578 have no synthetic rows; table/discount/taxable and folio totals reconcile; PDFs render. Shared invoice/guest safeguards pass.
+- [x] Verify saved compressed photo read-back (8.97 MB to 2.03 MB, temporary customer UI plus storage download) and desktop/mobile House View with live data, search and legends; no runtime errors. No occupancy operations changed.
+- [x] User reviewed prior fixes, published them, and verified physical-phone push delivery; these are closed.
+
 ## Current request — OTA cancellations and discount percentage
 - [x] Recognize cancellation subjects/body ahead of old table status, accept cancellation emails through editable integration filters, and prevent older confirmations from recreating cancelled reservations.
 - [x] Apply service-only booking-locked cancellation, release unused allocations, and offset OTA prepaid receipts without cash movement; preserve separate staff payments and refuse physical-stay history. Database replay test proves one refund and one alert, with anonymous/staff execution denied.

@@ -24,6 +24,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeOrThrow } from "@/lib/phone";
 import { DEFAULT_ABANDON_MINUTES } from "@/lib/access-policy";
+import { LEAD_STAGES } from "@/lib/whatsapp-inbox-tools";
 
 // ---------------------------------------------------------------------------
 // Internal: email dispatcher (best-effort).
@@ -225,7 +226,15 @@ export const listLeads = createServerFn({ method: "GET" })
       .select("*")
       .order("last_activity_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return data ?? [];
+    const rows = data ?? [];
+    if (!rows.length) return [];
+    const { data: stages, error: stageError } = await context.supabase.from("lead_activities")
+      .select("lead_id,new_value").eq("field", "Inbox Stage")
+      .in("lead_id", rows.map((l) => l.id)).order("created_at", { ascending: false });
+    if (stageError) throw new Error(stageError.message);
+    const latest = new Map<string, string | null>();
+    for (const stage of stages ?? []) if (!latest.has(stage.lead_id)) latest.set(stage.lead_id, stage.new_value);
+    return rows.map((l) => ({ ...l, inbox_stage: latest.get(l.id) ?? null }));
   });
 
 export const getLead = createServerFn({ method: "POST" })
@@ -264,6 +273,54 @@ export const listLeadActivitiesByCustomer = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return rows ?? [];
+  });
+
+// Append-only inbox history reuses the CRM trail; never overwrite guest notes.
+export const linkInboxBooking = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ lead_id: z.string().uuid(), booking_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const [leadResult, bookingResult] = await Promise.all([
+      context.supabase.from("leads").select("phone,booking_id").eq("id", data.lead_id).single(),
+      context.supabase.from("bookings").select("phone,customer_id").eq("id", data.booking_id).single(),
+    ]);
+    if (leadResult.error || bookingResult.error || !leadResult.data || !bookingResult.data) throw new Error("Booking or enquiry unavailable");
+    if (normalizeOrThrow(leadResult.data.phone) !== normalizeOrThrow(bookingResult.data.phone ?? "")) throw new Error("Booking contact does not match enquiry");
+    if (leadResult.data.booking_id && leadResult.data.booking_id !== data.booking_id) throw new Error("Enquiry already linked to a booking");
+    const { error } = await context.supabase.from("leads").update({ booking_id: data.booking_id,
+      customer_id: bookingResult.data.customer_id, status: "Converted", converted_at: new Date().toISOString(),
+    }).eq("id", data.lead_id).or(`booking_id.is.null,booking_id.eq.${data.booking_id}`).select("id").single();
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const addInboxActivity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    lead_id: z.string().uuid(),
+    kind: z.enum(["stage", "note", "offer"]),
+    value: z.string().trim().max(2000),
+  }).superRefine((v, ctx) => {
+    if (v.kind === "stage" && v.value && !LEAD_STAGES.some((s) => s === v.value))
+      ctx.addIssue({ code: "custom", message: "Invalid enquiry stage" });
+    if (v.kind === "note" && !v.value) ctx.addIssue({ code: "custom", message: "Enter a note" });
+    if (v.kind === "offer" && (!Number.isFinite(Number(v.value)) || Number(v.value) <= 0))
+      ctx.addIssue({ code: "custom", message: "Enter a valid direct price" });
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: lead, error: leadError } = await context.supabase.from("leads")
+      .select("id").eq("id", data.lead_id).single();
+    if (leadError || !lead) throw new Error("Enquiry unavailable");
+    const { data: actor } = await context.supabase.from("profiles").select("display_name").eq("id", context.userId).maybeSingle();
+    const { error } = await context.supabase.from("lead_activities").insert({
+      lead_id: lead.id, actor_id: context.userId, actor_name: actor?.display_name || "Front Desk",
+      action: data.kind === "note" ? "internal_note" : data.kind === "offer" ? "direct_offer" : "stage_changed",
+      field: data.kind === "stage" ? "Inbox Stage" : data.kind === "offer" ? "Direct Offer" : null,
+      new_value: data.value || null,
+      summary: data.kind === "note" ? data.value : data.kind === "offer" ? `Direct offer: ₹${data.value} incl. taxes` : data.value || "Stage cleared",
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const markLeadLost = createServerFn({ method: "POST" })

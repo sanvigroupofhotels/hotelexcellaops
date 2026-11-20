@@ -6,6 +6,8 @@ import { Topbar } from "@/components/topbar";
 import { getCustomer, type CustomerRow } from "@/lib/customers-api";
 import { useExistingCustomerByContact } from "@/lib/customer-resolution";
 import { getQuote } from "@/lib/quotes-api";
+import { getLead, linkInboxBooking } from "@/lib/leads.functions";
+import { leadRoomLines } from "@/lib/whatsapp-inbox-tools";
 import { type BookingInput } from "@/lib/bookings-api";
 import { submitNewBooking } from "@/lib/booking-create";
 import { useDuplicateBookingGuard } from "@/components/duplicate-booking-warning-dialog";
@@ -40,6 +42,7 @@ export const Route = createFileRoute("/_authenticated/bookings_/new")({
     customerId?: string;
     fromQuoteId?: string;
     fromBookingId?: string;
+    fromLeadId?: string;
     roomType?: string;
     checkIn?: string;
     checkOut?: string;
@@ -47,10 +50,18 @@ export const Route = createFileRoute("/_authenticated/bookings_/new")({
     customerId: typeof s.customerId === "string" ? s.customerId : undefined,
     fromQuoteId: typeof s.fromQuoteId === "string" ? s.fromQuoteId : undefined,
     fromBookingId: typeof s.fromBookingId === "string" ? s.fromBookingId : undefined,
+    fromLeadId: typeof s.fromLeadId === "string" ? s.fromLeadId : undefined,
     roomType: typeof s.roomType === "string" ? s.roomType : undefined,
     checkIn: typeof s.checkIn === "string" ? s.checkIn : undefined,
     checkOut: typeof s.checkOut === "string" ? s.checkOut : undefined,
   }),
+  head: () => ({ meta: [
+    { title: "New Booking — Hotel Excella" },
+    { name: "description", content: "Review guest details, room availability and direct booking prices at Hotel Excella." },
+    { property: "og:title", content: "New Booking — Hotel Excella" },
+    { property: "og:description", content: "Review guest details, room availability and direct booking prices at Hotel Excella." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
   component: NewBooking,
 });
 
@@ -59,7 +70,7 @@ const inputCls =
 
 function NewBooking() {
   const navigate = useNavigate();
-  const { customerId, fromQuoteId, fromBookingId, roomType: prefillRoomType, checkIn: prefillIn, checkOut: prefillOut } = Route.useSearch();
+  const { customerId, fromQuoteId, fromBookingId, fromLeadId, roomType: prefillRoomType, checkIn: prefillIn, checkOut: prefillOut } = Route.useSearch();
 
   // Shared stay sections shape (same as Quote forms).
   const [stay, setStay] = useState<SharedStayValue>(() => {
@@ -87,6 +98,29 @@ function NewBooking() {
     staleTime: 5 * 60 * 1000,
   });
   const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags | null>(null);
+  const { data: sourceLead } = useQuery({
+    queryKey: ["booking-lead-prefill", fromLeadId], enabled: !!fromLeadId,
+    queryFn: () => {
+      if (!fromLeadId) throw new Error("Enquiry not selected");
+      return getLead({ data: { id: fromLeadId } });
+    },
+  });
+  useEffect(() => {
+    if (!sourceLead) return;
+    if (sourceLead.booking_id) {
+      toast.info("This enquiry already has a booking");
+      void navigate({ to: "/bookings/$id", params: { id: sourceLead.booking_id } });
+      return;
+    }
+    const lines = leadRoomLines(sourceLead);
+    const first = lines[0];
+    if (!first) return;
+    setLinkedCustomerId(sourceLead.customer_id);
+    setStay((s) => ({ ...s, ...lineItemToPrimary(first), guest_name: sourceLead.guest_name,
+      phone: sourceLead.phone, email: sourceLead.email ?? "", lead_source: sourceLead.source_channel, guests: first.adults + first.children,
+      special_requests: sourceLead.notes ?? "" }));
+    setExtras(lines.slice(1));
+  }, [sourceLead, navigate]);
   // Prefill per-booking flags from Global Payment Settings once loaded.
   useEffect(() => {
     if (paymentFlags) return;
@@ -303,6 +337,10 @@ function NewBooking() {
         items: [primary, ...extras],
         advance: advancePaid > 0 ? { amount: advancePaid, payment_mode: paymentMethod } : undefined,
       });
+      if (fromLeadId) {
+        try { await linkInboxBooking({ data: { lead_id: fromLeadId, booking_id: b.id } }); }
+        catch { toast.error("Booking saved, but enquiry linking failed. Do not create another booking; open the saved booking to share its payment link."); }
+      }
       if (createdCustomerId) toast.success(`New customer created for ${b.guest_name}`);
       // Expected Arrival / Departure → auto Early Check-In / Late Check-Out
       // services via the shared engine (idempotent, per-room fan-out).
