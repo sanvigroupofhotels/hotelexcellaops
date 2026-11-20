@@ -120,6 +120,13 @@
       "when": 1795174810095,
       "tag": "0016_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795187463464,
+      "tag": "0017_restrict_housekeeping_frontdesk_data",
+      "breakpoints": true
     }
   ]
 }
