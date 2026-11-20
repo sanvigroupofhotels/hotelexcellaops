@@ -16,7 +16,7 @@ import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/custo
 import {
   type LineItem,
 } from "@/components/line-items-editor";
-import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
+import { aggregateGuests, computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
 import { PricingBreakdownCard, StickyPricingFooter } from "@/components/pricing-breakdown";
 import { lineSubtotal, nightsOf } from "@/components/line-items-editor";
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
@@ -276,7 +276,7 @@ function NewBooking() {
         source_quote_id: fromQuoteId ?? null,
         guest_name: stay.guest_name, phone: stay.phone, email: stay.email,
         check_in: stay.check_in, check_out: stay.check_out,
-        adults: stay.adults, children: stay.children, guests: stay.guests,
+        ...aggregateGuests([primaryToLineItem(stay, resolvedRate), ...extras], stay),
         room_details: `${stay.room_type} × ${stay.rooms}`,
         room_id: null,
         amount,

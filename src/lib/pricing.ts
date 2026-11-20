@@ -225,6 +225,14 @@ export function balanceDue(total: number, paid: number) {
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 export const fmtINR = inr;
 
+/** Booking-wide guests summed across active room items; falls back to the header when no items exist. */
+export function aggregateGuests(items: Array<{ adults?: number | null; children?: number | null; item_status?: string | null }>, fallback: { adults?: number | null; children?: number | null }) {
+  const active = items.filter((i) => i.item_status !== "Removed" && i.item_status !== "Cancelled");
+  const adults = active.length ? active.reduce((s, i) => s + (Number(i.adults) || 0), 0) : Number(fallback.adults) || 0;
+  const children = active.length ? active.reduce((s, i) => s + (Number(i.children) || 0), 0) : Number(fallback.children) || 0;
+  return { adults, children, guests: adults + children };
+}
+
 export function discountPercentage(discount: number, originalAmount: number): number {
   return originalAmount > 0 ? Math.round(Math.max(0, discount) / originalAmount * 1000) / 10 : 0;
 }

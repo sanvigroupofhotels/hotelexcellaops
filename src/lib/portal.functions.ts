@@ -14,7 +14,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { formatHotelTime } from "@/lib/time-format";
 import { loadInvoiceData } from "@/lib/invoice-data";
-import { computePricing } from "@/lib/pricing";
+import { computePricing, discountPercentage, aggregateGuests } from "@/lib/pricing";
 import { rowToLineItem } from "@/lib/booking-items-api";
 
 const TOKEN_TTL_DAYS = 30;
@@ -335,7 +335,9 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       checkOut: (b as any).check_out,
       roomType: roomSummary,
       roomNumber,
-      guests: (b as any).guests,
+      guests: aggregateGuests(rows, b as any).guests,
+      adults: aggregateGuests(rows, b as any).adults,
+      children: aggregateGuests(rows, b as any).children,
       breakfastIncluded: false,
       totalAmount: total,
       // Detailed breakdown
@@ -347,6 +349,7 @@ export const getPortalBooking = createServerFn({ method: "POST" })
       additionalStay,
       additionalLineItems,
       discount,
+      discountPercent: discountPercentage(discount, itemsTotal),
       chargesTotal,
       charges,
       payable,

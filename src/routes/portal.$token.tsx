@@ -1091,7 +1091,7 @@ function PricingBreakdown({ b }: { b: any }) {
           )}
 
           <div className="space-y-1 border-t border-border/40 pt-2">
-            {Number(b.discount || 0) > 0 && <Row label="Discount" value={`-${inr(b.discount)}`} tone="success" />}
+            {Number(b.discount || 0) > 0 && <Row label={`Discount${b.discountPercent ? ` (${b.discountPercent}%)` : ""}`} value={`-${inr(b.discount)}`} tone="success" />}
             <Row label="Taxable Amount" value={inr(grandTaxable)} />
             <Row label={`Tax${taxPct ? ` (${taxPct}%)` : ""}${b.taxesIncluded ? " · included" : ""}`} value={inr(taxes)} />
             <Row label="Final Amount" value={inr(b.payable)} strong />

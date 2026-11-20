@@ -127,7 +127,7 @@ export function renderInvoicePdf(m: InvoiceDocModel): jsPDF {
     text(label, 342, ty, 8.5, bold); text(inr(amount), W - M, ty, 9, bold, "right"); ty += 17;
   };
   totalLine("Sub Total", m.totals.subtotal);
-  if (m.totals.discount > 0) totalLine("Discount", -m.totals.discount);
+  if (m.totals.discount > 0) totalLine(`Discount${m.totals.discountPercent ? ` (${m.totals.discountPercent}%)` : ""}`, -m.totals.discount);
   totalLine("Taxable Amount", m.totals.taxable);
   m.taxLines.forEach((t) => totalLine(`${t.label} (${t.rate}%)`, t.amount));
   totalLine("Total", m.totals.total, true);

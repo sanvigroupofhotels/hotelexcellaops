@@ -19,7 +19,7 @@ import type { BookingItemRow } from "@/lib/booking-items-api";
 import { rowToLineItem } from "@/lib/booking-items-api";
 import type { BookingPaymentRow } from "@/lib/booking-payments-api";
 import type { BookingChargeRow } from "@/lib/booking-charges-api";
-import { computePricing } from "@/lib/pricing";
+import { computePricing, discountPercentage, aggregateGuests } from "@/lib/pricing";
 import { resolveBranding, type BrandingSettings, type HotelIdentity } from "@/lib/branding";
 import type { InvoiceBilling } from "@/lib/invoice-billing";
 
@@ -115,6 +115,7 @@ export interface InvoiceDocModel {
     chargesTotal: number;
     subtotal: number;
     discount: number;
+    discountPercent: number;
     taxable: number;
     taxRate: number;
     taxes: number;
@@ -339,8 +340,8 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
       checkIn: booking.check_in,
       checkOut: booking.check_out,
       nights: num(booking.nights),
-      adults: num(booking.adults),
-      children: num(booking.children),
+      adults: aggregateGuests(items, booking as any).adults,
+      children: aggregateGuests(items, booking as any).children,
       checkInTime: input.checkInTime,
       checkOutTime: input.checkOutTime,
     },
@@ -353,6 +354,7 @@ export function buildInvoiceDocument(input: BuildInvoiceInput): InvoiceDocModel 
       chargesTotal,
       subtotal: roundMoney(taxable + netDiscount),
       discount: netDiscount,
+      discountPercent: discountPercentage(netDiscount, itemsTotal),
       taxable,
       taxRate,
       taxes,
