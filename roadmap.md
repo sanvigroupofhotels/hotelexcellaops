@@ -1,5 +1,11 @@
 # Roadmap
 
+## Current request — OTA cancellations and discount percentage
+- [x] Recognize cancellation subjects/body ahead of old table status, accept cancellation emails through editable integration filters, and prevent older confirmations from recreating cancelled reservations.
+- [x] Apply service-only booking-locked cancellation, release unused allocations, and offset OTA prepaid receipts without cash movement; preserve separate staff payments and refuse physical-stay history. Database replay test proves one refund and one alert, with anonymous/staff execution denied.
+- [x] Synced HEXB-428826 / 2ATAF8: Cancelled booking/items, no room holds, ₹1,890 OTA offset, ₹0 net advance and due; authenticated booking page read-back verified. YTIMRR cancellation saved as an external cancellation because no HEOS booking exists.
+- [x] Shared discount percentage shown beside amounts on desktop/mobile; 74 focused tests pass and preview build OK. No pricing or tax formulas changed. Publishing is still required for future production email sync.
+
 ## Current request — consistent assignments and contact-first WhatsApp pricing
 - [x] Cross-app sweep: staff edits preserve item IDs; assigned/history-bearing room removal is refused; direct/bulk check-in and every assignment caller reconcile live links; duplicate assignment is rejected. Read House View/placement, in-house rooms, availability, stay resize, night-audit pending/close, moves, OTA refresh, WhatsApp capture/inbox and abandonment functions. 262 tests pass and authenticated temporary direct check-in plus staff edit preserve the original room/item. Full House View replay, published verification and physical-phone delivery remain unverified; no settled records/settings/permissions changed.
 - [x] Prevent detached room assignments in OTA refresh and shared check-in; leave past bookings unchanged.

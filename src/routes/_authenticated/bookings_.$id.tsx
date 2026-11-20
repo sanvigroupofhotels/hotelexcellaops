@@ -54,7 +54,7 @@ import {
 import { cn, toLocalYMD } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
 import { lineSubtotal } from "@/components/line-items-editor";
-import { computePricing } from "@/lib/pricing";
+import { computePricing, discountPercentage } from "@/lib/pricing";
 import { listRooms } from "@/lib/rooms-api";
 import { listBookingCharges, chargesTotal as sumCharges } from "@/lib/booking-charges-api";
 import {
@@ -2089,7 +2089,7 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
                 </>
               )}
               <PriceRow label="Subtotal" value={pricing.itemsTotal + chargesTotal} />
-              {(pricing.discount > 0 || discount > 0) && <PriceRow label="Discount" value={-Math.max(pricing.discount, discount)} />}
+              {(pricing.discount > 0 || discount > 0) && <PriceRow label="Discount" value={-Math.max(pricing.discount, discount)} percent={discountPercentage(Math.max(pricing.discount, discount), pricing.itemsTotal)} />}
               <PriceRow label="Taxable Amount" value={subtotal} />
               <PriceRow label={`Tax (${Math.round(taxRate * 100)}%)`} value={taxes} />
               <li className="flex items-baseline justify-between pt-1.5 mt-1 border-t border-border">
@@ -2135,12 +2135,13 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
   );
 }
 
-function PriceRow({ label, value }: { label: string; value: number }) {
+function PriceRow({ label, value, percent }: { label: string; value: number; percent?: number }) {
   return (
     <li className="flex items-baseline justify-between">
       <span className="text-muted-foreground">{label}</span>
       <span className={cn("tabular-nums", value < 0 && "text-success")}>
         {value === 0 ? "—" : `${value < 0 ? "−" : ""}₹${Math.abs(value).toLocaleString("en-IN")}`}
+        {percent !== undefined && ` (${percent}%)`}
       </span>
     </li>
   );

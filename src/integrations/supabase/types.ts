@@ -4315,6 +4315,15 @@ export type Database = {
         Returns: string
       }
       normalize_phone_in: { Args: { p: string }; Returns: string }
+      process_ota_cancellation: {
+        Args: {
+          p_booking_id: string
+          p_external_ref: string
+          p_integration_id: string
+          p_provider: string
+        }
+        Returns: number
+      }
       recompute_booking_advance: {
         Args: { p_booking_id: string }
         Returns: undefined

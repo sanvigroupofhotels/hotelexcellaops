@@ -17,7 +17,7 @@ import { buildOtaImport, otaCategoryMapSchema } from "@/lib/ota-import-rules";
 import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
 import { createClient } from "@supabase/supabase-js";
 
-import { PARSERS, parseGeneric, HOTELZIFY_DEFAULTS, isReceptionPhone, type ParsedBooking } from "@/lib/ota-email-parser";
+import { PARSERS, parseGeneric, HOTELZIFY_DEFAULTS, isReceptionPhone, otaSubjectMatches, type ParsedBooking } from "@/lib/ota-email-parser";
 
 const GMAIL_BASE = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
 
@@ -139,9 +139,7 @@ function fromMatchesSender(from: string, sender?: string): boolean {
 }
 
 function subjectMatchesFilters(subject: string, subjectFilters: string[]): boolean {
-  if (subjectFilters.length === 0) return true;
-  const lc = subject.toLowerCase();
-  return subjectFilters.some((f) => lc.includes(f.toLowerCase()));
+  return otaSubjectMatches(subject, subjectFilters);
 }
 
 async function scanMetadataOnlyFallback(
@@ -402,10 +400,7 @@ async function processIntegration(
           result.first_5_email_subjects_seen.push({ id: m.id, date: headers.date ?? "", from, subject });
         }
 
-        if (subjectFilters.length > 0) {
-          const lc = subject.toLowerCase();
-          if (!subjectFilters.some((f) => lc.includes(f.toLowerCase()))) continue;
-        }
+        if (!fromMatchesSender(from, sender) || !subjectMatchesFilters(subject, subjectFilters)) continue;
         result.matched++;
 
         const text = extractTextFromPayload(msg.payload);
@@ -421,13 +416,48 @@ async function processIntegration(
         if (parsed.email && isOtaSystemEmail(parsed.email)) parsed.email = null as any;
         result.parsed++;
 
-        const { data: existing } = await supabaseAdmin
+        const { data: existing, error: existingError } = await supabaseAdmin
           .from("bookings")
           .select("id, phone, email, customer_id, advance_paid, status")
           .eq("external_ref", parsed.external_ref)
+          .eq("integration_id", intg.id)
           .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle();
+        if (existingError) throw existingError;
+
+        if (mapStatus(parsed.booking_status) !== "Cancelled") {
+          const { data: previousImport, error } = await supabaseAdmin.from("external_bookings")
+            .select("parsed").eq("integration_id", intg.id).eq("external_ref", parsed.external_ref).maybeSingle();
+          if (error) throw error;
+          if (existing?.status === "Cancelled" || mapStatus(previousImport?.parsed?.booking_status ?? "") === "Cancelled") {
+            await markProcessed(m.id, "skipped_cancelled", parsed.external_ref);
+            continue;
+          }
+        }
+
+        // Cancellation is a lifecycle event, not an optional financial refresh.
+        // Never create a new active booking from an old cancellation table.
+        if (mapStatus(parsed.booking_status) === "Cancelled") {
+          if (!dryRun) {
+            if (existing) {
+              const { error } = await supabaseAdmin.rpc("process_ota_cancellation", {
+                p_booking_id: existing.id, p_integration_id: intg.id,
+                p_provider: leadSource, p_external_ref: parsed.external_ref,
+              });
+              if (error) throw error;
+            }
+            const { error } = await supabaseAdmin.from("external_bookings").upsert({
+              integration_id: intg.id, external_ref: parsed.external_ref, booking_id: existing?.id ?? null,
+              state: "processed", parsed,
+              raw_payload: { subject, parsed, gmail_message_id: m.id, import_rules_version: 2 },
+            }, { onConflict: "integration_id,external_ref" });
+            if (error) throw error;
+            await markProcessed(m.id, "cancelled", parsed.external_ref);
+          }
+          if (existing) result.updated++;
+          continue;
+        }
 
         let customerId: string | null = existing?.customer_id ?? null;
         let customerRow: { id: string; phone: string | null; email: string | null } | null = null;

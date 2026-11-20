@@ -244,6 +244,7 @@ export function parseGeneric(
 
   const bookingId =
     pickByLabels(text, lbl("booking_id")) ??
+    pick(subject, /Booking\s*(?:ID|No|Number|Reference)\s*[:\-]\s*([A-Z0-9-]+)/i) ??
     pick(subject, /Booking\s*(?:ID|Id|No|Number|Reference)[^A-Z0-9]*([A-Z0-9-]*\d[A-Z0-9-]*)/i) ??
     pick(subject, /Booking[^A-Z0-9]*([A-Z0-9-]*\d[A-Z0-9-]*)/i);
   const name = pickFirstByLabelsFromTexts(identityTexts, lbl("guest_name"));
@@ -257,9 +258,9 @@ export function parseGeneric(
   const paymentMode = pickByLabels(text, lbl("payment_mode")) ?? pick(text, /Payment\s*Mode\s*[:\-|]\s*([^\n|]+?)(?=\n|\||$)/i);
   const subjectLc = subject.toLowerCase();
   let bookingStatus = pickByLabels(text, lbl("booking_status"));
-  if (!bookingStatus && opts?.statusFromSubject) {
-    if (subjectLc.includes("cancel")) bookingStatus = "Cancelled";
-    else if (subjectLc.includes("confirm") || subjectLc.includes("reservation")) bookingStatus = "Confirmed";
+  if (isOtaCancellationEmail(subject, text)) bookingStatus = "Cancelled";
+  else if (!bookingStatus && opts?.statusFromSubject) {
+    if (subjectLc.includes("confirm") || subjectLc.includes("reservation")) bookingStatus = "Confirmed";
     else bookingStatus = "Pending Confirmation";
   }
   // Money fields — pick the LAST occurrence to skip table-column-header false matches
@@ -317,6 +318,14 @@ export function parseGeneric(
 }
 
 type ProviderParser = (text: string, subject: string, fieldLabels: Record<string, string[]>, opts?: ParserOptions) => { booking: ParsedBooking | null; errors: string[] };
+
+export function isOtaCancellationEmail(subject: string, text = ""): boolean {
+  return /\b(?:cancellation|cancelled|canceled)\b/i.test(subject) || /details\s+of\s+your\s+cancellation/i.test(text);
+}
+
+export function otaSubjectMatches(subject: string, filters: string[]): boolean {
+  return filters.length === 0 || isOtaCancellationEmail(subject) || filters.some((filter) => subject.toLowerCase().includes(filter.toLowerCase()));
+}
 
 export const PARSERS: Record<string, ProviderParser> = {
   hotelzify: (text, subject, fl, opts) => parseGeneric(text, subject, HOTELZIFY_DEFAULTS, fl, { statusFromSubject: true, ...opts }),

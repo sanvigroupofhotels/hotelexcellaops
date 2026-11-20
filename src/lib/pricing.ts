@@ -28,6 +28,7 @@ export const DEFAULT_TAX_RATE = 0.05;
 export interface PricingBreakdown {
   itemsTotal: number;
   discount: number;
+  discountPercent: number;
   /** Taxable amount = Items Total − Discount. Also called Subtotal. */
   subtotal: number;
   taxRate: number;
@@ -200,6 +201,7 @@ export function computePricing(
   return {
     itemsTotal: effectiveItemsTotal,
     discount: effectiveDiscount,
+    discountPercent: discountPercentage(effectiveDiscount, effectiveItemsTotal),
     subtotal,
     taxRate: safeTaxRate,
     taxes,
@@ -222,3 +224,7 @@ export function balanceDue(total: number, paid: number) {
 
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 export const fmtINR = inr;
+
+export function discountPercentage(discount: number, originalAmount: number): number {
+  return originalAmount > 0 ? Math.round(Math.max(0, discount) / originalAmount * 1000) / 10 : 0;
+}

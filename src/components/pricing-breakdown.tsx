@@ -84,7 +84,7 @@ export function PricingBreakdownCard({
 
           <div className="pt-1 border-t border-border/60 space-y-0.5">
             <Row label="Subtotal" value={pricing.itemsTotal} />
-            {pricing.discount > 0 && <Row label="Discount" value={-pricing.discount} />}
+            {pricing.discount > 0 && <Row label="Discount" value={-pricing.discount} percent={pricing.discountPercent} />}
             <Row label="Taxable Amount" value={pricing.subtotal} />
             <Row label={`Tax (${Math.round(pricing.taxRate * 100)}%)`} value={pricing.taxes} />
           </div>
@@ -191,12 +191,13 @@ export function PaymentSummaryCard({
   );
 }
 
-function Row({ label, value, mute }: { label: string; value: number; mute?: boolean }) {
+function Row({ label, value, mute, percent }: { label: string; value: number; mute?: boolean; percent?: number }) {
   return (
     <div className={cn("flex items-center justify-between py-1 text-sm", mute && "text-muted-foreground/60")}>
       <span className="text-muted-foreground">{label}</span>
       <span className={cn("tabular-nums", value < 0 && "text-success")}>
         {value === 0 ? "—" : `${value < 0 ? "-" : ""}₹${Math.abs(value).toLocaleString("en-IN")}`}
+        {percent !== undefined && ` (${percent}%)`}
       </span>
     </div>
   );
