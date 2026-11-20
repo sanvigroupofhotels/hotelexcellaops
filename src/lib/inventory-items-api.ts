@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { compressUploadImage } from "@/lib/compress-upload-image";
 
 export interface InventoryItemRow {
   id: string;
@@ -78,26 +79,12 @@ export async function deleteInventoryItem(id: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Client-side resize to max 800px, JPEG ~0.82 quality. */
-async function resizeImage(file: File, maxSide = 800): Promise<Blob> {
-  if (!file.type.startsWith("image/")) return file;
-  const bitmap = await createImageBitmap(file).catch(() => null);
-  if (!bitmap) return file;
-  const ratio = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-  const w = Math.round(bitmap.width * ratio);
-  const h = Math.round(bitmap.height * ratio);
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(bitmap, 0, 0, w, h);
-  return await new Promise((res) => canvas.toBlob((b) => res(b ?? file), "image/jpeg", 0.82));
-}
-
 export async function uploadItemPhoto(itemId: string, file: File): Promise<string> {
-  const blob = await resizeImage(file, 800);
-  const path = `${itemId}/photo_${Date.now()}.jpg`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
-    contentType: "image/jpeg", upsert: true,
+  file = await compressUploadImage(file);
+  const ext = file.name.match(/\.([a-z0-9]+)$/i)?.[1] ?? "jpg";
+  const path = `${itemId}/photo_${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    contentType: file.type || "application/octet-stream", upsert: true,
   });
   if (error) throw error;
 

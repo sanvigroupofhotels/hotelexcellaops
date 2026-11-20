@@ -11,6 +11,7 @@
  * signal, and `processing_method` records how each row was handled.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { compressUploadImage } from "@/lib/compress-upload-image";
 import { logActivity } from "@/lib/activity-log";
 
 const SLIP_BUCKET = "laundry-slips";
@@ -631,29 +632,16 @@ export async function getBatch(id: string): Promise<{
 
 /* ─────────────────────────  Photo helpers  ───────────────────────── */
 
-async function resizeImage(file: File, maxSide = 1200): Promise<Blob> {
-  if (!file.type.startsWith("image/")) return file;
-  const bitmap = await createImageBitmap(file).catch(() => null);
-  if (!bitmap) return file;
-  const ratio = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-  const w = Math.round(bitmap.width * ratio);
-  const h = Math.round(bitmap.height * ratio);
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(bitmap, 0, 0, w, h);
-  return await new Promise((res) => canvas.toBlob((b) => res(b ?? file), "image/jpeg", 0.85));
-}
-
 export async function uploadLaundryPhoto(
   batchId: string,
   kind: "pickup" | "return",
   file: File,
 ): Promise<string> {
-  const blob = await resizeImage(file, 1200);
-  const path = `${batchId}/${kind}_${Date.now()}.jpg`;
-  const { error } = await supabase.storage.from(SLIP_BUCKET).upload(path, blob, {
-    contentType: "image/jpeg",
+  file = await compressUploadImage(file);
+  const ext = file.name.match(/\.([a-z0-9]+)$/i)?.[1] ?? "jpg";
+  const path = `${batchId}/${kind}_${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from(SLIP_BUCKET).upload(path, file, {
+    contentType: file.type || "application/octet-stream",
     upsert: true,
   });
   if (error) throw error;

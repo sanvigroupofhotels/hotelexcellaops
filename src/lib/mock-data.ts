@@ -200,6 +200,8 @@ export const LEAD_SOURCES = [
   "Phone Call",
   "WhatsApp",
   "Hotelzify",
+  "FabHotels",
+  "Booking.com",
   "Website",
   "Google Business Profile",
   "Travel Agent",

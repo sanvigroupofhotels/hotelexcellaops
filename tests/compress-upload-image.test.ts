@@ -33,6 +33,32 @@ describe("upload image compression", () => {
     expect(result.type).toBe("image/jpeg");
     expect(result.lastModified).toBe(123);
   });
+  it("targets 280 KB, 1600 pixels and 82 percent initial quality", async () => {
+    vi.stubGlobal("window", {});
+    compress.mockResolvedValue(new Blob([new Uint8Array(120000)]));
+    await compressUploadImage(photo());
+    expect(compress).toHaveBeenCalledWith(expect.any(File), expect.objectContaining({
+      maxSizeMB: 280 / 1024, maxWidthOrHeight: 1600, initialQuality: 0.82,
+    }));
+  });
+  it("preserves animated and unsupported image originals", async () => {
+    vi.stubGlobal("window", {});
+    for (const type of ["image/gif", "image/heic", "image/svg+xml"]) {
+      const file = new File([new Uint8Array(400000)], "original", { type });
+      expect(await compressUploadImage(file)).toBe(file);
+    }
+    expect(compress).not.toHaveBeenCalled();
+  });
+  it("preserves animated PNG and WebP frames", async () => {
+    vi.stubGlobal("window", {});
+    for (const [mime, offset, chunk] of [["image/png", 12, "acTL"], ["image/webp", 12, "ANIM"]] as const) {
+      const bytes = new Uint8Array(400000);
+      bytes.set(new TextEncoder().encode(chunk), offset);
+      const file = new File([bytes], "animated", { type: mime });
+      expect(await compressUploadImage(file)).toBe(file);
+    }
+    expect(compress).not.toHaveBeenCalled();
+  });
   it("never increases the uploaded file size", async () => {
     vi.stubGlobal("window", {});
     const file = photo();

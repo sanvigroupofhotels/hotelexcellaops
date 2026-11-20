@@ -1,5 +1,14 @@
 # Roadmap
 
+## Current request — storage and operational safeguards
+- [x] Remove redundant noon Night Audit; retain 8:15 AM IST daily runner.
+- [ ] Apply shared 1600px / 280 KB / 82% photo compression across all upload entry points; preserve non-image originals.
+- [ ] Recompress historical photos in-place across every bucket; preserve object paths and verify read-back.
+- [ ] Purge integration and completed schedule logs older than 24 hours; configure daily retention.
+- [ ] Apply agreed Housekeeping data-access restrictions while retaining complaints/tasks access.
+- [ ] Enable agreed FabHotels and Booking.com lead sources.
+- External database migration and Guest Service Desk remain excluded.
+
 ## Agreed inbox tools and operational checks
 - [x] Direct-price quote, standard guest portal sharing, prefilled booking conversion, compact four-stage selector and authored internal notes; no staff assignments. Signed-in note/stage read-back, mixed-room conversion and standard portal message verified; 78 focused tests pass.
 - [x] Audit three real invoices without changing historical bookings: HEXB-962606, BE-261120-Z0AJ and HEXB-042578 have no synthetic rows; table/discount/taxable and folio totals reconcile; PDFs render. Shared invoice/guest safeguards pass.
