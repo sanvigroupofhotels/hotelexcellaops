@@ -6,7 +6,6 @@
 import type { CopilotDraft } from "@/lib/copilot.functions";
 import { listRoomRates, listRateOverrides } from "@/lib/rates-api";
 import { resolveAverageRate } from "@/lib/rates";
-import { getRoomRate } from "@/lib/mock-data";
 import { getRoomTypeAvailability, maxSelectableRooms } from "@/lib/room-inventory";
 import { allocateGuestsToLines } from "@/lib/guest-allocation";
 import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
@@ -46,7 +45,8 @@ export async function buildCopilotPreview(d: CopilotDraft): Promise<CopilotPrevi
     getRoomTypeAvailability({ check_in: draft.check_in, check_out: draft.check_out }),
     checkBookingDuplicates({ phone: draft.phone, checkIn: draft.check_in, checkOut: draft.check_out }).catch(() => []),
   ]);
-  const rate = resolveAverageRate(draft.room_type, draft.check_in, draft.check_out, rates, overrides) ?? getRoomRate(draft.room_type, false);
+  const rate = resolveAverageRate(draft.room_type, draft.check_in, draft.check_out, rates, overrides) ?? 0;
+  if (!rate) throw new Error(`No inventory rate configured for ${draft.room_type}`);
   const inv = maxSelectableRooms(avail, draft.room_type, 0);
   const base: LineItem = {
     room_type: draft.room_type, rooms: draft.rooms, adults: 0, children: 0,
@@ -59,9 +59,10 @@ export async function buildCopilotPreview(d: CopilotDraft): Promise<CopilotPrevi
   const items = allocateGuestsToLines([base], { adults: draft.adults, children: draft.children });
   const nights = Math.round((Date.parse(draft.check_out) - Date.parse(draft.check_in)) / 86400000);
   const totalOverride = draft.agreed_rate > 0 ? draft.agreed_rate * nights * draft.rooms : null;
-  const taxesIncluded = totalOverride != null && draft.gst_included;
+  // Inventory rates and agreed prices are GST-inclusive; the difference shows as discount.
+  const taxesIncluded = true;
   const p = computePricing(items, 0, DEFAULT_TAX_RATE, { totalOverride, taxesIncluded });
-  return { duplicates, totalOverride, taxesIncluded, draft, rate: draft.agreed_rate > 0 ? draft.agreed_rate : rate, nights, available: inv.available, total: p.total, subtotal: p.subtotal, taxes: p.taxes, taxRate: p.taxRate, discount: p.discount ?? 0, items };
+  return { duplicates, totalOverride, taxesIncluded, draft, rate, nights, available: inv.available, total: p.total, subtotal: p.subtotal, taxes: p.taxes, taxRate: p.taxRate, discount: p.discount ?? 0, items };
 }
 
 export async function createCopilotBooking(pv: CopilotPreview) {

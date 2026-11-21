@@ -8,6 +8,7 @@
  */
 import type { RoomRateRow, RateOverrideRow } from "./rates-api";
 import { toLocalYMD } from "@/lib/utils";
+import { normalizeRoomTypeKey } from "@/lib/room-type-availability-core";
 
 /**
  * Hotel-business weekend = Friday & Saturday (the high-tariff nights).
@@ -25,9 +26,10 @@ export function resolveRate(
   rates: RoomRateRow[],
   overrides: RateOverrideRow[],
 ): number | null {
-  const ovr = overrides.find((o) => o.room_type === room_type && o.date === dateISO);
+  const key = normalizeRoomTypeKey(room_type);
+  const ovr = overrides.find((o) => normalizeRoomTypeKey(o.room_type) === key && o.date === dateISO);
   if (ovr) return Number(ovr.rate);
-  const cfg = rates.find((r) => r.room_type === room_type);
+  const cfg = rates.find((r) => normalizeRoomTypeKey(r.room_type) === key);
   if (!cfg) return null;
   if (isWeekend(dateISO)) {
     if (cfg.weekend_rate != null) return Number(cfg.weekend_rate);

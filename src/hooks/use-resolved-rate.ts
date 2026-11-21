@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { listRoomRates, listRateOverrides } from "@/lib/rates-api";
 import { resolveAverageRate } from "@/lib/rates";
-import { getRoomRate } from "@/lib/mock-data";
 
 /**
  * Single source of truth for primary room rate, blending:
@@ -27,7 +26,8 @@ export function useResolvedRate(
     enabled: !!(check_in && check_out && check_out >= check_in),
     staleTime: 30_000,
   });
-  if (!check_in || !check_out || check_out < check_in) return getRoomRate(room_type, breakfast_included);
+  if (!check_in || !check_out || check_out < check_in) return 0;
   const resolved = resolveAverageRate(room_type, check_in, check_out, rates, overrides);
-  return resolved ?? getRoomRate(room_type, breakfast_included);
+  void breakfast_included;
+  return resolved ?? 0;
 }

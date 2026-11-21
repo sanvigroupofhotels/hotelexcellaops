@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { createCustomer } from "@/lib/customers-api";
 import { createBooking, type BookingInput, type BookingRow } from "@/lib/bookings-api";
 import { addBookingItems, type BookingItemInput } from "@/lib/booking-items-api";
+import { aggregateGuests } from "@/lib/pricing";
 
 export interface SubmitNewBookingInput {
   /** Already-linked customer (existing record). */
@@ -78,6 +79,11 @@ export async function submitNewBooking(input: SubmitNewBookingInput): Promise<Su
 
   const payload: BookingInput = {
     ...input.booking,
+    // Booking header always stores the party total across every room line.
+    ...(() => {
+      const g = aggregateGuests(input.items as any, input.booking as any);
+      return { adults: g.adults, children: g.children, guests: g.adults + g.children };
+    })(),
     customer_id: effectiveCustomerId,
     source_quote_id: input.fromQuoteId ?? null,
     // booking_payments trigger owns advance_paid — never write it directly here.
