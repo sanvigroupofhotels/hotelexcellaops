@@ -54,7 +54,7 @@ import {
 import { cn, toLocalYMD } from "@/lib/utils";
 import { StayItemsList } from "@/components/shared/stay-items-list";
 import { lineSubtotal } from "@/components/line-items-editor";
-import { computePricing, discountPercentage, aggregateGuests } from "@/lib/pricing";
+import { computePricing, discountPercentage, aggregateGuests, formatGuestParty } from "@/lib/pricing";
 import { listRooms } from "@/lib/rooms-api";
 import { listBookingCharges, chargesTotal as sumCharges } from "@/lib/booking-charges-api";
 import {
@@ -2024,7 +2024,7 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
             <li>• <span className="text-muted-foreground">Room Type:</span> {items[0].room_type}{items[0].rooms > 1 ? ` × ${items[0].rooms}` : ""}</li>
             <li>• <span className="text-muted-foreground">Check-In:</span> {fmtDate(items[0].check_in)}, {checkTimes.checkIn}</li>
             <li>• <span className="text-muted-foreground">Check-Out:</span> {fmtDate(items[0].check_out)}, {checkTimes.checkOut} ({items[0].nights}N)</li>
-            <li>• <span className="text-muted-foreground">Guests:</span> {party.adults} Adult{party.adults === 1 ? "" : "s"}{party.children > 0 ? ` + ${party.children} Child${party.children === 1 ? "" : "ren"}` : ""}</li>
+            <li>• <span className="text-muted-foreground">Guests:</span> {formatGuestParty(party)}</li>
             {items[0].breakfast_included && <li>• <span className="text-muted-foreground">Breakfast:</span> Included</li>}
           </ul>
         </div>
@@ -2034,7 +2034,7 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Check-In</div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)}, {checkTimes.checkIn}</div></div>
             <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Check-Out</div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_out)}, {checkTimes.checkOut}</div></div>
-            <div className="col-span-2 text-xs text-muted-foreground">{party.guests} Guest{party.guests === 1 ? "" : "s"} · {b.nights} Night{b.nights === 1 ? "" : "s"}{b.room_details ? ` · ${b.room_details}` : ""}</div>
+            <div className="col-span-2 text-xs text-muted-foreground">{formatGuestParty(party)} · {b.nights} Night{b.nights === 1 ? "" : "s"}{b.room_details ? ` · ${b.room_details}` : ""}</div>
             {((b as any).expected_arrival_at || (b as any).expected_departure_at) && (
               <div className="col-span-2 rounded-md border border-gold/30 bg-gold-soft/30 px-2.5 py-1.5 text-[11px]">
                 <span className="uppercase tracking-wider text-gold text-[10px]">Expected</span>{" "}

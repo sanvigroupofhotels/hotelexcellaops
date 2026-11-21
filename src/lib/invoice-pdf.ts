@@ -1,6 +1,7 @@
 /** The single A4 renderer for downloads and printing across all invoice surfaces. */
 import { jsPDF } from "jspdf";
 import { invoiceMoney, type InvoiceDocModel, type InvoicePaymentLine, type InvoiceChargeLine, type InvoiceTableLine } from "@/lib/invoice-document";
+import { formatGuestParty } from "@/lib/pricing";
 
 const W = 595.28, H = 841.89, M = 32;
 const inr = (n: number) => `INR ${invoiceMoney(n)}`;
@@ -8,7 +9,7 @@ const fmtDate = (s: string) => {
   const d = new Date(s + (s.length === 10 ? "T00:00:00" : ""));
   return isNaN(d.getTime()) ? s : d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
 };
-const clean = (s: string) => s.replace(/₹/g, "INR ").replace(/[–—→]/g, "-").replace(/×/g, "x").replace(/−/g, "-").replace(/[^\x20-\x7e\n]/g, " ");
+const clean = (s: string) => s.replace(/₹/g, "INR ").replace(/[–—→]/g, "-").replace(/×/g, "x").replace(/−/g, "-").replace(/[^\x20-\x7e\xb7\n]/g, " ");
 
 /** CSS print tokens drive the browser; grayscale fallbacks allow server/test rendering. */
 function color(role: string, fallback: number): [number, number, number] {
@@ -73,7 +74,7 @@ export function renderInvoicePdf(m: InvoiceDocModel): jsPDF {
   for (let i = 0; i < billLines.length; i++) text(billLines[i] ?? "", M, y + i * 12, 9, i === 0);
   text(`Check In: ${fmtDate(m.stay.checkIn)}`, 340, y, 9);
   text(`Check Out: ${fmtDate(m.stay.checkOut)}`, 340, y + 13, 9);
-  text(`${m.stay.nights} night(s) | ${m.stay.adults} adult(s)${m.stay.children ? ` | ${m.stay.children} child(ren)` : ""}`, 340, y + 26, 8);
+  text(`${m.stay.nights} night(s) · ${formatGuestParty(m.stay)}`, 340, y + 26, 8);
   text(`In ${m.stay.checkInTime ?? ""} | Out ${m.stay.checkOutTime ?? ""}`, 340, y + 39, 8);
   y += Math.max(56, billLines.length * 12 + 10);
 

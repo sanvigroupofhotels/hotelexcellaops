@@ -33,6 +33,7 @@ import {
 import { PortalPaymentOptions, type PortalPaymentChoice } from "@/components/portal/payment-options";
 import { GuestDocumentsDialog } from "@/components/guest-documents-dialog";
 import { InvoiceDialog } from "@/components/invoice-dialog";
+import { formatGuestParty } from "@/lib/pricing";
 
 export const Route = createFileRoute("/portal/$token")({
   component: GuestPortal,
@@ -243,7 +244,7 @@ function GuestPortal() {
             <StayField label="Check-In" date={b.checkIn} time={b.checkInTime} />
             <StayField label="Check-Out" date={b.checkOut} time={b.checkOutTime} />
             <Field label={b.roomType.includes(",") || b.roomType.includes("×") ? "Rooms" : "Room"} value={b.roomType} />
-            <Field label="Guests" value={`${b.adults ?? b.guests} Adult${(b.adults ?? b.guests) === 1 ? "" : "s"}${b.children ? ` · ${b.children} Child${b.children === 1 ? "" : "ren"}` : ""}`} />
+            <Field label="Guests" value={formatGuestParty(b)} />
             <Field label="Payable" value={inr(b.payable)} />
             <Field label="Paid" value={inr(b.advancePaid)} />
           </div>

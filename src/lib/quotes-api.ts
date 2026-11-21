@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { normalizePhoneNumber, validatePhoneNumber, phoneToWaDigits } from "@/lib/phone";
 import { getOpsTimeLabels } from "@/lib/check-times";
+import { formatGuestParty } from "@/lib/pricing";
 import {
   EARLY_CHECK_IN_SLOTS,
   LATE_CHECK_OUT_SLOTS,
@@ -444,10 +445,7 @@ export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
     new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const c = calc(q);
   const inr = (n: number) => `₹${Math.round(Number(n)).toLocaleString("en-IN")}`;
-  const guestLine = [
-    `${q.adults || 0} Adult${(q.adults || 0) === 1 ? "" : "s"}`,
-    (q.children || 0) > 0 ? `${q.children} Child${q.children === 1 ? "" : "ren"}` : "",
-  ].filter(Boolean).join(" + ");
+  const guestLine = formatGuestParty(q);
 
   const tariff: string[] = [];
   tariff.push(`• Room Charges: ${inr(c.roomTariff)}`);
@@ -466,9 +464,9 @@ export function buildWhatsAppLink(q: QuoteRow, items?: any[]) {
   // Build room-by-room block when multi-line items are available.
   const roomBlock: string[] = [];
   const multi = items && items.length > 1;
-  if (multi) {
-    items!.forEach((it: any, i: number) => {
-      const occ = `${it.adults || 0} Adult${(it.adults || 0) === 1 ? "" : "s"}${(it.children || 0) > 0 ? ` + ${it.children} Child${it.children === 1 ? "" : "ren"}` : ""}${it.extra_bed ? ` + ${it.extra_bed} Extra Bed` : ""}`;
+  if (items && items.length > 1) {
+    items.forEach((it: any, i: number) => {
+      const occ = `${formatGuestParty(it)}${it.extra_bed ? ` · ${it.extra_bed} Extra Bed` : ""}`;
       roomBlock.push(`Room ${i + 1}`);
       roomBlock.push(`• Room Type: ${it.room_type}`);
       roomBlock.push(`• Guests: ${occ}`);

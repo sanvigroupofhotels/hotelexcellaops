@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Pencil, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PricingBreakdown } from "@/lib/pricing";
+import { formatGuestParty, type PricingBreakdown } from "@/lib/pricing";
 
 /**
  * Shared collapsible Pricing Summary used across Quote/Booking forms,
@@ -24,6 +24,7 @@ export function PricingBreakdownCard({
   className,
   nights,
   guests,
+  party,
   editable = false,
   overrideValue,
   onOverrideChange,
@@ -39,6 +40,7 @@ export function PricingBreakdownCard({
   className?: string;
   nights?: number;
   guests?: number;
+  party?: { adults?: number | null; children?: number | null; guests?: number | null };
   /** When true, render override controls (admin/manager only). */
   editable?: boolean;
   /** Current persisted override (null = no override). */
@@ -68,7 +70,7 @@ export function PricingBreakdownCard({
         <div className="space-y-3 mb-3">
           <div>
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-              Main Stay Charges{nights ? ` · ${nights}N` : ""}{guests ? ` · ${guests} Guests` : ""}
+              Main Stay Charges{nights ? ` · ${nights}N` : ""}{party || guests ? ` · ${formatGuestParty(party ?? { guests: guests ?? 0 })}` : ""}
             </div>
             <Row label="Room Charges" value={pricing.mainStayCharges} />
           </div>

@@ -20,6 +20,7 @@
 - OTA imports share browser-safe email parsing and pure room/category/payment rules; preserve config extensions, staff-assigned room rows and existing receipts, and use a locked idempotent payment operation so re-sync cannot duplicate prepaid credits.
 - OTA cancellation uses one service-only booking-locked transaction scoped to integration/reference; refuse physical-stay history, release future holds, and offset only unrefunded OTA receipts without cash movement. Cancellation events bypass optional update filters and cannot recreate an active booking.
 - Discount percentages are display-only shared pricing results based on the same original item total as the existing discount; never alter stored charges or tax calculations to add the percentage.
+- Guest-party summaries use the shared display-only formatter; retain unclassified legacy totals as Guests rather than inventing an adult/child split.
 - WhatsApp pre-submit selections capture leads without inventory holds; reuse the CRM inactivity sweep and notification routing so abandoned enquiries remain contactable without reserving rooms.
 - WhatsApp prices reveal only after valid contact and selected rooms are persisted as an enquiry; a missing name uses a neutral enquiry label so contact capture does not depend on name entry.
 - OTA item refresh uses a booking-locked transaction that refuses assigned/lifecycle rows; assignment writes share the lock, and check-in reconnects unlinked live holds through caller RLS before evaluating room gates.

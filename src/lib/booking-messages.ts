@@ -1,5 +1,5 @@
 import type { BookingRow } from "@/lib/bookings-api";
-import { computePricing } from "@/lib/pricing";
+import { computePricing, formatGuestParty } from "@/lib/pricing";
 import { getOpsTimeLabels } from "@/lib/check-times";
 
 const fmtDate = (s: string) =>
@@ -7,18 +7,17 @@ const fmtDate = (s: string) =>
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 
 function roomSummary(b: BookingRow) {
-  return b.room_details && b.room_details.trim() ? b.room_details : `${b.guests} Guest${b.guests === 1 ? "" : "s"}`;
+  return b.room_details && b.room_details.trim() ? b.room_details : formatGuestParty(b);
 }
 
 export function confirmationMessage(b: BookingRow, items?: any[]) {
   const t = getOpsTimeLabels();
-  const multi = items && items.length > 0;
   const stayLines: string[] = [];
-  if (multi) {
-    stayLines.push(`🏨 Stay Details (${items!.length} Room${items!.length === 1 ? "" : "s"} / Segment${items!.length === 1 ? "" : "s"})`);
+  if (items && items.length > 0) {
+    stayLines.push(`🏨 Stay Details (${items.length} Room${items.length === 1 ? "" : "s"} / Segment${items.length === 1 ? "" : "s"})`);
     stayLines.push(``);
-    items!.forEach((it: any, i: number) => {
-      const occ = `${it.adults || 0} Adult${(it.adults || 0) === 1 ? "" : "s"}${(it.children || 0) > 0 ? ` + ${it.children} Child${it.children === 1 ? "" : "ren"}` : ""}${it.extra_bed ? ` + ${it.extra_bed} Extra Bed` : ""}`;
+    items.forEach((it: any, i: number) => {
+      const occ = `${formatGuestParty(it)}${it.extra_bed ? ` · ${it.extra_bed} Extra Bed` : ""}`;
       stayLines.push(`Room ${i + 1}`);
       stayLines.push(`• Room Type: ${it.room_type}`);
       stayLines.push(`• Guests: ${occ}`);
@@ -33,7 +32,7 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
     stayLines.push(`🏨 Stay Details`);
     stayLines.push(`• Check-in: ${fmtDate(b.check_in)} | ${t.checkIn}`);
     stayLines.push(`• Check-out: ${fmtDate(b.check_out)} | ${t.checkOut}`);
-    stayLines.push(`• Guests: ${b.guests}`);
+    stayLines.push(`• Guests: ${formatGuestParty(b)}`);
     stayLines.push(`• Room(s): ${roomSummary(b)}`);
     stayLines.push(``);
   }

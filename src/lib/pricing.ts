@@ -225,6 +225,17 @@ export function balanceDue(total: number, paid: number) {
 const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 export const fmtINR = inr;
 
+/** Display-only party wording; an unclassified legacy total stays labelled Guests. */
+export function formatGuestParty(party: { adults?: number | null; children?: number | null; guests?: number | null }): string {
+  const children = Math.max(0, Number(party.children) || 0);
+  if (party.adults == null) {
+    const guests = Math.max(0, Number(party.guests) || 0);
+    return `${guests} Guest${guests === 1 ? "" : "s"}`;
+  }
+  const adults = Math.max(0, Number(party.adults) || 0);
+  return `${adults} Adult${adults === 1 ? "" : "s"}${children > 0 ? ` · ${children} ${children === 1 ? "Child" : "Children"}` : ""}`;
+}
+
 /** Booking-wide guests summed across active room items; falls back to the header when no items exist. */
 export function aggregateGuests(items: Array<{ adults?: number | null; children?: number | null; item_status?: string | null }>, fallback: { adults?: number | null; children?: number | null }) {
   const active = items.filter((i) => i.item_status !== "Removed" && i.item_status !== "Cancelled");

@@ -28,6 +28,14 @@ import { toast } from "sonner";
 import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/payment-settings-section";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id_/edit")({
+  head: () => ({ meta: [
+    { title: "Edit Booking — Hotel Excella Operations" },
+    { name: "description", content: "Update Hotel Excella booking details, rooms and guest parties." },
+    { property: "og:title", content: "Edit Booking — Hotel Excella Operations" },
+    { property: "og:description", content: "Update Hotel Excella booking details, rooms and guest parties." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: EditBooking,
 });
 
@@ -319,7 +327,7 @@ function EditBooking() {
               extraCharges={extraCharges}
               pricing={pricing}
               nights={nights}
-              guests={stay.guests}
+              party={aggregateGuests([primaryToLineItem(stay, effectivePrimaryRate), ...extras], stay)}
               editable={true}
               overrideValue={totalOverride}
               onOverrideChange={setTotalOverride}

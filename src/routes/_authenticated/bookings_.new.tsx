@@ -503,7 +503,7 @@ function NewBooking() {
               extraCharges={extraCharges}
               pricing={pricing}
               nights={nights}
-              guests={stay.guests}
+              party={aggregateGuests([primaryToLineItem(stay, resolvedRate), ...extras], stay)}
               editable={true}
               overrideValue={totalOverride}
               onOverrideChange={setTotalOverride}

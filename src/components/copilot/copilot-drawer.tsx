@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { listRecentBookings, bookingLabel } from "@/lib/copilot-update";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { Input } from "@/components/ui/input";
+import { formatGuestParty } from "@/lib/pricing";
 
 type StayOpts = { collectedBy?: string; rooms?: Record<string, string>; overrideDocs?: boolean; settleMode?: string };
 const MODES = ["Cash", "UPI", "Card"];
@@ -161,7 +162,7 @@ function PreviewCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; o
       <div className="font-display text-base">{d.guest_name}</div>
       <div className="text-muted-foreground">+91 {d.phone}</div>
       <div>{d.check_in} → {d.check_out} · {p.nights} night{p.nights === 1 ? "" : "s"}</div>
-      <div>{d.room_type} × {d.rooms} · {d.adults} adult{d.adults === 1 ? "" : "s"}{d.children ? ` · ${d.children} child` : ""}</div>
+      <div>{d.room_type} × {d.rooms} · {formatGuestParty(d)}</div>
       <div>Inventory {inr(p.rate)}/night (incl. GST){p.discount > 0 ? ` · Discount ${inr(p.discount)} (${Math.round((p.discount / (p.rate * p.nights * p.draft.rooms)) * 100)}%)` : ""} · Payable {inr(p.total)} · GST {inr(p.taxes)}</div>
       <div className="font-semibold text-gold">Total {inr(p.total)}</div>
       <div className={short ? "text-destructive text-xs" : "text-muted-foreground text-xs"}>{p.available} {d.room_type} available</div>

@@ -57,6 +57,14 @@ import { LEAD_SOURCES } from "@/lib/mock-data";
 import { openCopilot } from "@/components/copilot/copilot-drawer";
 
 export const Route = createFileRoute("/_authenticated/bookings_/quick")({
+  head: () => ({ meta: [
+    { title: "Quick Booking — Hotel Excella Operations" },
+    { name: "description", content: "Create Hotel Excella reception bookings with inventory rates and guest parties." },
+    { property: "og:title", content: "Quick Booking — Hotel Excella Operations" },
+    { property: "og:description", content: "Create Hotel Excella reception bookings with inventory rates and guest parties." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: QuickBookingPage,
 });
 
@@ -568,7 +576,7 @@ function QuickBookingPage() {
           onOverrideChange={setTotalOverride}
           onTaxesIncludedChange={setTaxesIncluded}
           nights={nights}
-          guests={adults + kids}
+          party={{ adults, children: kids }}
         />
 
         {/* GROUP 5b — More Options (parity: lead source, requests, notes, per-booking payment flags) */}

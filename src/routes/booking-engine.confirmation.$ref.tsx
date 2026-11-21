@@ -9,8 +9,17 @@ import { getConfirmation } from "@/lib/booking-engine.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, Calendar, BedDouble, Users, Phone, ExternalLink, Loader2 } from "lucide-react";
+import { formatGuestParty } from "@/lib/pricing";
 
 export const Route = createFileRoute("/booking-engine/confirmation/$ref")({
+  head: () => ({ meta: [
+    { title: "Booking Confirmation — Hotel Excella" },
+    { name: "description", content: "Your Hotel Excella booking confirmation and guest portal." },
+    { property: "og:title", content: "Booking Confirmation — Hotel Excella" },
+    { property: "og:description", content: "Your Hotel Excella booking confirmation and guest portal." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: ConfirmationPage,
 });
 
@@ -51,7 +60,7 @@ function ConfirmationPage() {
   // resolvePortalRef accepts either token OR reference).
   const portalUrl = b.reference ? `https://guest.hotelexcella.in/portal/${b.reference}` : "";
   const waText = encodeURIComponent(
-    `Hello ${b.guestName},\n\nYour booking at Hotel Excella is confirmed.\n\nRef: ${b.reference}\nCheck-In: ${b.checkIn}\nCheck-Out: ${b.checkOut}\nRoom: ${b.roomType}\nGuests: ${b.guests}\nTotal: ${inr(b.amount)}${b.payAtHotel ? "\nPayment: Pay at Hotel" : `\nPaid: ${inr(b.advancePaid)}`}\n\nView booking: ${portalUrl}`,
+    `Hello ${b.guestName},\n\nYour booking at Hotel Excella is confirmed.\n\nRef: ${b.reference}\nCheck-In: ${b.checkIn}\nCheck-Out: ${b.checkOut}\nRoom: ${b.roomType}\nGuests: ${formatGuestParty(b)}\nTotal: ${inr(b.amount)}${b.payAtHotel ? "\nPayment: Pay at Hotel" : `\nPaid: ${inr(b.advancePaid)}`}\n\nView booking: ${portalUrl}`,
   );
 
   return (
@@ -71,7 +80,7 @@ function ConfirmationPage() {
         <Row label="Check-In" value={dateLabel(b.checkIn)} icon={<Calendar className="h-4 w-4" />} />
         <Row label="Check-Out" value={dateLabel(b.checkOut)} icon={<Calendar className="h-4 w-4" />} />
         <Row label="Room" value={b.roomType ?? "—"} icon={<BedDouble className="h-4 w-4" />} />
-        <Row label="Guests" value={String(b.guests)} icon={<Users className="h-4 w-4" />} />
+        <Row label="Guests" value={formatGuestParty(b)} icon={<Users className="h-4 w-4" />} />
         <div className="border-t border-border pt-3 space-y-1">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Total amount</span>

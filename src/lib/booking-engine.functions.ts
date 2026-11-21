@@ -783,7 +783,7 @@ export const getConfirmation = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: b } = await supabaseAdmin
       .from("bookings")
-      .select("id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, guests, amount, advance_paid, status, pay_at_hotel, source_channel")
+      .select("id, booking_reference, guest_name, phone, email, check_in, check_out, room_details, adults, children, guests, amount, advance_paid, status, pay_at_hotel, source_channel")
       .eq("booking_reference", data.reference)
       .eq("source_channel", SOURCE)
       .maybeSingle();
@@ -802,6 +802,8 @@ export const getConfirmation = createServerFn({ method: "POST" })
       checkOut: (b as any).check_out,
       roomType: (b as any).room_details,
       guests: (b as any).guests,
+      adults: b.adults,
+      children: b.children,
       amount: Number((b as any).amount),
       advancePaid: Number((b as any).advance_paid || 0),
       payAtHotel: !!(b as any).pay_at_hotel,

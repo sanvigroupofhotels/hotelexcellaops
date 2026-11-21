@@ -44,6 +44,7 @@ import { countOccupiedRoomsOnDate } from "@/lib/room-counts";
 import { placeHouseViewChips } from "@/lib/house-view-placement";
 import { houseViewGroupLayout } from "@/lib/house-view-group-layout";
 import { BOOKING_CANCELLATION_DENIED } from "@/lib/booking-cancellation-access";
+import { formatGuestParty } from "@/lib/pricing";
 
 
 
@@ -1514,7 +1515,7 @@ function BookingPopover({ b, onClose, rooms, hasBreakfast, businessDate }: { b: 
           <Field label="Status" value={b.status} />
           <Field label="Check-In" value={`${fmtFull(b.check_in)}, ${opsTimes.checkIn}`} />
           <Field label="Check-Out" value={`${fmtFull(b.check_out)}, ${opsTimes.checkOut}`} />
-          <Field label="Guests" value={`${b.adults} Adult${b.adults === 1 ? "" : "s"}${b.children ? ` + ${b.children}` : ""}`} />
+          <Field label="Guests" value={formatGuestParty(b)} />
           <Field label="Breakfast" value={hasBreakfast ? "Included" : "Not Included"} />
           {(b as any).expected_arrival_at && b.status !== "Checked-In" && b.status !== "Checked-Out" && b.status !== "Stay Completed" && (() => {
             const arr = smartArrival((b as any).expected_arrival_at);

@@ -17,11 +17,20 @@ import {
 import { cn, toLocalYMD, smartArrival } from "@/lib/utils";
 import { toast } from "sonner";
 import { phoneToWaDigits } from "@/lib/phone";
+import { formatGuestParty } from "@/lib/pricing";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/bookings")({
+  head: () => ({ meta: [
+    { title: "Bookings — Hotel Excella Operations" },
+    { name: "description", content: "Hotel Excella reservations, guest parties and payment summaries." },
+    { property: "og:title", content: "Bookings — Hotel Excella Operations" },
+    { property: "og:description", content: "Hotel Excella reservations, guest parties and payment summaries." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: GatedBookingsPage,
 });
 
@@ -236,7 +245,7 @@ function Section({ refEl, title, icon: Icon, bookings, chargeTotals, completedBy
           const balance = Math.max(0, diff);
           const excess = diff < 0 ? -diff : 0;
           const roomType = (b.room_details || "").split("×")[0]?.trim() || null;
-          const guestCount = `${b.adults}A${b.children ? ` + ${b.children}C` : ""}`;
+          const guestCount = formatGuestParty(b);
           // Prior completed stays = total completed for this customer minus self (if this booking is itself checked-out).
           const completed = b.customer_id ? (completedByCustomer[b.customer_id] ?? 0) : 0;
           const priorCompleted = b.status === "Checked-Out" ? Math.max(0, completed - 1) : completed;

@@ -1,5 +1,10 @@
 # Roadmap
 
+## Current request — universal guest-party labels
+- [x] Apply shared adult/child wording to booking summaries, House View, pricing, portal, confirmations, Copilot, quote/booking messages and invoice surfaces; preserve stored counts and prices. Legacy unclassified totals remain Guests.
+- [x] 61 focused guest/booking/invoice regressions pass; preview compilation OK; signed-in Quick Booking shows 4 Adults · 1 Child at desktop and phone widths without saving a booking.
+- Historical receipt compression is deferred to tomorrow at the user's request.
+
 ## Current request — storage and operational safeguards
 - [x] Remove redundant noon Night Audit; retain 8:15 AM IST daily runner.
 - [ ] Apply shared 1600px / 280 KB / 82% photo compression across all upload entry points; preserve non-image originals.

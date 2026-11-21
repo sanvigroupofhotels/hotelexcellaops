@@ -1,5 +1,6 @@
 import { earlyCheckInLabel, lateCheckOutLabel } from "@/lib/mock-data";
 import { useOpsTimeLabels } from "@/lib/check-times";
+import { formatGuestParty } from "@/lib/pricing";
 
 
 /**
@@ -38,9 +39,8 @@ export function StayItemsList({
           <ul className="text-sm space-y-1">
             <li>• <span className="text-muted-foreground">Room Type:</span> {it.room_type}
               {it.rooms > 1 ? ` × ${it.rooms}` : ""}</li>
-            <li>• <span className="text-muted-foreground">Guests:</span> {it.adults} Adult{it.adults === 1 ? "" : "s"}
-              {it.children > 0 ? ` + ${it.children} Child${it.children === 1 ? "" : "ren"}` : ""}
-              {it.extra_bed ? ` + ${it.extra_bed} Extra Bed` : ""}</li>
+            <li>• <span className="text-muted-foreground">Guests:</span> {formatGuestParty(it)}
+              {it.extra_bed ? ` · ${it.extra_bed} Extra Bed` : ""}</li>
             <li>• <span className="text-muted-foreground">Check-In:</span> {fmtDate(it.check_in)}, {t.checkIn}</li>
             <li>• <span className="text-muted-foreground">Check-Out:</span> {fmtDate(it.check_out)}, {t.checkOut}</li>
             <li>• <span className="text-muted-foreground">Nights:</span> {it.nights}</li>
