@@ -1,14 +1,17 @@
 # Roadmap
 
+## Current request — complete remaining historical photo compression
+- [x] Compressed 263 remaining photos in-place: 252 payment screenshots, 8 cash attachments and 3 guest documents; 620,530,702 bytes reduced to 42,729,747 bytes (93.1% smaller). Preserved every object path and non-image original; each replacement decoded and saved bytes read back exactly. No extra test suite run.
+
 ## Current request — universal guest-party labels
 - [x] Apply shared adult/child wording to booking summaries, House View, pricing, portal, confirmations, Copilot, quote/booking messages and invoice surfaces; preserve stored counts and prices. Legacy unclassified totals remain Guests.
 - [x] 61 focused guest/booking/invoice regressions pass; preview compilation OK; signed-in Quick Booking shows 4 Adults · 1 Child at desktop and phone widths without saving a booking.
-- Historical receipt compression is deferred to tomorrow at the user's request.
+- [x] Deferred historical receipt compression completed on 2026-11-22; see batch results above.
 
 ## Current request — storage and operational safeguards
 - [x] Remove redundant noon Night Audit; retain 8:15 AM IST daily runner.
 - [ ] Apply shared 1600px / 280 KB / 82% photo compression across all upload entry points; preserve non-image originals.
-- [ ] Recompress historical photos in-place across every bucket; preserve object paths and verify read-back.
+- [x] Recompress historical photos in-place across every bucket; preserve object paths and verify read-back. Remaining batch completed on 2026-11-22.
 - [ ] Purge integration and completed schedule logs older than 24 hours; configure daily retention.
 - [ ] Apply agreed Housekeeping data-access restrictions while retaining complaints/tasks access.
 - [ ] Enable agreed FabHotels and Booking.com lead sources.
