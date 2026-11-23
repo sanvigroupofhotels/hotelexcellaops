@@ -149,14 +149,10 @@ function WhatsAppBooking() {
               <span className="block text-[10px] font-medium uppercase tracking-[0.2em] text-primary">Visakhapatnam</span>
             </span>
           </a>
-          <a href="https://hotelexcella.in" className="shrink-0 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-primary hover:underline">Hotel website</a>
+          <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
+            Plan your stay
+          </span>
         </header>
-
-        <div className="space-y-1 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Direct booking request</p>
-          <h1 className="font-display text-3xl">Plan your stay</h1>
-          <p className="text-sm text-muted-foreground">Choose your dates and rooms, then continue with our front desk on WhatsApp.</p>
-        </div>
 
         <Card className="luxe-card p-4 flex items-start gap-3 border-primary/40">
           <BadgeCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
@@ -187,7 +183,7 @@ function WhatsAppBooking() {
               <Select value={earlySlot ?? "standard"} onValueChange={(value) => setEarlySlot(value === "standard" ? null : value as EarlyCheckInSlot)}>
                 <SelectTrigger id="arrival-slot" className="w-full h-auto min-h-10 text-left whitespace-normal [&>span]:line-clamp-none"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard (1:00 PM onwards) · Included</SelectItem>
+                  <SelectItem value="standard">Standard (1:00 PM onwards) Â· Included</SelectItem>
                   {EARLY_CHECK_IN_SLOTS.map((slot) => <SelectItem key={slot.value} value={slot.value}>{slot.label.replace(/\s*\(.*\)/, "")}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -197,7 +193,7 @@ function WhatsAppBooking() {
               <Select value={lateSlot ?? "standard"} onValueChange={(value) => setLateSlot(value === "standard" ? null : value as LateCheckOutSlot)}>
                 <SelectTrigger id="departure-slot" className="w-full h-auto min-h-10 text-left whitespace-normal [&>span]:line-clamp-none"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard (by 11:00 AM) · Included</SelectItem>
+                  <SelectItem value="standard">Standard (by 11:00 AM) Â· Included</SelectItem>
                   {LATE_CHECK_OUT_SLOTS.map((slot) => <SelectItem key={slot.value} value={slot.value}>{slot.label.replace(/\s*\(.*\)/, "")}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -210,7 +206,7 @@ function WhatsAppBooking() {
             </div>
             <div className="space-y-3">
               <Label>Rooms</Label>
-              {loading && <p className="text-xs text-muted-foreground" role="status">Checking availability…</p>}
+              {loading && <p className="text-xs text-muted-foreground" role="status">Checking availabilityâ€¦</p>}
               {availabilityError && <p className="text-sm text-destructive" role="alert">{availabilityError}</p>}
               {types.map((t) => <div key={t.room_type_key} className="border-b border-border py-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
@@ -223,10 +219,10 @@ function WhatsAppBooking() {
               {selectionError && <p className="text-sm text-destructive" role="alert">{selectionError}</p>}
             </div>
             {estimate && !canShowWhatsAppPrice(phone, roomsReq) && <p className="text-xs text-muted-foreground">Enter a valid mobile number to view your stay total.</p>}
-            {leadPayload && !showPrice && !captureError && <p className="text-xs text-muted-foreground" role="status">Saving your enquiry…</p>}
+            {leadPayload && !showPrice && !captureError && <p className="text-xs text-muted-foreground" role="status">Saving your enquiryâ€¦</p>}
             {captureError && <p className="text-sm text-destructive" role="alert">{captureError}</p>}
             {estimate && showPrice && <div className="border-t border-border pt-3 space-y-2 text-sm" aria-label="Booking estimate">
-              <div className="flex justify-between gap-2"><span>Published tariff · {roomsReq} {roomsReq === 1 ? "room" : "rooms"} (incl. GST)</span><span>{fmtINR(estimate.pricing.mainStayCharges)}</span></div>
+              <div className="flex justify-between gap-2"><span>Published tariff Â· {roomsReq} {roomsReq === 1 ? "room" : "rooms"} (incl. GST)</span><span>{fmtINR(estimate.pricing.mainStayCharges)}</span></div>
               {estimate.pricing.additionalLineItems.map((line) => <div key={line.label} className="flex justify-between gap-3"><span>{line.label}</span><span className="shrink-0">{fmtINR(line.value)}</span></div>)}
               <div className="flex justify-between text-muted-foreground"><span>Base tariff</span><span>{fmtINR(estimate.pricing.subtotal)}</span></div>
               <div className="flex justify-between text-muted-foreground"><span>GST ({Math.round(estimate.pricing.taxRate * 100)}%) included</span><span>{fmtINR(estimate.pricing.taxes)}</span></div>
@@ -238,7 +234,7 @@ function WhatsAppBooking() {
             <div className="sticky bottom-0 bg-card border-t border-border pt-3 pb-1 space-y-2">
             {estimate && showPrice && <div className="flex justify-between text-sm font-semibold"><span>Published rate (incl. GST)</span><span>{fmtINR(estimate.pricing.total)}</span></div>}
             <Button className="w-full whitespace-normal h-auto min-h-10" onClick={submit} disabled={busy || loading || !estimate}>
-              <MessageCircle className="h-4 w-4 mr-1" /> {busy ? "Sending request…" : "Get Best Quote on WhatsApp"}
+              <MessageCircle className="h-4 w-4 mr-1" /> {busy ? "Sending requestâ€¦" : "Get Best Quote on WhatsApp"}
             </Button>
             </div>
           </Card>
@@ -247,3 +243,4 @@ function WhatsAppBooking() {
     </div>
   );
 }
+
