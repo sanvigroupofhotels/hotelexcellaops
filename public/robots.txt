@@ -1,0 +1,16 @@
+User-agent: *
+Disallow: /
+Allow: /whatsapp-booking
+Allow: /sitemap.xml
+Allow: /icon-*.png
+Allow: /og-stay-preview.jpg
+Allow: /assets/
+Allow: /_build/
+Disallow: /_authenticated/
+Disallow: /portal/
+Disallow: /api/
+Disallow: /login
+Disallow: /dashboard
+
+Sitemap: https://book.hotelexcella.in/sitemap.xml
+
