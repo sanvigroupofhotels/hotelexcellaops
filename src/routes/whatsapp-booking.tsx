@@ -19,10 +19,10 @@ import { normalizeOrThrow } from "@/lib/phone";
 export const Route = createFileRoute("/whatsapp-booking")({
   head: () => ({
     meta: [
-      { title: "Book Hotel Excella Vizag on WhatsApp — Best Direct Price" },
-      { name: "description", content: "Reserve your room at Hotel Excella, Vizag in one minute. 200 m from the beach, best direct price guaranteed." },
-      { property: "og:title", content: "Book Hotel Excella Vizag — Best Direct Price" },
-      { property: "og:description", content: "Reserve in one minute and confirm your rate with our front desk on WhatsApp." },
+      { title: "Hotel Excella | Direct Booking Request" },
+      { name: "description", content: "Choose your stay details and send a booking request to the Hotel Excella front desk on WhatsApp." },
+      { property: "og:title", content: "Hotel Excella | Direct Booking Request" },
+      { property: "og:description", content: "Choose your stay details and send a booking request to the Hotel Excella front desk on WhatsApp." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -141,16 +141,28 @@ function WhatsAppBooking() {
   return (
     <div className="min-h-dvh bg-background text-foreground px-4 py-8">
       <div className="mx-auto max-w-md space-y-5">
-        <div className="text-center space-y-1">
-          <h1 className="font-display text-3xl">Hotel Excella, Vizag</h1>
-          <p className="text-sm text-muted-foreground">200 m walk to the beach · Reserve in one minute</p>
+        <header className="flex items-center justify-between gap-3 border-b border-primary/25 pb-4">
+          <a href="https://hotelexcella.in" className="group flex min-w-0 items-center gap-3" aria-label="Hotel Excella home">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-primary/50 bg-primary/10 font-display text-xl text-primary" aria-hidden="true">E</span>
+            <span className="min-w-0">
+              <span className="block font-display text-lg leading-tight text-foreground">Hotel Excella</span>
+              <span className="block text-[10px] font-medium uppercase tracking-[0.2em] text-primary">Visakhapatnam</span>
+            </span>
+          </a>
+          <a href="https://hotelexcella.in" className="shrink-0 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-primary hover:underline">Hotel website</a>
+        </header>
+
+        <div className="space-y-1 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Direct booking request</p>
+          <h1 className="font-display text-3xl">Plan your stay</h1>
+          <p className="text-sm text-muted-foreground">Choose your dates and rooms, then continue with our front desk on WhatsApp.</p>
         </div>
 
         <Card className="luxe-card p-4 flex items-start gap-3 border-primary/40">
           <BadgeCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div>
-            <p className="font-display text-base">Best Price Assured</p>
-            <p className="text-xs text-muted-foreground">Reserve now — our front desk shares your exclusive direct rate on WhatsApp.</p>
+            <p className="font-display text-base">A personal booking experience</p>
+            <p className="text-xs text-muted-foreground">Share your stay details here. Your request is saved in Hotel Excella Operations and sent to the front desk on WhatsApp.</p>
           </div>
         </Card>
 
