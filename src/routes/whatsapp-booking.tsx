@@ -18,13 +18,94 @@ import { normalizeOrThrow } from "@/lib/phone";
 
 export const Route = createFileRoute("/whatsapp-booking")({
   head: () => ({
+    links: [
+      { rel: "canonical", href: "https://book.hotelexcella.in/whatsapp-booking" },
+    ],
     meta: [
-      { title: "Hotel Excella, Vizag | Direct Booking Request" },
-      { name: "description", content: "Request your best direct quote for Hotel Excella, Vizag. Choose your stay details and connect with our front desk on WhatsApp." },
-      { property: "og:title", content: "Hotel Excella, Vizag | Direct Booking Request" },
-      { property: "og:description", content: "Request your best direct quote for Hotel Excella, Vizag. Choose your stay details and connect with our front desk on WhatsApp." },
+      { title: "Hotel Excella, Vizag | Hotel Rooms Near Beach Road Â· Best Direct Rates" },
+      { name: "description", content: "Book luxury AC rooms directly at Hotel Excella, Visakhapatnam near Beach Road & Tenneti Park. Get instant WhatsApp confirmation, best direct price guarantee, and zero middleman fees." },
+      { name: "keywords", content: "hotel near beach road vizag, hotels in vizag near beach, hotel in visakhapatnam, hotel excella vizag, couple friendly hotel vizag, luxury rooms near rk beach vizag, tenneti park hotels, direct hotel booking vizag" },
+      { name: "robots", content: "index, follow, max-image-preview:large, max-snippet:-1" },
+      { property: "og:title", content: "Hotel Excella, Vizag | Luxury Rooms Near Beach Road Â· Direct Rates" },
+      { property: "og:description", content: "Stay near Vizag Beach Road at Hotel Excella. Choose your dates and get your instant direct discount quote on WhatsApp." },
+      { property: "og:url", content: "https://book.hotelexcella.in/whatsapp-booking" },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { property: "og:image", content: "https://book.hotelexcella.in/og-stay-preview.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Hotel Excella, Vizag | Rooms Near Beach Road" },
+      { name: "twitter:description", content: "Direct WhatsApp booking with best rate guarantee near Vizag Beach Road." },
+      { name: "twitter:image", content: "https://book.hotelexcella.in/og-stay-preview.jpg" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Hotel",
+          name: "Hotel Excella",
+          description: "Boutique luxury hotel in Visakhapatnam near Beach Road offering premium AC rooms, fast Wi-Fi, and 24/7 hospitality.",
+          url: "https://book.hotelexcella.in/whatsapp-booking",
+          telephone: "+91-9985908131",
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: "386 Revenue Employs Co-operative Society Colony, Vishalakshi Nagar",
+            addressLocality: "Visakhapatnam",
+            addressRegion: "Andhra Pradesh",
+            postalCode: "530043",
+            addressCountry: "IN",
+          },
+          checkinTime: "13:00",
+          checkoutTime: "11:00",
+          amenityFeature: [
+            "Air Conditioning",
+            "Free High-Speed Wi-Fi",
+            "24/7 Front Desk",
+            "Room Service",
+            "Power Backup",
+          ].map((name) => ({ "@type": "LocationFeatureSpecification", name, value: true })),
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "Is Hotel Excella located close to the beach in Visakhapatnam?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes, Hotel Excella offers quick, convenient access to Vizag Beach Road, Tenneti Park, and Kailasagiri, making it ideal for leisure, beach walks, and family trips.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "How do I get the lowest room tariff for Hotel Excella Vizag?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Booking directly through our official WhatsApp form guarantees our best direct price with zero OTA commissions and exclusive complimentary stay perks.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "What are the check-in and check-out timings at Hotel Excella?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Standard check-in is at 1:00 PM and check-out is at 11:00 AM. Early check-in or late check-out can be requested when submitting your WhatsApp booking details.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Are couple-friendly and family bookings accepted?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes, Hotel Excella welcomes families, couples, and corporate travelers with seamless check-in and 24/7 front desk support.",
+              },
+            },
+          ],
+        }),
+      },
     ],
   }),
   component: WhatsAppBooking,
@@ -154,11 +235,13 @@ function WhatsAppBooking() {
           </span>
         </header>
 
+        <h1 className="font-display text-xl leading-tight">Hotel Excella Â· Rooms in Visakhapatnam Near Beach Road</h1>
+
         <Card className="luxe-card p-4 flex items-start gap-3 border-primary/40">
           <BadgeCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div>
-            <p className="font-display text-base">Your Best Direct Quote</p>
-            <p className="text-xs text-muted-foreground">Share your stay details, then send your request on WhatsApp. Our Front Desk Team will reply with the best direct discount for your stay.</p>
+            <p className="font-display text-base">Best Direct Quote Â· Near Beach Road</p>
+            <p className="text-xs text-muted-foreground">Minutes from Vizag Beach Road. Share your stay dates below to receive an instant direct discount quote directly on WhatsApp.</p>
           </div>
         </Card>
 
@@ -239,6 +322,25 @@ function WhatsAppBooking() {
             </div>
           </Card>
         )}
+        <section aria-labelledby="booking-faq-title" className="space-y-3">
+          <h2 id="booking-faq-title" className="font-display text-lg">Hotel Excella booking FAQs</h2>
+          <details className="rounded-lg border border-border p-3">
+            <summary className="cursor-pointer text-sm font-medium">Is Hotel Excella located close to the beach in Visakhapatnam?</summary>
+            <p className="mt-2 text-sm text-muted-foreground">Yes, Hotel Excella offers quick, convenient access to Vizag Beach Road, Tenneti Park, and Kailasagiri, making it ideal for leisure, beach walks, and family trips.</p>
+          </details>
+          <details className="rounded-lg border border-border p-3">
+            <summary className="cursor-pointer text-sm font-medium">How do I get the lowest room tariff for Hotel Excella Vizag?</summary>
+            <p className="mt-2 text-sm text-muted-foreground">Booking directly through our official WhatsApp form guarantees our best direct price with zero OTA commissions and exclusive complimentary stay perks.</p>
+          </details>
+          <details className="rounded-lg border border-border p-3">
+            <summary className="cursor-pointer text-sm font-medium">What are the check-in and check-out timings at Hotel Excella?</summary>
+            <p className="mt-2 text-sm text-muted-foreground">Standard check-in is at 1:00 PM and check-out is at 11:00 AM. Early check-in or late check-out can be requested when submitting your WhatsApp booking details.</p>
+          </details>
+          <details className="rounded-lg border border-border p-3">
+            <summary className="cursor-pointer text-sm font-medium">Are couple-friendly and family bookings accepted?</summary>
+            <p className="mt-2 text-sm text-muted-foreground">Yes, Hotel Excella welcomes families, couples, and corporate travelers with seamless check-in and 24/7 front desk support.</p>
+          </details>
+        </section>
       </div>
     </div>
   );
