@@ -19,10 +19,10 @@ import { normalizeOrThrow } from "@/lib/phone";
 export const Route = createFileRoute("/whatsapp-booking")({
   head: () => ({
     meta: [
-      { title: "Hotel Excella | Direct Booking Request" },
-      { name: "description", content: "Choose your stay details and send a booking request to the Hotel Excella front desk on WhatsApp." },
-      { property: "og:title", content: "Hotel Excella | Direct Booking Request" },
-      { property: "og:description", content: "Choose your stay details and send a booking request to the Hotel Excella front desk on WhatsApp." },
+      { title: "Hotel Excella, Vizag | Direct Booking Request" },
+      { name: "description", content: "Request your best direct quote for Hotel Excella, Vizag. Choose your stay details and connect with our front desk on WhatsApp." },
+      { property: "og:title", content: "Hotel Excella, Vizag | Direct Booking Request" },
+      { property: "og:description", content: "Request your best direct quote for Hotel Excella, Vizag. Choose your stay details and connect with our front desk on WhatsApp." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -161,8 +161,8 @@ function WhatsAppBooking() {
         <Card className="luxe-card p-4 flex items-start gap-3 border-primary/40">
           <BadgeCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div>
-            <p className="font-display text-base">A personal booking experience</p>
-            <p className="text-xs text-muted-foreground">Share your stay details here. Your request is saved in Hotel Excella Operations and sent to the front desk on WhatsApp.</p>
+            <p className="font-display text-base">Your Best Direct Quote</p>
+            <p className="text-xs text-muted-foreground">Share your stay details, then send your request on WhatsApp. Our Front Desk Team will reply with the best direct discount for your stay.</p>
           </div>
         </Card>
 
