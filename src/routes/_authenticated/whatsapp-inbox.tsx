@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, AlertTriangle, MessageSquareText, Archive, ChevronDown, Copy, Save, Link2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/topbar";
+import { PaymentLinkDialog } from "@/components/payment-link-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { listLeads, markLeadLost, listLeadActivities, addInboxActivity } from "@/lib/leads.functions";
@@ -62,7 +63,7 @@ function WhatsAppInbox() {
 
   return (
     <div>
-      <Topbar title="WhatsApp Inbox" subtitle="Guest booking enquiries" />
+      <Topbar title="WhatsApp Inbox" subtitle="Guest booking enquiries" action={<PaymentLinkDialog />} />
       <div className="px-4 md:px-8 py-6 max-w-[1400px] space-y-4">
         <div className="flex gap-2">
           {(["live", "history"] as const).map((t) => (

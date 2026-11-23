@@ -141,6 +141,13 @@
       "when": 1795191180447,
       "tag": "0019_frontdesk_rpc_caller_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795447323238,
+      "tag": "0020_standalone_payment_links",
+      "breakpoints": true
     }
   ]
 }

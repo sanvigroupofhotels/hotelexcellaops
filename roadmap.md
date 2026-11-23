@@ -95,3 +95,8 @@
 - [x] Provision a dedicated `mulesoft@hotelexcella.in` owner-equivalent service identity on first authenticated use.
 - [x] Add a MuleSoft-only client-credentials adapter and dedicated MCP endpoint without changing Claude OAuth.
 - [x] Verify deployed MuleSoft token issuance, MCP initialization, `whoami`, and all 21 registered read-only tools after publishing.
+
+## Payment Links (standalone)
+- [x] Create Razorpay link (SMS + WhatsApp share), expiry, recent links with Paid/Expired status
+- [ ] Convert paid link to booking / link to existing booking (tomorrow)
+- [ ] Log retention sweep, housekeeping role scope (later)

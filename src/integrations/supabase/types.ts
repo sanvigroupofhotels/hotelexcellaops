@@ -2925,6 +2925,57 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_links: {
+        Row: {
+          amount: number
+          booking_id: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          guest_name: string
+          id: string
+          paid_at: string | null
+          phone: string
+          purpose: string
+          razorpay_link_id: string
+          razorpay_payment_id: string | null
+          short_url: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          booking_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          guest_name: string
+          id?: string
+          paid_at?: string | null
+          phone: string
+          purpose: string
+          razorpay_link_id: string
+          razorpay_payment_id?: string | null
+          short_url: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          booking_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          guest_name?: string
+          id?: string
+          paid_at?: string | null
+          phone?: string
+          purpose?: string
+          razorpay_link_id?: string
+          razorpay_payment_id?: string | null
+          short_url?: string
+          status?: string
+        }
+        Relationships: []
+      }
       permissions: {
         Row: {
           created_at: string
