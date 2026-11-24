@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { entranceDelaySeconds } from "@/lib/startup-reveal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -92,18 +92,18 @@ function LoginPage() {
     }
   };
 
-  const cardVariants = {
+  const cardVariants: Variants = {
     hidden: { opacity: 0, y: 16, scale: 0.985 },
     show: {
       opacity: 1, y: 0, scale: 1,
       transition: { duration: reduceMotion ? 0 : 0.45, delay: reduceMotion ? 0 : entranceDelay ? 1.45 : 0, ease: [0.22, 1, 0.36, 1] },
     },
   };
-  const contentVariants = {
+  const contentVariants: Variants = {
     hidden: {},
     show: { transition: { staggerChildren: reduceMotion ? 0 : 0.08, delayChildren: reduceMotion ? 0 : entranceDelay ? 0.2 : 0 } },
   };
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 8 },
     show: { opacity: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.38, ease: [0.22, 1, 0.36, 1] } },
   };
@@ -130,47 +130,47 @@ function LoginPage() {
           </motion.div>
 
           <motion.div variants={itemVariants}>
-          <form onSubmit={submit} className="space-y-3">
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                Username
-              </label>
-              <input
-                type="text"
-                required
-                autoComplete="username"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
-              />
-            </div>
+            <form onSubmit={submit} className="space-y-3">
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
+                />
+              </div>
 
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full mt-4 inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
-              Sign in
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={busy}
+                className="w-full mt-4 inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+                Sign in
+              </button>
+            </form>
           </motion.div>
 
           <motion.p className="mt-6 text-center text-[11px] text-muted-foreground" variants={itemVariants}>
