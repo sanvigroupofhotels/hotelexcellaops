@@ -1,7 +1,7 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Copy, IndianRupee, MessageCircle } from "lucide-react";
+import { IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,6 @@ import { createPaymentLink, type PaymentLinkRow } from "@/lib/payment-links.func
 import { waLink } from "@/lib/whatsapp-pitch";
 
 const msg = (l: PaymentLinkRow) => `Hello ${l.guest_name.split(" ")[0]}, please pay ₹${Number(l.amount).toLocaleString("en-IN")} towards ${l.purpose} at Hotel Excella using this secure link: ${l.short_url}`;
-const tone: Record<string, string> = { Paid: "text-success", Expired: "text-muted-foreground", Cancelled: "text-muted-foreground", Issued: "text-gold" };
 
 export function PaymentLinkDialog({ trigger }: { trigger?: React.ReactNode } = {}) {
   const qc = useQueryClient();
@@ -53,7 +52,6 @@ export function PaymentLinkDialog({ trigger }: { trigger?: React.ReactNode } = {
     };
   }, [open]);
   const valid = Number(f.amount) >= 1 && f.guest_name.trim() && f.phone.replace(/\D/g, "").length >= 10 && f.purpose.trim();
-  const copy = async (l: PaymentLinkRow) => { try { await navigator.clipboard.writeText(l.short_url); toast.success("Link copied"); } catch { toast.error("Could not copy"); } };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
