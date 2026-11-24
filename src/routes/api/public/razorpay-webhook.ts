@@ -92,6 +92,8 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
         const event = payload?.event as string | undefined;
         const paymentEntity = payload?.payload?.payment?.entity;
         const orderEntity = payload?.payload?.order?.entity;
+        const paymentLinkEntity = payload?.payload?.payment_link?.entity;
+        const razorpay_link_id = paymentLinkEntity?.id as string | undefined;
         const razorpay_payment_id = paymentEntity?.id as string | undefined;
         const razorpay_order_id =
           (paymentEntity?.order_id as string | undefined) ?? (orderEntity?.id as string | undefined);
@@ -117,13 +119,58 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
         if (recErr) {
           const msg = String((recErr as any).message || "").toLowerCase();
           if ((recErr as any).code === "23505" || msg.includes("duplicate")) {
-            return ok();
+            // A previous delivery may have failed during processing. Only
+            // acknowledge duplicates that were fully processed so Razorpay can retry.
+            const { data: prior, error: priorErr } = await supabaseAdmin
+              .from("razorpay_webhook_events")
+              .select("processed_at")
+              .eq("event_id", event_id)
+              .maybeSingle();
+            if (priorErr) {
+              console.error("Could not read duplicate webhook event:", priorErr);
+              return err(500, "Could not verify event state");
+            }
+            if (prior?.processed_at) return ok();
+          } else {
+            console.error("razorpay_webhook_events insert failed:", recErr);
+            return err(500, "Could not record event");
           }
-          console.error("razorpay_webhook_events insert failed:", recErr);
         }
 
         try {
-          if (event === "payment.captured" || event === "payment.authorized") {
+          if (
+            event === "payment_link.paid" ||
+            event === "payment_link.cancelled" ||
+            event === "payment_link.expired"
+          ) {
+            if (!paymentLinkEntity || !razorpay_link_id) {
+              return err(400, "Missing payment link fields");
+            }
+            const status =
+              event === "payment_link.paid" ? "Paid" :
+              event === "payment_link.cancelled" ? "Cancelled" : "Expired";
+            const patch: Record<string, unknown> = { status };
+            if (status === "Paid") {
+              const paidAt = paymentEntity?.created_at ?? paymentLinkEntity?.updated_at ?? payload?.created_at;
+              patch.paid_at = typeof paidAt === "number"
+                ? new Date(paidAt * 1000).toISOString()
+                : new Date().toISOString();
+              patch.razorpay_payment_id =
+                (paymentEntity?.id as string | undefined) ??
+                (paymentLinkEntity?.payments?.[0]?.payment_id as string | undefined) ??
+                null;
+            }
+            let update = supabaseAdmin
+              .from("payment_links")
+              .update(patch)
+              .eq("razorpay_link_id", razorpay_link_id);
+            // A late cancellation/expiry must not overwrite a confirmed payment.
+            if (status !== "Paid") update = update.neq("status", "Paid");
+            const { error: linkUpdateError } = await update;
+            if (linkUpdateError) {
+              throw new Error(`Could not sync payment link status: ${linkUpdateError.message}`);
+            }
+          } else if (event === "payment.captured" || event === "payment.authorized") {
             if (!paymentEntity || !razorpay_payment_id || !razorpay_order_id) {
               return err(400, "Missing payment fields");
             }
@@ -184,10 +231,11 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
             }
           }
 
-          await supabaseAdmin
+          const { error: processedError } = await supabaseAdmin
             .from("razorpay_webhook_events")
-            .update({ processed_at: new Date().toISOString() } as any)
+            .update({ processed_at: new Date().toISOString(), processing_error: null } as any)
             .eq("event_id", event_id);
+          if (processedError) throw processedError;
 
           return ok();
         } catch (e: any) {
