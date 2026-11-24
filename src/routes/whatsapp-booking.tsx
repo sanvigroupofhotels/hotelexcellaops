@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { BadgeCheck, CalendarDays, MessageCircle, PlayCircle, Users, Minus, Plus } from "lucide-react";
+import { BadgeCheck, CalendarDays, ChevronDown, MessageCircle, PlayCircle, Users, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,15 +22,18 @@ export const Route = createFileRoute("/whatsapp-booking")({
       { rel: "canonical", href: "https://book.hotelexcella.in/whatsapp-booking" },
     ],
     meta: [
-      { title: "Hotel Excella, Vizag | Hotel Rooms Near Beach Road Â· Best Direct Rates" },
+      { title: "Hotel Excella, Vizag | Hotel Rooms Near Beach Road \u00b7 Best Direct Rates" },
       { name: "description", content: "Book luxury AC rooms directly at Hotel Excella, Visakhapatnam near Beach Road & Tenneti Park. Get instant WhatsApp confirmation, best direct price guarantee, and zero middleman fees." },
       { name: "keywords", content: "hotel near beach road vizag, hotels in vizag near beach, hotel in visakhapatnam, hotel excella vizag, couple friendly hotel vizag, luxury rooms near rk beach vizag, tenneti park hotels, direct hotel booking vizag" },
       { name: "robots", content: "index, follow, max-image-preview:large, max-snippet:-1" },
-      { property: "og:title", content: "Hotel Excella, Vizag | Luxury Rooms Near Beach Road Â· Direct Rates" },
+      { property: "og:title", content: "Hotel Excella, Vizag | Luxury Rooms Near Beach Road \u00b7 Direct Rates" },
       { property: "og:description", content: "Stay near Vizag Beach Road at Hotel Excella. Choose your dates and get your instant direct discount quote on WhatsApp." },
       { property: "og:url", content: "https://book.hotelexcella.in/whatsapp-booking" },
       { property: "og:type", content: "website" },
       { property: "og:image", content: "https://book.hotelexcella.in/og-stay-preview.jpg" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "Hotel Excella exterior in Visakhapatnam" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Hotel Excella, Vizag | Rooms Near Beach Road" },
       { name: "twitter:description", content: "Direct WhatsApp booking with best rate guarantee near Vizag Beach Road." },
@@ -235,12 +238,12 @@ function WhatsAppBooking() {
           </span>
         </header>
 
-        <h1 className="font-display text-xl leading-tight">Hotel Excella Â· Rooms in Visakhapatnam Near Beach Road</h1>
+        <h1 className="font-display text-base leading-tight text-primary">Hotel Excella {"\u00b7"} Rooms in Visakhapatnam Near Beach Road</h1>
 
         <Card className="luxe-card p-4 flex items-start gap-3 border-primary/40">
           <BadgeCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div>
-            <p className="font-display text-base">Best Direct Quote Â· Near Beach Road</p>
+            <p className="font-display text-base">Best Direct Quote</p>
             <p className="text-xs text-muted-foreground">Minutes from Vizag Beach Road. Share your stay dates below to receive an instant direct discount quote directly on WhatsApp.</p>
           </div>
         </Card>
@@ -266,7 +269,7 @@ function WhatsAppBooking() {
               <Select value={earlySlot ?? "standard"} onValueChange={(value) => setEarlySlot(value === "standard" ? null : value as EarlyCheckInSlot)}>
                 <SelectTrigger id="arrival-slot" className="w-full h-auto min-h-10 text-left whitespace-normal [&>span]:line-clamp-none"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard (1:00 PM onwards) Â· Included</SelectItem>
+                  <SelectItem value="standard">Standard (1:00 PM onwards) {"\u00b7"} Included</SelectItem>
                   {EARLY_CHECK_IN_SLOTS.map((slot) => <SelectItem key={slot.value} value={slot.value}>{slot.label.replace(/\s*\(.*\)/, "")}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -276,7 +279,7 @@ function WhatsAppBooking() {
               <Select value={lateSlot ?? "standard"} onValueChange={(value) => setLateSlot(value === "standard" ? null : value as LateCheckOutSlot)}>
                 <SelectTrigger id="departure-slot" className="w-full h-auto min-h-10 text-left whitespace-normal [&>span]:line-clamp-none"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard (by 11:00 AM) Â· Included</SelectItem>
+                  <SelectItem value="standard">Standard (by 11:00 AM) {"\u00b7"} Included</SelectItem>
                   {LATE_CHECK_OUT_SLOTS.map((slot) => <SelectItem key={slot.value} value={slot.value}>{slot.label.replace(/\s*\(.*\)/, "")}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -289,7 +292,7 @@ function WhatsAppBooking() {
             </div>
             <div className="space-y-3">
               <Label>Rooms</Label>
-              {loading && <p className="text-xs text-muted-foreground" role="status">Checking availabilityâ€¦</p>}
+              {loading && <p className="text-xs text-muted-foreground" role="status">Checking availability{"\u2026"}</p>}
               {availabilityError && <p className="text-sm text-destructive" role="alert">{availabilityError}</p>}
               {types.map((t) => <div key={t.room_type_key} className="border-b border-border py-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
@@ -302,10 +305,10 @@ function WhatsAppBooking() {
               {selectionError && <p className="text-sm text-destructive" role="alert">{selectionError}</p>}
             </div>
             {estimate && !canShowWhatsAppPrice(phone, roomsReq) && <p className="text-xs text-muted-foreground">Enter a valid mobile number to view your stay total.</p>}
-            {leadPayload && !showPrice && !captureError && <p className="text-xs text-muted-foreground" role="status">Saving your enquiryâ€¦</p>}
+            {leadPayload && !showPrice && !captureError && <p className="text-xs text-muted-foreground" role="status">Saving your enquiry{"\u2026"}</p>}
             {captureError && <p className="text-sm text-destructive" role="alert">{captureError}</p>}
             {estimate && showPrice && <div className="border-t border-border pt-3 space-y-2 text-sm" aria-label="Booking estimate">
-              <div className="flex justify-between gap-2"><span>Published tariff Â· {roomsReq} {roomsReq === 1 ? "room" : "rooms"} (incl. GST)</span><span>{fmtINR(estimate.pricing.mainStayCharges)}</span></div>
+              <div className="flex justify-between gap-2"><span>Published tariff {"\u00b7"} {roomsReq} {roomsReq === 1 ? "room" : "rooms"} (incl. GST)</span><span>{fmtINR(estimate.pricing.mainStayCharges)}</span></div>
               {estimate.pricing.additionalLineItems.map((line) => <div key={line.label} className="flex justify-between gap-3"><span>{line.label}</span><span className="shrink-0">{fmtINR(line.value)}</span></div>)}
               <div className="flex justify-between text-muted-foreground"><span>Base tariff</span><span>{fmtINR(estimate.pricing.subtotal)}</span></div>
               <div className="flex justify-between text-muted-foreground"><span>GST ({Math.round(estimate.pricing.taxRate * 100)}%) included</span><span>{fmtINR(estimate.pricing.taxes)}</span></div>
@@ -314,30 +317,30 @@ function WhatsAppBooking() {
             </div>}
             </fieldset>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="sticky bottom-0 bg-card border-t border-border pt-3 pb-1 space-y-2">
+            <div className="sticky bottom-0 bg-card border-t border-border pt-3 pb-3 space-y-2" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))" }}>
             {estimate && showPrice && <div className="flex justify-between text-sm font-semibold"><span>Published rate (incl. GST)</span><span>{fmtINR(estimate.pricing.total)}</span></div>}
             <Button className="w-full whitespace-normal h-auto min-h-10" onClick={submit} disabled={busy || loading || !estimate}>
-              <MessageCircle className="h-4 w-4 mr-1" /> {busy ? "Sending requestâ€¦" : "Get Best Quote on WhatsApp"}
+              <MessageCircle className="h-4 w-4 mr-1" /> {busy ? "Sending request\u2026" : "Get Best Quote on WhatsApp"}
             </Button>
             </div>
           </Card>
         )}
         <section aria-labelledby="booking-faq-title" className="space-y-3">
           <h2 id="booking-faq-title" className="font-display text-lg">Hotel Excella booking FAQs</h2>
-          <details className="rounded-lg border border-border p-3">
-            <summary className="cursor-pointer text-sm font-medium">Is Hotel Excella located close to the beach in Visakhapatnam?</summary>
+          <details className="group rounded-lg border border-primary/20 p-3 transition-colors open:bg-primary/5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium [&::-webkit-details-marker]:hidden"><span>Is Hotel Excella located close to the beach in Visakhapatnam?</span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-primary transition-transform duration-200 group-open:rotate-180" /></summary>
             <p className="mt-2 text-sm text-muted-foreground">Yes, Hotel Excella offers quick, convenient access to Vizag Beach Road, Tenneti Park, and Kailasagiri, making it ideal for leisure, beach walks, and family trips.</p>
           </details>
-          <details className="rounded-lg border border-border p-3">
-            <summary className="cursor-pointer text-sm font-medium">How do I get the lowest room tariff for Hotel Excella Vizag?</summary>
+          <details className="group rounded-lg border border-primary/20 p-3 transition-colors open:bg-primary/5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium [&::-webkit-details-marker]:hidden"><span>How do I get the lowest room tariff for Hotel Excella Vizag?</span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-primary transition-transform duration-200 group-open:rotate-180" /></summary>
             <p className="mt-2 text-sm text-muted-foreground">Booking directly through our official WhatsApp form guarantees our best direct price with zero OTA commissions and exclusive complimentary stay perks.</p>
           </details>
-          <details className="rounded-lg border border-border p-3">
-            <summary className="cursor-pointer text-sm font-medium">What are the check-in and check-out timings at Hotel Excella?</summary>
+          <details className="group rounded-lg border border-primary/20 p-3 transition-colors open:bg-primary/5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium [&::-webkit-details-marker]:hidden"><span>What are the check-in and check-out timings at Hotel Excella?</span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-primary transition-transform duration-200 group-open:rotate-180" /></summary>
             <p className="mt-2 text-sm text-muted-foreground">Standard check-in is at 1:00 PM and check-out is at 11:00 AM. Early check-in or late check-out can be requested when submitting your WhatsApp booking details.</p>
           </details>
-          <details className="rounded-lg border border-border p-3">
-            <summary className="cursor-pointer text-sm font-medium">Are couple-friendly and family bookings accepted?</summary>
+          <details className="group rounded-lg border border-primary/20 p-3 transition-colors open:bg-primary/5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium [&::-webkit-details-marker]:hidden"><span>Are couple-friendly and family bookings accepted?</span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-primary transition-transform duration-200 group-open:rotate-180" /></summary>
             <p className="mt-2 text-sm text-muted-foreground">Yes, Hotel Excella welcomes families, couples, and corporate travelers with seamless check-in and 24/7 front desk support.</p>
           </details>
         </section>
