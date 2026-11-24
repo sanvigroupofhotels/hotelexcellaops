@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, MessageCircle, Plus, Ban, BedDouble, Link2 } from "lucide-react";
+import { Copy, MessageCircle, Plus, Ban, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/topbar";
 import { PaymentLinkDialog } from "@/components/payment-link-dialog";
@@ -36,7 +36,12 @@ const FILTERS = ["All", "Issued", "Paid", "Expired", "Cancelled"] as const;
 function PaymentLinksPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { data = [], isLoading } = useQuery({ queryKey: ["payment-links-console"], queryFn: () => listPaymentLinks() });
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["payment-links-console"],
+    queryFn: () => listPaymentLinks(),
+    // Webhooks update HEOS promptly; reconciliation catches delayed or missed deliveries.
+    refetchInterval: 60_000,
+  });
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [linking, setLinking] = useState<PaymentLinkRow | null>(null);
@@ -91,10 +96,7 @@ function PaymentLinksPage() {
                 </>}
                 {l.status === "Paid" && (l.booking_id
                   ? <Button size="sm" variant="outline" onClick={() => navigate({ to: "/bookings/$id", params: { id: l.booking_id! } })}>Open Booking</Button>
-                  : <>
-                    <Button size="sm" variant="outline" onClick={() => navigate({ to: "/bookings/new", search: { fromPaymentLinkId: l.id } })}><BedDouble className="h-4 w-4" />Convert</Button>
-                    <Button size="sm" variant="outline" onClick={() => setLinking(l)}><Link2 className="h-4 w-4" />Link</Button>
-                  </>)}
+                  : <Button size="sm" variant="outline" onClick={() => setLinking(l)}><Link2 className="h-4 w-4" />Link</Button>}
               </div>
             </div>
           ))}
