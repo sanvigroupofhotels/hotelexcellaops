@@ -2,7 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 
 const dupMock = vi.fn();
 vi.mock("@/lib/booking-duplicates-api", () => ({ checkBookingDuplicates: (i: unknown) => dupMock(i) }));
-vi.mock("@/lib/rates-api", () => ({ listRoomRates: async () => [], listRateOverrides: async () => [] }));
+vi.mock("@/lib/rates-api", () => ({
+  listRoomRates: async () => [{ room_type: "Oak Room", default_rate: 2500, weekday_rate: null, weekend_rate: null, updated_at: "2026-01-01T00:00:00.000Z" }],
+  listRateOverrides: async () => [],
+}));
 vi.mock("@/lib/room-inventory", () => ({ getRoomTypeAvailability: async () => ({}), maxSelectableRooms: () => ({ available: 5 }) }));
 vi.mock("@/lib/booking-create", () => ({ submitNewBooking: vi.fn() }));
 vi.mock("@/lib/app-settings-api", () => ({ getPaymentSettings: vi.fn(), DEFAULT_PAYMENT_SETTINGS: {} }));
