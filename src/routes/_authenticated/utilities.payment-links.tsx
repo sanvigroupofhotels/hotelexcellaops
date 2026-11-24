@@ -60,8 +60,12 @@ function PaymentLinksPage() {
   return (
     <div>
       <Topbar title="Payment Links" subtitle="Standalone Razorpay links for advances and dues"
-        action={<PaymentLinkDialog trigger={<Button size="sm"><Plus className="h-4 w-4" />Create Payment Link</Button>} />} />
+        action={<PaymentLinkDialog trigger={<Button size="sm" className="hidden md:inline-flex"><Plus className="h-4 w-4" />Create Payment Link</Button>} />} />
       <div className="space-y-4 p-4 md:p-6">
+        <div className="md:hidden">
+          <h1 className="font-display text-xl">Payment Links</h1>
+          <p className="text-xs text-muted-foreground">Create and track guest payments</p>
+        </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {[["Total Collected", inr(stats.collected)], ["Open Links", stats.open], ["Paid Links", stats.paid], ["Expired / Cancelled", stats.closed]].map(([k, v]) => (
             <div key={k as string} className="luxe-card rounded-lg p-4"><div className="text-xs text-muted-foreground">{k}</div><div className="mt-1 font-display text-2xl">{v}</div></div>
@@ -96,6 +100,22 @@ function PaymentLinksPage() {
           ))}
         </div>
       </div>
+      <PaymentLinkDialog
+        trigger={
+          <Button
+            size="icon"
+            aria-label="Create payment link"
+            title="Create payment link"
+            className="fixed z-30 h-14 w-14 md:hidden rounded-full gold-gradient text-charcoal shadow-lg flex items-center justify-center hover:scale-105 hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.45)] transition-all duration-200"
+            style={{
+              right: "max(0.75rem, env(safe-area-inset-right))",
+              bottom: "max(0.875rem, calc(env(safe-area-inset-bottom) + 0.5rem))",
+            }}
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        }
+      />
       {linking && <LinkDialog link={linking} onClose={() => setLinking(null)} />}
     </div>
   );
