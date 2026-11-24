@@ -29,18 +29,18 @@ export function PaymentLinkDialog({ trigger }: { trigger?: React.ReactNode } = {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger ?? <Button size="sm" variant="outline"><IndianRupee className="h-4 w-4" />Payment Link</Button>}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="top-4 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] translate-y-0 overflow-y-auto overscroll-contain p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:top-[50%] sm:max-h-[90vh] sm:w-full sm:translate-y-[-50%] sm:p-6 sm:max-w-lg">
         <DialogHeader><DialogTitle className="font-display">Create Payment Link</DialogTitle></DialogHeader>
         <div className="grid gap-2">
-          <Input inputMode="decimal" placeholder="Amount (₹)" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
-          <Input placeholder="Guest name" value={f.guest_name} onChange={(e) => setF({ ...f, guest_name: e.target.value })} />
-          <Input inputMode="tel" placeholder="Mobile (10 digits)" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
-          <Input placeholder="Purpose" value={f.purpose} onChange={(e) => setF({ ...f, purpose: e.target.value })} />
+          <Input className="h-11 sm:h-10" inputMode="decimal" placeholder="Amount (₹)" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
+          <Input className="h-11 sm:h-10" placeholder="Guest name" value={f.guest_name} onChange={(e) => setF({ ...f, guest_name: e.target.value })} />
+          <Input className="h-11 sm:h-10" inputMode="tel" placeholder="Mobile (10 digits)" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+          <Input className="h-11 sm:h-10" placeholder="Purpose" value={f.purpose} onChange={(e) => setF({ ...f, purpose: e.target.value })} />
           <Select value={f.expiry} onValueChange={(v) => setF({ ...f, expiry: v as typeof f.expiry })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-11 sm:h-10"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="12h">Expires in 12 hours</SelectItem><SelectItem value="24h">Expires in 24 hours</SelectItem><SelectItem value="48h">Expires in 48 hours</SelectItem><SelectItem value="none">No expiry</SelectItem></SelectContent>
           </Select>
-          <Button disabled={!valid || create.isPending} onClick={() => create.mutate()}>{create.isPending ? "Creating…" : "Create & Share on WhatsApp"}</Button>
+          <Button className="min-h-11" disabled={!valid || create.isPending} onClick={() => create.mutate()}>{create.isPending ? "Creating…" : "Create & Share on WhatsApp"}</Button>
         </div>
         <div className="mt-4">
           <h3 className="mb-2 text-sm font-medium">Recent Payment Links</h3>
@@ -52,7 +52,7 @@ export function PaymentLinkDialog({ trigger }: { trigger?: React.ReactNode } = {
                   <div className="truncate text-muted-foreground">{l.purpose} · {new Date(l.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</div>
                 </div>
                 <span className={tone[l.status] ?? ""}>{l.status}</span>
-                <Button size="icon" variant="ghost" aria-label="Copy link" onClick={() => copy(l)}><Copy className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" className="h-11 w-11" aria-label="Copy link" onClick={() => copy(l)}><Copy className="h-4 w-4" /></Button>
                 <Button size="icon" variant="ghost" aria-label="Share on WhatsApp" onClick={() => window.open(waLink(l.phone, msg(l)), "_blank")}><MessageCircle className="h-4 w-4" /></Button>
               </li>))}</ul>
           )}
