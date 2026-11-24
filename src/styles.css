@@ -25,9 +25,14 @@
   z-index: 100;
   display: grid;
   place-items: center;
-  background: var(--brand-reveal-canvas);
+  background: var(--background);
   pointer-events: none;
-  animation: startup-splash-exit 1.9s ease forwards;
+  animation: startup-splash-exit 2.2s ease forwards;
+}
+.startup-splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .startup-splash-mark {
   position: relative;
@@ -47,6 +52,26 @@
   filter: brightness(2.5) saturate(0.55);
   animation: startup-gold-sweep 1.05s 0.4s ease-in-out both;
 }
+.startup-rule {
+  display: block;
+  height: 1px;
+  width: 7rem;
+  margin: 1.25rem auto 0;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  transform: scaleX(0);
+  animation: startup-rule 0.7s 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.startup-tagline {
+  margin-top: 0.75rem;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0;
+  transform: translateY(4px);
+  animation: startup-tagline 0.8s 0.8s ease-out forwards;
+}
 .login-crown {
   width: 11rem;
   height: auto;
@@ -55,21 +80,23 @@
   background: var(--brand-reveal-canvas);
 }
 @keyframes startup-crest-reveal {
-  from { opacity: 0; transform: scale(0.92); filter: blur(5px); }
-  to { opacity: 1; transform: scale(1); filter: blur(0); }
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
 }
 @keyframes startup-gold-sweep {
   0% { clip-path: polygon(-40% 0, -28% 0, -48% 100%, -60% 100%); opacity: 0; }
   15%, 80% { opacity: 0.85; }
   100% { clip-path: polygon(140% 0, 152% 0, 132% 100%, 120% 100%); opacity: 0; }
 }
+@keyframes startup-rule { to { transform: scaleX(1); } }
+@keyframes startup-tagline { to { opacity: 0.85; transform: none; } }
 @keyframes startup-splash-exit {
   0%, 76% { opacity: 1; visibility: visible; }
   100% { opacity: 0; visibility: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .startup-splash { display: none; }
-  .startup-splash-mark, .startup-crown-sheen { animation: none; }
+  .startup-splash-mark, .startup-crown-sheen, .startup-rule, .startup-tagline { animation: none; }
 }
 @media print { .startup-splash { display: none; } }
 

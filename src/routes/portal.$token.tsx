@@ -235,7 +235,7 @@ function GuestPortal() {
   const isCancelled = b.status === "Cancelled";
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
+    <div className="min-h-screen bg-background py-8 px-4 animate-in fade-in slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
       <div className="max-w-xl mx-auto space-y-4">
         <div className="luxe-card rounded-xl p-5">
           <div className="text-xs uppercase tracking-wider text-gold mb-1">Booking · {b.reference}</div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import crest from "@/assets/excella-crown-white-complete.webp.asset.json";
+import crest from "@/assets/excella-crown-transparent.webp.asset.json";
 import { claimStartupReveal, startupRevealAllowed } from "@/lib/startup-reveal";
 
 /** A visual reveal only: never delays auth, navigation or background loading. */
@@ -12,7 +12,7 @@ export function StartupSplash() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced || !claimStartupReveal(window.sessionStorage)) return;
     setVisible(true);
-    const timer = window.setTimeout(() => setVisible(false), 1900);
+    const timer = window.setTimeout(() => setVisible(false), 2200);
     return () => window.clearTimeout(timer);
     // Root stays mounted across navigation; redirects must not restart the reveal.
   }, []);
@@ -21,9 +21,13 @@ export function StartupSplash() {
 
   return (
     <div className="startup-splash" aria-hidden="true" data-startup-splash>
-      <div className="startup-splash-mark">
-        <img src={crest.url} alt="" width={960} height={620} className="startup-crown" fetchPriority="high" onError={() => setVisible(false)} />
-        <img src={crest.url} alt="" width={960} height={620} className="startup-crown startup-crown-sheen" />
+      <div className="startup-splash-content">
+        <div className="startup-splash-mark">
+          <img src={crest.url} alt="" width={960} height={620} className="startup-crown" fetchPriority="high" onError={() => setVisible(false)} />
+          <img src={crest.url} alt="" width={960} height={620} className="startup-crown startup-crown-sheen" />
+        </div>
+        <span className="startup-rule" />
+        <p className="startup-tagline">Visakhapatnam</p>
       </div>
     </div>
   );

@@ -80,7 +80,7 @@ function PortalLanding() {
   const name = cfg?.hotel.name ?? "Hotel Excella";
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground animate-in fade-in slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
       <header className="border-b border-border">
         <div className="mx-auto max-w-3xl px-4 py-3 flex items-center gap-2">
           {cfg?.hotel.logo_url

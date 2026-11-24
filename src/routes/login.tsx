@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { entranceDelaySeconds } from "@/lib/startup-reveal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -57,6 +58,7 @@ async function signInWithIdentifier(identifier: string, password: string) {
 function LoginPage() {
   const { user, loading } = useAuth();
   const reduceMotion = useReducedMotion();
+  const entranceDelay = entranceDelaySeconds();
   const navigate = useNavigate();
   const { next } = Route.useSearch();
   const [identifier, setIdentifier] = useState("");
@@ -90,93 +92,91 @@ function LoginPage() {
     }
   };
 
+  const cardVariants: Variants = {
+    hidden: { opacity: 0, y: 16, scale: 0.985 },
+    show: {
+      opacity: 1, y: 0, scale: 1,
+      transition: { duration: reduceMotion ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] },
+    },
+  };
+  const contentVariants: Variants = {
+    hidden: {},
+    show: { transition: { staggerChildren: reduceMotion ? 0 : 0.08, delayChildren: reduceMotion ? 0 : entranceDelay } },
+  };
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 8 },
+    show: { opacity: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.38, ease: [0.22, 1, 0.36, 1] } },
+  };
+
   return (
     <div className="min-h-screen grain bg-background flex items-center justify-center px-4">
       <motion.div
-        initial={reduceMotion ? false : { opacity: 0, y: 16, scale: 0.985 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: reduceMotion ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] }}
+        variants={cardVariants}
+        initial={reduceMotion ? false : "hidden"}
+        animate="show"
         className="w-full max-w-md luxe-card rounded-2xl p-8 relative overflow-hidden"
       >
         <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
-        <div className="relative">
-          <motion.div
-            className="flex justify-center mb-8"
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.38, delay: reduceMotion ? 0 : 0.08 }}
-          >
+        <motion.div className="relative" variants={contentVariants}>
+          <motion.div className="flex justify-center mb-8" variants={itemVariants}>
             <img src={crest.url} alt="Hotel Excella, Vizag" width={960} height={620} className="login-crown" />
           </motion.div>
 
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.38, delay: reduceMotion ? 0 : 0.16 }}
-          >
+          <motion.div variants={itemVariants}>
             <h1 className="font-display text-3xl mb-1">Welcome back</h1>
             <p className="text-sm text-muted-foreground mb-6">
               Sign in with your username.
             </p>
           </motion.div>
 
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.38, delay: reduceMotion ? 0 : 0.22 }}
-          >
-          <form onSubmit={submit} className="space-y-3">
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                Username
-              </label>
-              <input
-                type="text"
-                required
-                autoComplete="username"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
-              />
-            </div>
+          <motion.div variants={itemVariants}>
+            <form onSubmit={submit} className="space-y-3">
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1 w-full bg-input/60 border border-border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-gold/40 focus:border-gold/50 outline-none"
+                />
+              </div>
 
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full mt-4 inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
-              Sign in
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={busy}
+                className="w-full mt-4 inline-flex items-center justify-center gap-2 rounded-md gold-gradient px-4 py-3 text-sm font-medium text-charcoal hover:shadow-[0_0_24px_oklch(0.82_0.13_82/0.35)] transition disabled:opacity-60"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+                Sign in
+              </button>
+            </form>
           </motion.div>
 
-          <motion.p
-            className="mt-6 text-center text-[11px] text-muted-foreground"
-            initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.32, delay: reduceMotion ? 0 : 0.28 }}
-          >
+          <motion.p className="mt-6 text-center text-[11px] text-muted-foreground" variants={itemVariants}>
             New accounts are created by an administrator.
           </motion.p>
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   );
