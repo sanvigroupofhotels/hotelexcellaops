@@ -68,6 +68,7 @@ import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenti
 import { Route as AuthenticatedBookingsQuickRouteImport } from './routes/_authenticated/bookings_.quick'
 import { Route as AuthenticatedComplaintsIdRouteImport } from './routes/_authenticated/complaints_.$id'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
+import { Route as AuthenticatedHousekeepingAssignmentsRouteImport } from './routes/_authenticated/housekeeping.assignments'
 import { Route as AuthenticatedNightAuditIndexRouteImport } from './routes/_authenticated/night-audit.index'
 import { Route as AuthenticatedNightAuditCriticalTasksRouteImport } from './routes/_authenticated/night-audit.critical-tasks'
 import { Route as AuthenticatedNightAuditEodReportRouteImport } from './routes/_authenticated/night-audit.eod-report'
@@ -103,7 +104,10 @@ import { Route as AuthenticatedUsersAccessRouteImport } from './routes/_authenti
 import { Route as AuthenticatedUsersManagementRouteImport } from './routes/_authenticated/users.management'
 import { Route as AuthenticatedUsersRolesRouteImport } from './routes/_authenticated/users.roles'
 import { Route as AuthenticatedUtilitiesIndexRouteImport } from './routes/_authenticated/utilities.index'
+import { Route as AuthenticatedUtilitiesCounterUpiRouteImport } from './routes/_authenticated/utilities.counter-upi'
+import { Route as AuthenticatedUtilitiesGstCalculatorRouteImport } from './routes/_authenticated/utilities.gst-calculator'
 import { Route as AuthenticatedUtilitiesPaymentLinksRouteImport } from './routes/_authenticated/utilities.payment-links'
+import { Route as AuthenticatedUtilitiesQuoteEstimatorRouteImport } from './routes/_authenticated/utilities.quote-estimator'
 import { Route as ApiPublicCleanupGuestDocumentsRouteImport } from './routes/api/public/cleanup-guest-documents'
 import { Route as ApiPublicHotelzifyPollRouteImport } from './routes/api/public/hotelzify-poll'
 import { Route as ApiPublicNightAuditRouteImport } from './routes/api/public/night-audit'
@@ -428,6 +432,12 @@ const AuthenticatedCustomersIdRoute =
     path: '/customers/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedHousekeepingAssignmentsRoute =
+  AuthenticatedHousekeepingAssignmentsRouteImport.update({
+    id: '/assignments',
+    path: '/assignments',
+    getParentRoute: () => AuthenticatedHousekeepingRoute,
+  } as any)
 const AuthenticatedNightAuditIndexRoute =
   AuthenticatedNightAuditIndexRouteImport.update({
     id: '/',
@@ -636,10 +646,28 @@ const AuthenticatedUtilitiesIndexRoute =
     path: '/utilities/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedUtilitiesCounterUpiRoute =
+  AuthenticatedUtilitiesCounterUpiRouteImport.update({
+    id: '/utilities/counter-upi',
+    path: '/utilities/counter-upi',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedUtilitiesGstCalculatorRoute =
+  AuthenticatedUtilitiesGstCalculatorRouteImport.update({
+    id: '/utilities/gst-calculator',
+    path: '/utilities/gst-calculator',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedUtilitiesPaymentLinksRoute =
   AuthenticatedUtilitiesPaymentLinksRouteImport.update({
     id: '/utilities/payment-links',
     path: '/utilities/payment-links',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedUtilitiesQuoteEstimatorRoute =
+  AuthenticatedUtilitiesQuoteEstimatorRouteImport.update({
+    id: '/utilities/quote-estimator',
+    path: '/utilities/quote-estimator',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const ApiPublicCleanupGuestDocumentsRoute =
@@ -748,7 +776,7 @@ export interface FileRoutesByFullPath {
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
-  '/housekeeping': typeof AuthenticatedHousekeepingRoute
+  '/housekeeping': typeof AuthenticatedHousekeepingRouteWithChildren
   '/laundry': typeof AuthenticatedLaundryRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
@@ -784,6 +812,7 @@ export interface FileRoutesByFullPath {
   '/bookings/quick': typeof AuthenticatedBookingsQuickRoute
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
+  '/housekeeping/assignments': typeof AuthenticatedHousekeepingAssignmentsRoute
   '/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
   '/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
@@ -815,7 +844,10 @@ export interface FileRoutesByFullPath {
   '/users/access': typeof AuthenticatedUsersAccessRoute
   '/users/management': typeof AuthenticatedUsersManagementRoute
   '/users/roles': typeof AuthenticatedUsersRolesRoute
+  '/utilities/counter-upi': typeof AuthenticatedUtilitiesCounterUpiRoute
+  '/utilities/gst-calculator': typeof AuthenticatedUtilitiesGstCalculatorRoute
   '/utilities/payment-links': typeof AuthenticatedUtilitiesPaymentLinksRoute
+  '/utilities/quote-estimator': typeof AuthenticatedUtilitiesQuoteEstimatorRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
@@ -855,7 +887,7 @@ export interface FileRoutesByTo {
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
-  '/housekeeping': typeof AuthenticatedHousekeepingRoute
+  '/housekeeping': typeof AuthenticatedHousekeepingRouteWithChildren
   '/laundry': typeof AuthenticatedLaundryRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -889,6 +921,7 @@ export interface FileRoutesByTo {
   '/bookings/quick': typeof AuthenticatedBookingsQuickRoute
   '/complaints/$id': typeof AuthenticatedComplaintsIdRoute
   '/customers/$id': typeof AuthenticatedCustomersIdRoute
+  '/housekeeping/assignments': typeof AuthenticatedHousekeepingAssignmentsRoute
   '/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
   '/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
@@ -920,7 +953,10 @@ export interface FileRoutesByTo {
   '/users/access': typeof AuthenticatedUsersAccessRoute
   '/users/management': typeof AuthenticatedUsersManagementRoute
   '/users/roles': typeof AuthenticatedUsersRolesRoute
+  '/utilities/counter-upi': typeof AuthenticatedUtilitiesCounterUpiRoute
+  '/utilities/gst-calculator': typeof AuthenticatedUtilitiesGstCalculatorRoute
   '/utilities/payment-links': typeof AuthenticatedUtilitiesPaymentLinksRoute
+  '/utilities/quote-estimator': typeof AuthenticatedUtilitiesQuoteEstimatorRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
@@ -964,7 +1000,7 @@ export interface FileRoutesById {
   '/_authenticated/generate': typeof AuthenticatedGenerateRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/house-view': typeof AuthenticatedHouseViewRoute
-  '/_authenticated/housekeeping': typeof AuthenticatedHousekeepingRoute
+  '/_authenticated/housekeeping': typeof AuthenticatedHousekeepingRouteWithChildren
   '/_authenticated/laundry': typeof AuthenticatedLaundryRoute
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
   '/_authenticated/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
@@ -1001,6 +1037,7 @@ export interface FileRoutesById {
   '/_authenticated/bookings_/quick': typeof AuthenticatedBookingsQuickRoute
   '/_authenticated/complaints_/$id': typeof AuthenticatedComplaintsIdRoute
   '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
+  '/_authenticated/housekeeping/assignments': typeof AuthenticatedHousekeepingAssignmentsRoute
   '/_authenticated/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
   '/_authenticated/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/_authenticated/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
@@ -1032,7 +1069,10 @@ export interface FileRoutesById {
   '/_authenticated/users/access': typeof AuthenticatedUsersAccessRoute
   '/_authenticated/users/management': typeof AuthenticatedUsersManagementRoute
   '/_authenticated/users/roles': typeof AuthenticatedUsersRolesRoute
+  '/_authenticated/utilities/counter-upi': typeof AuthenticatedUtilitiesCounterUpiRoute
+  '/_authenticated/utilities/gst-calculator': typeof AuthenticatedUtilitiesGstCalculatorRoute
   '/_authenticated/utilities/payment-links': typeof AuthenticatedUtilitiesPaymentLinksRoute
+  '/_authenticated/utilities/quote-estimator': typeof AuthenticatedUtilitiesQuoteEstimatorRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
@@ -1113,6 +1153,7 @@ export interface FileRouteTypes {
     | '/bookings/quick'
     | '/complaints/$id'
     | '/customers/$id'
+    | '/housekeeping/assignments'
     | '/night-audit/critical-tasks'
     | '/night-audit/eod-report'
     | '/night-audit/history'
@@ -1144,7 +1185,10 @@ export interface FileRouteTypes {
     | '/users/access'
     | '/users/management'
     | '/users/roles'
+    | '/utilities/counter-upi'
+    | '/utilities/gst-calculator'
     | '/utilities/payment-links'
+    | '/utilities/quote-estimator'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
@@ -1218,6 +1262,7 @@ export interface FileRouteTypes {
     | '/bookings/quick'
     | '/complaints/$id'
     | '/customers/$id'
+    | '/housekeeping/assignments'
     | '/night-audit/critical-tasks'
     | '/night-audit/eod-report'
     | '/night-audit/history'
@@ -1249,7 +1294,10 @@ export interface FileRouteTypes {
     | '/users/access'
     | '/users/management'
     | '/users/roles'
+    | '/utilities/counter-upi'
+    | '/utilities/gst-calculator'
     | '/utilities/payment-links'
+    | '/utilities/quote-estimator'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
@@ -1329,6 +1377,7 @@ export interface FileRouteTypes {
     | '/_authenticated/bookings_/quick'
     | '/_authenticated/complaints_/$id'
     | '/_authenticated/customers_/$id'
+    | '/_authenticated/housekeeping/assignments'
     | '/_authenticated/night-audit/critical-tasks'
     | '/_authenticated/night-audit/eod-report'
     | '/_authenticated/night-audit/history'
@@ -1360,7 +1409,10 @@ export interface FileRouteTypes {
     | '/_authenticated/users/access'
     | '/_authenticated/users/management'
     | '/_authenticated/users/roles'
+    | '/_authenticated/utilities/counter-upi'
+    | '/_authenticated/utilities/gst-calculator'
     | '/_authenticated/utilities/payment-links'
+    | '/_authenticated/utilities/quote-estimator'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
@@ -1822,6 +1874,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/housekeeping/assignments': {
+      id: '/_authenticated/housekeeping/assignments'
+      path: '/assignments'
+      fullPath: '/housekeeping/assignments'
+      preLoaderRoute: typeof AuthenticatedHousekeepingAssignmentsRouteImport
+      parentRoute: typeof AuthenticatedHousekeepingRoute
+    }
     '/_authenticated/night-audit/': {
       id: '/_authenticated/night-audit/'
       path: '/'
@@ -2067,11 +2126,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUtilitiesIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/utilities/counter-upi': {
+      id: '/_authenticated/utilities/counter-upi'
+      path: '/utilities/counter-upi'
+      fullPath: '/utilities/counter-upi'
+      preLoaderRoute: typeof AuthenticatedUtilitiesCounterUpiRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/utilities/gst-calculator': {
+      id: '/_authenticated/utilities/gst-calculator'
+      path: '/utilities/gst-calculator'
+      fullPath: '/utilities/gst-calculator'
+      preLoaderRoute: typeof AuthenticatedUtilitiesGstCalculatorRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/utilities/payment-links': {
       id: '/_authenticated/utilities/payment-links'
       path: '/utilities/payment-links'
       fullPath: '/utilities/payment-links'
       preLoaderRoute: typeof AuthenticatedUtilitiesPaymentLinksRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/utilities/quote-estimator': {
+      id: '/_authenticated/utilities/quote-estimator'
+      path: '/utilities/quote-estimator'
+      fullPath: '/utilities/quote-estimator'
+      preLoaderRoute: typeof AuthenticatedUtilitiesQuoteEstimatorRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/api/public/cleanup-guest-documents': {
@@ -2174,6 +2254,21 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AuthenticatedHousekeepingRouteChildren {
+  AuthenticatedHousekeepingAssignmentsRoute: typeof AuthenticatedHousekeepingAssignmentsRoute
+}
+
+const AuthenticatedHousekeepingRouteChildren: AuthenticatedHousekeepingRouteChildren =
+  {
+    AuthenticatedHousekeepingAssignmentsRoute:
+      AuthenticatedHousekeepingAssignmentsRoute,
+  }
+
+const AuthenticatedHousekeepingRouteWithChildren =
+  AuthenticatedHousekeepingRoute._addFileChildren(
+    AuthenticatedHousekeepingRouteChildren,
+  )
 
 interface AuthenticatedNightAuditRouteChildren {
   AuthenticatedNightAuditCriticalTasksRoute: typeof AuthenticatedNightAuditCriticalTasksRoute
@@ -2339,7 +2434,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedGenerateRoute: typeof AuthenticatedGenerateRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedHouseViewRoute: typeof AuthenticatedHouseViewRoute
-  AuthenticatedHousekeepingRoute: typeof AuthenticatedHousekeepingRoute
+  AuthenticatedHousekeepingRoute: typeof AuthenticatedHousekeepingRouteWithChildren
   AuthenticatedLaundryRoute: typeof AuthenticatedLaundryRoute
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
   AuthenticatedNightAuditRoute: typeof AuthenticatedNightAuditRouteWithChildren
@@ -2364,7 +2459,10 @@ interface AuthenticatedRouteChildren {
   AuthenticatedComplaintsIdRoute: typeof AuthenticatedComplaintsIdRoute
   AuthenticatedCustomersIdRoute: typeof AuthenticatedCustomersIdRoute
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
+  AuthenticatedUtilitiesCounterUpiRoute: typeof AuthenticatedUtilitiesCounterUpiRoute
+  AuthenticatedUtilitiesGstCalculatorRoute: typeof AuthenticatedUtilitiesGstCalculatorRoute
   AuthenticatedUtilitiesPaymentLinksRoute: typeof AuthenticatedUtilitiesPaymentLinksRoute
+  AuthenticatedUtilitiesQuoteEstimatorRoute: typeof AuthenticatedUtilitiesQuoteEstimatorRoute
   AuthenticatedUtilitiesIndexRoute: typeof AuthenticatedUtilitiesIndexRoute
   AuthenticatedBookingsIdEditRoute: typeof AuthenticatedBookingsIdEditRoute
   AuthenticatedQuoteIdEditRoute: typeof AuthenticatedQuoteIdEditRoute
@@ -2387,7 +2485,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedGenerateRoute: AuthenticatedGenerateRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedHouseViewRoute: AuthenticatedHouseViewRoute,
-  AuthenticatedHousekeepingRoute: AuthenticatedHousekeepingRoute,
+  AuthenticatedHousekeepingRoute: AuthenticatedHousekeepingRouteWithChildren,
   AuthenticatedLaundryRoute: AuthenticatedLaundryRoute,
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
   AuthenticatedNightAuditRoute: AuthenticatedNightAuditRouteWithChildren,
@@ -2413,8 +2511,13 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedComplaintsIdRoute: AuthenticatedComplaintsIdRoute,
   AuthenticatedCustomersIdRoute: AuthenticatedCustomersIdRoute,
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
+  AuthenticatedUtilitiesCounterUpiRoute: AuthenticatedUtilitiesCounterUpiRoute,
+  AuthenticatedUtilitiesGstCalculatorRoute:
+    AuthenticatedUtilitiesGstCalculatorRoute,
   AuthenticatedUtilitiesPaymentLinksRoute:
     AuthenticatedUtilitiesPaymentLinksRoute,
+  AuthenticatedUtilitiesQuoteEstimatorRoute:
+    AuthenticatedUtilitiesQuoteEstimatorRoute,
   AuthenticatedUtilitiesIndexRoute: AuthenticatedUtilitiesIndexRoute,
   AuthenticatedBookingsIdEditRoute: AuthenticatedBookingsIdEditRoute,
   AuthenticatedQuoteIdEditRoute: AuthenticatedQuoteIdEditRoute,
