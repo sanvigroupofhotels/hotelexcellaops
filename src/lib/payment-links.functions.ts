@@ -95,7 +95,14 @@ export const cancelPaymentLink = createServerFn({ method: "POST" })
     if (!r || r.status !== "Issued") throw new Error("Only open links can be cancelled");
     const res = await fetch(`https://api.razorpay.com/v1/payment_links/${r.razorpay_link_id}/cancel`, { method: "POST", headers: { Authorization: auth() } });
     if (!res.ok) { console.error("Razorpay cancel error", await res.text()); throw new Error("Could not cancel link (it may already be paid)"); }
-    await context.supabase.from("payment_links" as any).update({ status: "Cancelled" }).eq("id", data.id);
+    const { error: syncError } = await context.supabase
+      .from("payment_links" as any)
+      .update({ status: "Cancelled" })
+      .eq("id", data.id);
+    if (syncError) {
+      console.error("Razorpay cancelled link but HEOS status sync failed:", syncError);
+      throw new Error("Razorpay cancelled the link, but HEOS could not update its status. Refresh the page shortly.");
+    }
     return { ok: true };
   });
 
