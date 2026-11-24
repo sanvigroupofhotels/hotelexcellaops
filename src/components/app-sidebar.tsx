@@ -6,7 +6,7 @@ import {
   Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
   Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
   BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound, Moon, AlertTriangle, TrendingUp, CalendarDays,
-  Boxes, Truck, ListChecks, MessageCircle, Wrench, Link2,
+  Boxes, Truck, ListChecks, MessageCircle, Wrench, Link2, Calculator, QrCode, FileText,
 } from "lucide-react";
 import { useNightAuditStatus } from "@/hooks/use-night-audit-status";
 
@@ -54,6 +54,7 @@ const inventoryChildren = [
 
 const housekeepingChildren = [
   { to: "/housekeeping",                 label: "Today's Tasks",         icon: ListChecks },
+  { to: "/housekeeping/assignments",    label: "Room Assignments",     icon: UsersRound, adminOnly: true },
   // v1.1 UAT-006 — direct entry to HK work history from the operational menu.
   // The report still lives under /reporting/housekeeping (SoT); this is a
   // convenience link so ops staff don't need to leave the HK context.
@@ -64,6 +65,9 @@ const housekeepingChildren = [
 
 const utilitiesChildren = [
   { to: "/utilities/payment-links", label: "Payment Links", icon: Link2, permission: "customers.view" },
+  { to: "/utilities/gst-calculator", label: "GST Calculator", icon: Calculator, permission: "customers.view" },
+  { to: "/utilities/counter-upi", label: "Counter UPI QR", icon: QrCode, permission: "customers.view" },
+  { to: "/utilities/quote-estimator", label: "Stay Quote", icon: FileText, permission: "customers.view" },
 ] as const;
 
 const reportingChildren = [

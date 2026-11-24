@@ -96,7 +96,7 @@ function PaymentLinksPage() {
                 </>}
                 {l.status === "Paid" && (l.booking_id
                   ? <Button size="sm" variant="outline" onClick={() => navigate({ to: "/bookings/$id", params: { id: l.booking_id! } })}>Open Booking</Button>
-                  : <Button size="sm" variant="outline" onClick={() => setLinking(l)}><Link2 className="h-4 w-4" />Link</Button>}
+                  : <Button size="sm" variant="outline" onClick={() => setLinking(l)}><Link2 className="h-4 w-4" />Link</Button>)}
               </div>
             </div>
           ))}

@@ -149,7 +149,7 @@ export const Route = createFileRoute("/api/public/razorpay-webhook")({
             const status =
               event === "payment_link.paid" ? "Paid" :
               event === "payment_link.cancelled" ? "Cancelled" : "Expired";
-            const patch: Record<string, unknown> = { status };
+            const patch: { status: string; paid_at?: string; razorpay_payment_id?: string | null } = { status };
             if (status === "Paid") {
               const paidAt = paymentEntity?.created_at ?? paymentLinkEntity?.updated_at ?? payload?.created_at;
               patch.paid_at = typeof paidAt === "number"
