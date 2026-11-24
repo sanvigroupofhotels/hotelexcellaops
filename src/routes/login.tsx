@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -56,6 +56,7 @@ async function signInWithIdentifier(identifier: string, password: string) {
 
 function LoginPage() {
   const { user, loading } = useAuth();
+  const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const { next } = Route.useSearch();
   const [identifier, setIdentifier] = useState("");
@@ -92,22 +93,38 @@ function LoginPage() {
   return (
     <div className="min-h-screen grain bg-background flex items-center justify-center px-4">
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        initial={reduceMotion ? false : { opacity: 0, y: 16, scale: 0.985 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: reduceMotion ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] }}
         className="w-full max-w-md luxe-card rounded-2xl p-8 relative overflow-hidden"
       >
         <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
         <div className="relative">
-          <div className="flex justify-center mb-8">
+          <motion.div
+            className="flex justify-center mb-8"
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.38, delay: reduceMotion ? 0 : 0.08 }}
+          >
             <img src={crest.url} alt="Hotel Excella, Vizag" width={960} height={620} className="login-crown" />
-          </div>
+          </motion.div>
 
-          <h1 className="font-display text-3xl mb-1">Welcome back</h1>
-          <p className="text-sm text-muted-foreground mb-6">
-            Sign in with your username.
-          </p>
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.38, delay: reduceMotion ? 0 : 0.16 }}
+          >
+            <h1 className="font-display text-3xl mb-1">Welcome back</h1>
+            <p className="text-sm text-muted-foreground mb-6">
+              Sign in with your username.
+            </p>
+          </motion.div>
 
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.38, delay: reduceMotion ? 0 : 0.22 }}
+          >
           <form onSubmit={submit} className="space-y-3">
             <div>
               <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -149,10 +166,16 @@ function LoginPage() {
               Sign in
             </button>
           </form>
+          </motion.div>
 
-          <p className="mt-6 text-center text-[11px] text-muted-foreground">
+          <motion.p
+            className="mt-6 text-center text-[11px] text-muted-foreground"
+            initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.32, delay: reduceMotion ? 0 : 0.28 }}
+          >
             New accounts are created by an administrator.
-          </p>
+          </motion.p>
         </div>
       </motion.div>
     </div>
