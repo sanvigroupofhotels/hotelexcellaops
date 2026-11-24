@@ -9,6 +9,7 @@ function applyTheme(t: Theme) {
   html.classList.remove("light", "dark");
   html.classList.add(t);
   html.setAttribute("data-theme", t);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#0B0B0F" : "#FAF9F6");
 }
 
 export function getInitialTheme(): Theme {
