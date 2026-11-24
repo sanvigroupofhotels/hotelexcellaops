@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { entranceDelaySeconds } from "@/lib/startup-reveal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -57,6 +58,7 @@ async function signInWithIdentifier(identifier: string, password: string) {
 function LoginPage() {
   const { user, loading } = useAuth();
   const reduceMotion = useReducedMotion();
+  const entranceDelay = entranceDelaySeconds();
   const navigate = useNavigate();
   const { next } = Route.useSearch();
   const [identifier, setIdentifier] = useState("");
@@ -90,41 +92,44 @@ function LoginPage() {
     }
   };
 
+  const cardVariants = {
+    hidden: { opacity: 0, y: 16, scale: 0.985 },
+    show: {
+      opacity: 1, y: 0, scale: 1,
+      transition: { duration: reduceMotion ? 0 : 0.45, delay: reduceMotion ? 0 : entranceDelay ? 1.45 : 0, ease: [0.22, 1, 0.36, 1] },
+    },
+  };
+  const contentVariants = {
+    hidden: {},
+    show: { transition: { staggerChildren: reduceMotion ? 0 : 0.08, delayChildren: reduceMotion ? 0 : entranceDelay ? 0.2 : 0 } },
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 8 },
+    show: { opacity: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.38, ease: [0.22, 1, 0.36, 1] } },
+  };
+
   return (
     <div className="min-h-screen grain bg-background flex items-center justify-center px-4">
       <motion.div
-        initial={reduceMotion ? false : { opacity: 0, y: 16, scale: 0.985 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: reduceMotion ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] }}
+        variants={cardVariants}
+        initial={reduceMotion ? false : "hidden"}
+        animate="show"
         className="w-full max-w-md luxe-card rounded-2xl p-8 relative overflow-hidden"
       >
         <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
-        <div className="relative">
-          <motion.div
-            className="flex justify-center mb-8"
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.38, delay: reduceMotion ? 0 : 0.08 }}
-          >
+        <motion.div className="relative" variants={contentVariants}>
+          <motion.div className="flex justify-center mb-8" variants={itemVariants}>
             <img src={crest.url} alt="Hotel Excella, Vizag" width={960} height={620} className="login-crown" />
           </motion.div>
 
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.38, delay: reduceMotion ? 0 : 0.16 }}
-          >
+          <motion.div variants={itemVariants}>
             <h1 className="font-display text-3xl mb-1">Welcome back</h1>
             <p className="text-sm text-muted-foreground mb-6">
               Sign in with your username.
             </p>
           </motion.div>
 
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.38, delay: reduceMotion ? 0 : 0.22 }}
-          >
+          <motion.div variants={itemVariants}>
           <form onSubmit={submit} className="space-y-3">
             <div>
               <label className="text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -168,15 +173,10 @@ function LoginPage() {
           </form>
           </motion.div>
 
-          <motion.p
-            className="mt-6 text-center text-[11px] text-muted-foreground"
-            initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.32, delay: reduceMotion ? 0 : 0.28 }}
-          >
+          <motion.p className="mt-6 text-center text-[11px] text-muted-foreground" variants={itemVariants}>
             New accounts are created by an administrator.
           </motion.p>
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   );
