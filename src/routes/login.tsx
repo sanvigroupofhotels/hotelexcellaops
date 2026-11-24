@@ -96,12 +96,12 @@ function LoginPage() {
     hidden: { opacity: 0, y: 16, scale: 0.985 },
     show: {
       opacity: 1, y: 0, scale: 1,
-      transition: { duration: reduceMotion ? 0 : 0.45, delay: reduceMotion ? 0 : entranceDelay ? 1.45 : 0, ease: [0.22, 1, 0.36, 1] },
+      transition: { duration: reduceMotion ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] },
     },
   };
   const contentVariants: Variants = {
     hidden: {},
-    show: { transition: { staggerChildren: reduceMotion ? 0 : 0.08, delayChildren: reduceMotion ? 0 : entranceDelay ? 0.2 : 0 } },
+    show: { transition: { staggerChildren: reduceMotion ? 0 : 0.08, delayChildren: reduceMotion ? 0 : entranceDelay } },
   };
   const itemVariants: Variants = {
     hidden: { opacity: 0, y: 8 },
