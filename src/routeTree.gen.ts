@@ -102,6 +102,8 @@ import { Route as AuthenticatedStaffManagementSalaryRouteImport } from './routes
 import { Route as AuthenticatedUsersAccessRouteImport } from './routes/_authenticated/users.access'
 import { Route as AuthenticatedUsersManagementRouteImport } from './routes/_authenticated/users.management'
 import { Route as AuthenticatedUsersRolesRouteImport } from './routes/_authenticated/users.roles'
+import { Route as AuthenticatedUtilitiesIndexRouteImport } from './routes/_authenticated/utilities.index'
+import { Route as AuthenticatedUtilitiesPaymentLinksRouteImport } from './routes/_authenticated/utilities.payment-links'
 import { Route as ApiPublicCleanupGuestDocumentsRouteImport } from './routes/api/public/cleanup-guest-documents'
 import { Route as ApiPublicHotelzifyPollRouteImport } from './routes/api/public/hotelzify-poll'
 import { Route as ApiPublicNightAuditRouteImport } from './routes/api/public/night-audit'
@@ -628,6 +630,18 @@ const AuthenticatedUsersRolesRoute = AuthenticatedUsersRolesRouteImport.update({
   path: '/roles',
   getParentRoute: () => AuthenticatedUsersRoute,
 } as any)
+const AuthenticatedUtilitiesIndexRoute =
+  AuthenticatedUtilitiesIndexRouteImport.update({
+    id: '/utilities/',
+    path: '/utilities/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedUtilitiesPaymentLinksRoute =
+  AuthenticatedUtilitiesPaymentLinksRouteImport.update({
+    id: '/utilities/payment-links',
+    path: '/utilities/payment-links',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicCleanupGuestDocumentsRoute =
   ApiPublicCleanupGuestDocumentsRouteImport.update({
     id: '/api/public/cleanup-guest-documents',
@@ -801,6 +815,7 @@ export interface FileRoutesByFullPath {
   '/users/access': typeof AuthenticatedUsersAccessRoute
   '/users/management': typeof AuthenticatedUsersManagementRoute
   '/users/roles': typeof AuthenticatedUsersRolesRoute
+  '/utilities/payment-links': typeof AuthenticatedUtilitiesPaymentLinksRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
@@ -812,6 +827,7 @@ export interface FileRoutesByFullPath {
   '/night-audit/': typeof AuthenticatedNightAuditIndexRoute
   '/operations/': typeof AuthenticatedOperationsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/utilities/': typeof AuthenticatedUtilitiesIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
   '/settings/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
@@ -904,6 +920,7 @@ export interface FileRoutesByTo {
   '/users/access': typeof AuthenticatedUsersAccessRoute
   '/users/management': typeof AuthenticatedUsersManagementRoute
   '/users/roles': typeof AuthenticatedUsersRolesRoute
+  '/utilities/payment-links': typeof AuthenticatedUtilitiesPaymentLinksRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
@@ -915,6 +932,7 @@ export interface FileRoutesByTo {
   '/night-audit': typeof AuthenticatedNightAuditIndexRoute
   '/operations': typeof AuthenticatedOperationsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/utilities': typeof AuthenticatedUtilitiesIndexRoute
   '/bookings/$id/edit': typeof AuthenticatedBookingsIdEditRoute
   '/quote/$id/edit': typeof AuthenticatedQuoteIdEditRoute
   '/settings/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
@@ -1014,6 +1032,7 @@ export interface FileRoutesById {
   '/_authenticated/users/access': typeof AuthenticatedUsersAccessRoute
   '/_authenticated/users/management': typeof AuthenticatedUsersManagementRoute
   '/_authenticated/users/roles': typeof AuthenticatedUsersRolesRoute
+  '/_authenticated/utilities/payment-links': typeof AuthenticatedUtilitiesPaymentLinksRoute
   '/api/public/cleanup-guest-documents': typeof ApiPublicCleanupGuestDocumentsRoute
   '/api/public/hotelzify-poll': typeof ApiPublicHotelzifyPollRoute
   '/api/public/night-audit': typeof ApiPublicNightAuditRoute
@@ -1025,6 +1044,7 @@ export interface FileRoutesById {
   '/_authenticated/night-audit/': typeof AuthenticatedNightAuditIndexRoute
   '/_authenticated/operations/': typeof AuthenticatedOperationsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/utilities/': typeof AuthenticatedUtilitiesIndexRoute
   '/_authenticated/bookings_/$id_/edit': typeof AuthenticatedBookingsIdEditRoute
   '/_authenticated/quote/$id_/edit': typeof AuthenticatedQuoteIdEditRoute
   '/_authenticated/settings_/integrations/$id': typeof AuthenticatedSettingsIntegrationsIdRoute
@@ -1124,6 +1144,7 @@ export interface FileRouteTypes {
     | '/users/access'
     | '/users/management'
     | '/users/roles'
+    | '/utilities/payment-links'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
@@ -1135,6 +1156,7 @@ export interface FileRouteTypes {
     | '/night-audit/'
     | '/operations/'
     | '/settings/'
+    | '/utilities/'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
     | '/settings/integrations/$id'
@@ -1227,6 +1249,7 @@ export interface FileRouteTypes {
     | '/users/access'
     | '/users/management'
     | '/users/roles'
+    | '/utilities/payment-links'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
@@ -1238,6 +1261,7 @@ export interface FileRouteTypes {
     | '/night-audit'
     | '/operations'
     | '/settings'
+    | '/utilities'
     | '/bookings/$id/edit'
     | '/quote/$id/edit'
     | '/settings/integrations/$id'
@@ -1336,6 +1360,7 @@ export interface FileRouteTypes {
     | '/_authenticated/users/access'
     | '/_authenticated/users/management'
     | '/_authenticated/users/roles'
+    | '/_authenticated/utilities/payment-links'
     | '/api/public/cleanup-guest-documents'
     | '/api/public/hotelzify-poll'
     | '/api/public/night-audit'
@@ -1347,6 +1372,7 @@ export interface FileRouteTypes {
     | '/_authenticated/night-audit/'
     | '/_authenticated/operations/'
     | '/_authenticated/settings/'
+    | '/_authenticated/utilities/'
     | '/_authenticated/bookings_/$id_/edit'
     | '/_authenticated/quote/$id_/edit'
     | '/_authenticated/settings_/integrations/$id'
@@ -2034,6 +2060,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUsersRolesRouteImport
       parentRoute: typeof AuthenticatedUsersRoute
     }
+    '/_authenticated/utilities/': {
+      id: '/_authenticated/utilities/'
+      path: '/utilities'
+      fullPath: '/utilities/'
+      preLoaderRoute: typeof AuthenticatedUtilitiesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/utilities/payment-links': {
+      id: '/_authenticated/utilities/payment-links'
+      path: '/utilities/payment-links'
+      fullPath: '/utilities/payment-links'
+      preLoaderRoute: typeof AuthenticatedUtilitiesPaymentLinksRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/public/cleanup-guest-documents': {
       id: '/api/public/cleanup-guest-documents'
       path: '/api/public/cleanup-guest-documents'
@@ -2324,6 +2364,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedComplaintsIdRoute: typeof AuthenticatedComplaintsIdRoute
   AuthenticatedCustomersIdRoute: typeof AuthenticatedCustomersIdRoute
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
+  AuthenticatedUtilitiesPaymentLinksRoute: typeof AuthenticatedUtilitiesPaymentLinksRoute
+  AuthenticatedUtilitiesIndexRoute: typeof AuthenticatedUtilitiesIndexRoute
   AuthenticatedBookingsIdEditRoute: typeof AuthenticatedBookingsIdEditRoute
   AuthenticatedQuoteIdEditRoute: typeof AuthenticatedQuoteIdEditRoute
   AuthenticatedSettingsIntegrationsIdRoute: typeof AuthenticatedSettingsIntegrationsIdRoute
@@ -2371,6 +2413,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedComplaintsIdRoute: AuthenticatedComplaintsIdRoute,
   AuthenticatedCustomersIdRoute: AuthenticatedCustomersIdRoute,
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
+  AuthenticatedUtilitiesPaymentLinksRoute:
+    AuthenticatedUtilitiesPaymentLinksRoute,
+  AuthenticatedUtilitiesIndexRoute: AuthenticatedUtilitiesIndexRoute,
   AuthenticatedBookingsIdEditRoute: AuthenticatedBookingsIdEditRoute,
   AuthenticatedQuoteIdEditRoute: AuthenticatedQuoteIdEditRoute,
   AuthenticatedSettingsIntegrationsIdRoute:

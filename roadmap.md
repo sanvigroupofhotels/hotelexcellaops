@@ -12,9 +12,9 @@
 - [x] Remove redundant noon Night Audit; retain 8:15 AM IST daily runner.
 - [ ] Apply shared 1600px / 280 KB / 82% photo compression across all upload entry points; preserve non-image originals.
 - [x] Recompress historical photos in-place across every bucket; preserve object paths and verify read-back. Remaining batch completed on 2026-11-22.
-- [ ] Purge integration and completed schedule logs older than 24 hours; configure daily retention.
+- [x] Purge integration and completed schedule logs older than 24 hours; configure daily retention.
 - [ ] Apply agreed Housekeeping data-access restrictions while retaining complaints/tasks access.
-- [ ] Enable agreed FabHotels and Booking.com lead sources.
+- [x] Enable agreed FabHotels and Booking.com lead sources.
 - External database migration and Guest Service Desk remain excluded.
 
 ## Agreed inbox tools and operational checks
@@ -98,5 +98,7 @@
 
 ## Payment Links (standalone)
 - [x] Create Razorpay link (SMS + WhatsApp share), expiry, recent links with Paid/Expired status
-- [ ] Convert paid link to booking / link to existing booking (tomorrow)
-- [ ] Log retention sweep, housekeeping role scope (later)
+- [x] Utilities → Payment Links console: stats, search/filter, copy/WhatsApp/cancel, Convert to Booking and Link to Existing Booking (records one Razorpay receipt)
+- [x] Daily purge of integration sync logs older than 24h; old schedule logs cleared; FabHotels/Booking.com lead sources confirmed present
+- [ ] WhatsApp booking form fixes (garbled characters, share image, FAQ/sticky polish)
+- [ ] Housekeeping role scope; GST calculator, UPI QR, stay quote (later, with multi-property/SaaS)

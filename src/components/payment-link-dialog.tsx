@@ -1,3 +1,4 @@
+import type React from "react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, IndianRupee, MessageCircle } from "lucide-react";
@@ -12,14 +13,14 @@ import { waLink } from "@/lib/whatsapp-pitch";
 const msg = (l: PaymentLinkRow) => `Hello ${l.guest_name.split(" ")[0]}, please pay ₹${Number(l.amount).toLocaleString("en-IN")} towards ${l.purpose} at Hotel Excella using this secure link: ${l.short_url}`;
 const tone: Record<string, string> = { Paid: "text-success", Expired: "text-muted-foreground", Cancelled: "text-muted-foreground", Issued: "text-gold" };
 
-export function PaymentLinkDialog() {
+export function PaymentLinkDialog({ trigger }: { trigger?: React.ReactNode } = {}) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ amount: "", guest_name: "", phone: "", purpose: "Room Advance", expiry: "24h" as "12h" | "24h" | "48h" | "none" });
   const list = useQuery({ queryKey: ["payment-links"], queryFn: () => listPaymentLinks(), enabled: open });
   const create = useMutation({
     mutationFn: () => createPaymentLink({ data: { ...f, amount: Number(f.amount), phone: f.phone.replace(/\D/g, "").slice(-10) } }),
-    onSuccess: (l) => { toast.success("Payment link created and SMS sent"); setF({ ...f, amount: "", guest_name: "", phone: "" }); qc.invalidateQueries({ queryKey: ["payment-links"] }); window.open(waLink(l.phone, msg(l)), "_blank"); },
+    onSuccess: (l) => { toast.success("Payment link created and SMS sent"); setF({ ...f, amount: "", guest_name: "", phone: "" }); qc.invalidateQueries({ queryKey: ["payment-links"] }); qc.invalidateQueries({ queryKey: ["payment-links-console"] }); window.open(waLink(l.phone, msg(l)), "_blank"); },
     onError: (e: Error) => toast.error(e.message),
   });
   const valid = Number(f.amount) >= 1 && f.guest_name.trim() && f.phone.replace(/\D/g, "").length >= 10 && f.purpose.trim();
@@ -27,7 +28,7 @@ export function PaymentLinkDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button size="sm" variant="outline"><IndianRupee className="h-4 w-4" />Payment Link</Button></DialogTrigger>
+      <DialogTrigger asChild>{trigger ?? <Button size="sm" variant="outline"><IndianRupee className="h-4 w-4" />Payment Link</Button>}</DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader><DialogTitle className="font-display">Create Payment Link</DialogTitle></DialogHeader>
         <div className="grid gap-2">

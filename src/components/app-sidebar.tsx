@@ -6,7 +6,7 @@ import {
   Home, FileBarChart, UserCog, Settings as SettingsIcon, ChevronDown,
   Cog, Palette, ShieldCheck, Plug, Building2 as Building2Alt,
   BarChart3, IndianRupee, Receipt, UsersRound, CreditCard, KeyRound, Moon, AlertTriangle, TrendingUp, CalendarDays,
-  Boxes, Truck, ListChecks, MessageCircle,
+  Boxes, Truck, ListChecks, MessageCircle, Wrench, Link2,
 } from "lucide-react";
 import { useNightAuditStatus } from "@/hooks/use-night-audit-status";
 
@@ -60,6 +60,10 @@ const housekeepingChildren = [
   { to: "/reporting/housekeeping",       label: "Work History",          icon: ListChecks, permission: "reporting.housekeeping.view" },
   { to: "/operations/linen-types",       label: "Linen Types",           icon: ListChecks, adminOnly: true },
   { to: "/operations/hk-issue-types",    label: "Housekeeping Issues",   icon: ListChecks, adminOnly: true },
+] as const;
+
+const utilitiesChildren = [
+  { to: "/utilities/payment-links", label: "Payment Links", icon: Link2, permission: "customers.view" },
 ] as const;
 
 const reportingChildren = [
@@ -309,6 +313,10 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
       <ExpandableGroup
         label="Inventory" icon={Boxes} prefix="/operations"
         children={inventoryChildren} onNavigate={onNavigate} pathname={pathname}
+      />
+      <ExpandableGroup
+        label="Utilities" icon={Wrench} prefix="/utilities"
+        children={utilitiesChildren} onNavigate={onNavigate} pathname={pathname}
       />
       <ExpandableGroup
         label="Reporting" icon={FileBarChart} prefix="/reporting"

@@ -33,6 +33,7 @@ import { useUserRole } from "@/hooks/use-role";
 import { ArrowLeft, Loader2, BedDouble } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { getPaymentLink, linkPaymentLinkToBooking } from "@/lib/payment-links.functions";
 import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/payment-settings-section";
 
 export const Route = createFileRoute("/_authenticated/bookings_/new")({
@@ -46,6 +47,7 @@ export const Route = createFileRoute("/_authenticated/bookings_/new")({
     roomType?: string;
     checkIn?: string;
     checkOut?: string;
+    fromPaymentLinkId?: string;
   } => ({
     customerId: typeof s.customerId === "string" ? s.customerId : undefined,
     fromQuoteId: typeof s.fromQuoteId === "string" ? s.fromQuoteId : undefined,
@@ -54,6 +56,7 @@ export const Route = createFileRoute("/_authenticated/bookings_/new")({
     roomType: typeof s.roomType === "string" ? s.roomType : undefined,
     checkIn: typeof s.checkIn === "string" ? s.checkIn : undefined,
     checkOut: typeof s.checkOut === "string" ? s.checkOut : undefined,
+    fromPaymentLinkId: typeof s.fromPaymentLinkId === "string" ? s.fromPaymentLinkId : undefined,
   }),
   head: () => ({ meta: [
     { title: "New Booking — Hotel Excella" },
@@ -70,7 +73,7 @@ const inputCls =
 
 function NewBooking() {
   const navigate = useNavigate();
-  const { customerId, fromQuoteId, fromBookingId, fromLeadId, roomType: prefillRoomType, checkIn: prefillIn, checkOut: prefillOut } = Route.useSearch();
+  const { customerId, fromQuoteId, fromBookingId, fromLeadId, roomType: prefillRoomType, checkIn: prefillIn, checkOut: prefillOut, fromPaymentLinkId } = Route.useSearch();
 
   // Shared stay sections shape (same as Quote forms).
   const [stay, setStay] = useState<SharedStayValue>(() => {
@@ -105,6 +108,15 @@ function NewBooking() {
       return getLead({ data: { id: fromLeadId } });
     },
   });
+  const { data: sourceLink } = useQuery({
+    queryKey: ["booking-payment-link-prefill", fromPaymentLinkId], enabled: !!fromPaymentLinkId,
+    queryFn: () => getPaymentLink({ data: { id: fromPaymentLinkId! } }),
+  });
+  useEffect(() => {
+    if (!sourceLink) return;
+    if (sourceLink.booking_id) { toast.info("This payment is already linked to a booking"); return; }
+    setStay((s) => ({ ...s, guest_name: sourceLink.guest_name, phone: sourceLink.phone }));
+  }, [sourceLink]);
   useEffect(() => {
     if (!sourceLead) return;
     if (sourceLead.booking_id) {
@@ -340,6 +352,10 @@ function NewBooking() {
       if (fromLeadId) {
         try { await linkInboxBooking({ data: { lead_id: fromLeadId, booking_id: b.id } }); }
         catch { toast.error("Booking saved, but enquiry linking failed. Do not create another booking; open the saved booking to share its payment link."); }
+      }
+      if (sourceLink && !sourceLink.booking_id) {
+        try { await linkPaymentLinkToBooking({ data: { id: sourceLink.id, booking_id: b.id } }); }
+        catch { toast.error("Booking saved, but the paid link was not attached. Use Link from Payment Links."); }
       }
       if (createdCustomerId) toast.success(`New customer created for ${b.guest_name}`);
       // Expected Arrival / Departure → auto Early Check-In / Late Check-Out
