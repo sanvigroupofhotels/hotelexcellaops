@@ -74,7 +74,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Hotel Excella Operations" },
       { name: "description", content: "Front-desk, reservations and operations platform for Hotel Excella." },
-      { name: "theme-color", content: "#0B0B0F" },
+      { name: "theme-color", content: "#FAF9F6" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
@@ -116,6 +116,8 @@ function RootShell({ children }: { children: React.ReactNode }) {
         document.documentElement.classList.remove('light','dark');
         document.documentElement.classList.add(t);
         document.documentElement.setAttribute('data-theme', t);
+        var themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) themeColor.setAttribute('content', t === 'dark' ? '#0B0B0F' : '#FAF9F6');
       } catch(e) {
         document.documentElement.classList.add('light');
       }
