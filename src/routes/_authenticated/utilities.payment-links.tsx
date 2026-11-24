@@ -36,7 +36,12 @@ const FILTERS = ["All", "Issued", "Paid", "Expired", "Cancelled"] as const;
 function PaymentLinksPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { data = [], isLoading } = useQuery({ queryKey: ["payment-links-console"], queryFn: () => listPaymentLinks() });
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["payment-links-console"],
+    queryFn: () => listPaymentLinks(),
+    // Webhooks update HEOS promptly; reconciliation catches delayed or missed deliveries.
+    refetchInterval: 60_000,
+  });
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [linking, setLinking] = useState<PaymentLinkRow | null>(null);
