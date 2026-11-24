@@ -223,7 +223,7 @@ function WhatsAppBooking() {
   }
 
   return (
-    <div className="min-h-dvh bg-background text-foreground px-4 py-8">
+    <div className="min-h-dvh bg-background text-foreground px-4 py-8 animate-in fade-in slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
       <div className="mx-auto max-w-md space-y-5">
         <header className="flex items-center justify-between gap-3 border-b border-primary/25 pb-4">
           <a href="https://hotelexcella.in" className="group flex min-w-0 items-center gap-3" aria-label="Hotel Excella home">
