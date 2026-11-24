@@ -15,7 +15,7 @@ const formatINR = (amount: number) => "₹" + amount.toLocaleString("en-IN", { m
 function CounterUpiPage() {
   const [amount, setAmount] = useState(0);
   const [note, setNote] = useState("");
-  const [vpa, setVpa] = useState("sanvigroupofhotels@okhdfcbank");
+  const [vpa, setVpa] = useState("BHARATPE.9K0E0A0L5I003515@unitype");
   const [payee, setPayee] = useState("Hotel Excella");
   const qrHost = useRef<HTMLDivElement>(null);
   const validVpa = vpa.trim().includes("@");
@@ -40,7 +40,7 @@ function CounterUpiPage() {
     const amountText = amount > 0 ? formatINR(amount) : "Enter amount in your UPI app";
     const noteText = escapeHtml(note.trim());
     popup.document.open();
-    popup.document.write("<!doctype html><html><head><title>UPI payment · " + title + "</title><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>body{font-family:Arial,sans-serif;background:#f5f3ee;color:#1c1b18;margin:0;display:grid;place-items:center;min-height:100vh}.card{text-align:center;background:#fff;border:2px solid #b18b45;border-radius:18px;padding:28px;max-width:440px;width:calc(100% - 64px)}h1{font-size:28px;margin:0 0 8px}p{color:#57534c;margin:8px 0}.amount{font-size:30px;font-weight:700;margin:18px 0}.qr{width:min(78vw,340px);height:auto}.rule{height:1px;background:#dfd3ba;margin:18px 0}@media print{body{background:#fff}.card{box-shadow:none}}</style></head><body><main class=\"card\"><h1>" + title + "</h1><p>Scan to pay securely</p><div class=\"amount\">" + escapeHtml(amountText) + "</div><div class=\"qr\">" + svgMarkup + "</div><div class=\"rule\"></div><p>Scan with GPay, PhonePe, Paytm or BHIM</p><p>Payee: " + title + "</p>" + (noteText ? "<p>Note: " + noteText + "</p>" : "") + "</main><script>window.onload=function(){window.print()}</script></body></html>");
+    popup.document.write("<!doctype html><html><head><title>UPI payment · " + title + "</title><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;background:#f5f3ee;color:#1c1b18;margin:0;display:grid;place-items:center;min-height:100vh;padding:16px}.card{text-align:center;background:#fff;border:2px solid #b18b45;border-radius:18px;padding:28px;max-width:440px;width:100%}h1{font-size:28px;margin:0 0 8px}p{color:#57534c;margin:8px 0}.amount{font-size:30px;font-weight:700;margin:18px 0}.qr{width:min(78vw,340px);margin:0 auto;display:flex;align-items:center;justify-content:center}.qr svg{display:block;width:100%;height:auto}.rule{height:1px;background:#dfd3ba;margin:18px 0}@media print{body{background:#fff}.card{box-shadow:none}}</style></head><body><main class=\"card\"><h1>" + title + "</h1><p>Scan to pay securely</p><div class=\"amount\">" + escapeHtml(amountText) + "</div><div class=\"qr\">" + svgMarkup + "</div><div class=\"rule\"></div><p>Scan with GPay, PhonePe, Paytm or BHIM</p><p>Payee: " + title + "</p>" + (noteText ? "<p>Note: " + noteText + "</p>" : "") + "</main><script>window.onload=function(){window.print()}</script></body></html>");
     popup.document.close();
   };
 

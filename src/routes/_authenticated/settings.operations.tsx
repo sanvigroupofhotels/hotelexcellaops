@@ -29,6 +29,7 @@ function OpsPage() {
         <Field label="Check-Out Time"><input type="time" className={inputCls} value={draft.check_out_time} onChange={(e) => setDraft({ ...draft, check_out_time: e.target.value })} /></Field>
         <Field label="Currency"><input className={inputCls} value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value })} /></Field>
         <Field label="Timezone"><input className={inputCls} value={draft.timezone} onChange={(e) => setDraft({ ...draft, timezone: e.target.value })} /></Field>
+        <Field label="Default GST / Tax Rate (%)"><input type="number" step="0.5" min="0" max="100" className={inputCls} value={draft.tax_rate_percent ?? 5} onChange={(e) => setDraft({ ...draft, tax_rate_percent: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })} placeholder="5" /></Field>
       </div>
       <div className="flex justify-end pt-2">
         <button onClick={() => save.mutate()} disabled={save.isPending}

@@ -68,7 +68,7 @@ import { Route as AuthenticatedBookingsNewRouteImport } from './routes/_authenti
 import { Route as AuthenticatedBookingsQuickRouteImport } from './routes/_authenticated/bookings_.quick'
 import { Route as AuthenticatedComplaintsIdRouteImport } from './routes/_authenticated/complaints_.$id'
 import { Route as AuthenticatedCustomersIdRouteImport } from './routes/_authenticated/customers_.$id'
-import { Route as AuthenticatedHousekeepingAssignmentsRouteImport } from './routes/_authenticated/housekeeping.assignments'
+import { Route as AuthenticatedHousekeepingAssignmentsRouteImport } from './routes/_authenticated/housekeeping_.assignments'
 import { Route as AuthenticatedNightAuditIndexRouteImport } from './routes/_authenticated/night-audit.index'
 import { Route as AuthenticatedNightAuditCriticalTasksRouteImport } from './routes/_authenticated/night-audit.critical-tasks'
 import { Route as AuthenticatedNightAuditEodReportRouteImport } from './routes/_authenticated/night-audit.eod-report'
@@ -434,9 +434,9 @@ const AuthenticatedCustomersIdRoute =
   } as any)
 const AuthenticatedHousekeepingAssignmentsRoute =
   AuthenticatedHousekeepingAssignmentsRouteImport.update({
-    id: '/assignments',
-    path: '/assignments',
-    getParentRoute: () => AuthenticatedHousekeepingRoute,
+    id: '/housekeeping_/assignments',
+    path: '/housekeeping/assignments',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedNightAuditIndexRoute =
   AuthenticatedNightAuditIndexRouteImport.update({
@@ -776,7 +776,7 @@ export interface FileRoutesByFullPath {
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
-  '/housekeeping': typeof AuthenticatedHousekeepingRouteWithChildren
+  '/housekeeping': typeof AuthenticatedHousekeepingRoute
   '/laundry': typeof AuthenticatedLaundryRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
@@ -887,7 +887,7 @@ export interface FileRoutesByTo {
   '/generate': typeof AuthenticatedGenerateRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/house-view': typeof AuthenticatedHouseViewRoute
-  '/housekeeping': typeof AuthenticatedHousekeepingRouteWithChildren
+  '/housekeeping': typeof AuthenticatedHousekeepingRoute
   '/laundry': typeof AuthenticatedLaundryRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -1000,7 +1000,7 @@ export interface FileRoutesById {
   '/_authenticated/generate': typeof AuthenticatedGenerateRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/house-view': typeof AuthenticatedHouseViewRoute
-  '/_authenticated/housekeeping': typeof AuthenticatedHousekeepingRouteWithChildren
+  '/_authenticated/housekeeping': typeof AuthenticatedHousekeepingRoute
   '/_authenticated/laundry': typeof AuthenticatedLaundryRoute
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
   '/_authenticated/night-audit': typeof AuthenticatedNightAuditRouteWithChildren
@@ -1037,7 +1037,7 @@ export interface FileRoutesById {
   '/_authenticated/bookings_/quick': typeof AuthenticatedBookingsQuickRoute
   '/_authenticated/complaints_/$id': typeof AuthenticatedComplaintsIdRoute
   '/_authenticated/customers_/$id': typeof AuthenticatedCustomersIdRoute
-  '/_authenticated/housekeeping/assignments': typeof AuthenticatedHousekeepingAssignmentsRoute
+  '/_authenticated/housekeeping_/assignments': typeof AuthenticatedHousekeepingAssignmentsRoute
   '/_authenticated/night-audit/critical-tasks': typeof AuthenticatedNightAuditCriticalTasksRoute
   '/_authenticated/night-audit/eod-report': typeof AuthenticatedNightAuditEodReportRoute
   '/_authenticated/night-audit/history': typeof AuthenticatedNightAuditHistoryRoute
@@ -1377,7 +1377,7 @@ export interface FileRouteTypes {
     | '/_authenticated/bookings_/quick'
     | '/_authenticated/complaints_/$id'
     | '/_authenticated/customers_/$id'
-    | '/_authenticated/housekeeping/assignments'
+    | '/_authenticated/housekeeping_/assignments'
     | '/_authenticated/night-audit/critical-tasks'
     | '/_authenticated/night-audit/eod-report'
     | '/_authenticated/night-audit/history'
@@ -1874,12 +1874,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/housekeeping/assignments': {
-      id: '/_authenticated/housekeeping/assignments'
-      path: '/assignments'
+    '/_authenticated/housekeeping_/assignments': {
+      id: '/_authenticated/housekeeping_/assignments'
+      path: '/housekeeping/assignments'
       fullPath: '/housekeeping/assignments'
       preLoaderRoute: typeof AuthenticatedHousekeepingAssignmentsRouteImport
-      parentRoute: typeof AuthenticatedHousekeepingRoute
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/night-audit/': {
       id: '/_authenticated/night-audit/'
@@ -2255,21 +2255,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthenticatedHousekeepingRouteChildren {
-  AuthenticatedHousekeepingAssignmentsRoute: typeof AuthenticatedHousekeepingAssignmentsRoute
-}
-
-const AuthenticatedHousekeepingRouteChildren: AuthenticatedHousekeepingRouteChildren =
-  {
-    AuthenticatedHousekeepingAssignmentsRoute:
-      AuthenticatedHousekeepingAssignmentsRoute,
-  }
-
-const AuthenticatedHousekeepingRouteWithChildren =
-  AuthenticatedHousekeepingRoute._addFileChildren(
-    AuthenticatedHousekeepingRouteChildren,
-  )
-
 interface AuthenticatedNightAuditRouteChildren {
   AuthenticatedNightAuditCriticalTasksRoute: typeof AuthenticatedNightAuditCriticalTasksRoute
   AuthenticatedNightAuditEodReportRoute: typeof AuthenticatedNightAuditEodReportRoute
@@ -2434,7 +2419,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedGenerateRoute: typeof AuthenticatedGenerateRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedHouseViewRoute: typeof AuthenticatedHouseViewRoute
-  AuthenticatedHousekeepingRoute: typeof AuthenticatedHousekeepingRouteWithChildren
+  AuthenticatedHousekeepingRoute: typeof AuthenticatedHousekeepingRoute
   AuthenticatedLaundryRoute: typeof AuthenticatedLaundryRoute
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
   AuthenticatedNightAuditRoute: typeof AuthenticatedNightAuditRouteWithChildren
@@ -2458,6 +2443,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedBookingsQuickRoute: typeof AuthenticatedBookingsQuickRoute
   AuthenticatedComplaintsIdRoute: typeof AuthenticatedComplaintsIdRoute
   AuthenticatedCustomersIdRoute: typeof AuthenticatedCustomersIdRoute
+  AuthenticatedHousekeepingAssignmentsRoute: typeof AuthenticatedHousekeepingAssignmentsRoute
   AuthenticatedQuoteIdRoute: typeof AuthenticatedQuoteIdRoute
   AuthenticatedUtilitiesCounterUpiRoute: typeof AuthenticatedUtilitiesCounterUpiRoute
   AuthenticatedUtilitiesGstCalculatorRoute: typeof AuthenticatedUtilitiesGstCalculatorRoute
@@ -2485,7 +2471,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedGenerateRoute: AuthenticatedGenerateRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedHouseViewRoute: AuthenticatedHouseViewRoute,
-  AuthenticatedHousekeepingRoute: AuthenticatedHousekeepingRouteWithChildren,
+  AuthenticatedHousekeepingRoute: AuthenticatedHousekeepingRoute,
   AuthenticatedLaundryRoute: AuthenticatedLaundryRoute,
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
   AuthenticatedNightAuditRoute: AuthenticatedNightAuditRouteWithChildren,
@@ -2510,6 +2496,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBookingsQuickRoute: AuthenticatedBookingsQuickRoute,
   AuthenticatedComplaintsIdRoute: AuthenticatedComplaintsIdRoute,
   AuthenticatedCustomersIdRoute: AuthenticatedCustomersIdRoute,
+  AuthenticatedHousekeepingAssignmentsRoute:
+    AuthenticatedHousekeepingAssignmentsRoute,
   AuthenticatedQuoteIdRoute: AuthenticatedQuoteIdRoute,
   AuthenticatedUtilitiesCounterUpiRoute: AuthenticatedUtilitiesCounterUpiRoute,
   AuthenticatedUtilitiesGstCalculatorRoute:

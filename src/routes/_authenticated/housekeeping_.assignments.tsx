@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { listRooms } from "@/lib/rooms-api";
 import { useUserRole } from "@/hooks/use-role";
 
-export const Route = createFileRoute("/_authenticated/housekeeping/assignments")({ component: HousekeepingAssignmentsPage });
+export const Route = createFileRoute("/_authenticated/housekeeping_/assignments")({ component: HousekeepingAssignmentsPage });
 
 type Staff = { id: string; name: string };
 type Room = { id: string; room_number: string; floor: number; room_type: string };

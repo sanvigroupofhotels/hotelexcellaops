@@ -44,6 +44,7 @@ export interface OpsSettings {
   check_out_time: string;
   currency: string;
   timezone: string;
+  tax_rate_percent: number;
 }
 /**
  * Documents Retention setting.
@@ -58,6 +59,7 @@ export const DEFAULT_OPS: OpsSettings = {
   check_out_time: "11:00",
   currency: "INR",
   timezone: "Asia/Kolkata",
+  tax_rate_percent: 5,
 };
 export const DEFAULT_DOCUMENTS_RETENTION: DocumentsRetentionSettings = {
   retention_days: 60,
@@ -96,6 +98,13 @@ export const setHotelSettings = async (v: HotelSettings) => setBrandingSettings(
 
 export const getOpsSettings = () => readSetting("ops", DEFAULT_OPS);
 export const setOpsSettings = (v: OpsSettings) => writeSetting("ops", v);
+
+export async function getPropertyTaxRate(): Promise<{ percent: number; rate: number }> {
+  const ops = await getOpsSettings();
+  const value = Number(ops.tax_rate_percent);
+  const percent = Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 5;
+  return { percent, rate: percent / 100 };
+}
 
 export async function getBrandingSettings(): Promise<BrandingSettings> {
   const { data, error } = await supabase.from("app_settings" as any).select("key,value").in("key", ["hotel", "branding"]);

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS public.housekeeping_room_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   room_id uuid NOT NULL REFERENCES public.rooms(id) ON DELETE CASCADE,
   assigned_by uuid DEFAULT auth.uid(),
   assigned_at timestamptz NOT NULL DEFAULT now(),
