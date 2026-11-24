@@ -31,7 +31,7 @@ import { toast } from "sonner";
 
 import { type CustomerRow } from "@/lib/customers-api";
 import { useExistingCustomerByPhone } from "@/lib/customer-resolution";
-import { computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
+import { computePricing } from "@/lib/pricing";
 import { PricingBreakdownCard } from "@/components/pricing-breakdown";
 import { type LineItem, nightsOf } from "@/components/line-items-editor";
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
@@ -43,7 +43,7 @@ import { usePaymentModes } from "@/hooks/use-payment-modes";
 import { updateBookingStay } from "@/lib/booking-stay";
 import { replaceBookingItems } from "@/lib/booking-items-api";
 import { allocateGuestsToLines } from "@/lib/guest-allocation";
-import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
+import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS, getOpsSettings } from "@/lib/app-settings-api";
 import { toLocalYMD, localYMDOffset, cn } from "@/lib/utils";
 import { ChargeFormDialog } from "@/components/in-house-charges-section";
 import { AddBookingPaymentModal } from "@/components/add-booking-payment-modal";
@@ -121,6 +121,8 @@ function QuickBookingPage() {
     queryFn: getPaymentSettings,
     staleTime: 5 * 60 * 1000,
   });
+  const { data: opsSettings } = useQuery({ queryKey: ["ops-settings"], queryFn: getOpsSettings, staleTime: 5 * 60 * 1000 });
+  const propertyTaxRate = (opsSettings?.tax_rate_percent ?? 5) / 100;
   const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags | null>(null);
   useEffect(() => {
     if (!paymentDefaultsLoaded || !paymentDefaults) return;
@@ -208,7 +210,7 @@ function QuickBookingPage() {
   }, [items, otherCharges, nights, checkIn, checkOut]);
 
   const overrideNum = totalOverride;
-  const pricing = computePricing(pricingItems, discount, DEFAULT_TAX_RATE, {
+  const pricing = computePricing(pricingItems, discount, propertyTaxRate, {
     totalOverride: overrideNum,
     taxesIncluded,
   });

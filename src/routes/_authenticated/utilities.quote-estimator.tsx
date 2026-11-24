@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { MessageCircle, Plus, Minus, CalendarDays } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getOpsSettings } from "@/lib/app-settings-api";
 
 export const Route = createFileRoute("/_authenticated/utilities/quote-estimator")({ component: QuoteEstimatorPage });
 
@@ -21,6 +23,9 @@ const tomorrow = () => { const date = new Date(); date.setDate(date.getDate() + 
 const inr = (value: number) => "₹" + value.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
 function QuoteEstimatorPage() {
+  const { data: ops } = useQuery({ queryKey: ["ops-settings"], queryFn: getOpsSettings });
+  const taxRatePercent = ops?.tax_rate_percent ?? 5;
+  const taxRate = taxRatePercent / 100;
   const [checkIn, setCheckIn] = useState(todayInput(new Date()));
   const [checkOut, setCheckOut] = useState(todayInput(tomorrow()));
   const [counts, setCounts] = useState<Record<RoomKey, number>>({ oak: 0, mapple: 0, cedar: 0 });
@@ -39,20 +44,9 @@ function QuoteEstimatorPage() {
     const extraCharge = extraAdults * 500 * nights;
     const timingCharge = (Number(early) + Number(late)) * 500;
     const subtotal = roomRent + extraCharge + timingCharge;
-    // Estimate each room category at its own accommodation slab; add-ons follow the selected room-rate slab.
-    const roomTax = roomTypes.reduce((sum, room) => {
-      const line = counts[room.key] * rates[room.key] * nights;
-      return sum + line * (rates[room.key] >= 7500 ? 0.18 : 0.05);
-    }, 0);
-    const roomCount = roomTypes.reduce((sum, room) => sum + counts[room.key], 0);
-    const addOnTax = roomCount > 0 ? roomTypes.reduce((sum, room) => {
-      const share = counts[room.key] / roomCount;
-      const rate = rates[room.key] >= 7500 ? 0.18 : 0.05;
-      return sum + (extraCharge + timingCharge) * share * rate;
-    }, 0) : 0;
-    const gst = roomTax + addOnTax;
+    const gst = subtotal * taxRate;
     return { roomRent, extraCharge, timingCharge, subtotal, gst, total: subtotal + gst };
-  }, [counts, rates, nights, extraAdults, early, late]);
+  }, [counts, rates, nights, extraAdults, early, late, taxRate]);
 
   const adjustCount = (key: RoomKey, amount: number) => setCounts((current) => ({ ...current, [key]: Math.max(0, current[key] + amount) }));
   const quoteText = [
@@ -62,7 +56,7 @@ function QuoteEstimatorPage() {
     "Room rent: " + inr(summary.roomRent),
     ...(summary.extraCharge ? ["Extra adults: " + inr(summary.extraCharge)] : []),
     ...(summary.timingCharge ? ["Timing charges: " + inr(summary.timingCharge)] : []),
-    "Estimated GST: " + inr(summary.gst),
+    "Estimated GST (" + taxRatePercent + "%): " + inr(summary.gst),
     "Estimated total: " + inr(summary.total),
     "Children: " + children + " (subject to hotel policy)",
     "For availability and confirmation, contact reception: +91 9985908131",
@@ -105,10 +99,10 @@ function QuoteEstimatorPage() {
             {early && <SummaryLine label="Early check-in" value={inr(500)} />}
             {late && <SummaryLine label="Late checkout" value={inr(500)} />}
             <SummaryLine label="Subtotal" value={inr(summary.subtotal)} />
-            <SummaryLine label="Estimated GST" value={inr(summary.gst)} />
+            <SummaryLine label={"Estimated GST (" + taxRatePercent + "%)"} value={inr(summary.gst)} />
             <div className="border-t border-border pt-3"><SummaryLine label="Estimated total" value={inr(summary.total)} strong /></div>
             {children > 0 && <p className="text-xs text-muted-foreground">Children: {children} · included without an added charge in this estimate.</p>}
-            <p className="text-[11px] leading-relaxed text-muted-foreground">Estimate assumes 5% GST without ITC for room rates up to ₹7,500/night and 18% with ITC above that threshold. Confirm the hotel’s registered tax treatment and child policy before quoting.</p>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">Estimate uses the property tax rate configured in Operations settings. Confirm the hotel’s registered tax treatment and child policy before quoting.</p>
           </div>
           <Button className="mt-5 w-full" onClick={shareQuote} disabled={!roomTypes.some((room) => counts[room.key] > 0)}><MessageCircle className="mr-2 h-4 w-4" />Share quote on WhatsApp</Button>
         </section>

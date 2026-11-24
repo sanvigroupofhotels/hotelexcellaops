@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Copy, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { getOpsSettings } from "@/lib/app-settings-api";
 
 export const Route = createFileRoute("/_authenticated/utilities/gst-calculator")({ component: GstCalculatorPage });
 
@@ -15,11 +17,18 @@ const slabs = [0, 5, 12, 18] as const;
 const inr = (amount: number) => "₹" + amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function GstCalculatorPage() {
+  const { data: ops } = useQuery({ queryKey: ["ops-settings"], queryFn: getOpsSettings });
   const [mode, setMode] = useState<Mode>("forward");
   const [supply, setSupply] = useState<Supply>("intra");
   const [amount, setAmount] = useState("2500");
-  const [rate, setRate] = useState(12);
-  const [customRate, setCustomRate] = useState("12");
+  const [rate, setRate] = useState(5);
+  const [customRate, setCustomRate] = useState("5");
+  const [manuallySelectedRate, setManuallySelectedRate] = useState(false);
+  useEffect(() => {
+    if (ops?.tax_rate_percent == null || manuallySelectedRate) return;
+    setRate(ops.tax_rate_percent);
+    setCustomRate(String(ops.tax_rate_percent));
+  }, [ops?.tax_rate_percent, manuallySelectedRate]);
   const isCustom = !slabs.includes(rate as (typeof slabs)[number]);
   const result = useMemo(() => {
     const entered = Math.max(0, Number(amount) || 0);
@@ -31,6 +40,7 @@ function GstCalculatorPage() {
   }, [amount, mode, rate]);
 
   const chooseRate = (value: number) => {
+    setManuallySelectedRate(true);
     setRate(value);
     setCustomRate(String(value));
   };
@@ -72,7 +82,7 @@ function GstCalculatorPage() {
             </div>
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               Custom %
-              <Input className="h-9 max-w-28" type="number" min="0" max="100" step="0.01" value={customRate} onChange={(event) => { setCustomRate(event.target.value); setRate(Math.min(100, Math.max(0, Number(event.target.value) || 0))); }} />
+              <Input className="h-9 max-w-28" type="number" min="0" max="100" step="0.01" value={customRate} onChange={(event) => { setManuallySelectedRate(true); setCustomRate(event.target.value); setRate(Math.min(100, Math.max(0, Number(event.target.value) || 0))); }} />
             </label>
             {isCustom && <p className="text-[11px] text-muted-foreground">Custom rate: {rate}%</p>}
           </div>

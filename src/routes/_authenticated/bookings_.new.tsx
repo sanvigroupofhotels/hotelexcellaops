@@ -12,13 +12,13 @@ import { type BookingInput } from "@/lib/bookings-api";
 import { submitNewBooking } from "@/lib/booking-create";
 import { useDuplicateBookingGuard } from "@/components/duplicate-booking-warning-dialog";
 import { applyClonedOccupants, buildBookingClonePrefill } from "@/lib/booking-clone";
-import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from "@/lib/app-settings-api";
+import { getPaymentSettings, DEFAULT_PAYMENT_SETTINGS, getOpsSettings } from "@/lib/app-settings-api";
 import { listQuoteItems, rowToLineItem } from "@/lib/quote-items-api";
 import { CustomerAutocomplete, ExistingCustomerBanner } from "@/components/customer-lookup";
 import {
   type LineItem,
 } from "@/components/line-items-editor";
-import { aggregateGuests, computePricing, DEFAULT_TAX_RATE } from "@/lib/pricing";
+import { aggregateGuests, computePricing } from "@/lib/pricing";
 import { PricingBreakdownCard, StickyPricingFooter } from "@/components/pricing-breakdown";
 import { lineSubtotal, nightsOf } from "@/components/line-items-editor";
 import { useResolvedRate } from "@/hooks/use-resolved-rate";
@@ -100,6 +100,8 @@ function NewBooking() {
     queryFn: getPaymentSettings,
     staleTime: 5 * 60 * 1000,
   });
+  const { data: opsSettings } = useQuery({ queryKey: ["ops-settings"], queryFn: getOpsSettings, staleTime: 5 * 60 * 1000 });
+  const propertyTaxRate = (opsSettings?.tax_rate_percent ?? 5) / 100;
   const [paymentFlags, setPaymentFlags] = useState<BookingPaymentFlags | null>(null);
   const { data: sourceLead } = useQuery({
     queryKey: ["booking-lead-prefill", fromLeadId], enabled: !!fromLeadId,
@@ -276,14 +278,14 @@ function NewBooking() {
     const primary = primaryToLineItem(stay, resolvedRate);
 
     const all = [primary, ...extras];
-    const p = computePricing(all, Number(stay.discount) || 0, DEFAULT_TAX_RATE, { totalOverride, taxesIncluded });
+    const p = computePricing(all, Number(stay.discount) || 0, propertyTaxRate, { totalOverride, taxesIncluded });
     return {
       pricing: p,
       roomCharges: lineSubtotal(primary),
       extraCharges: extras.reduce((s, i) => s + lineSubtotal(i), 0),
       nights: nightsOf(primary),
     };
-  }, [stay, extras, resolvedRate, totalOverride, taxesIncluded]);
+  }, [stay, extras, resolvedRate, totalOverride, taxesIncluded, propertyTaxRate]);
   const amount = pricing.total;
   const balance = Math.max(0, amount - Number(advancePaid || 0));
 
