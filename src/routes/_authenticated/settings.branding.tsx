@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 import { fileToDataURL, processSignature, type SignatureProcessResult } from "@/lib/signature-processor";
 import { Button } from "@/components/ui/button";
 import { brandingSchema } from "@/lib/branding.functions";
-import { compressUploadImage } from "@/lib/compress-upload-image";
 import crest from "@/assets/excella-crown-white-complete.webp.asset.json";
 
 export const Route = createFileRoute("/_authenticated/settings/branding")({ component: BrandingPage,
@@ -65,7 +64,7 @@ function BrandingPage() {
       return;
     }
     try {
-      const original = await fileToDataURL(await compressUploadImage(file));
+      const original = await fileToDataURL(file);
       await runProcess(original);
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to load image");
@@ -87,7 +86,7 @@ function BrandingPage() {
       <Field label="Official Address"><textarea aria-label="Official Address" className={cn(inputCls, "min-h-[80px]")} maxLength={1000} value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} /></Field>
       <div className="space-y-2 border-t border-border pt-4"><div className={labelCls}>Hotel Logo</div><div className="flex flex-wrap items-center gap-3">
         {draft.logo_url && <img src={draft.logo_url} alt="Hotel logo" className="h-20 w-32 rounded-md bg-invoice-paper object-contain" />}
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-xs"><Upload className="h-4 w-4" /> Upload Logo<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; e.currentTarget.value = ""; if (!file) return; if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > MAX_UPLOAD_BYTES) { toast.error("Use a PNG, JPG or WebP under 4 MB."); return; } try { setDraft({ ...draft, logo_url: await fileToDataURL(await compressUploadImage(file)) }); } catch { toast.error("Could not load logo"); } }} /></label>
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-xs"><Upload className="h-4 w-4" /> Upload Logo<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; e.currentTarget.value = ""; if (!file) return; if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > MAX_UPLOAD_BYTES) { toast.error("Use a PNG, JPG or WebP under 4 MB."); return; } try { setDraft({ ...draft, logo_url: await fileToDataURL(file) }); } catch { toast.error("Could not load logo"); } }} /></label>
         <Button variant="outline" size="sm" onClick={() => setDraft({ ...draft, logo_url: crest.url })}>Use Hotel Crown</Button>
         {draft.logo_url && <Button variant="ghost" size="icon" aria-label="Remove logo" onClick={() => setDraft({ ...draft, logo_url: "" })}><X /></Button>}
       </div></div>

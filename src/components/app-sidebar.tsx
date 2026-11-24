@@ -64,10 +64,10 @@ const housekeepingChildren = [
 ] as const;
 
 const utilitiesChildren = [
-  { to: "/utilities/payment-links", label: "Payment Links", icon: Link2, permission: "customers.view" },
-  { to: "/utilities/gst-calculator", label: "GST Calculator", icon: Calculator, permission: "customers.view" },
-  { to: "/utilities/counter-upi", label: "Counter UPI QR", icon: QrCode, permission: "customers.view" },
-  { to: "/utilities/quote-estimator", label: "Stay Quote", icon: FileText, permission: "customers.view" },
+  { to: "/utilities/payment-links", label: "Payment Links", icon: Link2 },
+  { to: "/utilities/gst-calculator", label: "GST Calculator", icon: Calculator },
+  { to: "/utilities/counter-upi", label: "Counter UPI QR", icon: QrCode },
+  { to: "/utilities/quote-estimator", label: "Stay Quote", icon: FileText },
 ] as const;
 
 const reportingChildren = [
