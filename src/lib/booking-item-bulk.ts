@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { listRooms, listOccupiedRoomIds } from "@/lib/rooms-api";
 import { listAssignments, addAssignment, normalizeRoomType } from "@/lib/booking-room-assignments-api";
+import { addLocalDay } from "@/lib/room-type-availability-core";
 import {
   checkInBookingItem,
   checkOutBookingItem,
@@ -87,7 +88,7 @@ async function availableRoomsByType(
   // Rooms already held by THIS booking's own segments are not re-offered.
   const held = new Set(
     assignments
-      .filter((a: any) => a.start_date < check_out && check_in < a.end_date)
+      .filter((a: any) => a.start_date < (check_in === check_out ? addLocalDay(check_in) : check_out) && check_in < a.end_date)
       .map((a: any) => a.room_id),
   );
   const byType = new Map<string, any[]>();

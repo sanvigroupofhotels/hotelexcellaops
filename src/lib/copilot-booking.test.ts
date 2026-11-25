@@ -26,4 +26,13 @@ describe("Copilot duplicate safeguard", () => {
     const p = await buildCopilotPreview(draft);
     expect(p.duplicates).toEqual([]);
   });
+  it("uses one full-day tariff and a one-day agreed override for same-day bookings", async () => {
+    dupMock.mockResolvedValue([]);
+    const p = await buildCopilotPreview({ ...draft, check_out: draft.check_in, agreed_rate: 1000 });
+    expect(p.rate).toBe(2500);
+    expect(p.nights).toBe(1);
+    expect(p.totalOverride).toBe(1000);
+    expect(p.total).toBe(1000);
+    expect(p.draft.expected_departure_time).toBe("18:00");
+  });
 });

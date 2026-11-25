@@ -96,7 +96,7 @@ export async function listOccupancySegments(
     .select(
       "room_id,booking_id,start_date,end_date,ended_reason,bookings:bookings!inner(id,status,booking_reference,guest_name,check_in,check_out)",
     )
-    .lt("start_date", check_out)
+    .lt("start_date", effectiveEnd(check_in, check_out))
     .gte("end_date", check_in)
     .not("bookings.status", "in", pgStatusList(CLOSED_OCCUPANCY_STATUSES));
   if (error) throw error;
@@ -140,10 +140,10 @@ export async function listMaintenanceBlocks(
     .from("room_maintenance" as any)
     .select("room_id, start_date, end_date, active, rooms!inner(room_type)")
     .eq("active", true)
-    .lt("start_date", check_out)
-    .gt("end_date", check_in);
+    .lt("start_date", effectiveEnd(check_in, check_out))
+    .gte("end_date", check_in);
   if (error) throw error;
-  return ((data ?? []) as any[]).map((m) => ({
+  return ((data ?? []) as any[]).filter((m) => datesOverlap(check_in, check_out, m.start_date, m.end_date)).map((m) => ({
     room_id: m.room_id ?? null,
     start_date: m.start_date,
     end_date: m.end_date,

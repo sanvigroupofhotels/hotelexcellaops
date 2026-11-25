@@ -78,6 +78,9 @@ export async function addAssignment(
     start_date = start_date ?? ci;
     end_date = end_date ?? effectiveOut;
   }
+  // Bulk callers supply item dates explicitly; day-use still needs a live
+  // one-day segment until actual checkout closes it to zero nights.
+  if (start_date === end_date) end_date = addOneDay(start_date);
 
   // Avoid colliding with historical segments of the same (booking, room). If
   // the guest previously occupied this room within the same booking, the new

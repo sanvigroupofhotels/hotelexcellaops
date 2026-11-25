@@ -41,6 +41,7 @@ import { cn, toLocalYMD, localYMDOffset } from "@/lib/utils";
 import { normalizeLineGuests } from "@/lib/guest-allocation";
 import { PhoneField } from "@/components/phone-field";
 import { resolveEarlyCheckInWindow, resolveLateCheckOutWindow } from "@/lib/expected-times";
+import { departureAfterDateChange, isDayUse } from "@/lib/day-use";
 
 
 const inputCls =
@@ -192,7 +193,7 @@ export interface StayFormSectionsProps {
 }
 
 export function StayFormSections({
-  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel, hideAdditional, hideExtras, excludeBookingId,
+  value, onChange, extras, onExtrasChange, customerSlot, nightsLabel, hideAdditional, hideExtras, excludeBookingId, mode,
 }: StayFormSectionsProps) {
 
   const update = <K extends keyof SharedStayValue>(k: K, v: SharedStayValue[K]) =>
@@ -201,6 +202,12 @@ export function StayFormSections({
   // occurred when PolicyFields called `update(...)` twice in a row for paired
   // fields (e.g. early_check_in + early_check_in_slot, pet_size + pet_charges).
   const apply = (patch: Partial<SharedStayValue>) => onChange({ ...value, ...patch });
+  const dayUse = mode === "booking" && isDayUse(value.check_in, value.check_out);
+  const updateDate = (key: "check_in" | "check_out", date: string) => {
+    const next = { ...value, [key]: date };
+    if (mode === "booking") next.expected_departure_time = departureAfterDateChange(next.check_in, next.check_out, value.expected_departure_time);
+    onChange(next);
+  };
 
   // Single source of truth: Master Data → lead_source. Hardcoded LEAD_SOURCES used only as fallback.
   const { values: leadSources, labels: leadLabels } = useMasterData("lead_source", [...LEAD_SOURCES]);
@@ -216,8 +223,8 @@ export function StayFormSections({
 
   // Live preview of the derived Early/Late window (pricing itself is applied
   // by the shared expected-time engine once the booking is saved).
-  const earlyWin = resolveEarlyCheckInWindow(value.expected_arrival_time);
-  const lateWin = resolveLateCheckOutWindow(value.expected_departure_time);
+  const earlyWin = dayUse ? null : resolveEarlyCheckInWindow(value.expected_arrival_time);
+  const lateWin = dayUse ? null : resolveLateCheckOutWindow(value.expected_departure_time);
   const earlyPreview = earlyWin
     ? `Early Check-In · ${earlyWin.label}${earlyWin.fee != null ? ` · ₹${earlyWin.fee.toLocaleString("en-IN")}` : " · full day charge"}`
     : null;
@@ -281,25 +288,26 @@ export function StayFormSections({
       <Card title="Stay Details">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Check-in" icon={CalendarDays} required>
-            <input type="date" className={inputCls} value={value.check_in} onChange={(e) => update("check_in", e.target.value)} />
+            <input type="date" className={inputCls} value={value.check_in} onChange={(e) => updateDate("check_in", e.target.value)} />
           </Field>
           <Field label="Check-out" icon={CalendarDays} required>
-            <input type="date" className={inputCls} value={value.check_out} onChange={(e) => update("check_out", e.target.value)} />
+            <input type="date" min={value.check_in} className={inputCls} value={value.check_out} onChange={(e) => updateDate("check_out", e.target.value)} />
           </Field>
         </div>
+        {dayUse && <div className="mt-3 inline-flex rounded-md border border-gold/40 bg-gold-soft px-2 py-1 text-xs font-medium text-gold">Day-Use / Transit</div>}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <Field label="Expected Arrival Time" icon={CalendarDays}>
             <input type="time" className={inputCls} value={value.expected_arrival_time}
               onChange={(e) => update("expected_arrival_time", e.target.value)} />
             <p className="mt-1 text-[10.5px] text-muted-foreground">
-              {earlyPreview ?? "Standard check-in 1:00 PM"}
+              {dayUse ? "Day-use arrival" : earlyPreview ?? "Standard check-in 1:00 PM"}
             </p>
           </Field>
           <Field label="Expected Departure Time" icon={CalendarDays}>
             <input type="time" className={inputCls} value={value.expected_departure_time}
               onChange={(e) => update("expected_departure_time", e.target.value)} />
             <p className="mt-1 text-[10.5px] text-muted-foreground">
-              {latePreview ?? "Standard check-out 11:00 AM"}
+              {dayUse ? "Day-use departure" : latePreview ?? "Standard check-out 11:00 AM"}
             </p>
           </Field>
         </div>

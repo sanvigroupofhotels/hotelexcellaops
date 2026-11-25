@@ -5,6 +5,8 @@ import { assertBookingCancellationAllowed, isRestrictedBookingStatus } from "@/l
 
 
 export interface BookingRow {
+  expected_arrival_at?: string | null;
+  expected_departure_at?: string | null;
   id: string;
   user_id: string;
   customer_id: string;
@@ -48,6 +50,8 @@ export interface BookingRow {
 }
 
 export interface BookingInput {
+  expected_arrival_at?: string | null;
+  expected_departure_at?: string | null;
   customer_id?: string | null;
   source_quote_id?: string | null;
   guest_name: string;

@@ -1,5 +1,11 @@
 # Roadmap
 
+## Current request — staff day-use bookings
+- [x] Enable same-day rate resolution, inventory, duplicate checks and physical room availability; public forms keep one-night minimums and count active day-use holds.
+- [x] Enforce Front Office/Admin/Owner day-use writes and full-day overridable pricing; New Booking, Quick Booking and Copilot default an adjustable 6 PM departure.
+- [x] Verified temporary admin 9 AM–1 PM creation, saved ₹2,500 and times, no early/late charges, check-in/out, zero-night history, overnight reuse, Front Office creation and reversed-time rejection; test records removed.
+- [x] Housekeeping database writes and unauthenticated same-day availability rejected; 285 tests pass, one unrelated opt-in database test skipped, preview build OK. Live AI conversation and production publication are not exercised.
+
 ## Current request — complete remaining historical photo compression
 - [x] Compressed 263 remaining photos in-place: 252 payment screenshots, 8 cash attachments and 3 guest documents; 620,530,702 bytes reduced to 42,729,747 bytes (93.1% smaller). Preserved every object path and non-image original; each replacement decoded and saved bytes read back exactly. No extra test suite run.
 

@@ -142,7 +142,7 @@ export function buildRoomTypeAvailability(input: {
     nowMs = Date.now(),
   } = input;
 
-  if (!check_in || !check_out || check_in >= check_out) return { byType: {} };
+  if (!check_in || !check_out || check_in > check_out) return { byType: {} };
 
   const totalByKey: Record<string, { label: string; total: number }> = {};
   const roomTypeById = new Map<string, string>();
@@ -156,7 +156,7 @@ export function buildRoomTypeAvailability(input: {
     roomTypeById.set(r.id, label);
   }
 
-  const nights = dateNights(check_in, check_out);
+  const nights = dateNights(check_in, check_in === check_out ? addLocalDay(check_in) : check_out);
   const demandByKeyNight: Record<string, Record<string, number>> = {};
   const itemBookingIds = new Set<string>();
 

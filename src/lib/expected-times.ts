@@ -152,6 +152,8 @@ export function windowFee(
 export interface PlanItem {
   id: string;
   rate: number;
+  check_in?: string | null;
+  check_out?: string | null;
   early_check_in?: boolean | null;
   early_check_in_slot?: EarlyCheckInSlot | null;
   late_check_out?: boolean | null;
@@ -336,6 +338,9 @@ export function planExpectedTimeSync(input: ExpectedTimeSyncInput): ExpectedTime
     // (or a pre-existing booking) must be left completely untouched.
     if (minutesOf(expected) == null) return;
     for (const it of scoped) {
+      // Day-use hours belong to the paid day, not overnight early/late services.
+      // Explicit staff-selected extras remain untouched.
+      if (it.check_in && it.check_in === it.check_out) continue;
       const existing = findCharge(it.id, category);
       const carriesExtra = !!it[flagKey];
       const supplied = suppliedOverride(it.id, category);

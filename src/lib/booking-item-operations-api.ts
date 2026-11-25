@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { removeAssignment } from "@/lib/booking-room-assignments-api";
 import { getBusinessDate } from "@/lib/night-audit-api";
+import { dayUseCheckoutDate } from "@/lib/day-use";
+import { addLocalDay } from "@/lib/room-type-availability-core";
 
 export type BookingItemStatus = "Confirmed" | "Checked-In" | "Checked-Out" | "Cancelled" | "No-Show" | "Removed";
 
@@ -54,7 +56,7 @@ async function logItemActivity(input: {
 async function getItem(itemId: string) {
   const { data, error } = await supabase
     .from("booking_items" as any)
-    .select("id, booking_id, assigned_room_id, item_status")
+    .select("id, booking_id, assigned_room_id, item_status, check_in, check_out")
     .eq("id", itemId)
     .maybeSingle();
   if (error) throw error;
@@ -169,13 +171,14 @@ export async function checkOutBookingItem(itemId: string, opts: { allowOverride?
   await assertCheckoutAllowed(item.booking_id, { allowOverride: opts.allowOverride });
   const previous = item.item_status ?? "Confirmed";
   const businessDate = await getBusinessDate();
+  const occupancyDate = dayUseCheckoutDate(item.check_in, item.check_out, businessDate);
   const { data: activeAssignment, error: activeErr } = await supabase
     .from("booking_room_assignments" as any)
     .select("id, booking_id, room_id, item_id, start_date, end_date")
     .eq("item_id", itemId)
     .eq("room_id", item.assigned_room_id)
-    .lte("start_date", businessDate)
-    .gt("end_date", businessDate)
+    .lte("start_date", occupancyDate)
+    .gt("end_date", occupancyDate)
     .order("start_date", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -273,7 +276,7 @@ export async function revertItemCheckIn(itemId: string) {
 export async function revertItemCheckOut(itemId: string) {
   const { data: cur, error: readErr } = await supabase
     .from("booking_items" as any)
-    .select("id, booking_id, item_status, assigned_room_id, check_out")
+    .select("id, booking_id, item_status, assigned_room_id, check_in, check_out")
     .eq("id", itemId)
     .maybeSingle();
   if (readErr) throw readErr;
@@ -296,7 +299,7 @@ export async function revertItemCheckOut(itemId: string) {
   const CHECKOUT_REASONS = new Set(["item_check_out", "booking_check_out", null, undefined, ""]);
   if (seg && CHECKOUT_REASONS.has(seg.ended_reason)) {
     // Extend segment back to the booking's original check_out (exclusive).
-    const targetEnd = item.check_out as string;
+    const targetEnd = item.check_in === item.check_out ? addLocalDay(item.check_in) : item.check_out as string;
     if (targetEnd > seg.end_date) {
       const { error: upErr } = await supabase
         .from("booking_room_assignments" as any)

@@ -13,6 +13,11 @@ describe("duplicate booking rules", () => {
   it("back-to-back stays are not duplicates", () => {
     expect(staysOverlap("2026-11-16", "2026-11-18", "2026-11-18", "2026-11-20")).toBe(false);
   });
+  it("flags same-date guest bookings as overlapping day-use stays", () => {
+    expect(staysOverlap("2026-11-25", "2026-11-25", "2026-11-25", "2026-11-25")).toBe(true);
+    expect(staysOverlap("2026-11-25", "2026-11-25", "2026-11-25", "2026-11-26")).toBe(true);
+    expect(staysOverlap("2026-11-25", "2026-11-25", "2026-11-26", "2026-11-27")).toBe(false);
+  });
   it("ignores cancelled and no-show bookings", () => {
     expect(isActiveForDuplicates("Cancelled")).toBe(false);
     expect(isActiveForDuplicates("No-Show")).toBe(false);

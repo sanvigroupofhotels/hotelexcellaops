@@ -148,6 +148,20 @@
       "when": 1795447323238,
       "tag": "0020_standalone_payment_links",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795572306942,
+      "tag": "0021_staff_day_use_booking_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795572733601,
+      "tag": "0022_count_active_day_use_in_public_holds",
+      "breakpoints": true
     }
   ]
 }

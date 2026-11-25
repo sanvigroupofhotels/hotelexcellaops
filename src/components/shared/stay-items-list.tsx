@@ -1,6 +1,7 @@
 import { earlyCheckInLabel, lateCheckOutLabel } from "@/lib/mock-data";
 import { useOpsTimeLabels } from "@/lib/check-times";
 import { formatGuestParty } from "@/lib/pricing";
+import { dayUseTimeLabel, isDayUse } from "@/lib/day-use";
 
 
 /**
@@ -11,10 +12,13 @@ export function StayItemsList({
   items,
   showSubtotals = true,
   title = "Stay Items",
+  expectedArrivalAt, expectedDepartureAt,
 }: {
   items: any[];
   showSubtotals?: boolean;
   title?: string;
+  expectedArrivalAt?: string | null;
+  expectedDepartureAt?: string | null;
 }) {
   if (!items?.length) return null;
   const t = useOpsTimeLabels();
@@ -41,9 +45,9 @@ export function StayItemsList({
               {it.rooms > 1 ? ` × ${it.rooms}` : ""}</li>
             <li>• <span className="text-muted-foreground">Guests:</span> {formatGuestParty(it)}
               {it.extra_bed ? ` · ${it.extra_bed} Extra Bed` : ""}</li>
-            <li>• <span className="text-muted-foreground">Check-In:</span> {fmtDate(it.check_in)}, {t.checkIn}</li>
-            <li>• <span className="text-muted-foreground">Check-Out:</span> {fmtDate(it.check_out)}, {t.checkOut}</li>
-            <li>• <span className="text-muted-foreground">Nights:</span> {it.nights}</li>
+            <li>• <span className="text-muted-foreground">Check-In:</span> {fmtDate(it.check_in)}, {isDayUse(it.check_in, it.check_out) ? dayUseTimeLabel(expectedArrivalAt) : t.checkIn}</li>
+            <li>• <span className="text-muted-foreground">Check-Out:</span> {fmtDate(it.check_out)}, {isDayUse(it.check_in, it.check_out) ? dayUseTimeLabel(expectedDepartureAt) : t.checkOut}</li>
+            {isDayUse(it.check_in, it.check_out) ? <li className="text-gold">Day-Use / Transit</li> : <li>• <span className="text-muted-foreground">Nights:</span> {it.nights}</li>}
             {it.breakfast_included && <li>• <span className="text-muted-foreground">Breakfast:</span> Included</li>}
             {(it.extra_adults ?? 0) > 0 && <li>• <span className="text-muted-foreground">Extra Adults:</span> {it.extra_adults}</li>}
             {(it.drivers ?? 0) > 0 && <li>• <span className="text-muted-foreground">Drivers:</span> {it.drivers}</li>}

@@ -47,6 +47,7 @@ export function resolveAverageRate(
   rates: RoomRateRow[],
   overrides: RateOverrideRow[],
 ): number | null {
+  if (check_in && check_in === check_out) return resolveRate(room_type, check_in, rates, overrides);
   const start = new Date(check_in + "T00:00:00");
   const end = new Date(check_out + "T00:00:00");
   let nights = 0;

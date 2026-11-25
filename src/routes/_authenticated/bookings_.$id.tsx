@@ -84,6 +84,7 @@ import { usePaymentModes } from "@/hooks/use-payment-modes";
 import { PhoneField } from "@/components/phone-field";
 import { assertBookingCancellationAllowed, BOOKING_CANCELLATION_DENIED } from "@/lib/booking-cancellation-access";
 import { Button } from "@/components/ui/button";
+import { dayUseTimeLabel, isDayUse } from "@/lib/day-use";
 
 export const Route = createFileRoute("/_authenticated/bookings_/$id")({
   head: () => ({ meta: [
@@ -1983,6 +1984,9 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
   const multi = items.length > 1;
   const party = aggregateGuests(items, b);
   const checkTimes = useOpsTimeLabels();
+  const dayUse = isDayUse(b.check_in, b.check_out);
+  const arrival = dayUse ? dayUseTimeLabel(b.expected_arrival_at) : checkTimes.checkIn;
+  const departure = dayUse ? dayUseTimeLabel(b.expected_departure_at) : checkTimes.checkOut;
   const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   return (
     <div className="luxe-card rounded-2xl p-4 md:p-8 relative overflow-hidden print:border-0 print:shadow-none print:bg-white print:text-black">
@@ -2015,15 +2019,16 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
 
       {multi ? (
         <div className="relative py-3 border-b border-border space-y-3">
-          <StayItemsList items={items} />
+          <StayItemsList items={items} expectedArrivalAt={b.expected_arrival_at} expectedDepartureAt={b.expected_departure_at} />
         </div>
       ) : items.length === 1 ? (
         <div className="relative py-3 border-b border-border">
           <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-1.5">Stay Details</h4>
           <ul className="text-sm space-y-0.5">
             <li>• <span className="text-muted-foreground">Room Type:</span> {items[0].room_type}{items[0].rooms > 1 ? ` × ${items[0].rooms}` : ""}</li>
-            <li>• <span className="text-muted-foreground">Check-In:</span> {fmtDate(items[0].check_in)}, {checkTimes.checkIn}</li>
-            <li>• <span className="text-muted-foreground">Check-Out:</span> {fmtDate(items[0].check_out)}, {checkTimes.checkOut} ({items[0].nights}N)</li>
+            {dayUse && <li className="text-gold font-medium">Day-Use / Transit</li>}
+            <li>• <span className="text-muted-foreground">Check-In:</span> {fmtDate(items[0].check_in)}, {arrival}</li>
+            <li>• <span className="text-muted-foreground">Check-Out:</span> {fmtDate(items[0].check_out)}, {departure} {!dayUse && <>({items[0].nights}N)</>}</li>
             <li>• <span className="text-muted-foreground">Guests:</span> {formatGuestParty(party)}</li>
             {items[0].breakfast_included && <li>• <span className="text-muted-foreground">Breakfast:</span> Included</li>}
           </ul>
@@ -2032,9 +2037,9 @@ function BookingCard({ b, items = [], balance, chargesTotal = 0, charges = [] }:
         <div className="relative py-3 border-b border-border">
           <h4 className="text-[10px] uppercase tracking-[0.25em] text-gold mb-1.5">Stay Details</h4>
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Check-In</div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)}, {checkTimes.checkIn}</div></div>
-            <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Check-Out</div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_out)}, {checkTimes.checkOut}</div></div>
-            <div className="col-span-2 text-xs text-muted-foreground">{formatGuestParty(party)} · {b.nights} Night{b.nights === 1 ? "" : "s"}{b.room_details ? ` · ${b.room_details}` : ""}</div>
+            <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Check-In</div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_in)}, {arrival}</div></div>
+            <div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">Check-Out</div><div className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{fmtDate(b.check_out)}, {departure}</div></div>
+            <div className="col-span-2 text-xs text-muted-foreground">{formatGuestParty(party)} · {dayUse ? "Day-Use / Transit" : `${b.nights} Night${b.nights === 1 ? "" : "s"}`}{b.room_details ? ` · ${b.room_details}` : ""}</div>
             {((b as any).expected_arrival_at || (b as any).expected_departure_at) && (
               <div className="col-span-2 rounded-md border border-gold/30 bg-gold-soft/30 px-2.5 py-1.5 text-[11px]">
                 <span className="uppercase tracking-wider text-gold text-[10px]">Expected</span>{" "}

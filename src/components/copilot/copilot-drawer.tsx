@@ -13,6 +13,7 @@ import { listRecentBookings, bookingLabel } from "@/lib/copilot-update";
 import { useCurrentStaff } from "@/hooks/use-current-staff";
 import { Input } from "@/components/ui/input";
 import { formatGuestParty } from "@/lib/pricing";
+import { isDayUse } from "@/lib/day-use";
 
 type StayOpts = { collectedBy?: string; rooms?: Record<string, string>; overrideDocs?: boolean; settleMode?: string };
 const MODES = ["Cash", "UPI", "Card"];
@@ -153,7 +154,8 @@ function UpdateCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; on
 
 function PreviewCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; onConfirm: () => Promise<void>; onDismiss: () => void; onOpen: () => void }) {
   const [busy, setBusy] = useState(false);
-  const p = m.preview!;
+  const p = m.preview;
+  if (!p) return null;
   const d = p.draft;
   const short = p.available < d.rooms;
   const dups = p.duplicates ?? [];
@@ -161,7 +163,8 @@ function PreviewCard({ m, onConfirm, onDismiss, onOpen }: { m: CopilotMessage; o
     <div className="mt-2 rounded-xl border border-border bg-card p-3 text-sm space-y-1.5">
       <div className="font-display text-base">{d.guest_name}</div>
       <div className="text-muted-foreground">+91 {d.phone}</div>
-      <div>{d.check_in} → {d.check_out} · {p.nights} night{p.nights === 1 ? "" : "s"}</div>
+      <div>{d.check_in} → {d.check_out} · {isDayUse(d.check_in, d.check_out) ? <span className="text-gold">Day-Use / Transit</span> : <>{p.nights} night{p.nights === 1 ? "" : "s"}</>}</div>
+      {isDayUse(d.check_in, d.check_out) && <div className="text-muted-foreground">{d.expected_arrival_time ? `${d.expected_arrival_time} → ` : "Departure "}{d.expected_departure_time}</div>}
       <div>{d.room_type} × {d.rooms} · {formatGuestParty(d)}</div>
       <div>Inventory {inr(p.rate)}/night (incl. GST){p.discount > 0 ? ` · Discount ${inr(p.discount)} (${Math.round((p.discount / (p.rate * p.nights * p.draft.rooms)) * 100)}%)` : ""} · Payable {inr(p.total)} · GST {inr(p.taxes)}</div>
       <div className="font-semibold text-gold">Total {inr(p.total)}</div>

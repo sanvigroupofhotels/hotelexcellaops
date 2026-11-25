@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getPaymentLink, linkPaymentLinkToBooking } from "@/lib/payment-links.functions";
 import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/payment-settings-section";
+import { departureAfterDateChange, stayTimeISO } from "@/lib/day-use";
 
 export const Route = createFileRoute("/_authenticated/bookings_/new")({
   validateSearch: (
@@ -81,6 +82,7 @@ function NewBooking() {
     if (prefillRoomType) base.room_type = prefillRoomType;
     if (prefillIn) base.check_in = prefillIn;
     if (prefillOut) base.check_out = prefillOut;
+    base.expected_departure_time = departureAfterDateChange(base.check_in, base.check_out, base.expected_departure_time);
     return base;
   });
   const [extras, setExtras] = useState<LineItem[]>([]);
@@ -319,11 +321,16 @@ function NewBooking() {
 
   const save = useMutation({
     mutationFn: async () => {
+      if (stay.check_in === stay.check_out && stay.expected_arrival_time && stay.expected_departure_time && stay.expected_departure_time <= stay.expected_arrival_time) {
+        throw new Error("Day-use departure must be after arrival.");
+      }
       const primary = primaryToLineItem(stay, resolvedRate);
       const booking: Omit<BookingInput, "customer_id"> = {
         source_quote_id: fromQuoteId ?? null,
         guest_name: stay.guest_name, phone: stay.phone, email: stay.email,
         check_in: stay.check_in, check_out: stay.check_out,
+        expected_arrival_at: stay.expected_arrival_time ? stayTimeISO(stay.check_in, stay.expected_arrival_time) : null,
+        expected_departure_at: stay.expected_departure_time ? stayTimeISO(stay.check_out, stay.expected_departure_time) : null,
         ...aggregateGuests([primaryToLineItem(stay, resolvedRate), ...extras], stay),
         room_details: `${stay.room_type} × ${stay.rooms}`,
         room_id: null,
@@ -367,9 +374,9 @@ function NewBooking() {
           const { syncExpectedTimes } = await import("@/lib/expected-time-charges");
           await syncExpectedTimes(b.id, {
             expectedArrivalAt: stay.expected_arrival_time
-              ? new Date(`${stay.check_in}T${stay.expected_arrival_time}`).toISOString() : undefined,
+              ? stayTimeISO(stay.check_in, stay.expected_arrival_time) : undefined,
             expectedDepartureAt: stay.expected_departure_time
-              ? new Date(`${stay.check_out}T${stay.expected_departure_time}`).toISOString() : undefined,
+              ? stayTimeISO(stay.check_out, stay.expected_departure_time) : undefined,
             syncEarly: !!stay.expected_arrival_time,
             syncLate: !!stay.expected_departure_time,
           });

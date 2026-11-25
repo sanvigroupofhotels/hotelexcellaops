@@ -48,7 +48,7 @@ export interface AvailableRoomRow {
  */
 export async function listAvailableRoomsForStay(input: AvailableRoomsInput): Promise<AvailableRoomRow[]> {
   const { check_in, check_out, exclude_booking_id, room_type } = input;
-  if (!check_in || !check_out || check_in >= check_out) return [];
+  if (!check_in || !check_out || check_in > check_out) return [];
 
   const roomsQ = supabase
     .from("rooms")

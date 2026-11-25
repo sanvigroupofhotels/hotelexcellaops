@@ -43,7 +43,7 @@ import {
   listMaintenanceBlocks,
   pgStatusList,
 } from "@/lib/occupancy-source";
-import { buildRoomTypeAvailability, normalizeRoomTypeKey } from "@/lib/room-type-availability-core";
+import { addLocalDay, buildRoomTypeAvailability, normalizeRoomTypeKey } from "@/lib/room-type-availability-core";
 
 
 export interface RoomTypeAvailabilityRow {
@@ -89,7 +89,8 @@ export async function getRoomTypeAvailability(
   client: Db = supabase,
 ): Promise<RoomTypeAvailability> {
   const { check_in, check_out, exclude_booking_id } = input;
-  if (!check_in || !check_out || check_in >= check_out) return { byType: {} };
+  if (!check_in || !check_out || check_in > check_out) return { byType: {} };
+  const demandEnd = check_in === check_out ? addLocalDay(check_in) : check_out;
 
   const closedIn = pgStatusList(NON_COMMITTED_DEMAND_STATUSES);
 
@@ -103,8 +104,8 @@ export async function getRoomTypeAvailability(
       client
         .from("booking_items" as any)
         .select("booking_id, room_type, rooms, check_in, check_out, item_status, bookings!inner(id, status, draft_expires_at)")
-        .lt("check_in", check_out)
-        .gt("check_out", check_in)
+        .lt("check_in", demandEnd)
+        .gte("check_out", check_in)
         .not("bookings.status", "in", closedIn),
       // Maintenance blocks come from the shared occupancy source — one
       // implementation for every availability granularity.
@@ -143,7 +144,7 @@ export function useRoomTypeAvailability(
       exclude_booking_id ?? null,
     ],
     queryFn: () => getRoomTypeAvailability({ check_in, check_out, exclude_booking_id }),
-    enabled: !!(check_in && check_out && check_in < check_out),
+    enabled: !!(check_in && check_out && check_in <= check_out),
     staleTime: 30_000,
   });
 }

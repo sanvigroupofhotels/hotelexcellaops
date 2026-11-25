@@ -1,6 +1,7 @@
 import type { BookingRow } from "@/lib/bookings-api";
 import { computePricing, formatGuestParty } from "@/lib/pricing";
 import { getOpsTimeLabels } from "@/lib/check-times";
+import { dayUseTimeLabel, isDayUse } from "@/lib/day-use";
 
 const fmtDate = (s: string) =>
   new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -21,17 +22,20 @@ export function confirmationMessage(b: BookingRow, items?: any[]) {
       stayLines.push(`Room ${i + 1}`);
       stayLines.push(`• Room Type: ${it.room_type}`);
       stayLines.push(`• Guests: ${occ}`);
-      stayLines.push(`• Check-in: ${fmtDate(it.check_in)} | ${t.checkIn}`);
-      stayLines.push(`• Check-out: ${fmtDate(it.check_out)} | ${t.checkOut}`);
-      stayLines.push(`• Nights: ${it.nights}`);
+      const dayUse = isDayUse(it.check_in, it.check_out);
+      stayLines.push(`• Check-in: ${fmtDate(it.check_in)} | ${dayUse ? dayUseTimeLabel(b.expected_arrival_at) : t.checkIn}`);
+      stayLines.push(`• Check-out: ${fmtDate(it.check_out)} | ${dayUse ? dayUseTimeLabel(b.expected_departure_at) : t.checkOut}`);
+      stayLines.push(dayUse ? `• Day-Use / Transit` : `• Nights: ${it.nights}`);
       if (it.breakfast_included) stayLines.push(`• Breakfast: Included`);
       stayLines.push(`• Subtotal: ${inr(Number(it.subtotal))}`);
       stayLines.push(``);
     });
   } else {
     stayLines.push(`🏨 Stay Details`);
-    stayLines.push(`• Check-in: ${fmtDate(b.check_in)} | ${t.checkIn}`);
-    stayLines.push(`• Check-out: ${fmtDate(b.check_out)} | ${t.checkOut}`);
+    const dayUse = isDayUse(b.check_in, b.check_out);
+    stayLines.push(`• Check-in: ${fmtDate(b.check_in)} | ${dayUse ? dayUseTimeLabel(b.expected_arrival_at) : t.checkIn}`);
+    stayLines.push(`• Check-out: ${fmtDate(b.check_out)} | ${dayUse ? dayUseTimeLabel(b.expected_departure_at) : t.checkOut}`);
+    if (dayUse) stayLines.push(`• Day-Use / Transit`);
     stayLines.push(`• Guests: ${formatGuestParty(b)}`);
     stayLines.push(`• Room(s): ${roomSummary(b)}`);
     stayLines.push(``);

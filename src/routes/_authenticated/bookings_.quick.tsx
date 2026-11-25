@@ -55,6 +55,7 @@ import { PaymentSettingsSection, type BookingPaymentFlags } from "@/components/p
 import { useMasterData } from "@/hooks/use-master-data";
 import { LEAD_SOURCES } from "@/lib/mock-data";
 import { openCopilot } from "@/components/copilot/copilot-drawer";
+import { departureAfterDateChange, isDayUse, stayTimeISO } from "@/lib/day-use";
 
 export const Route = createFileRoute("/_authenticated/bookings_/quick")({
   head: () => ({ meta: [
@@ -89,6 +90,14 @@ function QuickBookingPage() {
   // ---- Stay basics (one set of dates for the whole stay) ----
   const [checkIn, setCheckIn] = useState(toLocalYMD());
   const [checkOut, setCheckOut] = useState(localYMDOffset(1));
+  const [arrivalTime, setArrivalTime] = useState("");
+  const [departureTime, setDepartureTime] = useState("");
+  const dayUse = isDayUse(checkIn, checkOut);
+  const updateDates = (nextIn: string, nextOut: string) => {
+    setCheckIn(nextIn);
+    setCheckOut(nextOut);
+    setDepartureTime((current) => departureAfterDateChange(nextIn, nextOut, current));
+  };
   const nights = Math.max(1, nightsOf({ check_in: checkIn, check_out: checkOut }));
 
   // ---- Guest ----
@@ -225,12 +234,13 @@ function QuickBookingPage() {
     const e: string[] = [];
     if (!guestName.trim()) e.push("Guest name is required");
     if (!phoneValid) e.push("Enter a valid phone number for the selected country");
-    if (!checkIn || !checkOut || checkOut <= checkIn) e.push("Check-out must be after Check-in");
+    if (!checkIn || !checkOut || checkOut < checkIn) e.push("Check-out cannot be before Check-in");
+    if (dayUse && arrivalTime && departureTime && departureTime <= arrivalTime) e.push("Day-use departure must be after arrival");
     if (oakRooms + mappleRooms < 1) e.push("Select at least one room");
     if (oakRooms > oakInv.max || mappleRooms > mappleInv.max) e.push("Room count exceeds available inventory");
     if (adults < 1) e.push("At least one adult required");
     return e;
-  }, [guestName, phoneValid, checkIn, checkOut, oakRooms, mappleRooms, oakInv.max, mappleInv.max, adults]);
+  }, [guestName, phoneValid, checkIn, checkOut, oakRooms, mappleRooms, oakInv.max, mappleInv.max, adults, dayUse, arrivalTime, departureTime]);
 
   // ---- Booking creation (shared submitNewBooking helper) ----
   const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
@@ -258,6 +268,8 @@ function QuickBookingPage() {
         email: email.trim() || null,
         check_in: checkIn,
         check_out: checkOut,
+        expected_arrival_at: dayUse && arrivalTime ? stayTimeISO(checkIn, arrivalTime) : null,
+        expected_departure_at: dayUse && departureTime ? stayTimeISO(checkOut, departureTime) : null,
         adults, children: kids,
         guests: adults + kids,
         room_details: roomDetails,
@@ -331,7 +343,7 @@ function QuickBookingPage() {
   // ----------------------------------------------------------------------
   function currentSnapshot() {
     return JSON.stringify({
-      checkIn, checkOut, adults, kids, oakRooms, mappleRooms,
+      checkIn, checkOut, arrivalTime, departureTime, adults, kids, oakRooms, mappleRooms,
       otherCharges, otherDescription, discount,
       totalOverride: overrideNum, taxesIncluded,
       leadSource, specialRequests, internalNotes,
@@ -366,6 +378,8 @@ function QuickBookingPage() {
         guest_name: guestName.trim(),
         phone: normalizedPhone,
         email: email.trim() || null,
+        expected_arrival_at: dayUse && arrivalTime ? stayTimeISO(checkIn, arrivalTime) : null,
+        expected_departure_at: dayUse && departureTime ? stayTimeISO(checkOut, departureTime) : null,
         adults, children: kids, guests: adults + kids,
         room_details: roomDetails,
         amount: pricing.total,
@@ -468,15 +482,19 @@ function QuickBookingPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Check-in">
-              <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="qb-input" />
+              <input type="date" value={checkIn} onChange={(e) => updateDates(e.target.value, checkOut)} className="qb-input" />
             </Field>
             <Field label="Check-out">
-              <input type="date" value={checkOut} min={checkIn} onChange={(e) => setCheckOut(e.target.value)} className="qb-input" />
+              <input type="date" value={checkOut} min={checkIn} onChange={(e) => updateDates(checkIn, e.target.value)} className="qb-input" />
             </Field>
           </div>
           <div className="text-xs text-muted-foreground">
-            {nights} night{nights === 1 ? "" : "s"}
+            {dayUse ? <span className="inline-flex rounded-md border border-gold/40 bg-gold-soft px-2 py-1 font-medium text-gold">Day-Use / Transit</span> : <>{nights} night{nights === 1 ? "" : "s"}</>}
           </div>
+          {dayUse && <div className="grid grid-cols-2 gap-3">
+            <Field label="Expected Arrival Time"><input type="time" value={arrivalTime} onChange={(e) => setArrivalTime(e.target.value)} className="qb-input" /></Field>
+            <Field label="Expected Departure Time"><input type="time" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} className="qb-input" /></Field>
+          </div>}
         </section>
 
         {/* GROUP 2 — Guest details (Mobile → Name → Email; phone is the unique key) */}

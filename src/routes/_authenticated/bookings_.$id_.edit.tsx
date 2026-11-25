@@ -127,7 +127,7 @@ function EditBooking() {
   // are updated below in the NumField onChange).
   useEffect(() => {
     if (!loaded || originalOverride == null || !originalNights || originalNights <= 0) return;
-    if (!stay.check_in || !stay.check_out || stay.check_out <= stay.check_in) return;
+    if (!stay.check_in || !stay.check_out || stay.check_out < stay.check_in) return;
     const nights = Math.max(1, Math.round((new Date(stay.check_out + "T00:00:00").getTime() - new Date(stay.check_in + "T00:00:00").getTime()) / 86400000));
     if (nights === originalNights) return;
     const next = Math.round((originalOverride / originalNights) * nights);

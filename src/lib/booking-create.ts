@@ -36,6 +36,7 @@ import { createCustomer } from "@/lib/customers-api";
 import { createBooking, type BookingInput, type BookingRow } from "@/lib/bookings-api";
 import { addBookingItems, type BookingItemInput } from "@/lib/booking-items-api";
 import { aggregateGuests } from "@/lib/pricing";
+import { canAccessFrontdeskData } from "@/lib/access-policy";
 
 export interface SubmitNewBookingInput {
   /** Already-linked customer (existing record). */
@@ -63,6 +64,12 @@ export interface SubmitNewBookingResult {
 }
 
 export async function submitNewBooking(input: SubmitNewBookingInput): Promise<SubmitNewBookingResult> {
+  if (input.booking.check_in === input.booking.check_out || input.items.some((item) => item.check_in === item.check_out)) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Only Front Office or administrators can create day-use bookings.");
+    const { data: roles, error } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+    if (error || !canAccessFrontdeskData((roles ?? []).map((row) => row.role))) throw new Error("Only Front Office or administrators can create day-use bookings.");
+  }
   let effectiveCustomerId: string | null = input.linkedCustomerId ?? null;
   let createdCustomerId: string | null = null;
 

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { addLocalDay } from "@/lib/room-type-availability-core";
 
 /** Statuses that never count as an active stay for duplicate detection. */
 export const INACTIVE_BOOKING_STATUSES = ["Cancelled", "No-Show", "Draft"] as const;
@@ -30,7 +31,7 @@ export function phoneKey(phone?: string | null): string | null {
 
 /** Half-open date overlap: existing.in < req.out AND existing.out > req.in. */
 export function staysOverlap(aIn: string, aOut: string, bIn: string, bOut: string): boolean {
-  return aIn < bOut && aOut > bIn;
+  return aIn < (bIn === bOut ? addLocalDay(bIn) : bOut) && (aIn === aOut ? addLocalDay(aIn) : aOut) > bIn;
 }
 
 export function isActiveForDuplicates(status?: string | null): boolean {
@@ -49,8 +50,8 @@ export async function checkBookingDuplicates(input: DuplicateCheckInput): Promis
     .from("bookings" as any)
     .select("id, booking_reference, guest_name, phone, check_in, check_out, status, booking_room_assignments ( rooms ( room_number ) )")
     .or(ors.join(","))
-    .lt("check_in", input.checkOut)
-    .gt("check_out", input.checkIn)
+    .lt("check_in", input.checkIn === input.checkOut ? addLocalDay(input.checkIn) : input.checkOut)
+    .gte("check_out", input.checkIn)
     .limit(10);
   if (input.excludeBookingId) q = q.neq("id", input.excludeBookingId);
   const { data, error } = await q;

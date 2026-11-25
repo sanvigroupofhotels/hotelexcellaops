@@ -6,6 +6,7 @@ import type { BookingChargeRow } from "@/lib/booking-charges-api";
 import type { InvoiceBilling } from "@/lib/invoice-billing";
 import { resolveBranding } from "@/lib/branding";
 import { formatHotelTime } from "@/lib/time-format";
+import { dayUseTimeLabel, isDayUse } from "@/lib/day-use";
 
 /** One caller-scoped read for all invoice surfaces; callers authorize first. */
 export async function loadInvoiceData(client: Db, bookingId: string) {
@@ -51,7 +52,7 @@ export async function loadInvoiceData(client: Db, bookingId: string) {
     branding: resolveBranding(settings.get("branding"), settings.get("hotel")),
     billing: customer.data as unknown as InvoiceBilling | null,
     roomLabels,
-    checkInTime: formatHotelTime(typeof ops.check_in_time === "string" ? ops.check_in_time : "13:00"),
-    checkOutTime: formatHotelTime(typeof ops.check_out_time === "string" ? ops.check_out_time : "11:00"),
+    checkInTime: isDayUse(booking.check_in, booking.check_out) ? dayUseTimeLabel(booking.expected_arrival_at) : formatHotelTime(typeof ops.check_in_time === "string" ? ops.check_in_time : "13:00"),
+    checkOutTime: isDayUse(booking.check_in, booking.check_out) ? dayUseTimeLabel(booking.expected_departure_at) : formatHotelTime(typeof ops.check_out_time === "string" ? ops.check_out_time : "11:00"),
   };
 }

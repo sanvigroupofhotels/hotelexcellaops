@@ -145,12 +145,12 @@ export const getAvailability = createServerFn({ method: "POST" })
           .from("bookings")
           .select("id,room_id,room_details,check_in,check_out,status,draft_expires_at")
           .lt("check_in", data.check_out)
-          .gt("check_out", data.check_in),
+          .gte("check_out", data.check_in),
         supabaseAdmin
           .from("booking_items" as any)
           .select("booking_id, room_type, rooms, check_in, check_out, item_status, bookings!inner(id, status, draft_expires_at)")
           .lt("check_in", data.check_out)
-          .gt("check_out", data.check_in),
+          .gte("check_out", data.check_in),
         supabaseAdmin
           .from("room_maintenance")
           .select("room_id,start_date,end_date,active,rooms!inner(room_type)")
@@ -361,12 +361,12 @@ export const createDraftBooking = createServerFn({ method: "POST" })
           .from("bookings")
           .select("id,room_id,room_details,check_in,check_out,status,draft_expires_at")
           .lt("check_in", data.check_out)
-          .gt("check_out", data.check_in),
+          .gte("check_out", data.check_in),
         supabaseAdmin
           .from("booking_items" as any)
           .select("booking_id, room_type, rooms, check_in, check_out, item_status, bookings!inner(id, status, draft_expires_at)")
           .lt("check_in", data.check_out)
-          .gt("check_out", data.check_in),
+          .gte("check_out", data.check_in),
         supabaseAdmin
           .from("room_maintenance")
           .select("room_id,active,start_date,end_date,rooms!inner(room_type)")
@@ -949,13 +949,13 @@ export const updateDraftStay = createServerFn({ method: "POST" })
           .from("bookings")
           .select("id,room_id,room_details,check_in,check_out,status,draft_expires_at")
           .lt("check_in", data.check_out)
-          .gt("check_out", data.check_in)
+          .gte("check_out", data.check_in)
           .neq("id", data.booking_id),
         supabaseAdmin
           .from("booking_items" as any)
           .select("booking_id, room_type, rooms, check_in, check_out, item_status, bookings!inner(id, status, draft_expires_at)")
           .lt("check_in", data.check_out)
-          .gt("check_out", data.check_in)
+          .gte("check_out", data.check_in)
           .not("booking_id", "eq", data.booking_id),
         supabaseAdmin
           .from("room_maintenance")

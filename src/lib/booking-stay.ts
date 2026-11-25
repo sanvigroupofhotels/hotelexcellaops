@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { splitAssignment } from "@/lib/booking-room-assignments-api";
 import { hasAdministratorAccess } from "@/lib/access-policy";
+import { billableStayDays } from "@/lib/day-use";
 
 /**
  * Single source of truth for stay mutations (room change / date change).
@@ -12,7 +13,7 @@ import { hasAdministratorAccess } from "@/lib/access-policy";
  *     Cancelled / No-Show).
  *  2. If not yet Checked-In: new check_in >= today (Asia/Kolkata).
  *  3. If Checked-In: check_in is immutable.
- *  4. check_in < check_out.
+ *  4. check_in <= check_out; equal dates are staff day-use.
  *  5. Room availability + blocks + occupancy overlap (enforced by DB triggers;
  *     this function translates trigger errors into business-friendly messages).
  */
@@ -147,8 +148,8 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   const newRoom = input.new_room_id ?? moveFromRoom;
 
   if (!newIn || !newOut) throw new Error("Missing check-in or check-out date.");
-  if (!(newIn < newOut)) {
-    throw new Error("Check-in date must be earlier than check-out date.");
+  if (newIn > newOut) {
+    throw new Error("Check-out cannot be before check-in.");
   }
 
   const isCheckedIn = status === "Checked-In";
@@ -256,8 +257,8 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
   // Existing payments, discounts, and the pricing engine itself remain
   // untouched — only `total_override` is recomputed; downstream pricing
   // (subtotal, taxes, balance, portal, PDFs) recomputes from this single field.
-  const oldNights = ymdDiffDays(oldOut, oldIn);
-  const newNights = ymdDiffDays(newOut, newIn);
+  const oldNights = billableStayDays(oldIn, oldOut);
+  const newNights = billableStayDays(newIn, newOut);
   if (oldOverride != null && oldNights > 0 && newNights > 0 && newNights !== oldNights) {
     update.total_override = Math.round((oldOverride / oldNights) * newNights);
   }
@@ -334,15 +335,17 @@ export async function updateBookingStay(input: UpdateBookingStayInput): Promise<
       // the paired slot's check_out is min(item, segment).
       const { data: segs, error: segsErr } = await supabase
         .from("booking_room_assignments" as any)
-        .select("id, start_date, end_date")
+        .select("id, start_date, end_date, ended_reason")
         .eq("booking_id", booking_id);
       if (segsErr) throw segsErr;
       for (const seg of (segs ?? []) as any[]) {
+        if (seg.ended_reason) continue; // Never stretch closed physical-stay history.
         const segIn = seg.start_date || oldIn;
         const segOut = seg.end_date || oldOut;
         const patch = {
           start_date: segIn === oldIn ? newIn : segIn,
-          end_date: segOut === oldOut ? newOut : segOut,
+          end_date: segOut === (oldIn === oldOut ? ymdAddDays(oldIn, 1) : oldOut)
+            ? (newIn === newOut ? ymdAddDays(newIn, 1) : newOut) : segOut,
         };
         if (patch.start_date === segIn && patch.end_date === segOut) continue;
         const { error: segErr } = await supabase
